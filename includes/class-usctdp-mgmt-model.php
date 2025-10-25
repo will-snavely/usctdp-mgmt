@@ -2,38 +2,81 @@
 
 class Usctdp_Mgmt_Model
 {
-    private function get_coach_taxonomy()
+    private function get_person_post_type()
     {
         $labels = [
-            "name" => _x("Coaches", "taxonomy general name"),
-            "singular_name" => _x("Coach", "taxonomy singular name"),
-            "search_items" => __("Search Coaches"),
-            "all_items" => __("All Coaches"),
-            "edit_item" => __("Edit Coach"),
-            "update_item" => __("Update Coach"),
-            "add_new_item" => __("Add New Coach"),
-            "new_item_name" => __("New Coach"),
-            "menu_name" => __("Coaches"),
+            "name" => __("People", "textdomain"),
+            "singular_name" => __("Person", "textdomain"),
+            "menu_name" => __("People", "textdomain"),
+            "name_admin_bar" => __("People", "textdomain"),
+            "add_new" => __("Add New", "textdomain"),
+            "add_new_item" => __("Add New Person", "textdomain"),
+            "new_item" => __("New Person", "textdomain"),
+            "edit_item" => __("Edit Person", "textdomain"),
+            "view_item" => __("View Person", "textdomain"),
+            "all_items" => __("All People", "textdomain"),
+            "search_items" => __("Search People", "textdomain"),
+            "not_found" => __("No people found.", "textdomain"),
         ];
-        return [
-            "hierarchical" => false,
+        $args = [
             "labels" => $labels,
+            "public" => true,
+            "publicly_queryable" => true,
             "show_ui" => true,
-            "show_admin_column" => true,
+            "show_in_menu" => true,
             "query_var" => true,
-            "rewrite" => ["slug" => "coach"],
+            "rewrite" => ["slug" => "person"],
+            "capability_type" => "post",
+            "has_archive" => true,
+            "hierarchical" => false,
+            "menu_position" => 5,
+            "supports" => ["title",  "author", "thumbnail"],
         ];
+        return ["usctdp_person", $args];
     }
 
-    public function get_custom_taxonomies()
+    public function get_custom_post_types()
     {
-        return [["coach", ["post"], $this->get_coach_taxonomy()]];
+        return [$this->get_person_post_type()];
     }
 
-    public function register_taxonomies()
+    public function register_acf_person_fields()
     {
-        foreach ($this->get_custom_taxonomies() as $tax) {
-            register_taxonomy($tax[0], $tax[1], $tax[2]);
+        $group_key = "group_usctdp_person";
+        acf_add_local_field_group([
+            "key" => $group_key,
+            "title" => "Person Fields",
+            "fields" => [],
+            "location" => array (
+                array (
+                    array (
+                        'param' => 'post_type',
+                        'operator' => '==',
+                        'value' => 'usctdp_person',
+                    ),
+                ),
+            ),
+        ]);
+
+        acf_add_local_field([
+            "key" => "field_bio",
+            "label" => "Bio",
+            "name" => "person-bio",
+            "type" => "textarea",
+            "required" => 1,
+            "parent" => $group_key,
+        ]);
+    }
+
+    public function register_custom_fields()
+    {
+        $this->register_acf_person_fields();
+    }
+
+    public function register_custom_posts()
+    {
+        foreach ($this->get_custom_post_types() as $post_type) {
+            register_post_type($post_type[0], $post_type[1]);
         }
     }
 }
