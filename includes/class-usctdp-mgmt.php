@@ -162,8 +162,7 @@ class Usctdp_Mgmt
     private function define_model_hooks()
     {
         $model = new Usctdp_Mgmt_Model();
-        $this->loader->add_action("init", $model, "register_custom_posts");
-        $this->loader->add_action("acf/init", $model, "register_custom_fields");
+        $this->loader->add_action("acf/init", $model, "register_model_types");
     }
 
     /**

@@ -1,82 +1,44 @@
 <?php
 
-class Usctdp_Mgmt_Model
+interface Usctdp_Mgmt_Model_Type
 {
-    private function get_person_post_type()
+    public string $post_type { get; }
+    public array $wp_post_settings { get; }
+    public array $acf_settings { get; }
+}
+
+class Usctdp_Mgmt_Model {
+    public function __construct()
     {
-        $labels = [
-            "name" => __("People", "textdomain"),
-            "singular_name" => __("Person", "textdomain"),
-            "menu_name" => __("People", "textdomain"),
-            "name_admin_bar" => __("People", "textdomain"),
-            "add_new" => __("Add New", "textdomain"),
-            "add_new_item" => __("Add New Person", "textdomain"),
-            "new_item" => __("New Person", "textdomain"),
-            "edit_item" => __("Edit Person", "textdomain"),
-            "view_item" => __("View Person", "textdomain"),
-            "all_items" => __("All People", "textdomain"),
-            "search_items" => __("Search People", "textdomain"),
-            "not_found" => __("No people found.", "textdomain"),
+        $this->load_model_dependencies();
+    }
+
+    public function load_model_dependencies() {
+        $model_classes = [
+            "class-usctdp-mgmt-staff.php",
+            "class-usctdp-mgmt-session.php",
+            "class-usctdp-mgmt-class.php",
+            "class-usctdp-mgmt-unit.php"
         ];
-        $args = [
-            "labels" => $labels,
-            "public" => true,
-            "publicly_queryable" => true,
-            "show_ui" => true,
-            "show_in_menu" => true,
-            "query_var" => true,
-            "rewrite" => ["slug" => "person"],
-            "capability_type" => "post",
-            "has_archive" => true,
-            "hierarchical" => false,
-            "menu_position" => 5,
-            "supports" => ["title",  "author", "thumbnail"],
+        $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
+        foreach($model_classes as $class) {
+            require_once $prefix . $class;
+        }
+    }
+
+    public function get_model_types() {
+        return [
+            new Usctdp_Mgmt_Staff(),
+            new Usctdp_Mgmt_Session(),
+            new Usctdp_Mgmt_Class(),
+            new Usctdp_Mgmt_Unit()
         ];
-        return ["usctdp_person", $args];
     }
 
-    public function get_custom_post_types()
-    {
-        return [$this->get_person_post_type()];
-    }
-
-    public function register_acf_person_fields()
-    {
-        $group_key = "group_usctdp_person";
-        acf_add_local_field_group([
-            "key" => $group_key,
-            "title" => "Person Fields",
-            "fields" => [],
-            "location" => array (
-                array (
-                    array (
-                        'param' => 'post_type',
-                        'operator' => '==',
-                        'value' => 'usctdp_person',
-                    ),
-                ),
-            ),
-        ]);
-
-        acf_add_local_field([
-            "key" => "field_bio",
-            "label" => "Bio",
-            "name" => "person-bio",
-            "type" => "textarea",
-            "required" => 1,
-            "parent" => $group_key,
-        ]);
-    }
-
-    public function register_custom_fields()
-    {
-        $this->register_acf_person_fields();
-    }
-
-    public function register_custom_posts()
-    {
-        foreach ($this->get_custom_post_types() as $post_type) {
-            register_post_type($post_type[0], $post_type[1]);
+    public function register_model_types() {
+        foreach ($this->get_model_types() as $type) {
+            register_post_type($type->post_type, $type->wp_post_settings);
+            acf_add_local_field_group($type->acf_settings);
         }
     }
 }
