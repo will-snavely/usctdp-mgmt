@@ -49,7 +49,7 @@ class Usctdp_Mgmt_Class implements Usctdp_Mgmt_Model_Type {
                         0 => "usctdp-session",
                     ),
                     "required" => 1
-                ]
+                ],
             ],
             'location' => array (
                 array (

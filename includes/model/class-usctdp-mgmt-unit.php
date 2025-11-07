@@ -41,14 +41,65 @@ class Usctdp_Mgmt_Unit implements Usctdp_Mgmt_Model_Type {
             "title" => "Unit Fields",
             "fields" => [       
                 [
-                    "key" => "field_usctdp_unit_parent",
-                    "label" => "Parent Class",
+                    "key" => "field_usctdp_unit_parent_class",
+                    "label" => "Class",
                     "name" => "parent_class",
                     "type" => "post_object",
                     "post_type" => array(
                         0 => "usctdp-class",
                     ),
                     "required" => 1
+                ],
+                [
+                    "key" => "field_usctdp_unit_dow",
+                    "label" => "Day of Week",
+                    "name" => "day_of_week",
+                    "type" => "select",
+                    "required" => 1,
+                    "choices" => [
+                        "mon" => "Monday",
+                        "tues" => "Tuesday",
+                        "wed" => "Wednesday",
+                        "thurs" => "Thursday",
+                        "fri" => "Friday",
+                        "sat" => "Saturday",
+                        "sun" => "Sunday",
+                        
+                    ]
+                ],
+                [
+                    "key" => "field_usctdp_unit_start_time",
+                    "label" => "Start Time",
+                    "name" => "start_time",
+                    "type" => "time_picker",
+                    "required" => 1
+                ],
+                [
+                    "key" => "field_usctdp_unit_end_time",
+                    "label" => "End Time",
+                    "name" => "end_time",
+                    "type" => "time_picker",
+                    "required" => 1
+                ],
+                [
+                    "key" => "field_usctdp_unit_parent_instructor",
+                    "label" => "Instructor",
+                    "name" => "instructor",
+                    "type" => "post_object",
+                    "post_type" => [
+                        0 => "usctdp-staff",
+                    ],
+                    "required" => 0
+                ],
+                [
+                    "key" => "field_usctdp_unit_parent_instructor_addtl",
+                    "label" => "Additional Instructor",
+                    "name" => "instructor_addtl",
+                    "type" => "post_object",
+                    "post_type" => [
+                        0 => "usctdp-staff",
+                    ],
+                    "required" => 0
                 ]
             ],
             'location' => array (
