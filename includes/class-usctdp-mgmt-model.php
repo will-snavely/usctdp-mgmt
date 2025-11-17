@@ -1,39 +1,42 @@
 <?php
 
-class Usctdp_Mgmt_Model
+interface Usctdp_Mgmt_Model_Type
 {
-    private function get_coach_taxonomy()
+    public string $post_type { get; }
+    public array $wp_post_settings { get; }
+    public array $acf_settings { get; }
+}
+
+class Usctdp_Mgmt_Model {
+    public function __construct()
     {
-        $labels = [
-            "name" => _x("Coaches", "taxonomy general name"),
-            "singular_name" => _x("Coach", "taxonomy singular name"),
-            "search_items" => __("Search Coaches"),
-            "all_items" => __("All Coaches"),
-            "edit_item" => __("Edit Coach"),
-            "update_item" => __("Update Coach"),
-            "add_new_item" => __("Add New Coach"),
-            "new_item_name" => __("New Coach"),
-            "menu_name" => __("Coaches"),
+        $this->load_model_dependencies();
+    }
+
+    public function load_model_dependencies() {
+        $model_classes = [
+            "class-usctdp-mgmt-staff.php",
+            "class-usctdp-mgmt-session.php",
+            "class-usctdp-mgmt-class.php"
         ];
+        $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
+        foreach($model_classes as $class) {
+            require_once $prefix . $class;
+        }
+    }
+
+    public function get_model_types() {
         return [
-            "hierarchical" => false,
-            "labels" => $labels,
-            "show_ui" => true,
-            "show_admin_column" => true,
-            "query_var" => true,
-            "rewrite" => ["slug" => "coach"],
+            new Usctdp_Mgmt_Staff(),
+            new Usctdp_Mgmt_Session(),
+            new Usctdp_Mgmt_Class()
         ];
     }
 
-    public function get_custom_taxonomies()
-    {
-        return [["coach", ["post"], $this->get_coach_taxonomy()]];
-    }
-
-    public function register_taxonomies()
-    {
-        foreach ($this->get_custom_taxonomies() as $tax) {
-            register_taxonomy($tax[0], $tax[1], $tax[2]);
+    public function register_model_types() {
+        foreach ($this->get_model_types() as $type) {
+            register_post_type($type->post_type, $type->wp_post_settings);
+            acf_add_local_field_group($type->acf_settings);
         }
     }
 }

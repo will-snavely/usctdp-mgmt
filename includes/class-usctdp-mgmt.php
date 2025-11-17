@@ -162,7 +162,7 @@ class Usctdp_Mgmt
     private function define_model_hooks()
     {
         $model = new Usctdp_Mgmt_Model();
-        $this->loader->add_action("init", $model, "register_taxonomies");
+        $this->loader->add_action("acf/init", $model, "register_model_types");
     }
 
     /**
@@ -184,11 +184,37 @@ class Usctdp_Mgmt
             $plugin_admin,
             "enqueue_styles",
         );
+
         $this->loader->add_action(
             "admin_enqueue_scripts",
             $plugin_admin,
             "enqueue_scripts",
         );
+
+        $this->loader->add_action(
+            "admin_menu",
+            $plugin_admin,
+            "add_admin_menu",
+        );
+
+        $this->loader->add_action(
+            "admin_notices",
+            $plugin_admin,
+            "show_admin_notice",
+        );
+
+        $this->loader->add_action(
+            'acf/validate_save_post',
+            $plugin_admin,
+            'validate_start_end_dates',
+        );
+
+        foreach(Usctdp_Mgmt_Admin::$post_handlers as $handler) {
+            $this->loader->add_action( 
+                'admin_post_' . $handler["submit_hook"], 
+                $plugin_admin, 
+                $handler["callback"]);
+        }
     }
 
     /**
