@@ -39,7 +39,26 @@ class Usctdp_Mgmt_Session implements Usctdp_Mgmt_Model_Type {
         get => [
             "key" => "group_usctdp_session",
             "title" => "Session Fields",
-            "fields" => [],
+            "fields" => [
+                [
+                    'key' => 'field_usctdp_session_start_date',
+                    'label' => 'Session Start Date',
+                    'name' => 'start_date',
+                    'type' => 'date_picker',
+                    'display_format' => 'm/d/Y',
+                    'return_format' => 'Ymd', 
+                    'required' => 1
+                ],
+                [
+                    'key' => 'field_usctdp_session_end_date',
+                    'label' => 'Session End Date',
+                    'name' => 'end_date',
+                    'type' => 'date_picker',
+                    'display_format' => 'm/d/Y',
+                    'return_format' => 'Ymd', 
+                    'required' => 1
+                ]
+            ],
             'location' => array (
                 array (
                     array (

@@ -94,10 +94,24 @@ class Usctdp_Mgmt_Admin
         wp_enqueue_script(
             $this->plugin_name,
             plugin_dir_url(__FILE__) . "js/usctdp-mgmt-admin.js",
-            ["jquery"],
+            ["jquery", "acf-input"],
             $this->version,
             false,
         );
+
+        $screen = get_current_screen();
+        error_log("On Screen: " . $screen->id);
+        if ( $screen->id == 'usctdp-admin_page_usctdp-admin-new-session' ) {
+            do_action( 'acf/input/admin_enqueue_scripts' );
+/*            wp_enqueue_script(
+                $this->plugin_name,
+                plugin_dir_url(__FILE__) . "js/usctdp-mgmt-admin-acf-init.js",
+                ["jquery", "acf-input"],
+                $this->version,
+                false
+             );
+             */
+        }
     }
 
     private function echo_admin_page($path) {
@@ -121,7 +135,6 @@ class Usctdp_Mgmt_Admin
     }
 
     private function get_redirect_url($page_slug) {
-        // Constructs the URL manually: /wp-admin/admin.php?page=your-slug
         return admin_url( 'admin.php?page=' . $page_slug );
     }
 
@@ -146,6 +159,33 @@ class Usctdp_Mgmt_Admin
             set_transient( $transient_key, array( 'type' => 'error', 'message' => $message ), 10);
             wp_safe_redirect($redirect_url);
 	    }
+    }
+
+    public function validate_start_end_dates() {
+        $post_id = acf_maybe_get_POST('post_ID');
+        $current_post_type = get_post_type( $post_id );
+        $target_post_type = 'usctdp-session'; 
+        if ( $current_post_type !== $target_post_type ) {
+            return;
+        }
+        
+        $start_date_value = acf_maybe_get_POST("acf[field_usctdp_session_start_date]"); 
+        $end_date_value = acf_maybe_get_POST("acf[field_usctdp_session_end_date]");  
+
+        if ( $start_date_value && $end_date_value ) {
+            // Convert the 'Ymd' strings to DateTime objects for comparison
+            $start_date_obj = DateTime::createFromFormat('Ymd', $start_date_value);
+            $end_date_obj   = DateTime::createFromFormat('Ymd', $end_date_value);
+
+            // Check if the end date is less than the start date
+            if ( $end_date_obj < $start_date_obj ) {
+                // Add a validation error to the End Date field
+                acf_add_validation_error(
+                    "acf[acf_id_for_end_date]", // Use the End Date's field KEY here
+                    'The End Date must be after the Start Date.'
+                );
+            }
+        }
     }
 
     public function add_admin_menu()

@@ -203,6 +203,12 @@ class Usctdp_Mgmt
             "show_admin_notice",
         );
 
+        $this->loader->add_action(
+            'acf/validate_save_post',
+            $plugin_admin,
+            'validate_start_end_dates',
+        );
+
         foreach(Usctdp_Mgmt_Admin::$post_handlers as $handler) {
             $this->loader->add_action( 
                 'admin_post_' . $handler["submit_hook"], 
