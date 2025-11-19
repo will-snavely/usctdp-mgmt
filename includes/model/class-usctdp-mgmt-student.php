@@ -16,7 +16,7 @@ class Usctdp_Mgmt_Student implements Usctdp_Mgmt_Model_Type {
             "capability_type" => "post",
             "has_archive" => true,
             "hierarchical" => false,
-            "supports" => ["thumbnail", "title"],
+            "supports" => ["author"],
 
             "labels" => [
                 "name" => __("Student", "textdomain"),

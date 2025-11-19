@@ -82,8 +82,7 @@ class Usctdp_Mgmt_Class implements Usctdp_Mgmt_Model_Type {
                         "thurs" => "Thursday",
                         "fri" => "Friday",
                         "sat" => "Saturday",
-                        "sun" => "Sunday",
-                        
+                        "sun" => "Sunday"
                     ]
                 ],
                 [
@@ -101,6 +100,13 @@ class Usctdp_Mgmt_Class implements Usctdp_Mgmt_Model_Type {
                     "required" => 1
                 ],
                 [
+                    "key" => "field_usctdp_class_level",
+                    "label" => "Level",
+                    "name" => "level",
+                    "type" => "number",
+                    "required" => 1
+                ],
+                [
                     "key" => "field_usctdp_class_instructors",
                     "label" => "Instructors",
                     "name" => "instructors",
@@ -108,10 +114,17 @@ class Usctdp_Mgmt_Class implements Usctdp_Mgmt_Model_Type {
                     "post_type" => [
                         0 => "usctdp-staff",
                     ],
-		    "required" => 0,
-		    "allow_null" => 0,
-		    "multiple" => 1,
-		    "return_format" => "id"
+		            "required" => 0,
+		            "allow_null" => 0,
+		            "multiple" => 1,
+		            "return_format" => "id"
+                ],
+                [
+                    "key" => "field_usctdp_class_notes",
+                    "label" => "Notes",
+                    "name" => "notes",
+                    "type" => "textarea",
+                    "required" => 0
                 ],
             ],
             'location' => array (

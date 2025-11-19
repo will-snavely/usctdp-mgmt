@@ -17,6 +17,9 @@ class Usctdp_Mgmt_Model {
         $model_classes = [
             "class-usctdp-mgmt-staff.php",
             "class-usctdp-mgmt-session.php",
+            "class-usctdp-mgmt-student.php",
+            "class-usctdp-mgmt-family.php",
+            "class-usctdp-mgmt-registration.php",
             "class-usctdp-mgmt-class.php"
         ];
         $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
@@ -29,7 +32,10 @@ class Usctdp_Mgmt_Model {
         return [
             new Usctdp_Mgmt_Staff(),
             new Usctdp_Mgmt_Session(),
-            new Usctdp_Mgmt_Class()
+            new Usctdp_Mgmt_Class(),
+            new Usctdp_Mgmt_Student(),
+            new Usctdp_Mgmt_Family(),
+            new Usctdp_Mgmt_Registration()
         ];
     }
 
