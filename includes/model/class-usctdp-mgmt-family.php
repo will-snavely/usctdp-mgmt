@@ -28,7 +28,7 @@ class Usctdp_Mgmt_Family implements Usctdp_Mgmt_Model_Type {
                 "new_item" => __("New Family", "textdomain"),
                 "edit_item" => __("Edit Family", "textdomain"),
                 "view_item" => __("View Family", "textdomain"),
-                "all_items" => __("All Familues", "textdomain"),
+                "all_items" => __("All Families", "textdomain"),
                 "search_items" => __("Search Families", "textdomain"),
                 "not_found" => __("No family found.", "textdomain"),
             ]

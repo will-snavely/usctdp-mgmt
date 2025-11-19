@@ -101,25 +101,18 @@ class Usctdp_Mgmt_Class implements Usctdp_Mgmt_Model_Type {
                     "required" => 1
                 ],
                 [
-                    "key" => "field_usctdp_class_parent_instructor",
-                    "label" => "Instructor",
-                    "name" => "instructor",
+                    "key" => "field_usctdp_class_instructors",
+                    "label" => "Instructors",
+                    "name" => "instructors",
                     "type" => "post_object",
                     "post_type" => [
                         0 => "usctdp-staff",
                     ],
-                    "required" => 0
+		    "required" => 0,
+		    "allow_null" => 0,
+		    "multiple" => 1,
+		    "return_format" => "id"
                 ],
-                [
-                    "key" => "field_usctdp_unit_class_instructor_addtl",
-                    "label" => "Additional Instructor",
-                    "name" => "instructor_addtl",
-                    "type" => "post_object",
-                    "post_type" => [
-                        0 => "usctdp-staff",
-                    ],
-                    "required" => 0
-                ]
             ],
             'location' => array (
                 array (
