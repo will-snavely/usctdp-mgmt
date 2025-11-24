@@ -1,22 +1,19 @@
 <?php
 
-class Usctdp_Mgmt_Staff implements Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Staff extends Usctdp_Mgmt_Model_Type {
     public string $post_type {
         get => "usctdp-staff";
     }
 
     public array $wp_post_settings {
         get => [
-            "public" => true,
-            "publicly_queryable" => true,
+            "public" => false,
             "show_ui" => true,
             "show_in_menu" => true,
             "query_var" => true,
-            "rewrite" => ["slug" => "staff"],
             "capability_type" => "post",
-            "has_archive" => true,
             "hierarchical" => false,
-            "supports" => ["thumbnail", "title"],
+            "supports" => ["title", "author"],
 
             "labels" => [
                 "name" => __("Staff", "textdomain"),
@@ -41,6 +38,20 @@ class Usctdp_Mgmt_Staff implements Usctdp_Mgmt_Model_Type {
             "title" => "Staff Fields",
             "fields" => [
                 [
+                    'key' => 'field_usctdp_staff_first_name',
+                    'label' => 'First Name',
+                    'name' => 'first name',
+                    'type' => 'text',
+                    'required' => true
+                ],
+                [
+                    'key' => 'field_usctdp_staff_last_name',
+                    'label' => 'Last Name',
+                    'name' => 'last name',
+                    'type' => 'text',
+                    'required' => true
+                ],
+                [
                     "key" => "field_usctdp_staff_bio",
                     "label" => "Bio",
                     "name" => "person_bio",
@@ -62,5 +73,14 @@ class Usctdp_Mgmt_Staff implements Usctdp_Mgmt_Model_Type {
             'style' => 'default',
             'label_placement' => 'top',
         ];
+    }
+
+    public function get_custom_post_title($data, $postarr) {
+        if ( $data['post_type'] === 'usctdp-staff' && isset($_POST['acf'])) {
+            $first_name = $_POST['acf']['field_usctdp_staff_first_name'];
+            $last_name = $_POST['acf']['field_usctdp_staff_last_name'];
+            return $last_name . ", " . $first_name;
+        }
+        return null;
     }
 }

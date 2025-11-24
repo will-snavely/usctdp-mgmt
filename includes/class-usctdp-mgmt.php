@@ -163,6 +163,13 @@ class Usctdp_Mgmt
     {
         $model = new Usctdp_Mgmt_Model();
         $this->loader->add_action("acf/init", $model, "register_model_types");
+        $this->loader->add_filter(
+            "wp_insert_post_data",
+            $model,
+            "generate_custom_post_title",
+            99,
+            2,
+        );
     }
 
     /**
@@ -201,12 +208,6 @@ class Usctdp_Mgmt
             "admin_notices",
             $plugin_admin,
             "show_admin_notice",
-        );
-
-        $this->loader->add_action(
-            'acf/validate_save_post',
-            $plugin_admin,
-            'validate_start_end_dates',
         );
 
         foreach(Usctdp_Mgmt_Admin::$post_handlers as $handler) {

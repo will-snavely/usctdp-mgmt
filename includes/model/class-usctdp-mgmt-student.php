@@ -1,22 +1,19 @@
 <?php
 
-class Usctdp_Mgmt_Student implements Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
     public string $post_type {
         get => "usctdp-student";
     }
 
     public array $wp_post_settings {
         get => [
-            "public" => true,
-            "publicly_queryable" => true,
+            "public" => false,
             "show_ui" => true,
             "show_in_menu" => true,
             "query_var" => true,
-            "rewrite" => ["slug" => "student"],
             "capability_type" => "post",
-            "has_archive" => true,
             "hierarchical" => false,
-            "supports" => ["author"],
+            "supports" => ["author", "title"],
 
             "labels" => [
                 "name" => __("Student", "textdomain"),
@@ -95,5 +92,14 @@ class Usctdp_Mgmt_Student implements Usctdp_Mgmt_Model_Type {
             'style' => 'default',
             'label_placement' => 'top',
         ];
+    }
+
+    public function get_custom_post_title($data, $postarr) {
+        if ( $data['post_type'] === 'usctdp-student' && isset($_POST['acf'])) {
+            $first_name = $_POST['acf']['field_usctdp_student_first_name'];
+            $last_name  = $_POST['acf']['field_usctdp_student_last_name'];
+            return $last_name . ", " . $first_name;
+        }
+        return null;
     }
 }

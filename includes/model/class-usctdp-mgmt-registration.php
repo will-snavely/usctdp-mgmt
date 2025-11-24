@@ -1,22 +1,19 @@
 <?php
 
-class Usctdp_Mgmt_Registration implements Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type {
     public string $post_type {
         get => "usctdp-registration";
     }
 
     public array $wp_post_settings {
         get => [
-            "public" => true,
-            "publicly_queryable" => true,
+            "public" => false,
             "show_ui" => true,
             "show_in_menu" => true,
             "query_var" => true,
-            "rewrite" => ["slug" => "registration"],
             "capability_type" => "post",
-            "has_archive" => true,
             "hierarchical" => false,
-            "supports" => ['author'],
+            "supports" => ['author', 'title'],
 
             "labels" => [
                 "name" => __("Registration", "textdomain"),

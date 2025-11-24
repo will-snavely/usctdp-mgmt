@@ -1,0 +1,90 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+
+#session-info-section .acf-field {
+    padding: 5px;
+}
+
+#session-info-section .acf-field-usctdp-session-name {
+    width: 200px;
+}
+
+#session-info-section .acf-date-picker {
+    width: 100px;
+}
+
+#new-session-input-table-body td {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#new-session-add-rows-section {
+    margin-top: 10px;
+}
+
+#new-session-add-rows-section button {
+    background-color: #1385b9 !important;
+    color: #fff !important;
+}
+
+#new-session-add-rows-section button:hover {
+    background-color: #005177 !important;
+}
+
+.dup-row-btn {
+    background-color: #0d7000 !important;
+    color: #fff !important;
+}
+
+.dup-row-btn:hover {
+    background-color: #002c00 !important;
+}
+
+.remove-row-btn {
+    background-color: #8b0000 !important;
+    color: #fff !important;
+}
+
+.remove-row-btn:hover {
+    background-color: #510000 !important;
+}
+
+#new-session-num-rows-field {
+    width: 70px;
+}
+
+
+#new-session-input-table-body td:nth-child(2) {
+    width: 100px;
+}
+
+#new-session-input-table-body td:nth-child(3) {
+    width: 100px;
+}
+
+#new-session-input-table-body td:nth-child(4) {
+    width: 80px;
+
+}
+
+#new-session-input-table-body td:nth-child(5) {
+    width: 80px;
+}
+
+#new-session-input-table-body td:nth-child(6) {
+    width: 55px;
+}
+
+#new-session-input-table-body td:nth-child(7) {
+    width: 55px;
+}
+
+#new-session-input-table-body td:nth-child(8) {
+    width: 70px;
+}
+
+#new-session-input-table-body td:nth-child(9) {
+    width: 70px;
+}

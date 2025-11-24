@@ -1,22 +1,19 @@
 <?php
 
-class Usctdp_Mgmt_Family implements Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type {
     public string $post_type {
         get => "usctdp-family";
     }
 
     public array $wp_post_settings {
         get => [
-            "public" => true,
-            "publicly_queryable" => true,
+            "public" => false,
             "show_ui" => true,
             "show_in_menu" => true,
             "query_var" => true,
-            "rewrite" => ["slug" => "family"],
             "capability_type" => "post",
-            "has_archive" => true,
             "hierarchical" => false,
-            "supports" => ["thumbnail", "title"],
+            "supports" => ["title", "author"],
 
             "labels" => [
                 "name" => __("Family", "textdomain"),
@@ -40,6 +37,54 @@ class Usctdp_Mgmt_Family implements Usctdp_Mgmt_Model_Type {
             "key" => "group_usctdp_family",
             "title" => "Family Fields",
             "fields" => [
+                [
+                    "key" => "field_usctdp_family_last_name",
+                    "label" => "Family Last Name",
+                    "name" => "usctdp_family_last_name",
+                    "type" => "text",
+                    "required" => 1,
+                ],
+                [
+                    "key" => "field_usctdp_family_address",
+                    "label" => "Family Address",
+                    "name" => "usctdp_family_address",
+                    "type" => "text",
+                    "required" => 1,
+                ],
+                [
+                    "key" => "field_usctdp_family_city",
+                    "label" => "Family City",
+                    "name" => "usctdp_family_city",
+                    "type" => "text",
+                    "required" => 1,
+                ],
+                [
+                    "key" => "field_usctdp_family_state",
+                    "label" => "Family State",
+                    "name" => "usctdp_family_state",
+                    "type" => "text",
+                    "required" => 1,
+                ],
+                [
+                    "key" => "field_usctdp_family_zip",
+                    "label" => "Family Zip",
+                    "name" => "usctdp_family_zip",
+                    "type" => "text",
+                    "required" => 1,
+                ],
+                [
+                    "key" => "field_usctdp_phone_number",
+                    "label" => "Phone Number",
+                    "name" => "usctdp_phone_number",
+                    "type" => "text",
+                    "required" => 1,
+                ],
+                [
+                    "key" => "field_usctdp_family_notes",
+                    "label" => "Notes",
+                    "name" => "usctdp_family_notes",
+                    "type" => "textarea",
+                ]
             ],
             'location' => array (
                 array (

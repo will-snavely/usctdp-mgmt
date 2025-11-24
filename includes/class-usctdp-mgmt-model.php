@@ -1,16 +1,23 @@
 <?php
 
-interface Usctdp_Mgmt_Model_Type
+abstract class Usctdp_Mgmt_Model_Type
 {
-    public string $post_type { get; }
-    public array $wp_post_settings { get; }
-    public array $acf_settings { get; }
+   abstract public string $post_type { get; }
+   abstract public array $wp_post_settings { get; }
+   abstract public array $acf_settings { get; }
+
+   public function get_custom_post_title($data, $postarr) {
+      return null;
+   }
 }
 
 class Usctdp_Mgmt_Model {
+    private $model_types;
+
     public function __construct()
     {
         $this->load_model_dependencies();
+        $this->model_types = $this->get_model_types();
     }
 
     public function load_model_dependencies() {
@@ -28,8 +35,8 @@ class Usctdp_Mgmt_Model {
         }
     }
 
-    public function get_model_types() {
-        return [
+    private function get_model_types() {
+        $classes = [
             new Usctdp_Mgmt_Staff(),
             new Usctdp_Mgmt_Session(),
             new Usctdp_Mgmt_Class(),
@@ -37,12 +44,29 @@ class Usctdp_Mgmt_Model {
             new Usctdp_Mgmt_Family(),
             new Usctdp_Mgmt_Registration()
         ];
+
+        $result = [];
+        foreach ($classes as $class) {
+            $result[$class->post_type] = $class;
+        }
+        return $result;
     }
 
     public function register_model_types() {
-        foreach ($this->get_model_types() as $type) {
+        foreach ($this->model_types as $key =>$type) {
             register_post_type($type->post_type, $type->wp_post_settings);
             acf_add_local_field_group($type->acf_settings);
         }
+    }
+
+    
+    public function generate_custom_post_title( $data, $postarr ) {
+        if(isset($this->model_types[$data['post_type']])) {
+            $custom_title = $this->model_types[$data['post_type']]->get_custom_post_title($data, $postarr);
+            if($custom_title) {
+                $data['post_title'] = sanitize_text_field($custom_title);
+            }
+        }
+        return $data;
     }
 }
