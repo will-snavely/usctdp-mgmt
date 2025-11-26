@@ -3,6 +3,46 @@
  * included in this file.
  */
 
+#session-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#session-fields .form-field {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    text-align: right;
+}
+
+#session-fields .form-field label {
+    width: 100px;
+    font-weight: bold;
+}
+
+#session-fields .form-field input[type="text"] {
+    width: 200px;
+}
+
+#session-fields .form-field input[type="date"] {
+    width: 130px;
+}
+
+input.invalid-field {
+    background-color: #eeb7b7;
+}
+
+div#form-submission-errors .error-message {
+    background-color: #eeb7b7;
+    border-left: 4px solid #9e0303;
+    padding: 6px;
+    margin-bottom: 15px;
+    color: #9e0303;
+    font-weight: bold;
+    display: none;
+}
+
 #session-info-section .acf-field {
     padding: 5px;
 }
@@ -56,35 +96,48 @@
 }
 
 
+/* Row Label */
+#new-session-input-table-body td:nth-child(1) {
+    width: 15px;
+}
+
+/* Class Type */
 #new-session-input-table-body td:nth-child(2) {
     width: 100px;
 }
 
+/* Class Start Time */
 #new-session-input-table-body td:nth-child(3) {
     width: 100px;
 }
 
+/* Class End Time */
 #new-session-input-table-body td:nth-child(4) {
     width: 80px;
 
 }
 
+/* Class Level */
 #new-session-input-table-body td:nth-child(5) {
     width: 80px;
 }
 
+/* Class Capacity */
 #new-session-input-table-body td:nth-child(6) {
     width: 55px;
 }
 
+/* Class 1 Day Price */
 #new-session-input-table-body td:nth-child(7) {
     width: 55px;
 }
 
+/* Class 2 Day Price */
 #new-session-input-table-body td:nth-child(8) {
     width: 70px;
 }
 
+/* Class Instructors */
 #new-session-input-table-body td:nth-child(9) {
-    width: 70px;
+    width: 100px;
 }

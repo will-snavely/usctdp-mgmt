@@ -174,101 +174,103 @@ class Usctdp_Mgmt_Admin
         $redirect_url = add_query_arg(
             'usctdp_token', $unique_token, 
             $this->get_redirect_url( 'usctdp-admin-new-session'));
-           
-        if (isset( $_POST[$nonce_name] ) && wp_verify_nonce( $_POST[$nonce_name], $nonce_action) ) {
-            
-            // 1. Create Session Post
-            $session_title = 'Session ' . date('Y-m-d H:i:s'); // Temporary title, maybe update based on dates?
-            $session_id = wp_insert_post([
-                'post_type' => 'usctdp-session',
-                'post_status' => 'publish',
-                'post_title' => $session_title
-            ]);
 
-            if (is_wp_error($session_id)) {
-                $message = 'Error creating session: ' . $session_id->get_error_message();
-                set_transient( $transient_key, array( 'type' => 'error', 'message' => $message ), 10);
-                wp_safe_redirect($redirect_url);
-                exit;
+        $request_completed = false;
+        $created_ids = [];
+        $transient_data = null;
+
+        try {
+            if (!isset( $_POST[$nonce_name] ) || !wp_verify_nonce( $_POST[$nonce_name], $nonce_action) ) {
+                throw new ErrorException('Request verification failed.');
             }
-
-            // 2. Update Session ACF Fields
-            // $_POST['acf'] contains the session fields if we used acf_form
-            if (isset($_POST['acf']) && is_array($_POST['acf'])) {
-                foreach ($_POST['acf'] as $key => $value) {
-                    update_field($key, $value, $session_id);
-                }
-            }
-
-            // Update Session Title based on dates
-            $start_date = get_field('field_usctdp_session_start_date', $session_id);
-            $end_date = get_field('field_usctdp_session_end_date', $session_id);
-            if ($start_date && $end_date) {
-                $new_title = 'Session: ' . $start_date . ' - ' . $end_date;
-                wp_update_post([
-                    'ID' => $session_id,
-                    'post_title' => $new_title
+            if (isset($_POST['session']) && is_array($_POST['session'])) {
+                $session_name = sanitize_text_field($_POST['session']['field_usctdp_session_name']);
+                $session_start = sanitize_text_field($_POST['session']['field_usctdp_session_start_date']);
+                $session_end = sanitize_text_field($_POST['session']['field_usctdp_session_end_date']);
+                $start_date = DateTime::createFromFormat('Y-m-d', $session_start);
+                $end_date = DateTime::createFromFormat('Y-m-d', $session_end);
+                $session_id = wp_insert_post([
+                    'post_type' => 'usctdp-session',
+                    'post_status' => 'publish',
+                    'post_title' => Usctdp_Mgmt_Session::create_session_title($session_name, $start_date, $end_date)
                 ]);
+
+                if (is_wp_error($session_id)) {
+                    throw new ErrorException('Error creating session: ' . $session_id->get_error_message());
+                } 
+                $created_ids[] = $session_id;
+                foreach ($_POST['session'] as $key => $value) {
+                    if(!update_field($key, sanitize_text_field($value), $session_id)) {
+                        throw new ErrorException('Failed to update session field: ' . $key);
+                    }
+                }
+            } else {
+                throw new ErrorException('Session data not found.');
             }
 
-            // 3. Process Classes
-            $count = 0;
             if (isset($_POST['usctdp_classes']) && is_array($_POST['usctdp_classes'])) {
-                foreach ($_POST['usctdp_classes'] as $class_data) {
-                    // Create Class Post
-                    // Title: Class Type - Day - Time
-                    // We need to map the values to readable labels for the title, or just use the raw values for now.
-                    // Actually, let's create the post first, update fields, then generate title.
-                    
+                foreach ($_POST['usctdp_classes'] as $class_data) {     
+                    $class_type = sanitize_text_field($class_data['field_usctdp_class_type']);
+                    $class_dow = sanitize_text_field($class_data['field_usctdp_class_dow']);
+                    $class_start_time = sanitize_text_field($class_data['field_usctdp_class_start_time']);
+                    $start_time = DateTime::createFromFormat('H:i:s', $class_start_time);
                     $class_id = wp_insert_post([
                         'post_type' => 'usctdp-class',
                         'post_status' => 'publish',
-                        'post_title' => 'New Class' // Will update
+                        'post_title' => Usctdp_Mgmt_Class::create_class_title($class_type, $class_dow, $start_time)
                     ]);
+                    if (is_wp_error($class_id)) {
+                        throw new ErrorException('Error creating class: ' . $class_id->get_error_message());
+                    }   
+                    $created_ids[] = $class_id;
 
-                    if (!is_wp_error($class_id)) {
-                        $count++;
-                        // Update ACF Fields
-                        foreach ($class_data as $key => $value) {
-                            update_field($key, $value, $class_id);
+                    foreach ($class_data as $key => $value) {
+                        if(!update_field($key, sanitize_text_field($value), $class_id)) {
+                            throw new ErrorException('Failed to update class field: ' . $key);
                         }
-                        
-                        // Link to Parent Session
-                        update_field('field_usctdp_class_parent', $session_id, $class_id);
-
-                        // Generate Title
-                        $type = get_field('field_usctdp_class_type', $class_id); // This returns the value, maybe object?
-                        // If return format is value/label, we might get the value.
-                        // Let's assume we get the value.
-                        $day = get_field('field_usctdp_class_dow', $class_id);
-                        $time = get_field('field_usctdp_class_start_time', $class_id);
-                        
-                        // We can get the label from the field object if needed, but for now let's use the values.
-                        // Or better, use the field object to get the label.
-                        $type_field = get_field_object('field_usctdp_class_type', $class_id);
-                        $type_label = $type_field['choices'][$type] ?? $type;
-
-                        $day_field = get_field_object('field_usctdp_class_dow', $class_id);
-                        $day_label = $day_field['choices'][$day] ?? $day;
-
-                        $class_title = "$type_label - $day_label - $time";
-                        wp_update_post([
-                            'ID' => $class_id,
-                            'post_title' => $class_title
-                        ]);
+                    }
+                    
+                    if(!update_field('field_usctdp_class_parent', $session_id, $class_id)) {
+                        throw new ErrorException('Failed to update class parent field with: ' . $session_id);
                     }
                 }
             }
+            $message = "Session created successfully!";
+            $request_completed = true;
+            $transient_data = [
+                'type' => 'success',
+                'message' => $message
+            ];
+        } catch(Exception $e) {
+            $transient_data = [
+                'type' => 'error',
+                'message' => $message            
+            ];
+            Usctdp_Mgmt_Logger::getLogger()->log_error($message);
+            $post_data = print_r($_POST, true);     
+            Usctdp_Mgmt_Logger::getLogger()->log_error($post_data);
+	    } finally {
+            if(!$request_completed) {
+                foreach($created_ids as $id) {
+                    if(!wp_delete_post($id, true)) {
+                        Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                            'Failed to delete post "' . $id . '" in new_session_handler()'
+                        );
+                    }
+                }
 
-            $message = "Session created with $count classes!";
-            set_transient( $transient_key, array( 'type' => 'success', 'message' => $message ), 10);
+                if (!$transient_data) {
+                    $transient_data = [
+                        'type' => 'error',
+                        'message' => 'An unknown error occurred.'
+                    ];
+                }
+            }
+
+            set_transient( $transient_key, $transient_data, 10);
             wp_safe_redirect($redirect_url);
             exit;
-        } else {
-            $message = 'This request failed verification. Report this to a developer.';
-            set_transient( $transient_key, array( 'type' => 'error', 'message' => $message ), 10);
-            wp_safe_redirect($redirect_url);
-	    }
+        }
     }
 
     public function add_admin_menu() {
@@ -305,5 +307,18 @@ class Usctdp_Mgmt_Admin
             echo '<div class="notice ' . $class . ' is-dismissible"><p>' . $message . '</p></div>';
             delete_transient( $transient_key );
         }
+    }
+
+    public function validate_time_picker($valid, $value, $field, $input) {
+        error_log("in validate_time_picker");
+        if ($valid !== true) {
+            return $valid;
+        }
+        if ($field['required']) {
+            if (empty($value) && $value !== 0) {
+                return $field['label'] . ' ' . __('field is required.', 'acf');
+            }
+        }
+        return $valid;
     }
 }

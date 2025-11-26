@@ -58,7 +58,6 @@ class Usctdp_Mgmt_Model {
             acf_add_local_field_group($type->acf_settings);
         }
     }
-
     
     public function generate_custom_post_title( $data, $postarr ) {
         if(isset($this->model_types[$data['post_type']])) {

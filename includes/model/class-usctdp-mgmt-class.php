@@ -160,4 +160,35 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
             'label_placement' => 'top',
         ];
     }
+
+    public function get_custom_post_title($data, $postarr) {
+        if ( $data['post_type'] === 'usctdp-class' && isset($_POST['acf'])) {
+            $class_type = $_POST['acf']['field_usctdp_class_type'];
+            $class_dow = $_POST['acf']['field_usctdp_class_dow'];
+            $class_time_string = $_POST['acf']['field_usctdp_class_start_time'];
+            $class_start_time = DateTime::createFromFormat('H:i:s', $class_time_string);
+            return self::create_class_title($class_type, $class_dow, $class_start_time);
+        }
+        return null;
+    }
+
+    public static function type_value_to_label($type) {
+        $choices = acf_get_field('field_usctdp_class_type')['choices'];
+        if(array_key_exists($type, $choices)) {
+            return $choices[$type];
+        } 
+        return '';
+    }
+
+    public static function dow_value_to_label($dow) {
+        $choices = acf_get_field('field_usctdp_class_dow')['choices'];
+        if(array_key_exists($dow, $choices)) {
+            return $choices[$dow];
+        } 
+        return '';
+    }
+
+    public static function create_class_title($type, $dow, $start_time) {
+        return sanitize_text_field(self::type_value_to_label($type) . ' ' . self::dow_value_to_label($dow) . ' at ' . $start_time->format('g:i A'));
+    }
 }

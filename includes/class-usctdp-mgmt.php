@@ -100,35 +100,24 @@ class Usctdp_Mgmt
      */
     private function load_dependencies()
     {
-        /**
-         * The class responsible for orchestrating the actions and filters of the
-         * core plugin.
-         */
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-loader.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-model.php";
 
-        /**
-         * The class responsible for defining internationalization functionality
-         * of the plugin.
-         */
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-i18n.php";
 
-        /**
-         * The class responsible for defining all actions that occur in the admin area.
-         */
+
         require_once plugin_dir_path(dirname(__FILE__)) .
             "admin/class-usctdp-mgmt-admin.php";
 
-        /**
-         * The class responsible for defining all actions that occur in the public-facing
-         * side of the site.
-         */
         require_once plugin_dir_path(dirname(__FILE__)) .
             "public/class-usctdp-mgmt-public.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/class-usctdp-mgmt-logger.php";
 
         $this->loader = new Usctdp_Mgmt_Loader();
     }
@@ -210,12 +199,20 @@ class Usctdp_Mgmt
             "show_admin_notice",
         );
 
+        $this->loader->add_action(
+            "wp_ajax_acf/validate_save_post",
+            $plugin_admin,
+            "validate_new_session_data"
+        );
+
         foreach(Usctdp_Mgmt_Admin::$post_handlers as $handler) {
             $this->loader->add_action( 
                 'admin_post_' . $handler["submit_hook"], 
                 $plugin_admin, 
                 $handler["callback"]);
         }
+
+        add_action( 'wp_ajax_acf/validate_save_post', array( $this, 'ajax_validate_save_post' ) );   
     }
 
     /**

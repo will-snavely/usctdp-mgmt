@@ -86,8 +86,12 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
             $session_end = $_POST['acf']['field_usctdp_session_end_date'];
             $start_date = DateTime::createFromFormat('Ymd', $session_start);
             $end_date = DateTime::createFromFormat('Ymd', $session_end);
-            return $session_name . ' (' . $start_date->format('m/d/Y') . ' - ' . $end_date->format('m/d/Y') . ')';
+            return self::create_session_title($session_name, $start_date, $end_date);
         }
         return null;
+    }
+
+    public static function create_session_title($name, $start_date, $end_date) {
+        return sanitize_text_field($name . ' (' . $start_date->format('m/d/Y') . ' - ' . $end_date->format('m/d/Y') . ')');
     }
 }
