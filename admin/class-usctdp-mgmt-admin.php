@@ -275,7 +275,7 @@ class Usctdp_Mgmt_Admin
 
     public function add_admin_menu() {
         add_menu_page(
-            'USCTDP Admin Portal',
+            'USCTDP Admin',
             'USCTDP Admin',
             'manage_options',
             'usctdp-admin-main',
