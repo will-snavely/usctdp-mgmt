@@ -114,6 +114,17 @@
                 }
             });
 
+
+            $row.find('.multi-date-picker').each(function () {
+                $(this).flatpickr({
+                    mode: 'multiple',
+                    dateFormat: 'Y-m-d'
+                });
+                $(this).on('change', function () {
+                    $(this).attr('title', $(this).val());
+                });
+            });
+
             if (after) {
                 after.after($row);
             } else {

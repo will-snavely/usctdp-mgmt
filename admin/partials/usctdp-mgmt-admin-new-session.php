@@ -11,6 +11,7 @@ $nonce_action = $post_handler["nonce_action"];
 
 $class_field_names = [
     "field_usctdp_class_type",
+    "field_usctdp_class_duration_weeks",
     "field_usctdp_class_dow",
     "field_usctdp_class_start_time",
     "field_usctdp_class_end_time",
@@ -30,6 +31,9 @@ $fields = array_map(function($field_name) {
         <tr>
             <td class="row-index">0</td>
             <?php acf_render_fields($fields, 'new_post', 'td', ''); ?>
+            <td>
+                <input type="text" placeholder="Select" id="multi-date-picker" class="multi-date-picker">
+            </td>
             <td>
                 <button type="button" class="button-secondary dup-row-btn">Copy</button>
             </td>
@@ -53,7 +57,6 @@ $fields = array_map(function($field_name) {
       id="usctdp-new-session-form">
         <div id="session-info-section">
             <h2> Session Info </h2>
-
             <div id="session-fields">
                 <div class="form-field">
                     <label for="session_name">Session Name</label>
@@ -77,6 +80,7 @@ $fields = array_map(function($field_name) {
                     <tr>
                     <th>#</th>
                     <th>Type</th>
+                    <th># Weeks</th>
                     <th>Day</th>
                     <th>Start Time</th>
                     <th>End Time</th>
@@ -85,6 +89,7 @@ $fields = array_map(function($field_name) {
                     <th>1-Day $</th>
                     <th>2-Day $</th>
                     <th>Staff</th>
+                    <th>Class Dates</th>
                 </tr>
             </thead>
             <tbody id="new-session-input-table-body">

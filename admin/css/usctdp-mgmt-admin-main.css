@@ -1,0 +1,39 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+
+ul {
+    list-style-type: disc;
+    padding-left: 2.5em;
+}
+
+#usctdp-upcoming-sessions-table {
+    table-layout: fixed;
+    width: auto;
+}
+
+#usctdp-upcoming-sessions-table thead th:nth-child(1) {
+    width: 200px;
+}
+
+#usctdp-upcoming-sessions-table thead th:nth-child(2) {
+    width: 100px;
+}
+
+#usctdp-upcoming-sessions-table thead th:nth-child(3) {
+    width: 100px;
+}
+
+.usctdp-custom-post-table thead tr th {
+    font-weight: bold;
+    background-color: #70aef5;
+}
+
+.usctdp-custom-post-table tbody tr:nth-child(odd) {
+    background-color: #c7c4c4;
+}
+
+.usctdp-custom-post-table tbody tr:nth-child(even) {
+    background-color: #f1f1f1;
+}

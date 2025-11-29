@@ -97,6 +97,13 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
                     'required' => 1
                 ],
                 [
+                    'key' => 'field_usctdp_class_capacity',
+                    'label' => 'Capacity',
+                    'name' => 'capacity',
+                    'type' => 'number',
+                    'required' => 1
+                ],
+                [
                     'key' => 'field_usctdp_class_level',
                     'label' => 'Level',
                     'name' => 'level',
@@ -104,11 +111,36 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_class_capacity',
-                    'label' => 'Capacity',
-                    'name' => 'capacity',
+                    'key' => 'field_usctdp_class_duration_weeks',
+                    'label' => 'Duration in Weeks',
+                    'name' => 'duration_weeks',
                     'type' => 'number',
                     'required' => 1
+                ],
+                [
+                    'key' => 'field_usctdp_class_date_list',
+                    'label' => 'Date List (M/D/Y)',
+                    'name' => 'date_list',
+                    'type' => 'text',
+                    'required' => 1
+                ],
+                [
+                    'key' => 'field_usctdp_class_start_date',
+                    'label' => 'Start Date',
+                    'name' => 'start_date',
+                    'type' => 'date_picker',
+		            'required' => 0,
+                    'display_format' => 'm/d/Y',
+                    'return_format' => 'Ymd'
+                ],
+                [
+                    'key' => 'field_usctdp_class_end_date',
+                    'label' => 'End Date',
+                    'name' => 'end_date',
+                    'type' => 'date_picker',
+		            'required' => 0,
+                    'display_format' => 'm/d/Y',
+                    'return_format' => 'Ymd'
                 ],
                 [
                     'key' => 'field_usctdp_class_one_day_price',

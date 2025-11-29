@@ -106,38 +106,62 @@ div#form-submission-errors .error-message {
     width: 100px;
 }
 
-/* Class Start Time */
+/* Number of Weeks */
 #new-session-input-table-body td:nth-child(3) {
+    width: 55px;
+}
+
+/* Day of Week */
+#new-session-input-table-body td:nth-child(4) {
     width: 100px;
 }
 
+/* Class Start Time */
+#new-session-input-table-body td:nth-child(5) {
+    width: 80px;
+}
+
 /* Class End Time */
-#new-session-input-table-body td:nth-child(4) {
+#new-session-input-table-body td:nth-child(6) {
     width: 80px;
 
 }
 
 /* Class Level */
-#new-session-input-table-body td:nth-child(5) {
-    width: 80px;
-}
-
-/* Class Capacity */
-#new-session-input-table-body td:nth-child(6) {
-    width: 55px;
-}
-
-/* Class 1 Day Price */
 #new-session-input-table-body td:nth-child(7) {
     width: 55px;
 }
 
-/* Class 2 Day Price */
+/* Class Capacity */
 #new-session-input-table-body td:nth-child(8) {
+    width: 55px;
+}
+
+/* Class 1 Day Price */
+#new-session-input-table-body td:nth-child(9) {
+    width: 70px;
+}
+
+/* Class 2 Day Price */
+#new-session-input-table-body td:nth-child(10) {
     width: 70px;
 }
 
 /* Class Instructors */
-#new-session-input-table-body td:nth-child(9) {
-    width: 100px;
+#new-session-input-table-body td:nth-child(11) {
+    width: 120px;
+}
+
+/* Class Dates */
+#new-session-input-table-body td:nth-child(12) {
+    width: 120px;
+}
+
+.multi-date-picker {
+    width: 120px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

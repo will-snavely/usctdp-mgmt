@@ -90,6 +90,12 @@ class Usctdp_Mgmt_Admin
             [],
             $this->version,
             'all');
+        wp_enqueue_style(
+            $this->plugin_name . 'external-flatpickr-css',
+            'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+            [],
+            $this->version,
+            'all');
 
         $screen = get_current_screen();
         if(in_array($screen->post_type, $this->hidden_title_post_types)) {
@@ -100,11 +106,17 @@ class Usctdp_Mgmt_Admin
                 $this->version,
                 'all');
         }
-
         if($screen->base == 'usctdp-admin_page_usctdp-admin-new-session') {
             wp_enqueue_style(
                 $this->plugin_name . 'new-session-css',
                 plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-new-session.css',
+                [],
+                $this->version,
+                'all');
+        } else if($screen->base == 'toplevel_page_usctdp-admin-main') {
+            wp_enqueue_style(
+                $this->plugin_name . 'admin-main-css',
+                plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-main.css',
                 [],
                 $this->version,
                 'all');
@@ -124,6 +136,12 @@ class Usctdp_Mgmt_Admin
             ['jquery', 'acf-input'],
             $this->version,
             true);
+        wp_enqueue_script(
+            $this->plugin_name . 'external-flatpickr-js',
+            'https://cdn.jsdelivr.net/npm/flatpickr',
+            [],
+            $this->version,
+            true);
 
         $screen = get_current_screen();
         if($screen->base == 'usctdp-admin_page_usctdp-admin-new-session') {
@@ -133,7 +151,7 @@ class Usctdp_Mgmt_Admin
                 ['jquery', 'acf-input'],
                 $this->version,
                 true);
-        }  
+        }
     }
 
     private function get_redirect_url($page_slug) {
