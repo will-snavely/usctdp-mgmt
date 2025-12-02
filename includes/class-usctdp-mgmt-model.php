@@ -6,13 +6,21 @@ abstract class Usctdp_Mgmt_Model_Type
    abstract public array $wp_post_settings { get; }
    abstract public array $acf_settings { get; }
 
-   public function get_custom_post_title($data, $postarr) {
-      return null;
+   public function get_computed_post_fields($data, $postarr) {
+      return [];
+   }
+
+   public function get_update_value_hooks() {
+      return [];
+   }
+
+   public function get_prepare_field_hooks() {
+      return [];
    }
 }
 
 class Usctdp_Mgmt_Model {
-    private $model_types;
+    public $model_types;
 
     public function __construct()
     {
@@ -59,11 +67,15 @@ class Usctdp_Mgmt_Model {
         }
     }
     
-    public function generate_custom_post_title( $data, $postarr ) {
+    public function generate_computed_post_fields( $data, $postarr ) {
+        error_log("in generate_computed_post_fields");
+        error_log("data: " . json_encode($data));
+        error_log("postarr: " . json_encode($postarr));
         if(isset($this->model_types[$data['post_type']])) {
-            $custom_title = $this->model_types[$data['post_type']]->get_custom_post_title($data, $postarr);
-            if($custom_title) {
-                $data['post_title'] = sanitize_text_field($custom_title);
+            error_log("in generate_custom_post_title for " . $data['post_type']);
+            $result = $this->model_types[$data['post_type']]->get_computed_post_fields($data, $postarr);
+            foreach($result as $key => $value) {
+                $data[$key] = $value;
             }
         }
         return $data;

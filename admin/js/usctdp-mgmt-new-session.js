@@ -114,8 +114,7 @@
                 }
             });
 
-
-            $row.find('.multi-date-picker').each(function () {
+            $row.find('.acf-field-usctdp-class-date-list input').each(function () {
                 $(this).flatpickr({
                     mode: 'multiple',
                     dateFormat: 'Y-m-d'
@@ -123,6 +122,7 @@
                 $(this).on('change', function () {
                     $(this).attr('title', $(this).val());
                 });
+                $(this).attr('placeholder', 'Select');
             });
 
             if (after) {

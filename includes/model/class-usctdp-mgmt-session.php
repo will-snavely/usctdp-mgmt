@@ -79,16 +79,17 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_custom_post_title($data, $postarr) {
+    public function get_computed_post_fields($data, $postarr) {
+        $result = [];
         if ( $data['post_type'] === 'usctdp-session' && isset($_POST['acf'])) {
             $session_name = $_POST['acf']['field_usctdp_session_name'];
             $session_start = $_POST['acf']['field_usctdp_session_start_date'];
             $session_end = $_POST['acf']['field_usctdp_session_end_date'];
             $start_date = DateTime::createFromFormat('Ymd', $session_start);
             $end_date = DateTime::createFromFormat('Ymd', $session_end);
-            return self::create_session_title($session_name, $start_date, $end_date);
+            $result['post_title'] = self::create_session_title($session_name, $start_date, $end_date);
         }
-        return null;
+        return $result;
     }
 
     public static function create_session_title($name, $start_date, $end_date) {

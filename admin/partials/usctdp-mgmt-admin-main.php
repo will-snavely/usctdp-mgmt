@@ -1,6 +1,5 @@
 <?php
 $comparison_date = date("Ymd");
-echo $comparison_date;
 $session_query_args = array(
     'post_type'      => 'usctdp-session',
     'posts_per_page' => -1,
@@ -9,7 +8,7 @@ $session_query_args = array(
             'key'     => 'end_date',
             'value'   => $comparison_date,
             'compare' => '>=',
-            'type'    => 'NUMERIC',
+            'type'    => 'DATE',
         ),
     ),
     'orderby' => 'meta_value_num',
@@ -24,7 +23,7 @@ $class_query_args = array(
             'key'     => 'end_date',
             'value'   => $comparison_date,
             'compare' => '>=',
-            'type'    => 'NUMERIC',
+            'type'    => 'DATE',
         ),
     ),
     'orderby' => 'meta_value_num',
@@ -81,7 +80,7 @@ $class_query_args = array(
                 }
                 wp_reset_postdata();
                 ?>
-            </tbody>
+                </tbody>
             </table>
 
             <h2> Active and Upcoming Classes </h2>
@@ -89,8 +88,11 @@ $class_query_args = array(
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Level</th>
+                        <th>Start Date</th>
                         <th>End Date</th>
                         <th>Capacity</th>
+                        <th>Staff</th>
                     </tr>
                 </thead>
                 <tbody id="usctdp-upcoming-classes-table-body">     
@@ -108,15 +110,26 @@ $class_query_args = array(
                                         </a>
                                     </strong>
                                 </td>
-
+                                <td>
+                                    <?php echo get_field('field_usctdp_class_level'); ?>
+                                </td>
                                 <td>
                                     <?php 
-                                    $end_date = get_field('field_usctdp_class_level'); 
+                                    $start_date = get_field('field_usctdp_class_start_date'); 
+                                    echo DateTime::createFromFormat('Ymd', $start_date)->format('m/d/Y');
+                                    ?>
+                                </td>
+                                <td>
+                                    <?php 
+                                    $end_date = get_field('field_usctdp_class_end_date'); 
                                     echo DateTime::createFromFormat('Ymd', $end_date)->format('m/d/Y');
                                     ?>
                                 </td>
                                 <td>
                                     <?php echo get_field('field_usctdp_class_capacity'); ?>
+                                </td>
+                                <td>
+                                    <?php echo get_field('field_usctdp_class_instructors'); ?>
                                 </td>
                             </tr>
                         <?php

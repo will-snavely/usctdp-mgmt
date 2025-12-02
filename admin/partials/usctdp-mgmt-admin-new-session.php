@@ -19,6 +19,7 @@ $class_field_names = [
     "field_usctdp_class_capacity",
     "field_usctdp_class_one_day_price",
     "field_usctdp_class_two_day_price",
+    "field_usctdp_class_date_list",
     "field_usctdp_class_instructors"
 ];
 $fields = array_map(function($field_name) {
@@ -31,9 +32,6 @@ $fields = array_map(function($field_name) {
         <tr>
             <td class="row-index">0</td>
             <?php acf_render_fields($fields, 'new_post', 'td', ''); ?>
-            <td>
-                <input type="text" placeholder="Select" id="multi-date-picker" class="multi-date-picker">
-            </td>
             <td>
                 <button type="button" class="button-secondary dup-row-btn">Copy</button>
             </td>
@@ -78,23 +76,23 @@ $fields = array_map(function($field_name) {
             <table>
                 <thead>
                     <tr>
-                    <th>#</th>
-                    <th>Type</th>
-                    <th># Weeks</th>
-                    <th>Day</th>
-                    <th>Start Time</th>
-                    <th>End Time</th>
-                    <th>Level</th>
-                    <th>Cap</th>
-                    <th>1-Day $</th>
-                    <th>2-Day $</th>
-                    <th>Staff</th>
-                    <th>Class Dates</th>
-                </tr>
-            </thead>
-            <tbody id="new-session-input-table-body">
-            </tbody>
-        </table>
+                        <th>#</th>
+                        <th>Type</th>
+                        <th># Weeks</th>
+                        <th>Day</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Level</th>
+                        <th>Cap</th>
+                        <th>1-Day $</th>
+                        <th>2-Day $</th>
+                        <th>Class Dates</th>        
+                        <th>Staff</th>
+                    </tr>
+                </thead>
+                <tbody id="new-session-input-table-body">
+                </tbody>
+            </table>
         </div>
 
         <div id="new-session-add-rows-section">

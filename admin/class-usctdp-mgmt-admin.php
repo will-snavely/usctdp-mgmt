@@ -191,7 +191,7 @@ class Usctdp_Mgmt_Admin
         $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
         $redirect_url = add_query_arg(
             'usctdp_token', $unique_token, 
-            $this->get_redirect_url( 'usctdp-admin-new-session'));
+            $this->get_redirect_url('usctdp-admin-new-session'));
 
         $request_completed = false;
         $created_ids = [];
@@ -227,27 +227,24 @@ class Usctdp_Mgmt_Admin
             }
 
             if (isset($_POST['usctdp_classes']) && is_array($_POST['usctdp_classes'])) {
-                foreach ($_POST['usctdp_classes'] as $class_data) {     
-                    $class_type = sanitize_text_field($class_data['field_usctdp_class_type']);
-                    $class_dow = sanitize_text_field($class_data['field_usctdp_class_dow']);
-                    $class_start_time = sanitize_text_field($class_data['field_usctdp_class_start_time']);
-                    $start_time = DateTime::createFromFormat('H:i:s', $class_start_time);
+                foreach ($_POST['usctdp_classes'] as $key => $class_data) {     
                     $class_id = wp_insert_post([
+                        'post_title' => '',
                         'post_type' => 'usctdp-class',
                         'post_status' => 'publish',
-                        'post_title' => Usctdp_Mgmt_Class::create_class_title($class_type, $class_dow, $start_time)
+                        'meta_input' => [ 
+                            'class_index' => $key 
+                        ]
                     ]);
                     if (is_wp_error($class_id)) {
                         throw new ErrorException('Error creating class: ' . $class_id->get_error_message());
                     }   
                     $created_ids[] = $class_id;
-
                     foreach ($class_data as $key => $value) {
                         if(!update_field($key, sanitize_text_field($value), $class_id)) {
                             throw new ErrorException('Failed to update class field: ' . $key);
                         }
                     }
-                    
                     if(!update_field('field_usctdp_class_parent', $session_id, $class_id)) {
                         throw new ErrorException('Failed to update class parent field with: ' . $session_id);
                     }
@@ -318,25 +315,11 @@ class Usctdp_Mgmt_Admin
         }
         
         $transient_key = Usctdp_Mgmt_Admin::$transient_prefix  . '_' . $unique_token;
-
         if ( $notice = get_transient( $transient_key ) ) {
             $class = 'notice-' . sanitize_html_class( $notice['type'] );
             $message = esc_html( $notice['message'] );
             echo '<div class="notice ' . $class . ' is-dismissible"><p>' . $message . '</p></div>';
             delete_transient( $transient_key );
         }
-    }
-
-    public function validate_time_picker($valid, $value, $field, $input) {
-        error_log("in validate_time_picker");
-        if ($valid !== true) {
-            return $valid;
-        }
-        if ($field['required']) {
-            if (empty($value) && $value !== 0) {
-                return $field['label'] . ' ' . __('field is required.', 'acf');
-            }
-        }
-        return $valid;
     }
 }

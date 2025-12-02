@@ -102,12 +102,13 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_custom_post_title($data, $postarr) {
+    public function get_computed_post_fields($data, $postarr) {
+        $result = [];
         if ( $data['post_type'] === 'usctdp-family' && isset($_POST['acf'])) {
             $family_last_name = $_POST['acf']['field_usctdp_family_last_name'];
-            return self::create_family_title($family_last_name);
+            $result['post_title'] = self::create_family_title($family_last_name);
         }
-        return null;
+        return $result;
     }
 
     public static function create_family_title($last_name) {

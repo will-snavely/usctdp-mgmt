@@ -95,6 +95,12 @@ div#form-submission-errors .error-message {
     width: 70px;
 }
 
+input,
+select {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 /* Row Label */
 #new-session-input-table-body td:nth-child(1) {

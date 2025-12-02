@@ -193,15 +193,72 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_custom_post_title($data, $postarr) {
-        if ( $data['post_type'] === 'usctdp-class' && isset($_POST['acf'])) {
+    private function extract_fields_from_post() {
+        if(isset($_POST['acf'])) {
             $class_type = $_POST['acf']['field_usctdp_class_type'];
             $class_dow = $_POST['acf']['field_usctdp_class_dow'];
             $class_time_string = $_POST['acf']['field_usctdp_class_start_time'];
             $class_start_time = DateTime::createFromFormat('H:i:s', $class_time_string);
-            return self::create_class_title($class_type, $class_dow, $class_start_time);
+            return [
+                'class_type' => $class_type,
+                'class_dow' => $class_dow,
+                'class_start_time' => $class_start_time
+            ];
+        } else if(isset($_POST['usctdp_classes']) && isset($postarr['meta_input']) && isset($postarr['meta_input']['class_index'])) {
+            $index = $postarr['meta_input']['class_index'];
+            $class_data = $_POST['usctdp_classes'][$index];
+            $class_type = $class_data['field_usctdp_class_type'];
+            $class_dow = $class_data['field_usctdp_class_dow'];
+            $class_time_string = $class_data['field_usctdp_class_start_time'];
+            $class_start_time = DateTime::createFromFormat('H:i:s', $class_time_string);
+            return [
+                'class_type' => $class_type,
+                'class_dow' => $class_dow,
+                'class_start_time' => $class_start_time
+            ];
         }
         return null;
+    }
+
+    public function get_update_value_hooks() {
+        return [
+            'field_usctdp_class_date_list' => 'update_date_list_value'
+        ];
+    }
+
+    public function get_prepare_field_hooks() {
+        return [
+            'field_usctdp_class_start_date' => 'prepare_start_date_field',
+            'field_usctdp_class_end_date' => 'prepare_end_date_field'
+        ];
+    }
+    
+    public function update_date_list_value($value, $post_id, $field, $original_value) {
+        $date_list = array_map(function($date) {
+            return strtotime($date);
+        }, explode(',', $value));
+        update_field('field_usctdp_class_start_date', date('Ymd', min($date_list)), $post_id);
+        update_field('field_usctdp_class_end_date', date('Ymd', max($date_list)), $post_id);
+        return $value;
+    }
+
+    public function prepare_start_date_field($field) {
+        return false;
+    }
+
+    public function prepare_end_date_field($field) {
+        return false;
+    }
+        
+    public function get_computed_post_fields($data, $postarr) {
+        $result = [];
+        if ( $data['post_type'] === 'usctdp-class') {
+            $fields = $this->extract_fields_from_post();
+            if($fields) {
+                $result['post_title'] = self::create_class_title($fields['class_type'], $fields['class_dow'], $fields['class_start_time']);
+            }
+        }
+        return $result;
     }
 
     public static function type_value_to_label($type) {

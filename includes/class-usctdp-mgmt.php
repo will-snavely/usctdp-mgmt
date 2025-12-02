@@ -151,11 +151,35 @@ class Usctdp_Mgmt
     private function define_model_hooks()
     {
         $model = new Usctdp_Mgmt_Model();
+
         $this->loader->add_action("acf/init", $model, "register_model_types");
+
+        foreach($model->model_types as $model_type) {
+            foreach($model_type->get_update_value_hooks() as $field_key => $hook) {
+                $this->loader->add_filter(
+                    "acf/update_value/key={$field_key}",
+                    $model_type,
+                    $hook,
+                    10,
+                    4,
+                );
+            }
+
+            foreach($model_type->get_prepare_field_hooks() as $field_key => $hook) {
+                $this->loader->add_filter(
+                    "acf/prepare_field/key={$field_key}",
+                    $model_type,
+                    $hook,
+                    10,
+                    4,
+                );
+            }
+        }
+
         $this->loader->add_filter(
             "wp_insert_post_data",
             $model,
-            "generate_custom_post_title",
+            "generate_computed_post_fields",
             99,
             2,
         );
@@ -199,11 +223,6 @@ class Usctdp_Mgmt
             "show_admin_notice",
         );
 
-        $this->loader->add_action(
-            "wp_ajax_acf/validate_save_post",
-            $plugin_admin,
-            "validate_new_session_data"
-        );
 
         foreach(Usctdp_Mgmt_Admin::$post_handlers as $handler) {
             $this->loader->add_action( 
@@ -211,8 +230,6 @@ class Usctdp_Mgmt
                 $plugin_admin, 
                 $handler["callback"]);
         }
-
-        add_action( 'wp_ajax_acf/validate_save_post', array( $this, 'ajax_validate_save_post' ) );   
     }
 
     /**

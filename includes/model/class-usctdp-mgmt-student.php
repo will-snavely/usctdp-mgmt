@@ -94,12 +94,13 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_custom_post_title($data, $postarr) {
+    public function get_computed_post_fields($data, $postarr) {
+        $result = [];
         if ( $data['post_type'] === 'usctdp-student' && isset($_POST['acf'])) {
             $first_name = $_POST['acf']['field_usctdp_student_first_name'];
             $last_name  = $_POST['acf']['field_usctdp_student_last_name'];
-            return $last_name . ", " . $first_name;
+            $result['post_title'] = $last_name . ", " . $first_name;
         }
-        return null;
+        return $result;
     }
 }

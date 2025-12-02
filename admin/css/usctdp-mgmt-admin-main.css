@@ -37,3 +37,33 @@ ul {
 .usctdp-custom-post-table tbody tr:nth-child(even) {
     background-color: #f1f1f1;
 }
+
+
+#usctdp-upcoming-classes-table {
+    table-layout: fixed;
+    width: auto;
+}
+
+#usctdp-upcoming-classes-table thead th:nth-child(1) {
+    width: 200px;
+}
+
+#usctdp-upcoming-classes-table thead th:nth-child(2) {
+    width: 50px;
+}
+
+#usctdp-upcoming-classes-table thead th:nth-child(3) {
+    width: 100px;
+}
+
+#usctdp-upcoming-classes-table thead th:nth-child(4) {
+    width: 100px;
+}
+
+#usctdp-upcoming-classes-table thead th:nth-child(5) {
+    width: 50px;
+}
+
+#usctdp-upcoming-classes-table thead th:nth-child(6) {
+    width: 200px;
+}
