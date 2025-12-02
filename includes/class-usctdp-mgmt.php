@@ -230,6 +230,12 @@ class Usctdp_Mgmt
                 $plugin_admin, 
                 $handler["callback"]);
         }
+
+        $this->loader->add_action(
+            'wp_ajax_usctdp_fetch_classes',
+            $plugin_admin,
+            'fetch_classes_handler'
+        );
     }
 
     /**

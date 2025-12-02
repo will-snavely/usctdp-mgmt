@@ -36,54 +36,11 @@ $class_query_args = array(
 
     <div class="usctdp-mgmt-sections">  
         <section id="sessions-section">
-            <h1>Sessions</h1>
-
-            <h2> Active and Upcoming Sessions </h2>
-            <table id="usctdp-upcoming-sessions-table" class="wp-list-table fixed widefat usctdp-custom-post-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                    </tr>
-                </thead>
-                <tbody id="usctdp-upcoming-sessions-table-body">     
-                <?php
-                $session_query = new WP_Query( $session_query_args );
-                if ( $session_query->have_posts() ) {
-                    while (($session_query->have_posts())) {
-                        $session_query->the_post();
-                        ?>
-                            <tr>
-                                <td>
-                                    <strong>
-                                        <a href="<?php echo esc_url( get_edit_post_link() ); ?>">
-                                            <?php echo get_field('field_usctdp_session_name') ?>
-                                        </a>
-                                    </strong>
-                                </td>
-                                <td>
-                                    <?php 
-                                    $start_date = get_field('field_usctdp_session_start_date'); 
-                                    echo DateTime::createFromFormat('Ymd', $start_date)->format('m/d/Y');
-                                    ?>
-                                </td>
-                                <td>
-                                    <?php 
-                                    $end_date = get_field('field_usctdp_session_end_date'); 
-                                    echo DateTime::createFromFormat('Ymd', $end_date)->format('m/d/Y');
-                                    ?>
-                                </td>
-                            </tr>
-                        <?php
-                    }
-                }
-                wp_reset_postdata();
-                ?>
-                </tbody>
-            </table>
-
             <h2> Active and Upcoming Classes </h2>
+            <div class="usctdp-search-bar">
+                <input type="text" id="usctdp-classes-search" placeholder="Search classes..." style="width: 100%; max-width: 300px; margin-bottom: 10px;">
+                <span id="usctdp-search-spinner" class="spinner" style="float: none; margin-top: 5px;"></span>
+            </div>
             <table id="usctdp-upcoming-classes-table" class="wp-list-table fixed widefat usctdp-custom-post-table">
                 <thead>
                     <tr>

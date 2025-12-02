@@ -152,6 +152,63 @@ class Usctdp_Mgmt_Admin
                 $this->version,
                 true);
         }
+
+        if($screen->base == 'toplevel_page_usctdp-admin-main') {
+            wp_enqueue_script(
+                $this->plugin_name . 'admin-main-js',
+                plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin-main.js',
+                ['jquery', 'acf-input'],
+                $this->version,
+                true);
+
+            wp_localize_script($this->plugin_name . 'admin-main-js', 'usctdp_mgmt_admin', [
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce'    => wp_create_nonce('usctdp_mgmt_admin_nonce')
+            ]);
+        }
+    }
+
+    public function fetch_classes_handler() {
+        check_ajax_referer('usctdp_mgmt_admin_nonce', 'nonce');
+        $search_term = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+        $comparison_date = date("Ymd");
+        $args = array(
+            'post_type'      => 'usctdp-class',
+            'posts_per_page' => -1,
+            'meta_query'     => array(
+                array(
+                    'key'     => 'end_date',
+                    'value'   => $comparison_date,
+                    'compare' => '>=',
+                    'type'    => 'DATE',
+                ),
+            ),
+            'orderby' => 'meta_value_num',
+            'order'   => 'ASC',
+        );
+
+        if ( ! empty( $search_term ) ) {
+            $args['s'] = $search_term;
+        }
+
+        $query = new WP_Query( $args );
+        $results = [
+            'data' => []
+        ];
+        if ( $query->have_posts() ) {
+            while ( $query->have_posts() ) {
+                $query->the_post();
+                $start_date = get_field('field_usctdp_class_start_date');
+                $end_date = get_field('field_usctdp_class_end_date');
+                $results['data'][] = [
+                    'name' => get_the_title(),
+                    'start_date' => $start_date ? DateTime::createFromFormat('Ymd', $start_date)->format('m/d/Y') : '',
+                    'end_date' => $end_date ? DateTime::createFromFormat('Ymd', $end_date)->format('m/d/Y') : ''
+                ];
+            }
+        } 
+        wp_reset_postdata();
+        wp_send_json($results);
     }
 
     private function get_redirect_url($page_slug) {
