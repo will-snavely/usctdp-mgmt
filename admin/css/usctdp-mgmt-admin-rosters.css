@@ -1,0 +1,17 @@
+#session-selector {
+    width: 250px;
+}
+
+#class-selector {
+    width: 250px;
+}
+
+#class-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+div.dt-length select {
+    width: 50px;
+}

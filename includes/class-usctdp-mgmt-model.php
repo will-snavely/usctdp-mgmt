@@ -2,24 +2,28 @@
 
 abstract class Usctdp_Mgmt_Model_Type
 {
-   abstract public string $post_type { get; }
-   abstract public array $wp_post_settings { get; }
-   abstract public array $acf_settings { get; }
+    abstract public string $post_type { get; }
+    abstract public array $wp_post_settings { get; }
+    abstract public array $acf_settings { get; }
 
-   public function get_computed_post_fields($data, $postarr) {
-      return [];
-   }
+    public function get_computed_post_fields($data, $postarr)
+    {
+        return [];
+    }
 
-   public function get_update_value_hooks() {
-      return [];
-   }
+    public function get_update_value_hooks()
+    {
+        return [];
+    }
 
-   public function get_prepare_field_hooks() {
-      return [];
-   }
+    public function get_prepare_field_hooks()
+    {
+        return [];
+    }
 }
 
-class Usctdp_Mgmt_Model {
+class Usctdp_Mgmt_Model
+{
     public $model_types;
 
     public function __construct()
@@ -28,7 +32,8 @@ class Usctdp_Mgmt_Model {
         $this->model_types = $this->get_model_types();
     }
 
-    public function load_model_dependencies() {
+    public function load_model_dependencies()
+    {
         $model_classes = [
             "class-usctdp-mgmt-staff.php",
             "class-usctdp-mgmt-session.php",
@@ -38,12 +43,13 @@ class Usctdp_Mgmt_Model {
             "class-usctdp-mgmt-class.php"
         ];
         $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
-        foreach($model_classes as $class) {
+        foreach ($model_classes as $class) {
             require_once $prefix . $class;
         }
     }
 
-    private function get_model_types() {
+    private function get_model_types()
+    {
         $classes = [
             new Usctdp_Mgmt_Staff(),
             new Usctdp_Mgmt_Session(),
@@ -60,21 +66,19 @@ class Usctdp_Mgmt_Model {
         return $result;
     }
 
-    public function register_model_types() {
-        foreach ($this->model_types as $key =>$type) {
+    public function register_model_types()
+    {
+        foreach ($this->model_types as $key => $type) {
             register_post_type($type->post_type, $type->wp_post_settings);
             acf_add_local_field_group($type->acf_settings);
         }
     }
-    
-    public function generate_computed_post_fields( $data, $postarr ) {
-        error_log("in generate_computed_post_fields");
-        error_log("data: " . json_encode($data));
-        error_log("postarr: " . json_encode($postarr));
-        if(isset($this->model_types[$data['post_type']])) {
-            error_log("in generate_custom_post_title for " . $data['post_type']);
+
+    public function generate_computed_post_fields($data, $postarr)
+    {
+        if (isset($this->model_types[$data['post_type']])) {
             $result = $this->model_types[$data['post_type']]->get_computed_post_fields($data, $postarr);
-            foreach($result as $key => $value) {
+            foreach ($result as $key => $value) {
                 $data[$key] = $value;
             }
         }

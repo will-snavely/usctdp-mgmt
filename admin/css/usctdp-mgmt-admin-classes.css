@@ -13,6 +13,9 @@ ul {
     width: auto;
 }
 
+#session-filter {
+    width: 250px;
+}
 
 #usctdp-upcoming-sessions-table thead th:nth-child(1) {
     width: 200px;

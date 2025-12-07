@@ -1,6 +1,7 @@
 <?php
 
-class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type
+{
     public string $post_type {
         get => "usctdp-student";
     }
@@ -31,7 +32,7 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
             ]
         ];
     }
-    
+
     public array $acf_settings {
         get => [
             "key" => "group_usctdp_student",
@@ -40,21 +41,14 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
                 [
                     'key' => 'field_usctdp_student_first_name',
                     'label' => 'First Name',
-                    'name' => 'first name',
+                    'name' => 'first_name',
                     'type' => 'text',
                     'required' => true
                 ],
                 [
                     'key' => 'field_usctdp_student_last_name',
                     'label' => 'Last Name',
-                    'name' => 'last name',
-                    'type' => 'text',
-                    'required' => true
-                ],
-                [
-                    'key' => 'field_usctdp_student_last_name',
-                    'label' => 'Last Name',
-                    'name' => 'last name',
+                    'name' => 'last_name',
                     'type' => 'text',
                     'required' => true
                 ],
@@ -64,7 +58,7 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
                     'name' => 'birth_date',
                     'type' => 'date_picker',
                     'display_format' => 'm/d/Y',
-                    'return_format' => 'Ymd', 
+                    'return_format' => 'Ymd',
                     'required' => 1
                 ],
                 [
@@ -78,9 +72,9 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
                     "required" => 0
                 ]
             ],
-            'location' => array (
-                array (
-                    array (
+            'location' => array(
+                array(
+                    array(
                         'param' => 'post_type',
                         'operator' => '==',
                         'value' => 'usctdp-student',
@@ -94,9 +88,10 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_computed_post_fields($data, $postarr) {
+    public function get_computed_post_fields($data, $postarr)
+    {
         $result = [];
-        if ( $data['post_type'] === 'usctdp-student' && isset($_POST['acf'])) {
+        if ($data['post_type'] === 'usctdp-student' && isset($_POST['acf'])) {
             $first_name = $_POST['acf']['field_usctdp_student_first_name'];
             $last_name  = $_POST['acf']['field_usctdp_student_last_name'];
             $result['post_title'] = $last_name . ", " . $first_name;

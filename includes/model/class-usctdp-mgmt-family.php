@@ -1,6 +1,7 @@
 <?php
 
-class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
+{
     public string $post_type {
         get => "usctdp-family";
     }
@@ -31,7 +32,7 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type {
             ]
         ];
     }
-    
+
     public array $acf_settings {
         get => [
             "key" => "group_usctdp_family",
@@ -40,55 +41,55 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type {
                 [
                     "key" => "field_usctdp_family_last_name",
                     "label" => "Family Last Name",
-                    "name" => "usctdp_family_last_name",
+                    "name" => "last_name",
                     "type" => "text",
                     "required" => 1,
                 ],
                 [
                     "key" => "field_usctdp_family_address",
                     "label" => "Family Address",
-                    "name" => "usctdp_family_address",
+                    "name" => "address",
                     "type" => "text",
                     "required" => 1,
                 ],
                 [
                     "key" => "field_usctdp_family_city",
                     "label" => "Family City",
-                    "name" => "usctdp_family_city",
+                    "name" => "city",
                     "type" => "text",
                     "required" => 1,
                 ],
                 [
                     "key" => "field_usctdp_family_state",
                     "label" => "Family State",
-                    "name" => "usctdp_family_state",
+                    "name" => "state",
                     "type" => "text",
                     "required" => 1,
                 ],
                 [
                     "key" => "field_usctdp_family_zip",
                     "label" => "Family Zip",
-                    "name" => "usctdp_family_zip",
+                    "name" => "zip",
                     "type" => "text",
                     "required" => 1,
                 ],
                 [
                     "key" => "field_usctdp_phone_number",
                     "label" => "Phone Number",
-                    "name" => "usctdp_phone_number",
+                    "name" => "phone_number",
                     "type" => "text",
                     "required" => 1,
                 ],
                 [
                     "key" => "field_usctdp_family_notes",
                     "label" => "Notes",
-                    "name" => "usctdp_family_notes",
+                    "name" => "notes",
                     "type" => "textarea",
                 ]
             ],
-            'location' => array (
-                array (
-                    array (
+            'location' => array(
+                array(
+                    array(
                         'param' => 'post_type',
                         'operator' => '==',
                         'value' => 'usctdp-family',
@@ -102,16 +103,18 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_computed_post_fields($data, $postarr) {
+    public function get_computed_post_fields($data, $postarr)
+    {
         $result = [];
-        if ( $data['post_type'] === 'usctdp-family' && isset($_POST['acf'])) {
+        if ($data['post_type'] === 'usctdp-family' && isset($_POST['acf'])) {
             $family_last_name = $_POST['acf']['field_usctdp_family_last_name'];
             $result['post_title'] = self::create_family_title($family_last_name);
         }
         return $result;
     }
 
-    public static function create_family_title($last_name) {
+    public static function create_family_title($last_name)
+    {
         return sanitize_text_field($last_name);
     }
 }

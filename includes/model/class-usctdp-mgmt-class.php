@@ -1,6 +1,7 @@
 <?php
 
-class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
+{
     public string $post_type {
         get => 'usctdp-class';
     }
@@ -31,7 +32,7 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
             ]
         ];
     }
-    
+
     public array $acf_settings {
         get => [
             'key' => 'group_usctdp_class',
@@ -111,25 +112,18 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_class_duration_weeks',
-                    'label' => 'Duration in Weeks',
-                    'name' => 'duration_weeks',
-                    'type' => 'number',
-                    'required' => 1
-                ],
-                [
                     'key' => 'field_usctdp_class_date_list',
                     'label' => 'Date List (M/D/Y)',
                     'name' => 'date_list',
                     'type' => 'text',
-                    'required' => 1
+                    'required' => 0
                 ],
                 [
                     'key' => 'field_usctdp_class_start_date',
                     'label' => 'Start Date',
                     'name' => 'start_date',
                     'type' => 'date_picker',
-		            'required' => 0,
+                    'required' => 0,
                     'display_format' => 'm/d/Y',
                     'return_format' => 'Ymd'
                 ],
@@ -138,7 +132,7 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
                     'label' => 'End Date',
                     'name' => 'end_date',
                     'type' => 'date_picker',
-		            'required' => 0,
+                    'required' => 0,
                     'display_format' => 'm/d/Y',
                     'return_format' => 'Ymd'
                 ],
@@ -164,10 +158,10 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
                     'post_type' => [
                         0 => 'usctdp-staff',
                     ],
-		            'required' => 0,
-		            'allow_null' => 0,
-		            'multiple' => 1,
-		            'return_format' => 'id'
+                    'required' => 0,
+                    'allow_null' => 0,
+                    'multiple' => 1,
+                    'return_format' => 'id'
                 ],
                 [
                     'key' => 'field_usctdp_class_notes',
@@ -177,9 +171,9 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
                     'required' => 0
                 ],
             ],
-            'location' => array (
-                array (
-                    array (
+            'location' => array(
+                array(
+                    array(
                         'param' => 'post_type',
                         'operator' => '==',
                         'value' => 'usctdp-class',
@@ -193,48 +187,52 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    private function extract_fields_from_post() {
-        if(isset($_POST['acf'])) {
-            $class_type = $_POST['acf']['field_usctdp_class_type'];
-            $class_dow = $_POST['acf']['field_usctdp_class_dow'];
-            $class_time_string = $_POST['acf']['field_usctdp_class_start_time'];
-            $class_start_time = DateTime::createFromFormat('H:i:s', $class_time_string);
-            return [
-                'class_type' => $class_type,
-                'class_dow' => $class_dow,
-                'class_start_time' => $class_start_time
-            ];
-        } else if(isset($_POST['usctdp_classes']) && isset($postarr['meta_input']) && isset($postarr['meta_input']['class_index'])) {
+    private function extract_fields_from_post($postarr)
+    {
+        $class_data = null;
+        if (isset($_POST['acf'])) {
+            $class_data = $_POST['acf'];
+        } else if (
+            isset($_POST['usctdp_classes'])
+            && isset($postarr['meta_input'])
+            && isset($postarr['meta_input']['class_index'])
+        ) {
             $index = $postarr['meta_input']['class_index'];
             $class_data = $_POST['usctdp_classes'][$index];
+        }
+
+        if ($class_data) {
             $class_type = $class_data['field_usctdp_class_type'];
             $class_dow = $class_data['field_usctdp_class_dow'];
             $class_time_string = $class_data['field_usctdp_class_start_time'];
             $class_start_time = DateTime::createFromFormat('H:i:s', $class_time_string);
             return [
-                'class_type' => $class_type,
-                'class_dow' => $class_dow,
-                'class_start_time' => $class_start_time
+                'type' => $class_type,
+                'dow' => $class_dow,
+                'start_time' => $class_start_time
             ];
         }
         return null;
     }
 
-    public function get_update_value_hooks() {
+    public function get_update_value_hooks()
+    {
         return [
             'field_usctdp_class_date_list' => 'update_date_list_value'
         ];
     }
 
-    public function get_prepare_field_hooks() {
+    public function get_prepare_field_hooks()
+    {
         return [
             'field_usctdp_class_start_date' => 'prepare_start_date_field',
             'field_usctdp_class_end_date' => 'prepare_end_date_field'
         ];
     }
-    
-    public function update_date_list_value($value, $post_id, $field, $original_value) {
-        $date_list = array_map(function($date) {
+
+    public function update_date_list_value($value, $post_id, $field, $original_value)
+    {
+        $date_list = array_map(function ($date) {
             return strtotime($date);
         }, explode(',', $value));
         update_field('field_usctdp_class_start_date', date('Ymd', min($date_list)), $post_id);
@@ -242,42 +240,46 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type {
         return $value;
     }
 
-    public function prepare_start_date_field($field) {
+    public function prepare_start_date_field($field)
+    {
         return false;
     }
 
-    public function prepare_end_date_field($field) {
+    public function prepare_end_date_field($field)
+    {
         return false;
     }
-        
-    public function get_computed_post_fields($data, $postarr) {
+
+    public function get_computed_post_fields($data, $postarr)
+    {
         $result = [];
-        if ( $data['post_type'] === 'usctdp-class') {
-            $fields = $this->extract_fields_from_post();
-            if($fields) {
-                $result['post_title'] = self::create_class_title($fields['class_type'], $fields['class_dow'], $fields['class_start_time']);
+        if ($data['post_type'] === 'usctdp-class') {
+            $fields = $this->extract_fields_from_post($postarr);
+            if ($fields) {
+                $type = self::type_value_to_label($fields['type']);
+                $dow = self::dow_value_to_label($fields['dow']);
+                $start = $fields['start_time']->format('g:i A');
+                $result['post_title'] = sanitize_text_field("$type, $dow at $start");
             }
         }
         return $result;
     }
 
-    public static function type_value_to_label($type) {
+    public static function type_value_to_label($type)
+    {
         $choices = acf_get_field('field_usctdp_class_type')['choices'];
-        if(array_key_exists($type, $choices)) {
+        if (array_key_exists($type, $choices)) {
             return $choices[$type];
-        } 
+        }
         return '';
     }
 
-    public static function dow_value_to_label($dow) {
+    public static function dow_value_to_label($dow)
+    {
         $choices = acf_get_field('field_usctdp_class_dow')['choices'];
-        if(array_key_exists($dow, $choices)) {
+        if (array_key_exists($dow, $choices)) {
             return $choices[$dow];
-        } 
+        }
         return '';
-    }
-
-    public static function create_class_title($type, $dow, $start_time) {
-        return sanitize_text_field(self::type_value_to_label($type) . ' ' . self::dow_value_to_label($dow) . ' at ' . $start_time->format('g:i A'));
     }
 }

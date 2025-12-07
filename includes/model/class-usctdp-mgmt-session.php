@@ -1,6 +1,7 @@
 <?php
 
-class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
+{
     public string $post_type {
         get => 'usctdp-session';
     }
@@ -31,7 +32,7 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
             ]
         ];
     }
-    
+
     public array $acf_settings {
         get => [
             'key' => 'group_usctdp_session',
@@ -50,7 +51,7 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
                     'name' => 'start_date',
                     'type' => 'date_picker',
                     'display_format' => 'm/d/Y',
-                    'return_format' => 'Ymd', 
+                    'return_format' => 'Ymd',
                     'required' => 1
                 ],
                 [
@@ -59,13 +60,13 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
                     'name' => 'end_date',
                     'type' => 'date_picker',
                     'display_format' => 'm/d/Y',
-                    'return_format' => 'Ymd', 
+                    'return_format' => 'Ymd',
                     'required' => 1
                 ]
             ],
-            'location' => array (
-                array (
-                    array (
+            'location' => array(
+                array(
+                    array(
                         'param' => 'post_type',
                         'operator' => '==',
                         'value' => 'usctdp-session',
@@ -79,9 +80,10 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_computed_post_fields($data, $postarr) {
+    public function get_computed_post_fields($data, $postarr)
+    {
         $result = [];
-        if ( $data['post_type'] === 'usctdp-session' && isset($_POST['acf'])) {
+        if ($data['post_type'] === 'usctdp-session' && isset($_POST['acf'])) {
             $session_name = $_POST['acf']['field_usctdp_session_name'];
             $session_start = $_POST['acf']['field_usctdp_session_start_date'];
             $session_end = $_POST['acf']['field_usctdp_session_end_date'];
@@ -92,7 +94,8 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type {
         return $result;
     }
 
-    public static function create_session_title($name, $start_date, $end_date) {
+    public static function create_session_title($name, $start_date, $end_date)
+    {
         return sanitize_text_field($name . ' (' . $start_date->format('m/d/Y') . ' - ' . $end_date->format('m/d/Y') . ')');
     }
 }

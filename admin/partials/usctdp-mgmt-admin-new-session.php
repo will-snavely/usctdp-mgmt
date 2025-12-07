@@ -1,5 +1,5 @@
 <?php
-if ( ! defined( 'WPINC' ) ) {
+if (! defined('WPINC')) {
     die;
 }
 
@@ -11,7 +11,6 @@ $nonce_action = $post_handler["nonce_action"];
 
 $class_field_names = [
     "field_usctdp_class_type",
-    "field_usctdp_class_duration_weeks",
     "field_usctdp_class_dow",
     "field_usctdp_class_start_time",
     "field_usctdp_class_end_time",
@@ -22,7 +21,7 @@ $class_field_names = [
     "field_usctdp_class_date_list",
     "field_usctdp_class_instructors"
 ];
-$fields = array_map(function($field_name) {
+$fields = array_map(function ($field_name) {
     return acf_get_field($field_name);
 }, $class_field_names);
 ?>
@@ -41,18 +40,18 @@ $fields = array_map(function($field_name) {
         </tr>
     </template>
 
-    <h1><?php echo esc_html( $page_title ); ?></h1>
+    <h1><?php echo esc_html($page_title); ?></h1>
     <div id="form-submission-errors">
         <div class="error-message">
             <p>Please provide the required fields below and re-submit.</p>
         </div>
     </div>
 
-    <form 
-      novalidate
-      action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" 
-      method="post" 
-      id="usctdp-new-session-form">
+    <form
+        novalidate
+        action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
+        method="post"
+        id="usctdp-new-session-form">
         <div id="session-info-section">
             <h2> Session Info </h2>
             <div id="session-fields">
@@ -78,7 +77,6 @@ $fields = array_map(function($field_name) {
                     <tr>
                         <th>#</th>
                         <th>Type</th>
-                        <th># Weeks</th>
                         <th>Day</th>
                         <th>Start Time</th>
                         <th>End Time</th>
@@ -86,7 +84,7 @@ $fields = array_map(function($field_name) {
                         <th>Cap</th>
                         <th>1-Day $</th>
                         <th>2-Day $</th>
-                        <th>Class Dates</th>        
+                        <th>Class Dates</th>
                         <th>Staff</th>
                     </tr>
                 </thead>
@@ -100,8 +98,8 @@ $fields = array_map(function($field_name) {
             <input type="number" id="new-session-num-rows-field" value=5>
         </div>
 
-        <input type="hidden" name="action" value="<?php echo esc_attr( $submit_hook ); ?>">
-        <?php wp_nonce_field( $nonce_action, $nonce_name ); ?>
-        <?php submit_button('Create Session', 'primary', 'new_session_submit' ); ?>
+        <input type="hidden" name="action" value="<?php echo esc_attr($submit_hook); ?>">
+        <?php wp_nonce_field($nonce_action, $nonce_name); ?>
+        <?php submit_button('Create Session', 'primary', 'new_session_submit'); ?>
     </form>
 </div>

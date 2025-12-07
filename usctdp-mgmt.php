@@ -81,5 +81,9 @@ function run_usctdp_mgmt()
 {
     $plugin = new Usctdp_Mgmt();
     $plugin->run();
+    if (defined('WP_CLI') && WP_CLI) {
+        include_once(dirname(__FILE__) . '/includes/cli-commands.php');
+    }
 }
+
 run_usctdp_mgmt();

@@ -1,6 +1,7 @@
 <?php
 
-class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type
+{
     public string $post_type {
         get => "usctdp-registration";
     }
@@ -31,7 +32,7 @@ class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type {
             ]
         ];
     }
-    
+
     public array $acf_settings {
         get => [
             "key" => "group_usctdp_registration",
@@ -57,10 +58,42 @@ class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type {
                     ),
                     "required" => 1
                 ],
+                [
+                    "key" => "field_usctdp_registration_created",
+                    "label" => "Created",
+                    "name" => "created",
+                    "type" => "date_time_picker",
+                    "required" => 1
+                ],
+                [
+                    "key" => "field_usctdp_outstanding_balance",
+                    "label" => "Outstanding Balance",
+                    "name" => "outstanding_balance",
+                    "type" => "number",
+                    "required" => 0
+                ],
+                [
+                    "key" => "field_usctdp_payment_method",
+                    "label" => "Payment Method",
+                    "name" => "payment_method",
+                    "type" => "select",
+                    "choices" => [
+                        "check" => "Check",
+                        "web_payment" => "Web Payment",
+                    ],
+                    "required" => 1
+                ],
+                [
+                    "key" => "field_usctdp_registration_payment_date",
+                    "label" => "Payment Date",
+                    "name" => "payment_date",
+                    "type" => "date_time_picker",
+                    "required" => 1
+                ]
             ],
-            'location' => array (
-                array (
-                    array (
+            'location' => array(
+                array(
+                    array(
                         'param' => 'post_type',
                         'operator' => '==',
                         'value' => 'usctdp-registration',

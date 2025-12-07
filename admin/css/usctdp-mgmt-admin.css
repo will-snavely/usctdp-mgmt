@@ -2,3 +2,33 @@
  * All of the CSS for your admin-specific functionality should be
  * included in this file.
  */
+
+.badge {
+    background-color: #83cdf5;
+    color: #000;
+    padding: 4px 8px;
+    text-align: center;
+    border-radius: 5px;
+}
+
+
+.usctdp-custom-post-table tbody tr td {
+    vertical-align: middle;
+}
+
+.usctdp-custom-post-table thead tr th {
+    font-weight: bold;
+    background-color: #83cdf5;
+}
+
+.usctdp-custom-post-table tbody tr {
+    height: 50px;
+}
+
+.usctdp-custom-post-table tbody tr:nth-child(odd) {
+    background-color: #d5d1d1;
+}
+
+.usctdp-custom-post-table tbody tr:nth-child(even) {
+    background-color: #f1f1f1;
+}

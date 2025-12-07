@@ -154,8 +154,8 @@ class Usctdp_Mgmt
 
         $this->loader->add_action("acf/init", $model, "register_model_types");
 
-        foreach($model->model_types as $model_type) {
-            foreach($model_type->get_update_value_hooks() as $field_key => $hook) {
+        foreach ($model->model_types as $model_type) {
+            foreach ($model_type->get_update_value_hooks() as $field_key => $hook) {
                 $this->loader->add_filter(
                     "acf/update_value/key={$field_key}",
                     $model_type,
@@ -165,7 +165,7 @@ class Usctdp_Mgmt
                 );
             }
 
-            foreach($model_type->get_prepare_field_hooks() as $field_key => $hook) {
+            foreach ($model_type->get_prepare_field_hooks() as $field_key => $hook) {
                 $this->loader->add_filter(
                     "acf/prepare_field/key={$field_key}",
                     $model_type,
@@ -224,17 +224,30 @@ class Usctdp_Mgmt
         );
 
 
-        foreach(Usctdp_Mgmt_Admin::$post_handlers as $handler) {
-            $this->loader->add_action( 
-                'admin_post_' . $handler["submit_hook"], 
-                $plugin_admin, 
-                $handler["callback"]);
+        foreach (Usctdp_Mgmt_Admin::$post_handlers as $handler) {
+            $this->loader->add_action(
+                'admin_post_' . $handler["submit_hook"],
+                $plugin_admin,
+                $handler["callback"]
+            );
         }
 
         $this->loader->add_action(
             'wp_ajax_usctdp_fetch_classes',
             $plugin_admin,
-            'fetch_classes_handler'
+            'fetch_classes_handler_datatables'
+        );
+
+        $this->loader->add_action(
+            'wp_ajax_my_select2_post_search',
+            $plugin_admin,
+            'my_select2_ajax_post_search'
+        );
+
+        $this->loader->add_action(
+            'wp_ajax_fetch_posts_for_datatable',
+            $plugin_admin,
+            'fetch_posts_for_datatable'
         );
     }
 

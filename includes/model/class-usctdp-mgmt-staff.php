@@ -1,6 +1,7 @@
 <?php
 
-class Usctdp_Mgmt_Staff extends Usctdp_Mgmt_Model_Type {
+class Usctdp_Mgmt_Staff extends Usctdp_Mgmt_Model_Type
+{
     public string $post_type {
         get => "usctdp-staff";
     }
@@ -31,7 +32,7 @@ class Usctdp_Mgmt_Staff extends Usctdp_Mgmt_Model_Type {
             ]
         ];
     }
-    
+
     public array $acf_settings {
         get => [
             "key" => "group_usctdp_staff",
@@ -56,12 +57,12 @@ class Usctdp_Mgmt_Staff extends Usctdp_Mgmt_Model_Type {
                     "label" => "Bio",
                     "name" => "person_bio",
                     "type" => "textarea",
-                    "required" => 1
+                    "required" => 0
                 ]
             ],
-            'location' => array (
-                array (
-                    array (
+            'location' => array(
+                array(
+                    array(
                         'param' => 'post_type',
                         'operator' => '==',
                         'value' => 'usctdp-staff',
@@ -75,9 +76,10 @@ class Usctdp_Mgmt_Staff extends Usctdp_Mgmt_Model_Type {
         ];
     }
 
-    public function get_computed_post_fields($data, $postarr) {
+    public function get_computed_post_fields($data, $postarr)
+    {
         $result = [];
-        if ( $data['post_type'] === 'usctdp-staff' && isset($_POST['acf'])) {
+        if ($data['post_type'] === 'usctdp-staff' && isset($_POST['acf'])) {
             $first_name = $_POST['acf']['field_usctdp_staff_first_name'];
             $last_name = $_POST['acf']['field_usctdp_staff_last_name'];
             $result['post_title'] = $last_name . ", " . $first_name;
