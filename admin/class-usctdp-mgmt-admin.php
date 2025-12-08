@@ -190,7 +190,7 @@ class Usctdp_Mgmt_Admin
         return admin_url('admin.php?page=' . $page_slug);
     }
 
-    private function add_usctdp_submenu($page_slug, $title)
+    private function add_usctdp_submenu($page_slug, $title, $load_callback = null)
     {
         $function_slug = str_replace('-', '_', $page_slug);
         $callback = [$this, 'fetch_' . $function_slug . '_page'];
@@ -208,8 +208,15 @@ class Usctdp_Mgmt_Admin
                 $this->echo_admin_page($main_display);
             }
         );
-        $load_function = 'load_' . $function_slug . '_page';
-        add_action('load-' . $hook, [$this, $load_function]);
+        add_action('load-' . $hook, function () use ($page_slug) {
+            acf_form_head();
+            $this->enqueue_usctdp_page_script($page_slug);
+            $this->enqueue_usctdp_page_style($page_slug);
+        });
+        if ($load_callback) {
+            add_action('load-' . $hook, $load_callback);
+        }
+        return $hook;
     }
 
     public function add_admin_menu()
@@ -221,10 +228,10 @@ class Usctdp_Mgmt_Admin
             'usctdp-admin-main',
             [$this, 'fetch_main_page']
         );
-        $this->add_usctdp_submenu('classes', 'Classes');
+        $classes_hook = $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
         $this->add_usctdp_submenu('families', 'Families');
-        $this->add_usctdp_submenu('rosters', 'Rosters');
-        $this->add_usctdp_submenu('register', 'Register');
+        $this->add_usctdp_submenu('rosters', 'Rosters', [$this, 'load_rosters_page']);
+        $this->add_usctdp_submenu('register', 'Register', [$this, 'load_register_page']);
         $this->add_usctdp_submenu('new-session', 'New Session');
     }
 
@@ -246,9 +253,6 @@ class Usctdp_Mgmt_Admin
 
     public function load_classes_page()
     {
-        acf_form_head();
-        $this->enqueue_usctdp_page_script('classes');
-        $this->enqueue_usctdp_page_style('classes');
         wp_localize_script($this->usctdp_script_id('classes'), 'usctdp_mgmt_admin', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'class_action' => 'usctdp_fetch_classes',
@@ -258,26 +262,8 @@ class Usctdp_Mgmt_Admin
         ]);
     }
 
-    public function load_families_page()
-    {
-        acf_form_head();
-        $this->enqueue_usctdp_page_script('families');
-        $this->enqueue_usctdp_page_style('families');
-    }
-
-    public function load_new_session_page()
-    {
-        acf_form_head();
-        $this->enqueue_usctdp_page_script('new-session');
-        $this->enqueue_usctdp_page_style('new-session');
-    }
-
     public function load_rosters_page()
     {
-        acf_form_head();
-        $this->enqueue_usctdp_page_style('rosters');
-        $this->enqueue_usctdp_page_script('rosters');
-
         $session_id_key = 'session_id';
         $preloaded_session_id = '';
         $preloaded_session_name = '';
@@ -320,10 +306,6 @@ class Usctdp_Mgmt_Admin
 
     public function load_register_page()
     {
-        acf_form_head();
-        $this->enqueue_usctdp_page_script('register');
-        $this->enqueue_usctdp_page_style('register');
-
         wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'search_action' => 'my_select2_post_search',
