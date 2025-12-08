@@ -1,3 +1,11 @@
+#class-selector-wrapper {
+    display: none;
+}
+
+#roster-table-wrapper {
+    display: none;
+}
+
 #session-selector {
     width: 250px;
 }

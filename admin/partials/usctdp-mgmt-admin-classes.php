@@ -5,7 +5,7 @@
             <h2> Actions </h2>
             <ul>
                 <li>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=usctdp-mgmt-create-session')); ?>">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=usctdp-admin-new-session')); ?>">
                         Create New Session
                     </a>
                 </li>

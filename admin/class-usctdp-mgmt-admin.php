@@ -21,8 +21,6 @@
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
-define('USCTDP_NEW_SESSION_ACTION', 'usctdp_admin_new_session');
-
 class Usctdp_Mgmt_Admin
 {
     /**
@@ -52,7 +50,6 @@ class Usctdp_Mgmt_Admin
         'usctdp-registration'
     ];
 
-    // A static property holding configuration settings
     public static $post_handlers =  [
         'new_session' => [
             'submit_hook' => 'usctdp_new_session',
@@ -116,47 +113,6 @@ class Usctdp_Mgmt_Admin
                 'all'
             );
         }
-        if ($screen->base == 'usctdp-admin_page_usctdp-admin-new-session') {
-            wp_enqueue_style(
-                $this->plugin_name . 'new-session-css',
-                plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-new-session.css',
-                [],
-                $this->version,
-                'all'
-            );
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-classes') {
-            wp_enqueue_style(
-                $this->plugin_name . 'admin-classes-css',
-                plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-classes.css',
-                [],
-                $this->version,
-                'all'
-            );
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-families') {
-            wp_enqueue_style(
-                $this->plugin_name . 'admin-families-css',
-                plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-families.css',
-                [],
-                $this->version,
-                'all'
-            );
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-rosters') {
-            wp_enqueue_style(
-                $this->plugin_name . 'admin-rosters-css',
-                plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-rosters.css',
-                [],
-                $this->version,
-                'all'
-            );
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-register') {
-            wp_enqueue_style(
-                $this->plugin_name . 'admin-register-css',
-                plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-register.css',
-                [],
-                $this->version,
-                'all'
-            );
-        }
     }
 
     /**
@@ -187,103 +143,73 @@ class Usctdp_Mgmt_Admin
             $this->version,
             true
         );
-
-        $screen = get_current_screen();
-        if ($screen->base == 'usctdp-admin_page_usctdp-admin-new-session') {
-            wp_enqueue_script(
-                $this->plugin_name . 'new-session-js',
-                plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-new-session.js',
-                ['jquery', 'acf-input'],
-                $this->version,
-                true
-            );
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-classes') {
-            wp_enqueue_script(
-                $this->plugin_name . 'admin-classes-js',
-                plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin-classes.js',
-                [
-                    'jquery',
-                    'acf-input',
-                    $this->plugin_name . 'external-flatpickr-js',
-                    $this->plugin_name . 'external-datatables-js'
-                ],
-                $this->version,
-                true
-            );
-
-            wp_localize_script($this->plugin_name . 'admin-classes-js', 'usctdp_mgmt_admin', [
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'class_action' => 'usctdp_fetch_classes',
-                'class_nonce'  => wp_create_nonce('usctdp_class_search_nonce'),
-                'search_action' => 'my_select2_post_search',
-                'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce')
-            ]);
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-families') {
-            wp_enqueue_script(
-                $this->plugin_name . 'admin-families-js',
-                plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin-families.js',
-                ['jquery', 'acf-input'],
-                $this->version,
-                true
-            );
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-rosters') {
-            wp_enqueue_script(
-                $this->plugin_name . 'admin-rosters-js',
-                plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin-rosters.js',
-                ['jquery', 'acf-input'],
-                $this->version,
-                true
-            );
-
-            wp_localize_script($this->plugin_name . 'admin-rosters-js', 'usctdp_mgmt_admin', [
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'search_action' => 'my_select2_post_search',
-                'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce'),
-                'datatable_action' => 'fetch_posts_for_datatable',
-                'datatable_nonce' => wp_create_nonce('usctdp_fetch_posts_for_datatable_nonce')
-            ]);
-        } else if ($screen->base == 'usctdp-admin_page_usctdp-admin-register') {
-            wp_enqueue_script(
-                $this->plugin_name . 'admin-register-js',
-                plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin-register.js',
-                ['jquery', 'acf-input'],
-                $this->version,
-                true
-            );
-            wp_localize_script($this->plugin_name . 'admin-register-js', 'usctdp_mgmt_admin', [
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'search_action' => 'my_select2_post_search',
-                'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce')
-            ]);
-        }
     }
 
-    public function get_all_staff()
+    private function usctdp_script_id($suffix)
     {
-        $args = array(
-            'post_type'      => 'usctdp-staff',
-            'posts_per_page' => -1,
-        );
-        $query = new WP_Query($args);
-        $results = [];
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $results[get_the_ID()] = [
-                    'first_name' => get_field('field_usctdp_staff_first_name'),
-                    'last_name' => get_field('field_usctdp_staff_last_name'),
-                    'edit_link' => get_edit_post_link(),
-                ];
-            }
-        }
-        wp_reset_postdata();
-        return $results;
+        return $this->plugin_name . '-admin-' . $suffix . '-js';
     }
 
+    private function usctdp_style_id($suffix)
+    {
+        return $this->plugin_name . '-admin-' . $suffix . '-css';
+    }
+
+    private function enqueue_usctdp_page_script($suffix, $dependencies = [])
+    {
+        $deps = $dependencies ? $dependencies : [
+            'jquery',
+            'acf-input',
+            $this->plugin_name . 'external-flatpickr-js',
+            $this->plugin_name . 'external-datatables-js',
+            $this->plugin_name . 'primary-js'
+        ];
+        wp_enqueue_script(
+            $this->usctdp_script_id($suffix),
+            plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin-' . $suffix . '.js',
+            $deps,
+            $this->version,
+            true
+        );
+    }
+
+    private function enqueue_usctdp_page_style($suffix, $dependencies = [])
+    {
+        $deps = $dependencies ? $dependencies : [];
+        wp_enqueue_style(
+            $this->usctdp_style_id($suffix),
+            plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-' . $suffix . '.css',
+            $deps,
+            $this->version,
+            'all'
+        );
+    }
 
     private function get_redirect_url($page_slug)
     {
         return admin_url('admin.php?page=' . $page_slug);
+    }
+
+    private function add_usctdp_submenu($page_slug, $title)
+    {
+        $function_slug = str_replace('-', '_', $page_slug);
+        $callback = [$this, 'fetch_' . $function_slug . '_page'];
+        $capability = 'manage_options';
+        $menu_slug = 'usctdp-admin-' . $page_slug;
+        $hook = add_submenu_page(
+            'usctdp-admin-main',
+            $title,
+            $title,
+            $capability,
+            $menu_slug,
+            function () use ($page_slug) {
+                $admin_dir = plugin_dir_path(__FILE__);
+                $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-' . $page_slug . '.php';
+                $this->echo_admin_page($main_display);
+            }
+        );
+        $load_function = 'load_' . $function_slug . '_page';
+        add_action('load-' . $hook, [$this, $load_function]);
     }
 
     public function add_admin_menu()
@@ -295,51 +221,11 @@ class Usctdp_Mgmt_Admin
             'usctdp-admin-main',
             [$this, 'fetch_main_page']
         );
-        $new_session_hook = add_submenu_page(
-            'usctdp-admin-main',
-            'Create New Session',
-            'Create New Session',
-            'manage_options',
-            'usctdp-admin-new-session',
-            [$this, 'fetch_new_session_page']
-        );
-        $classes_hook = add_submenu_page(
-            'usctdp-admin-main',
-            'Classes',
-            'Classes',
-            'manage_options',
-            'usctdp-admin-classes',
-            [$this, 'fetch_classes_page']
-        );
-        $families_hook = add_submenu_page(
-            'usctdp-admin-main',
-            'Families',
-            'Families',
-            'manage_options',
-            'usctdp-admin-families',
-            [$this, 'fetch_families_page']
-        );
-        $rosters_hook = add_submenu_page(
-            'usctdp-admin-main',
-            'Rosters',
-            'Rosters',
-            'manage_options',
-            'usctdp-admin-rosters',
-            [$this, 'fetch_rosters_page']
-        );
-        $register_hook = add_submenu_page(
-            'usctdp-admin-main',
-            'Register',
-            'Register',
-            'manage_options',
-            'usctdp-admin-register',
-            [$this, 'fetch_register_page']
-        );
-        add_action('load-' . $new_session_hook, [$this, 'load_new_session_page']);
-        add_action('load-' . $classes_hook, [$this, 'load_classes_page']);
-        add_action('load-' . $families_hook, [$this, 'load_families_page']);
-        add_action('load-' . $rosters_hook, [$this, 'load_rosters_page']);
-        add_action('load-' . $register_hook, [$this, 'load_register_page']);
+        $this->add_usctdp_submenu('classes', 'Classes');
+        $this->add_usctdp_submenu('families', 'Families');
+        $this->add_usctdp_submenu('rosters', 'Rosters');
+        $this->add_usctdp_submenu('register', 'Register');
+        $this->add_usctdp_submenu('new-session', 'New Session');
     }
 
     private function echo_admin_page($path)
@@ -358,64 +244,91 @@ class Usctdp_Mgmt_Admin
         $this->echo_admin_page($main_display);
     }
 
-    public function fetch_classes_page()
-    {
-        $admin_dir = plugin_dir_path(__FILE__);
-        $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-classes.php';
-        $this->echo_admin_page($main_display);
-    }
-
-    public function fetch_families_page()
-    {
-        $admin_dir = plugin_dir_path(__FILE__);
-        $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-families.php';
-        $this->echo_admin_page($main_display);
-    }
-
-    public function fetch_rosters_page()
-    {
-        $admin_dir = plugin_dir_path(__FILE__);
-        $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-rosters.php';
-        $this->echo_admin_page($main_display);
-    }
-
-    public function fetch_register_page()
-    {
-        $admin_dir = plugin_dir_path(__FILE__);
-        $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-register.php';
-        $this->echo_admin_page($main_display);
-    }
-
-    public function fetch_new_session_page()
-    {
-        $admin_dir = plugin_dir_path(__FILE__);
-        $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-new-session.php';
-        $this->echo_admin_page($main_display);
-    }
-
-    public function load_new_session_page()
-    {
-        acf_form_head();
-    }
-
     public function load_classes_page()
     {
         acf_form_head();
+        $this->enqueue_usctdp_page_script('classes');
+        $this->enqueue_usctdp_page_style('classes');
+        wp_localize_script($this->usctdp_script_id('classes'), 'usctdp_mgmt_admin', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'class_action' => 'usctdp_fetch_classes',
+            'class_nonce'  => wp_create_nonce('usctdp_class_search_nonce'),
+            'search_action' => 'my_select2_post_search',
+            'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce')
+        ]);
     }
 
     public function load_families_page()
     {
         acf_form_head();
+        $this->enqueue_usctdp_page_script('families');
+        $this->enqueue_usctdp_page_style('families');
+    }
+
+    public function load_new_session_page()
+    {
+        acf_form_head();
+        $this->enqueue_usctdp_page_script('new-session');
+        $this->enqueue_usctdp_page_style('new-session');
     }
 
     public function load_rosters_page()
     {
         acf_form_head();
+        $this->enqueue_usctdp_page_style('rosters');
+        $this->enqueue_usctdp_page_script('rosters');
+
+        $session_id_key = 'session_id';
+        $preloaded_session_id = '';
+        $preloaded_session_name = '';
+        $class_id_key = 'class_id';
+        $preloaded_class_id = '';
+        $preloaded_class_name = '';
+
+        if (isset($_GET[$class_id_key]) && is_numeric($_GET[$class_id_key])) {
+            $class_id = intval($_GET[$class_id_key]);
+            $class_post = get_post($class_id);
+
+            if ($class_post && $class_post->post_type === 'usctdp-class') {
+                $preloaded_class_id = $class_id;
+                $preloaded_class_name = $class_post->post_title;
+                $parent = get_field('parent_session', $class_id);
+                $preloaded_session_id = $parent->ID;
+                $preloaded_session_name = $parent->post_title;
+            }
+        } else if (isset($_GET[$session_id_key]) && is_numeric($_GET[$session_id_key])) {
+            $session_id = intval($_GET[$session_id_key]);
+            $session_post = get_post($session_id);
+            if ($session_post && $session_post->post_type === 'usctdp-session') {
+                $preloaded_session_id = $session_id;
+                $preloaded_session_name = $session_post->post_title;
+            }
+        }
+
+        wp_localize_script($this->usctdp_script_id('rosters'), 'usctdp_mgmt_admin', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'search_action' => 'my_select2_post_search',
+            'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce'),
+            'datatable_action' => 'fetch_posts_for_datatable',
+            'datatable_nonce' => wp_create_nonce('usctdp_fetch_posts_for_datatable_nonce'),
+            'preloaded_session_id' => $preloaded_session_id,
+            'preloaded_session_name' => $preloaded_session_name,
+            'preloaded_class_id' => $preloaded_class_id,
+            'preloaded_class_name' => $preloaded_class_name
+        ]);
     }
 
     public function load_register_page()
     {
         acf_form_head();
+        $this->enqueue_usctdp_page_script('register');
+        $this->enqueue_usctdp_page_style('register');
+
+        wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'search_action' => 'my_select2_post_search',
+            'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce')
+        ]);
     }
 
     public function show_admin_notice()
@@ -708,16 +621,11 @@ class Usctdp_Mgmt_Admin
             'order'   => 'ASC',
         );
 
-        // Add Search Parameter
         if (! empty($search_val)) {
-            // DataTables search value is applied to 's'
             $args['s'] = $search_val;
         }
 
-        // 4. Run the Query
         $query = new WP_Query($args);
-
-        // 5. Format Data for DataTables
         $data_output = array();
         if ($query->have_posts()) {
             while ($query->have_posts()) {
@@ -759,5 +667,27 @@ class Usctdp_Mgmt_Admin
             "data"            => $data_output,
         );
         wp_send_json($response);
+    }
+
+    private function get_all_staff()
+    {
+        $args = array(
+            'post_type'      => 'usctdp-staff',
+            'posts_per_page' => -1,
+        );
+        $query = new WP_Query($args);
+        $results = [];
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $results[get_the_ID()] = [
+                    'first_name' => get_field('field_usctdp_staff_first_name'),
+                    'last_name' => get_field('field_usctdp_staff_last_name'),
+                    'edit_link' => get_edit_post_link(),
+                ];
+            }
+        }
+        wp_reset_postdata();
+        return $results;
     }
 }

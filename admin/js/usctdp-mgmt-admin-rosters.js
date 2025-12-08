@@ -2,30 +2,6 @@
     "use strict";
 
     $(document).ready(function () {
-
-        $('#session-selector').on('change', function () {
-            const selectedValue = this.value;
-            if (selectedValue === '') {
-                $('#class-selector-wrapper').hide();
-                $('#class-selector').prop('disabled', true);
-            } else {
-                $('#class-selector-wrapper').show();
-                $('#class-selector').prop('disabled', false);
-            }
-            $('#class-selector').val(null);
-            $('#class-selector').trigger('change');
-        });
-
-        $('#class-selector').on('change', function () {
-            const selectedValue = this.value;
-            if (selectedValue === '') {
-                $('#roster-table-wrapper').hide();
-            } else {
-                $('#roster-table-wrapper').show();
-            }
-            table.ajax.reload();
-        });
-
         $('#session-selector').select2({
             placeholder: "Search for a session...",
             allowClear: true,
@@ -46,6 +22,17 @@
                 }
             }
         });
+    });
+
+    $('#session-selector').on('change', function () {
+        const selectedValue = this.value;
+        if (selectedValue === '') {
+            $('#class-selector-wrapper').hide();
+        } else {
+            $('#class-selector-wrapper').show();
+        }
+        $('#class-selector').val(null);
+        $('#class-selector').trigger('change');
     });
 
     $('#class-selector').select2({
@@ -70,7 +57,16 @@
         }
     });
 
-    // DataTables Initialization
+    $('#class-selector').on('change', function () {
+        const selectedValue = this.value;
+        if (selectedValue === '') {
+            $('#roster-table-wrapper').hide();
+        } else {
+            $('#roster-table-wrapper').show();
+        }
+        table.ajax.reload();
+    });
+
     var table = $('#roster-table').DataTable({
         processing: true,
         serverSide: true,
@@ -96,10 +92,28 @@
         ]
     });
 
-    // Initialization   
-    $('#class-selector').prop('disabled', true);
-    $('#class-selector-wrapper').hide();
-    $('#roster-table-wrapper').hide();
+    if (usctdp_mgmt_admin.preloaded_session_name) {
+        const newOption = new Option(
+            usctdp_mgmt_admin.preloaded_session_name,
+            usctdp_mgmt_admin.preloaded_session_id,
+            true,
+            true
+        );
+        $('#session-selector').append(newOption)
+        $('#session-selector').val(usctdp_mgmt_admin.preloaded_session_id);
+        $('#session-selector').trigger('change');
+    }
 
+    if (usctdp_mgmt_admin.preloaded_class_name) {
+        const newOption = new Option(
+            usctdp_mgmt_admin.preloaded_class_name,
+            usctdp_mgmt_admin.preloaded_class_id,
+            true,
+            true
+        );
+        $('#class-selector').append(newOption);
+        $('#class-selector').val(usctdp_mgmt_admin.preloaded_class_id);
+        $('#class-selector').trigger('change');
+    }
 })(jQuery);
 
