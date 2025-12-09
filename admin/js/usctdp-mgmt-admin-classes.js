@@ -44,12 +44,16 @@
                         if (type === 'display') {
                             var editUrl = 'post.php?post=' + data + '&action=edit';
                             var rosterUrl = 'admin.php?page=usctdp-admin-rosters&class_id=' + data;
+                            var registerUrl = 'admin.php?page=usctdp-admin-register&class_id=' + data;
                             var cell = '<div class="class-actions">'
                             cell += '<div class="action-item">'
                             cell += '<a href="' + editUrl + '" class="button button-small">Edit Details</a> ';
                             cell += '</div>';
                             cell += '<div class="action-item">'
                             cell += '<a href="' + rosterUrl + '" class="button button-small">Roster</a> ';
+                            cell += '</div>';
+                            cell += '<div class="action-item">'
+                            cell += '<a href="' + registerUrl + '" class="button button-small">Register</a> ';
                             cell += '</div>';
                             cell += '</div>';
                             return cell;
@@ -81,13 +85,12 @@
             }
         });
 
-
         var $table_controls = $('#usctdp-upcoming-classes-table_wrapper');
         var $first_row = $table_controls.find("div.dt-layout-row").first();
         var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>"
         $first_row.after(filter_row);
 
-        $('#session-filter-wrapper').appendTo('#table-filter-row')
+        $('#session-filter-section').appendTo('#table-filter-row')
         $('#session-filter').on('change', function () {
             table.ajax.reload();
         });

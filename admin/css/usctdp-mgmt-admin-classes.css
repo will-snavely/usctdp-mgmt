@@ -1,8 +1,3 @@
-/**
- * All of the CSS for your admin-specific functionality should be
- * included in this file.
- */
-
 ul {
     list-style-type: disc;
     padding-left: 2.5em;
@@ -15,39 +10,6 @@ ul {
 
 #session-filter {
     width: 250px;
-}
-
-#usctdp-upcoming-sessions-table thead th:nth-child(1) {
-    width: 200px;
-}
-
-#usctdp-upcoming-sessions-table thead th:nth-child(2) {
-    width: 100px;
-}
-
-#usctdp-upcoming-sessions-table thead th:nth-child(3) {
-    width: 100px;
-}
-
-.usctdp-custom-post-table tbody tr td {
-    vertical-align: middle;
-}
-
-.usctdp-custom-post-table thead tr th {
-    font-weight: bold;
-    background-color: #83cdf5;
-}
-
-.usctdp-custom-post-table tbody tr {
-    height: 50px;
-}
-
-.usctdp-custom-post-table tbody tr:nth-child(odd) {
-    background-color: #d5d1d1;
-}
-
-.usctdp-custom-post-table tbody tr:nth-child(even) {
-    background-color: #f1f1f1;
 }
 
 #usctdp-classes-container {

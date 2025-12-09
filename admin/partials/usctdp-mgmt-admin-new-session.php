@@ -26,7 +26,7 @@ $fields = array_map(function ($field_name) {
 }, $class_field_names);
 ?>
 
-<div class="wrap" id="usctdp-admin-new-session-wrapper">
+<div class="wrap" id="usctdp-admin-new-session-container">
     <template id="new-session-row-template">
         <tr>
             <td class="row-index">0</td>

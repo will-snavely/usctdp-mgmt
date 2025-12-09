@@ -81,14 +81,21 @@ class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type
                         "check" => "Check",
                         "web_payment" => "Web Payment",
                     ],
-                    "required" => 1
+                    "required" => 0
                 ],
                 [
                     "key" => "field_usctdp_registration_payment_date",
                     "label" => "Payment Date",
                     "name" => "payment_date",
                     "type" => "date_time_picker",
-                    "required" => 1
+                    "required" => 0
+                ],
+                [
+                    "key" => "field_usctdp_registration_notes",
+                    "label" => "Notes",
+                    "name" => "notes",
+                    "type" => "textarea",
+                    "required" => 0
                 ]
             ],
             'location' => array(
@@ -105,5 +112,20 @@ class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type
             'style' => 'default',
             'label_placement' => 'top',
         ];
+    }
+
+    public function get_computed_post_fields($data, $postarr)
+    {
+        $result = [];
+        if ($data['post_type'] === 'usctdp-family' && isset($_POST['acf'])) {
+            $family_last_name = $_POST['acf']['field_usctdp_family_last_name'];
+            $result['post_title'] = self::create_family_title($family_last_name);
+        }
+        return $result;
+    }
+
+    public static function create_family_title($last_name)
+    {
+        return sanitize_text_field($last_name);
     }
 }

@@ -1,6 +1,6 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    <div class="usctdp-mgmt-sections">
+    <div class="usctdp-mgmt-section">
         <section id="usctdp-classes-section">
             <h2> Actions </h2>
             <ul>
@@ -17,7 +17,7 @@
             </ul>
             <h2> Active and Upcoming Classes </h2>
             <div id="usctdp-classes-container">
-                <div id="session-filter-wrapper" class="dt-layout-cell dt-layout-start">
+                <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
                     <label for="session-filter">Filter by Session:</label>
                     <select id="session-filter" style="margin-left: 10px;">
                     </select>

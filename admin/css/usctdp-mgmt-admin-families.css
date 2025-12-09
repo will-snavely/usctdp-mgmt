@@ -1,4 +1,27 @@
-/**
- * All of the CSS for your admin-specific functionality should be
- * included in this file.
- */
+#family-selector {
+    width: 250px;
+}
+
+#family-display-section {
+    display: none;
+}
+
+div.dt-length select {
+    width: 50px;
+}
+
+#family-table-wrap {
+    max-width: 600px;
+}
+
+#family-details .family-field {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    text-align: right;
+}
+
+#family-details .family-field label {
+    width: 50px;
+    font-weight: bold;
+}

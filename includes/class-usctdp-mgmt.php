@@ -249,6 +249,12 @@ class Usctdp_Mgmt
             $plugin_admin,
             'fetch_posts_for_datatable'
         );
+
+        $this->loader->add_action(
+            'wp_ajax_usctdp_class_qualification_data',
+            $plugin_admin,
+            'ajax_get_class_qualification_data'
+        );
     }
 
     /**
