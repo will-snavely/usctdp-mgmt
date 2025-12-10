@@ -118,7 +118,8 @@ class Data_Generator_Command
     {
         $seen = [];
         $result = [];
-        for ($i = 0; $i < $count; $i++) {
+        $i = 0;
+        while($i < $count) {
             $first_name = $this->first_names[array_rand($this->first_names)];
             $last_name = $this->last_names[array_rand($this->last_names)];
             if (isset($seen[$first_name . " " . $last_name])) {
@@ -133,6 +134,7 @@ class Data_Generator_Command
             update_field('last_name', $last_name, $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $seen[$first_name . " " . $last_name] = true;
+            $i++;
             $result[] = [
                 "id" => $post_id
             ];
@@ -144,11 +146,26 @@ class Data_Generator_Command
     {
         $result = [];
         $seen = [];
-        for ($i = 0; $i < $count; $i++) {
+        $i = 0;
+        while($i < $count) {
             $last_name = $this->last_names[array_rand($this->last_names)];
             if (isset($seen[$last_name])) {
                 continue;
             }
+            
+            // Define the user data array
+            $userdata = array(
+                'user_login' => $last_name, 
+                'user_pass' => bin2hex(random_bytes(16)),
+                'user_email' => $last_name . '@example.com', 
+                'first_name' => 'Family',
+                'last_name' => $last_name,
+                'display_name' => $last_name, 
+                'role' => 'subscriber' 
+            );
+
+            $user_id = wp_insert_user( $userdata );
+
             $family_id = wp_insert_post([
                 'post_title'    => "$last_name Family",
                 'post_status'   => 'publish',
@@ -160,8 +177,10 @@ class Data_Generator_Command
             update_field('city', "Springfield", $family_id);
             update_field('state', "IL", $family_id);
             update_field('zip', "62704", $family_id);
+            update_field('assigned_user', $user_id, $family_id);
             wp_set_post_terms($family_id, ["test-data"], 'post_tag', false);
             $seen[$last_name] = true;
+            $i++;
             $num_students = rand(1, 5);
             $result[] = [
                 "id" => $family_id,
@@ -175,7 +194,8 @@ class Data_Generator_Command
     {
         $result = [];
         $seen = [];
-        for ($i = 0; $i < $count; $i++) {
+        $i = 0;
+        while($i < $count) {
             $first_name = $this->first_names[array_rand($this->first_names)];
             if (isset($seen[$first_name])) {
                 continue;
@@ -196,6 +216,7 @@ class Data_Generator_Command
             update_field('family', $family_id, $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $seen[$first_name] = true;
+            $i++;
             $result[] = [
                 "id" => $post_id,
                 "name" => $name
@@ -297,7 +318,8 @@ class Data_Generator_Command
     {
         $result = [];
         $enrolled = [];
-        for ($i = 0; $i < $count; $i++) {
+        $i = 0;
+        while($i < $count) {
             $session = $sessions[array_rand($sessions)];
             $class = $session['classes'][array_rand($session['classes'])];
             $family = $families[array_rand($families)];
@@ -324,6 +346,7 @@ class Data_Generator_Command
             update_field("payment_method", "check", $post_id);
             update_field("payment_date", date('Y-m-d H:i:s'), $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
+            $i++;
             $result[] = [
                 "id" => $post_id
             ];
@@ -369,6 +392,14 @@ class Data_Generator_Command
             foreach ($posts as $post) {
                 wp_delete_post($post->ID, true);
             }
+        }
+
+        WP_CLI::log('Removing users...');
+        $users = get_users([
+            "role" => "subscriber" 
+        ]); 
+        foreach ( $users as $user ) {
+            wp_delete_user($user->ID);
         }
     }
 }

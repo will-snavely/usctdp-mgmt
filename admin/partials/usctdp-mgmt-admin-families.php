@@ -11,6 +11,10 @@
         <div id="family-details-section">
             <h2> Family Details</h2>
             <div id="family-details">
+                <div id="family-email-wrap" class="family-field">
+                    <label for="family-email">E-mail</label>
+                    <span id="family-email"></span>
+                </div>
                 <div id="family-address-wrap" class="family-field">
                     <label for="family-address">Address</label>
                     <span id="family-address"></span>
@@ -31,6 +35,7 @@
                     <label for="family-phone">Phone</label>
                     <span id="family-phone_number"></span>
                 </div>
+ 
                 <h2> Family Members</h2>
                 <div id="family-table-wrap">
                     <table id="family-members-table" class="usctdp-custom-post-table">
@@ -45,6 +50,14 @@
                         <tbody id="family-members-table-body">
                         </tbody>
                     </table>
+                </div>
+
+                <h2> Notes</h2>
+                <div id="family-notes-wrap">
+                    <textarea id="family-notes" rows=5></textarea>
+                    <button id="save-notes-button" class="button button-primary"> 
+                        Save Notes 
+                    </button>
                 </div>
             </div>
         </div>

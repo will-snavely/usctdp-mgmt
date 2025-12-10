@@ -85,7 +85,14 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
                     "label" => "Notes",
                     "name" => "notes",
                     "type" => "textarea",
-                ]
+                ],
+                [
+                    'key' => 'field_usctdp_family_user',
+                    'label' => 'Assigned User',
+                    'name' => 'assigned_user', 
+                    'type' => 'user',
+                    'required' => 1,
+                ],
             ],
             'location' => array(
                 array(
