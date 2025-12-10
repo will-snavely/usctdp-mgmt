@@ -111,7 +111,10 @@
                                     $(element_id).text(familyData.acf[key]);
                                 }
                             }
+                            var user = familyData.acf["assigned_user"];
+                            $("#family-email").text(user.user_email);
                         }
+                    
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error("AJAX Error:", textStatus, errorThrown);
@@ -119,6 +122,10 @@
                 });
             }
         });
+
+        $("#save-notes-button").on("click", function() {
+            console.log("saving notes");
+        });  
     });
 
 })(jQuery);

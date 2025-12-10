@@ -11,7 +11,7 @@ div.dt-length select {
 }
 
 #family-table-wrap {
-    max-width: 600px;
+    max-width: 800px;
 }
 
 #family-details .family-field {
@@ -24,4 +24,17 @@ div.dt-length select {
 #family-details .family-field label {
     width: 50px;
     font-weight: bold;
+}
+
+#family-notes-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    max-width: 800px;
+}
+
+#family-notes-wrap textarea {
+    width: 100%;
 }
