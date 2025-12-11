@@ -252,17 +252,6 @@ class Usctdp_Mgmt_Admin
         }
     }
 
-    public function load_classes_page()
-    {
-        wp_localize_script($this->usctdp_script_id('classes'), 'usctdp_mgmt_admin', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'class_action' => 'usctdp_fetch_classes',
-            'class_nonce'  => wp_create_nonce('usctdp_class_search_nonce'),
-            'search_action' => 'my_select2_post_search',
-            'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce')
-        ]);
-    }
-
     private function extract_session_and_class_context()
     {
         $session_id_key = 'session_id';
@@ -279,7 +268,7 @@ class Usctdp_Mgmt_Admin
             if ($class_post && $class_post->post_type === 'usctdp-class') {
                 $class_id = $class_id;
                 $class_name = $class_post->post_title;
-                $parent = get_field('parent_session', $class_id);
+                $parent = get_field('session', $class_id);
                 $session_id = $parent->ID;
                 $session_name = $parent->post_title;
             }
@@ -298,6 +287,19 @@ class Usctdp_Mgmt_Admin
             'class_id' => $class_id,
             'class_name' => $class_name,
         ];
+    }
+
+    public function load_classes_page()
+    {
+        wp_localize_script($this->usctdp_script_id('classes'), 'usctdp_mgmt_admin', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'class_action' => 'usctdp_fetch_classes',
+            'class_nonce'  => wp_create_nonce('usctdp_class_search_nonce'),
+            'datatable_action' => 'fetch_posts_for_datatable',
+            'datatable_nonce' => wp_create_nonce('usctdp_fetch_posts_for_datatable_nonce'),
+            'search_action' => 'my_select2_post_search',
+            'search_nonce'  => wp_create_nonce('usctdp_class_search2_nonce')
+        ]);
     }
 
     public function load_rosters_page()
@@ -594,6 +596,8 @@ class Usctdp_Mgmt_Admin
             }
         }
         $args['meta_query'] = $meta_query;
+        $args['orderby'] = 'title';
+        $args['order'] = 'ASC';
         $query = new WP_Query($args);
         $found_posts = 0;
 
@@ -703,8 +707,8 @@ class Usctdp_Mgmt_Admin
             'paged'          => $paged,
             'no_found_rows'  => false,
             'meta_query'     => $meta_query,
-            'orderby' => 'meta_value_num',
-            'order'   => 'ASC',
+            'orderby'        => 'title',
+            'order'          => 'ASC',
         );
 
         if (! empty($search_val)) {
@@ -717,16 +721,16 @@ class Usctdp_Mgmt_Admin
             while ($query->have_posts()) {
                 $query->the_post();
                 $acf_fields = get_fields(get_the_ID());
-                $fields = array(
+                $output_fields = array(
                     'id' => get_the_ID(),
                     'title' => get_the_title(),
                     'edit' => get_edit_post_link(get_the_ID()),
                     'permalink' => get_permalink(),
                 );
-                foreach ($acf_fields as $key => $value) {
-                    $fields[$key] = $value;
+                foreach ($acf_fields as $field_name => $field_value) {
+                    $output_fields[$field_name] = $field_value;
                 }
-                $data_output[] = $fields;
+                $data_output[] = $output_fields;
             }
             wp_reset_postdata();
         }

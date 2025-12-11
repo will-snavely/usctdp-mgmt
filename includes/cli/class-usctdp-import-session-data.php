@@ -90,6 +90,7 @@ class Usctdp_Import_Session_Data
             foreach ($data["classes"] as $class) {
                 $course_id = $this->courses[$class['course']];
                 $course_name = get_field('name', $course_id);
+
                 $dow = $class['day'];
                 $start_time = new DateTime($class['start_time']);
                 $pricing_id = $this->pricing[$session_name][$course_name];
