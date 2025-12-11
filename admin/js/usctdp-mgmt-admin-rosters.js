@@ -43,9 +43,11 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-class',
-                        filter_parent_session: $('#session-selector').val(),
                         action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        security: usctdp_mgmt_admin.search_nonce,
+                        'filter[session][value]': $('#session-selector').val(),
+                        'filter[session][compare]': '=',
+                        'filter[session][type]': 'NUMERIC'
                     };
                 },
                 processResults: function (data) {

@@ -62,7 +62,14 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
                     'display_format' => 'm/d/Y',
                     'return_format' => 'Ymd',
                     'required' => 1
-                ]
+                ],
+                [
+                    'key' => 'field_usctdp_session_weeks',
+                    'label' => 'Length in Weeks',
+                    'name' => 'length_weeks',
+                    'type' => 'number',
+                    'required' => 1
+                ],
             ],
             'location' => array(
                 array(
@@ -85,17 +92,24 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
         $result = [];
         if ($data['post_type'] === 'usctdp-session' && isset($_POST['acf'])) {
             $session_name = $_POST['acf']['field_usctdp_session_name'];
+            $length_weeks = $_POST['acf']['field_usctdp_session_length_weeks'];
             $session_start = $_POST['acf']['field_usctdp_session_start_date'];
             $session_end = $_POST['acf']['field_usctdp_session_end_date'];
             $start_date = DateTime::createFromFormat('Ymd', $session_start);
             $end_date = DateTime::createFromFormat('Ymd', $session_end);
-            $result['post_title'] = self::create_session_title($session_name, $start_date, $end_date);
+            $result['post_title'] = self::create_session_title($session_name, $length_weeks, $start_date, $end_date);
         }
         return $result;
     }
 
-    public static function create_session_title($name, $start_date, $end_date)
-    {
-        return sanitize_text_field($name . ' (' . $start_date->format('m/d/Y') . ' - ' . $end_date->format('m/d/Y') . ')');
+    public static function create_session_title(
+        $name,
+        $length_weeks,
+        $start_date,
+        $end_date
+    ) {
+        $start = $start_date->format('m/d/Y');
+        $end = $end_date->format('m/d/Y');
+        return sanitize_text_field($name . ' - ' . $length_weeks . ' weeks (' . $start . ' - ' . $end . ')');
     }
 }

@@ -561,20 +561,16 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.');
         }
 
-        $post_id = isset($_GET['post_id']) ? sanitize_text_field($_GET['post_id']) : '';
+        $post_id = isset($_GET['p']) ? sanitize_text_field($_GET['p']) : '';
         $search_term = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
         $post_type = isset($_GET['post_type']) ? sanitize_text_field($_GET['post_type']) : 'post';
         $include_acf = isset($_GET['acf']) ? sanitize_text_field($_GET['acf'] === 'true') : false;
-        $filters = [];
-        foreach ($_GET as $key => $value) {
-            if (str_starts_with($key, 'filter_')) {
-                $filters[preg_replace("/^filter_/", "", $key)] = sanitize_text_field($value);
-            }
-        }
+
         $results = array();
         $args = [
             'post_type' => $post_type,
         ];
+
         if ($post_id) {
             $args['p'] = $post_id;
             $args['posts_per_page'] = 1;
@@ -583,19 +579,21 @@ class Usctdp_Mgmt_Admin
             $args['posts_per_page'] = 10;
         }
 
-        if ($filters) {
-            $args['meta_query'] = [
-                'relation' => 'AND',
+        $meta_query = [];
+        if (isset($_GET["filter"])) {
+            $meta_query = [
+                'relation' => 'AND'
             ];
-            foreach ($filters as $key => $value) {
-                $args['meta_query'][] = [
-                    'key' => $key,
-                    'value' => $value,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
+            foreach ($_GET["filter"] as $key => $filter) {
+                $meta_query[] = [
+                    'key'     => $key,
+                    'value'   => sanitize_text_field($filter['value']),
+                    'compare' => sanitize_text_field($filter['compare']),
+                    'type'    => sanitize_text_field($filter['type'])
                 ];
             }
         }
+        $args['meta_query'] = $meta_query;
         $query = new WP_Query($args);
         $found_posts = 0;
 

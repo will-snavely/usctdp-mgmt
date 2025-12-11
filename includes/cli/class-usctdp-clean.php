@@ -2,16 +2,45 @@
 
 class Usctdp_Clean
 {
-    public function clean()
+    public function clean($target)
     {
-        $post_types = [
-            'usctdp-session',
-            'usctdp-staff',
-            'usctdp-class',
-            'usctdp-family',
-            'usctdp-student',
-            'usctdp-registration'
-        ];
+        $post_types = [];
+        $remove_users = false;
+        if ($target == "all") {
+            $post_types = [
+                'usctdp-session',
+                'usctdp-staff',
+                'usctdp-class',
+                'usctdp-family',
+                'usctdp-student',
+                'usctdp-registration',
+                'usctdp-course',
+                'usctdp-pricing'
+            ];
+            $remove_users = true;
+        } else if ($target == "people") {
+            $post_types = [
+                'usctdp-family',
+                'usctdp-student',
+                'usctdp-registration',
+                'usctdp-staff',
+            ];
+            $remove_users = true;
+        } else if ($target == "classes") {
+            $post_types = [
+                'usctdp-session',
+                'usctdp-class',
+                'usctdp-course',
+                'usctdp-pricing',
+                'usctdp-registration'
+            ];
+            $remove_users = false;
+        } else if ($target == "registrations") {
+            $post_types = [
+                'usctdp-registration'
+            ];
+            $remove_users = false;
+        }
         foreach ($post_types as $post_type) {
             WP_CLI::log('Removing ' . $post_type . ' entities...');
             $posts = get_posts([
@@ -25,12 +54,14 @@ class Usctdp_Clean
             }
         }
 
-        WP_CLI::log('Removing users...');
-        $users = get_users([
-            "role" => "subscriber"
-        ]);
-        foreach ($users as $user) {
-            wp_delete_user($user->ID);
+        if ($remove_users) {
+            WP_CLI::log('Removing users...');
+            $users = get_users([
+                "role" => "subscriber"
+            ]);
+            foreach ($users as $user) {
+                wp_delete_user($user->ID);
+            }
         }
     }
 }

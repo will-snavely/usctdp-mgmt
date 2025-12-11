@@ -53,6 +53,13 @@ class Usctdp_Mgmt_Course extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
+                    'key' => 'field_usctdp_short_course_description',
+                    'label' => 'Short Description',
+                    'name' => 'short_description',
+                    'type' => 'text',
+                    'required' => 1
+                ],
+                [
                     'key' => 'field_usctdp_course_description',
                     'label' => 'Description',
                     'name' => 'description',

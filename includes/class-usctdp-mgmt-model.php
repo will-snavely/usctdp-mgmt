@@ -41,7 +41,8 @@ class Usctdp_Mgmt_Model
             "class-usctdp-mgmt-family.php",
             "class-usctdp-mgmt-registration.php",
             "class-usctdp-mgmt-class.php",
-            "class-usctdp-mgmt-course.php"
+            "class-usctdp-mgmt-course.php",
+            "class-usctdp-mgmt-pricing.php"
         ];
         $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
         foreach ($model_classes as $class) {
@@ -54,11 +55,13 @@ class Usctdp_Mgmt_Model
         $classes = [
             new Usctdp_Mgmt_Staff(),
             new Usctdp_Mgmt_Session(),
-            new Usctdp_Mgmt_Class(),
             new Usctdp_Mgmt_Course(),
+            new Usctdp_Mgmt_Pricing(),
+            new Usctdp_Mgmt_Class(),
             new Usctdp_Mgmt_Student(),
             new Usctdp_Mgmt_Family(),
-            new Usctdp_Mgmt_Registration()
+            new Usctdp_Mgmt_Registration(),
+
         ];
 
         $result = [];

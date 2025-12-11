@@ -14,7 +14,6 @@
                 type: 'POST',
                 data: function (d) {
                     var sessionFilterValue = $('#session-filter').val();
-                    console.log("sessionFilterValue", sessionFilterValue);
                     d.action = usctdp_mgmt_admin.class_action;
                     d.security = usctdp_mgmt_admin.class_nonce;
                     d.session_filter = sessionFilterValue;
