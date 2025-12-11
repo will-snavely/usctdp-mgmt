@@ -425,8 +425,8 @@ class Usctdp_Mgmt_Admin
                             throw new ErrorException('Failed to update class field: ' . $key);
                         }
                     }
-                    if (!update_field('field_usctdp_class_parent', $session_id, $class_id)) {
-                        throw new ErrorException('Failed to update class parent field with: ' . $session_id);
+                    if (!update_field('field_usctdp_class_session', $session_id, $class_id)) {
+                        throw new ErrorException('Failed to update class session field with: ' . $session_id);
                     }
                 }
             }
@@ -799,7 +799,7 @@ class Usctdp_Mgmt_Admin
                 $query->the_post();
 
                 $id = get_the_ID();
-                $session = get_field('field_usctdp_class_parent');
+                $session = get_field('field_usctdp_class_session');
                 $level = get_field('field_usctdp_class_level');
                 $raw_start = get_field('field_usctdp_class_start_date');
                 $raw_end = get_field('field_usctdp_class_end_date');
