@@ -13,8 +13,8 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    d.action = usctdp_mgmt_admin.datatable_action;
-                    d.security = usctdp_mgmt_admin.datatable_nonce;
+                    d.action = usctdp_mgmt_admin.datatable_search_action;
+                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
                     d.post_type = 'usctdp-class';
                     var sessionFilterValue = $('#session-filter').val();
                     if (sessionFilterValue) {
@@ -102,8 +102,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-session',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {
@@ -123,8 +123,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-course',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {

@@ -22,8 +22,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-session',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {
@@ -54,8 +54,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-class',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce,
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
                         'filter[session][value]': $('#session-selector').val(),
                         'filter[session][compare]': '=',
                         'filter[session][type]': 'NUMERIC'
@@ -89,8 +89,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-student',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {
@@ -114,10 +114,10 @@
                 method: 'GET',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.qualification_action,
+                    action: usctdp_mgmt_admin.class_qualification_action,
                     class_id: selectedClass,
                     student_id: selectedStudent,
-                    security: usctdp_mgmt_admin.qualification_nonce,
+                    security: usctdp_mgmt_admin.class_qualification_nonce,
                 },
                 success: function (responseData) {
                     var current_size = responseData.registered;
@@ -158,7 +158,6 @@
             $('#payment-amount-pending').val('');
             $('#notes').val('');
         }
-
 
         if (usctdp_mgmt_admin.preloaded_session_name) {
             const newOption = new Option(

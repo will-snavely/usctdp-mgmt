@@ -43,8 +43,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-class',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce,
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
                         'filter[session][value]': $('#session-selector').val(),
                         'filter[session][compare]': '=',
                         'filter[session][type]': 'NUMERIC'
@@ -82,8 +82,8 @@
                 type: 'POST',
                 data: function (d) {
                     var classFilterValue = $('#class-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_action;
-                    d.security = usctdp_mgmt_admin.datatable_nonce;
+                    d.action = usctdp_mgmt_admin.datatable_search_action;
+                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
                     d.post_type = 'usctdp-registration';
                     d['filter[class][value]'] = classFilterValue;
                     d['filter[class][compare]'] = '=';
@@ -137,4 +137,3 @@
         }
     });
 })(jQuery);
-

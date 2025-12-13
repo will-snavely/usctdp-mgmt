@@ -10,8 +10,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-family',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce,
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
                     };
                 },
                 processResults: function (data) {
@@ -34,8 +34,8 @@
                 type: 'POST',
                 data: function (d) {
                     var familyFilterValue = $('#family-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_action;
-                    d.security = usctdp_mgmt_admin.datatable_nonce;
+                    d.action = usctdp_mgmt_admin.datatable_search_action;
+                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
                     d.post_type = 'usctdp-student';
                     d['filter[family][value]'] = familyFilterValue;
                     d['filter[family][compare]'] = '=';
@@ -114,7 +114,7 @@
                             var user = familyData.acf["assigned_user"];
                             $("#family-email").text(user.user_email);
                         }
-                    
+
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error("AJAX Error:", textStatus, errorThrown);
@@ -123,9 +123,9 @@
             }
         });
 
-        $("#save-notes-button").on("click", function() {
+        $("#save-notes-button").on("click", function () {
             console.log("saving notes");
-        });  
+        });
     });
 
 })(jQuery);

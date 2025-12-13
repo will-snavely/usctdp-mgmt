@@ -32,6 +32,11 @@
                     Register Student
                 </a>
             </li>
+            <li>
+                <a id="print-roster-button" href="javascript:void(0)">
+                    Print Roster
+                </a>
+            </li>
         </ul>
     </div>
 </div>
