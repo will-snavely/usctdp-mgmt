@@ -32,6 +32,8 @@
             }
             $('#class-selector').val(null);
             $('#class-selector').trigger('change');
+            $('#roster-print-success').hide();
+            $('#roster-print-error').hide();
         });
 
         $('#class-selector').select2({
@@ -68,16 +70,22 @@
                 $('#register-student-button').attr('href', registerUrl);
             }
             table.ajax.reload();
+            $('#roster-print-success').hide();
+            $('#roster-print-error').hide();
         });
 
         function toggleLoading(isLoading) {
             if (isLoading) {
                 $('#button-text').text('Working...');
                 $('#print-roster-button').addClass('is-loading');
+                $('#session-selector').attr('disabled', true);
+                $('#class-selector').attr('disabled', true);
 
             } else {
                 $('#button-text').text('Print Roster');
                 $('#print-roster-button').removeClass('is-loading');
+                $('#session-selector').attr('disabled', false);
+                $('#class-selector').attr('disabled', false);
             }
         }
         $('#print-roster-button').on('click', function () {
@@ -97,14 +105,13 @@
                     class_id: selectedValue,
                     security: usctdp_mgmt_admin.gen_roster_nonce,
                 },
-                success: function (responseData) {
-                    console.log(responseData);
-                    const url = 'https://docs.google.com/document/d/' + responseData.doc_id;
+                success: function (response) {
+                    const url = 'https://docs.google.com/document/d/' + response.data.doc_id;
                     $('#roster-link').attr('href', url);
                     $('#roster-print-success').show();
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("AJAX Error");
+                    $('#roster-print-error').show();
                 },
                 complete: function () {
                     toggleLoading(false);

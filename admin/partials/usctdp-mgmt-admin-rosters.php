@@ -41,7 +41,7 @@
                         Success!
                         <a href="" id="roster-link" target="_blank" rel="noopener noreferrer">Click to Open</a>
                     </span>
-                    <span id="roster-print-error" class="error">Failed to generate roster. Error: <span id="roster-error"></span></span>
+                    <span id="roster-print-error" class="error">Failed to generate roster. <span id="roster-error"></span></span>
                 </div>
             </li>
         </ul>

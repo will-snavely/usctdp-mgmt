@@ -51,6 +51,7 @@ class Usctdp_Import_Session_Data
             update_field('short_description', $course['short_description'], $post_id);
             update_field('age_range', $course['age_range'], $post_id);
             update_field('description', $course['description'], $post_id);
+            update_field('age_group', $course['age_group'], $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $this->courses[$course['course_name']] = $post_id;
         }

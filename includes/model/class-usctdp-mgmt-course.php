@@ -53,6 +53,13 @@ class Usctdp_Mgmt_Course extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
+                    'key' => 'field_usctdp_course_age_group',
+                    'label' => 'Age Group',
+                    'name' => 'age_group',
+                    'type' => 'text',
+                    'required' => 1
+                ],
+                [
                     'key' => 'field_usctdp_short_course_description',
                     'label' => 'Short Description',
                     'name' => 'short_description',

@@ -683,7 +683,7 @@ class Usctdp_Mgmt_Admin
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['get_class_qualification'];
         if (! check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Security check failed. Invalid Nonce.');
+            wp_send_json_error('Security check failed. Invalid Nonce.', 400);
         }
 
         $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
@@ -732,21 +732,11 @@ class Usctdp_Mgmt_Admin
             $student_registered = true;
         }
         wp_reset_postdata();
-        wp_send_json([
+        wp_send_json_success([
             'capacity' => $capacity,
             'registered' => $found_posts,
             'student_registered' => $student_registered
         ]);
-        wp_die();
-    }
-
-    private function error_response_and_die($message)
-    {
-        $response = [
-            'type' => 'error',
-            'message' => $message
-        ];
-        wp_send_json_error($response);
         wp_die();
     }
 
@@ -811,70 +801,123 @@ class Usctdp_Mgmt_Admin
         ]);
     }
 
+    private function age_from_birthdate($birthdate)
+    {
+        $birthDate = new DateTime($birthdate);
+        $today = new DateTime('today');
+        $age = $birthDate->diff($today)->y;
+        return $age;
+    }
+
     public function ajax_gen_roster()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['gen_roster'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
+        if (empty($class_id)) {
+            wp_send_json_error('Class ID is required.', 400);
+        }
+
+        $class = get_post($class_id);
+        if (!$class) {
+            wp_send_json_error('Class with ID "' . $class_id . '" not found.', 404);
+        }
+
+        $sourceDocId = env('GOOGLE_DOC_ROSTER_TEMPLATE_ID');
+        $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
+        if (empty($sourceDocId) || empty($destinationFolderId)) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                'Server is not configured for Google Docs.'
+            );
+            wp_send_json_error('Server configuration error. Please contact the administrator.', 500);
+        }
+
+        $class_fields = get_fields($class_id);
+        $registrations = $this->get_class_registrations($class_id);
+
         try {
-            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
-                throw new ErrorException('Nonce check failed.');
-            }
-
-            $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
-            if (empty($class_id)) {
-                throw new ErrorException('Class ID is required.');
-            }
-
-            $sourceDocId = env('GOOGLE_DOC_ROSTER_TEMPLATE_ID');
-            $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
-            if (empty($sourceDocId)) {
-                throw new ErrorException('Google Doc Roster Template ID not found');
-            }
-            if (empty($destinationFolderId)) {
-                throw new ErrorException('Google Drive Folder ID not found');
-            }
-
-            $class = get_post($class_id);
-            $class_fields = get_fields($class_id);
-            error_log('Class: ' . print_r($class_fields, true));
-            if (!$class) {
-                throw new ErrorException('Class not found.');
-            }
-            $registrations = $this->get_class_registrations($class_id);
-
             $newFileName = 'Roster: ' . $class->post_title;
             $client = $this->create_google_client();
-
             $driveService = new Drive($client);
             $docsService = new Docs($client);
+
             $newFileMetadata = new DriveFile([
                 'name' => $newFileName,
                 'parents' => [$destinationFolderId]
             ]);
-
             $copiedFile = $driveService->files->copy($sourceDocId, $newFileMetadata);
+            $copyId = $copiedFile->getId();
 
-
-
-            error_log('Day of week: ' . $class_fields['day_of_week']);
             $requests = [
+                $this->text_replace('{{session_name}}',  get_field('session_name', $class_fields['session'])),
                 $this->text_replace('{{day_of_week}}', $class_fields['day_of_week']),
-                $this->text_replace('{{start}}', $class_fields['start_time']),
-                $this->text_replace('{{end}}', $class_fields['end_time']),
+                $this->text_replace('{{start_time}}', $class_fields['start_time']),
+                $this->text_replace('{{end_time}}', $class_fields['end_time']),
+                $this->text_replace('{{level}}', $class_fields['level']),
+                $this->text_replace('{{limit}}', $class_fields['capacity']),
+                $this->text_replace('{{age_group}}', get_field('age_group', $class_fields['course'])),
+                $this->text_replace('{{start_date}}', isset($class_fields['start_date']) ? $class_fields['start_date'] : ''),
+                $this->text_replace('{{end_date}}', isset($class_fields['end_date']) ? $class_fields['end_date'] : ''),
             ];
+
+            if (isset($class_fields['instructors'])) {
+                $instructor_first_names = array_map(function ($instructor) {
+                    return $instructor['first_name'];
+                }, $class_fields['instructors']);
+                $requests[] = $this->text_replace('{{instructors}}', implode(', ', $instructor_first_names));
+            } else {
+                $requests[] = $this->text_replace('{{instructors}}', '');
+            }
+
+            $student_data = [];
+            foreach ($registrations as $registration) {
+                $student_id = $registration['student'];
+                $student_fields = get_fields($student_id);
+                $student_data[] = [
+                    'last' => $student_fields['last_name'],
+                    'first' => $student_fields['first_name'],
+                    'age' => strval($this->age_from_birthdate($student_fields['birth_date'])),
+                    'level' => "",
+                    'phone' => ""
+                ];
+            }
+
+            $index = 1;
+            foreach ($student_data as $student) {
+                $requests[] = $this->text_replace('{{att_' . $index . '}}', "____" . $index);
+                $requests[] = $this->text_replace('{{last_' . $index . '}}', $student['last']);
+                $requests[] = $this->text_replace('{{first_' . $index . '}}', $student['first']);
+                $requests[] = $this->text_replace('{{age_' . $index . '}}', $student['age']);
+                $requests[] = $this->text_replace('{{level_' . $index . '}}', $student['level']);
+                $requests[] = $this->text_replace('{{phone_' . $index . '}}', $student['phone']);
+                $index += 1;
+            }
+
+            for ($i = $index; $i <= 20; $i++) {
+                $requests[] = $this->text_replace('{{att_' . $i . '}}', "");
+                $requests[] = $this->text_replace('{{last_' . $i . '}}', "");
+                $requests[] = $this->text_replace('{{first_' . $i . '}}', "");
+                $requests[] = $this->text_replace('{{level_' . $i . '}}', "");
+                $requests[] = $this->text_replace('{{age_' . $i . '}}', "");
+                $requests[] = $this->text_replace('{{phone_' . $i . '}}', "");
+            }
 
             $batchUpdateRequest = new Google_Service_Docs_BatchUpdateDocumentRequest([
                 'requests' => $requests
             ]);
-            $docsService->documents->batchUpdate($copiedFile->getId(), $batchUpdateRequest);
-
-            wp_send_json([
-                'type' => 'success',
+            $docsService->documents->batchUpdate($copyId, $batchUpdateRequest);
+            wp_send_json_success([
                 'message' => 'Roster generated successfully',
-                'doc_id' => $copiedFile->getId()
+                'doc_id' => $copyId
             ]);
-            wp_die();
-        } catch (Exception $e) {
-            $this->error_response_and_die($e->getMessage());
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                'Error generating roster: ' . $e->getMessage()
+            );
+            wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
         }
     }
 
@@ -882,14 +925,13 @@ class Usctdp_Mgmt_Admin
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_search'];
         if (! check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Security check failed. Invalid Nonce.');
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
         $post_id = isset($_GET['p']) ? sanitize_text_field($_GET['p']) : '';
         $search_term = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
         $post_type = isset($_GET['post_type']) ? sanitize_text_field($_GET['post_type']) : 'post';
         $include_acf = isset($_GET['acf']) ? sanitize_text_field($_GET['acf'] === 'true') : false;
-
         $results = array();
         $args = [
             'post_type' => $post_type,
@@ -948,6 +990,7 @@ class Usctdp_Mgmt_Admin
         if (! check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
+
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
