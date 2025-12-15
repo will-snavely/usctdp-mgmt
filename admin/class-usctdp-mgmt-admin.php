@@ -10,6 +10,14 @@
  * @subpackage Usctdp_Mgmt/admin
  */
 
+use Google\Client;
+use Google\Service\Docs;
+use Google\Service\Docs\Request as DocsRequest;
+use Google\Service\Docs\BatchUpdateDocumentRequest;
+use Google\Service\Docs\InsertTextRequest;
+use Google\Service\Drive;
+use Google\Service\Drive\DriveFile;
+
 /**
  * The admin-specific functionality of the plugin.
  *
@@ -219,12 +227,12 @@ class Usctdp_Mgmt_Admin
         return admin_url('admin.php?page=' . $page_slug);
     }
 
-    private function add_usctdp_submenu($page_slug, $title, $menu_slug = null, $load_callback = null)
+    private function add_usctdp_submenu($page_slug, $title, $load_callback = null)
     {
         $function_slug = str_replace('-', '_', $page_slug);
         $callback = [$this, 'fetch_' . $function_slug . '_page'];
         $capability = 'manage_options';
-        $menu_slug = $menu_slug ? $menu_slug : 'usctdp-admin-' . $page_slug;
+        $menu_slug = 'usctdp-admin-' . $page_slug;
         $hook = add_submenu_page(
             'usctdp-admin-main',
             $title,
@@ -248,22 +256,100 @@ class Usctdp_Mgmt_Admin
         return $hook;
     }
 
+    public function usctdp_google_oauth_handler()
+    {
+        $redirect_url = "http://127.0.0.1/wp/wp-admin/admin.php?page=usctdp-admin-main";
+        if (!isset($_GET['page']) || $_GET['page'] !== 'usctdp-admin-main') {
+            return;
+        }
+
+        // HANDLE THE INITIAL BUTTON CLICK (Initiate Redirect to Google)
+        if (isset($_GET['usctdp_google_auth']) && $_GET['usctdp_google_auth'] === '1') {
+            error_log('USCTDP: Google OAuth Initiated');
+            $scopes = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/documents'];
+            $client = new Client();
+            $client->setClientId(env('GOOGLE_DOCS_CLIENT_ID'));
+            $client->setClientSecret(env('GOOGLE_DOCS_CLIENT_SECRET'));
+            $client->setRedirectUri($redirect_url);
+
+            $client->setAccessType('offline');
+            $client->setPrompt('consent');
+            $client->setScopes($scopes);
+            $authUrl = $client->createAuthUrl();
+            wp_redirect(filter_var($authUrl, FILTER_SANITIZE_URL));
+            exit;
+        } else if (isset($_GET['code'])) {
+            error_log('USCTDP: Google OAuth Code Received');
+            $unique_token = bin2hex(random_bytes(8));
+            $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
+            $transient_data = null;
+            if (!current_user_can('manage_options')) {
+                $transient_data = [
+                    'type' => 'error',
+                    'message' => 'You do not have permission to perform this action.'
+                ];
+                set_transient($transient_key, $transient_data, 10);
+                wp_redirect(add_query_arg(['usctdp_auth_status' => 'error', 'code' => false], $redirect_url));
+                exit;
+            }
+
+            $client = new Client();
+            $client->setClientId(env('GOOGLE_DOCS_CLIENT_ID'));
+            $client->setClientSecret(env('GOOGLE_DOCS_CLIENT_SECRET'));
+            $client->setRedirectUri($redirect_url);
+
+            $code = sanitize_text_field(wp_unslash($_GET['code']));
+            try {
+                $token = $client->fetchAccessTokenWithAuthCode($code);
+                if (isset($token['refresh_token'])) {
+                    error_log('USCTDP: Google OAuth Refresh Token Received');
+                    update_option('usctdp_google_refresh_token', $token['refresh_token']);
+                    $message = 'Authorization successful! Refresh Token stored.';
+                } else {
+                    error_log('USCTDP: Google OAuth Refresh Token Not Received');
+                    $message = 'Authorization successful, but Refresh Token was not returned (user may have authorized previously).';
+                }
+                $transient_data = [
+                    'type' => 'success',
+                    'message' => $message
+                ];
+                set_transient($transient_key, $transient_data, 10);
+                wp_redirect(add_query_arg(['usctdp_auth_status' => 'success', 'code' => false], $redirect_url));
+                exit;
+            } catch (\Exception $e) {
+                error_log("Google OAuth Error: " . $e->getMessage());
+                $transient_data = [
+                    'type' => 'error',
+                    'message' => 'An unknown error occurred.'
+                ];
+                set_transient($transient_key, $transient_data, 10);
+                wp_redirect(add_query_arg('usctdp_auth_status', 'error', $redirect_url));
+                exit;
+            }
+        }
+    }
+
     public function add_admin_menu()
     {
-        add_menu_page(
+        $main_menu_page = add_menu_page(
             'USCTDP Admin',
             'USCTDP Admin',
             'manage_options',
             'usctdp-admin-main',
-            function () {}
+            function () {
+                $admin_dir = plugin_dir_path(__FILE__);
+                $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-main.php';
+                $this->echo_admin_page($main_display);
+            }
         );
+        add_action('load-' . $main_menu_page, function () {});
 
         // Override the slug on the first menu item
-        $this->add_usctdp_submenu('classes', 'Classes', 'usctdp-admin-main', [$this, 'load_classes_page']);
-        $this->add_usctdp_submenu('rosters', 'Rosters', null, [$this, 'load_rosters_page']);
-        $this->add_usctdp_submenu('register', 'Registration', null, [$this, 'load_register_page']);
+        $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
+        $this->add_usctdp_submenu('rosters', 'Rosters', [$this, 'load_rosters_page']);
+        $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
         $this->add_usctdp_submenu('new-session', 'New Session');
-        $this->add_usctdp_submenu('families', 'Families', null, [$this, 'load_families_page']);
+        $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
     }
 
     private function echo_admin_page($path)
@@ -500,7 +586,7 @@ class Usctdp_Mgmt_Admin
             }
             set_transient($transient_key, $transient_data, 10);
             wp_safe_redirect($redirect_url);
-            exit;
+            wp_die();
         }
     }
 
@@ -588,7 +674,7 @@ class Usctdp_Mgmt_Admin
             }
             set_transient($transient_key, $transient_data, 10);
             wp_safe_redirect($redirect_url);
-            exit;
+            wp_die();
         }
     }
 
@@ -651,65 +737,144 @@ class Usctdp_Mgmt_Admin
             'registered' => $found_posts,
             'student_registered' => $student_registered
         ]);
+        wp_die();
+    }
+
+    private function error_response_and_die($message)
+    {
+        $response = [
+            'type' => 'error',
+            'message' => $message
+        ];
+        wp_send_json_error($response);
+        wp_die();
+    }
+
+    private function get_class_registrations($class_id)
+    {
+        $args = array(
+            'post_type'      => 'usctdp-registration',
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                [
+                    'key' => 'class',
+                    'value' => $class_id,
+                    'compare' => '=',
+                    'type' => 'NUMERIC'
+                ]
+            ]
+        );
+        $query = new WP_Query($args);
+        $result = [];
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $acf_fields = get_fields(get_the_ID());
+                $output_fields = array(
+                    'id' => get_the_ID(),
+                    'title' => get_the_title(),
+                );
+                foreach ($acf_fields as $field_name => $field_value) {
+                    $output_fields[$field_name] = $field_value;
+                }
+                $result[] = $output_fields;
+            }
+            wp_reset_postdata();
+        }
+        return $result;
+    }
+
+    private function create_google_client()
+    {
+        $refreshToken = get_option('usctdp_google_refresh_token');
+        if (empty($refreshToken)) {
+            throw new ErrorException('No refresh token found. User must re-authorize.');
+        }
+
+        $client = new Client();
+        $client->setClientId(env('GOOGLE_DOCS_CLIENT_ID'));
+        $client->setClientSecret(env('GOOGLE_DOCS_CLIENT_SECRET'));
+        $client->fetchAccessTokenWithRefreshToken($refreshToken);
+        return $client;
+    }
+
+    private function text_replace($search, $replace)
+    {
+        return new Google_Service_Docs_Request([
+            'replaceAllText' => [
+                'containsText' => [
+                    'text' => $search,
+                    'matchCase' => true
+                ],
+                'replaceText' => $replace
+            ]
+        ]);
     }
 
     public function ajax_gen_roster()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['gen_roster'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Nonce check failed.', 403);
-        }
-
-        $newFileName = 'Generated Document - ' . date('Y-m-d');
-        $sourceDocId = env('GOOGLE_DOC_ROSTER_TEMPLATE_ID');
-        $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
-        $keyFilePath = env('GOOGLE_KEY_FILE_PATH');
-        if (empty($keyFilePath) || !file_exists($keyFilePath)) {
-            error_log("Google Service Account key file not found at path: " . $keyFilePath);
-            return false;
-        }
-        if (empty($sourceDocId)) {
-            error_log("Google Doc Roster Template ID not found");
-            return false;
-        }
-        if (empty($destinationFolderId)) {
-            error_log("Google Drive Folder ID not found");
-            return false;
-        }
-
-        $client = new Client();
-        $client->setApplicationName('USCTDP Management Plugin');
-        $client->setAuthConfig($keyFilePath);
-        $client->setScopes([
-            Drive::DRIVE,
-            Docs::DOCUMENTS
-        ]);
-
         try {
+            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+                throw new ErrorException('Nonce check failed.');
+            }
+
+            $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
+            if (empty($class_id)) {
+                throw new ErrorException('Class ID is required.');
+            }
+
+            $sourceDocId = env('GOOGLE_DOC_ROSTER_TEMPLATE_ID');
+            $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
+            if (empty($sourceDocId)) {
+                throw new ErrorException('Google Doc Roster Template ID not found');
+            }
+            if (empty($destinationFolderId)) {
+                throw new ErrorException('Google Drive Folder ID not found');
+            }
+
+            $class = get_post($class_id);
+            $class_fields = get_fields($class_id);
+            error_log('Class: ' . print_r($class_fields, true));
+            if (!$class) {
+                throw new ErrorException('Class not found.');
+            }
+            $registrations = $this->get_class_registrations($class_id);
+
+            $newFileName = 'Roster: ' . $class->post_title;
+            $client = $this->create_google_client();
+
             $driveService = new Drive($client);
-        } catch (Exception $e) {
-            error_log("Failed to initialize Google Drive Service: " . $e->getMessage());
-            return false;
-        }
-        $newFileMetadata = new DriveFile([
-            'name' => $newFileName,
-            'parents' => [$destinationFolderId] // Specify the destination folder
-        ]);
+            $docsService = new Docs($client);
+            $newFileMetadata = new DriveFile([
+                'name' => $newFileName,
+                'parents' => [$destinationFolderId]
+            ]);
 
-        // 4. Execute the Copy Operation
-        try {
-            // The file ID to copy is the source document ID
-            // The body is the new metadata (name and parent folder)
             $copiedFile = $driveService->files->copy($sourceDocId, $newFileMetadata);
 
-            return $copiedFile->getId();
-        } catch (\Google\Service\Exception $e) {
-            // Log API errors, especially permission issues
-            error_log("Google API Error during file copy: " . $e->getMessage());
-            return false;
-        } catch (\Exception $e) {
-            error_log("General Error during file copy: " . $e->getMessage());
-            return false;
+
+
+            error_log('Day of week: ' . $class_fields['day_of_week']);
+            $requests = [
+                $this->text_replace('{{day_of_week}}', $class_fields['day_of_week']),
+                $this->text_replace('{{start}}', $class_fields['start_time']),
+                $this->text_replace('{{end}}', $class_fields['end_time']),
+            ];
+
+            $batchUpdateRequest = new Google_Service_Docs_BatchUpdateDocumentRequest([
+                'requests' => $requests
+            ]);
+            $docsService->documents->batchUpdate($copiedFile->getId(), $batchUpdateRequest);
+
+            wp_send_json([
+                'type' => 'success',
+                'message' => 'Roster generated successfully',
+                'doc_id' => $copiedFile->getId()
+            ]);
+            wp_die();
+        } catch (Exception $e) {
+            $this->error_response_and_die($e->getMessage());
         }
     }
 
@@ -774,6 +939,7 @@ class Usctdp_Mgmt_Admin
         }
         wp_reset_postdata();
         wp_send_json(array('items' => $results, 'found_posts' => $found_posts));
+        wp_die();
     }
 
     public function ajax_datatable_search()
@@ -845,5 +1011,6 @@ class Usctdp_Mgmt_Admin
             "data"            => $data_output,
         );
         wp_send_json($response);
+        wp_die();
     }
 }

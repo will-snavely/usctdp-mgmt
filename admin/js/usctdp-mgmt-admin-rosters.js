@@ -11,8 +11,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-session',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {
@@ -70,6 +70,48 @@
             table.ajax.reload();
         });
 
+        function toggleLoading(isLoading) {
+            if (isLoading) {
+                $('#button-text').text('Working...');
+                $('#print-roster-button').addClass('is-loading');
+
+            } else {
+                $('#button-text').text('Print Roster');
+                $('#print-roster-button').removeClass('is-loading');
+            }
+        }
+        $('#print-roster-button').on('click', function () {
+            const selectedValue = $('#class-selector').val();
+            if (selectedValue === '') {
+                return;
+            }
+            $('#roster-print-success').hide();
+            $('#roster-print-error').hide();
+            toggleLoading(true);
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    class_id: selectedValue,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                },
+                success: function (responseData) {
+                    console.log(responseData);
+                    const url = 'https://docs.google.com/document/d/' + responseData.doc_id;
+                    $('#roster-link').attr('href', url);
+                    $('#roster-print-success').show();
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error");
+                },
+                complete: function () {
+                    toggleLoading(false);
+                }
+            });
+        });
+
         var table = $('#roster-table').DataTable({
             processing: true,
             serverSide: true,
@@ -111,6 +153,10 @@
                 }
             ]
         });
+
+        $('#roster-print-loading').hide();
+        $('#roster-print-success').hide();
+        $('#roster-print-error').hide();
 
         if (usctdp_mgmt_admin.preloaded_session_name) {
             const newOption = new Option(

@@ -93,6 +93,7 @@ class Usctdp_Import_Session_Data
 
                 $dow = $class['day'];
                 $start_time = new DateTime($class['start_time']);
+                $end_time = new DateTime($class['end_time']);
                 $pricing_id = $this->pricing[$session_name][$course_name];
                 $one_day_price = get_field('one_day_price', $pricing_id);
                 $two_day_price = get_field('two_day_price', $pricing_id);
@@ -105,11 +106,11 @@ class Usctdp_Import_Session_Data
 
                 update_field('session', $session_id, $post_id);
                 update_field('course', $course_id, $post_id);
-                update_field('dow', $dow, $post_id);
+                update_field('day_of_week', $dow, $post_id);
                 update_field('level', $class['level'], $post_id);
                 update_field('start_time', $start_time->format('H:i:s'), $post_id);
                 update_field('capacity', $class['capacity'], $post_id);
-                update_field('end_time', $start_time->format('H:i:s'), $post_id);
+                update_field('end_time', $end_time->format('H:i:s'), $post_id);
                 update_field('one_day_price', $one_day_price, $post_id);
                 update_field('two_day_price', $two_day_price, $post_id);
                 wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);

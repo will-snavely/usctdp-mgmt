@@ -67,14 +67,6 @@ if (file_exists(dirname(__DIR__, 3) . '/vendor/autoload.php')) {
 } else {
 }
 
-use Google\Client;
-use Google\Service\Docs;
-use Google\Service\Docs\Request as DocsRequest;
-use Google\Service\Docs\BatchUpdateDocumentRequest;
-use Google\Service\Docs\InsertTextRequest;
-use Google\Service\Drive;
-use Google\Service\Drive\DriveFile;
-
 require plugin_dir_path(__FILE__) . "includes/class-usctdp-mgmt.php";
 
 /**
