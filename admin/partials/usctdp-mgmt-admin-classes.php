@@ -17,15 +17,20 @@
             </ul>
             <h2> Active and Upcoming Classes </h2>
             <div id="usctdp-classes-container">
-                <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
-                    <label for="session-filter">Filter by Session:</label>
-                    <select id="session-filter" style="margin-left: 10px;">
-                    </select>
+                <div id="table-filters">
+                    <div id="course-filter-section" class="dt-layout-cell dt-layout-start">
+                        <label for="course-filter">Filter by Course:</label>
+                        <select id="course-filter"></select>
+                    </div>
+                    <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
+                        <label for="session-filter">Filter by Session:</label>
+                        <select id="session-filter"></select>
+                    </div>
                 </div>
                 <table id="usctdp-upcoming-classes-table" class="usctdp-custom-post-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Course</th>
                             <th>Session</th>
                             <th>Capacity</th>
                             <th>Staff</th>

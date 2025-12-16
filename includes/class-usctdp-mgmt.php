@@ -109,7 +109,6 @@ class Usctdp_Mgmt
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-i18n.php";
 
-
         require_once plugin_dir_path(dirname(__FILE__)) .
             "admin/class-usctdp-mgmt-admin.php";
 
@@ -223,7 +222,6 @@ class Usctdp_Mgmt
             "show_admin_notice",
         );
 
-
         foreach (Usctdp_Mgmt_Admin::$post_handlers as $handler) {
             $this->loader->add_action(
                 'admin_post_' . $handler["submit_hook"],
@@ -232,28 +230,18 @@ class Usctdp_Mgmt
             );
         }
 
-        $this->loader->add_action(
-            'wp_ajax_usctdp_fetch_classes',
-            $plugin_admin,
-            'fetch_classes_handler_datatables'
-        );
+        foreach (Usctdp_Mgmt_Admin::$ajax_handlers as $handler) {
+            $this->loader->add_action(
+                'wp_ajax_' . $handler["action"],
+                $plugin_admin,
+                $handler["callback"]
+            );
+        }
 
         $this->loader->add_action(
-            'wp_ajax_my_select2_post_search',
+            'admin_init',
             $plugin_admin,
-            'my_select2_ajax_post_search'
-        );
-
-        $this->loader->add_action(
-            'wp_ajax_fetch_posts_for_datatable',
-            $plugin_admin,
-            'fetch_posts_for_datatable'
-        );
-
-        $this->loader->add_action(
-            'wp_ajax_usctdp_class_qualification_data',
-            $plugin_admin,
-            'ajax_get_class_qualification_data'
+            'usctdp_google_oauth_handler'
         );
     }
 

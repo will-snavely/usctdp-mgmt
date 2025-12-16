@@ -39,9 +39,9 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
             'title' => 'Class Fields',
             'fields' => [
                 [
-                    'key' => 'field_usctdp_class_parent',
-                    'label' => 'Parent Session',
-                    'name' => 'parent_session',
+                    'key' => 'field_usctdp_class_session',
+                    'label' => 'Session',
+                    'name' => 'session',
                     'type' => 'post_object',
                     'post_type' => array(
                         0 => 'usctdp-session',
@@ -49,23 +49,14 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_class_type',
-                    'label' => 'Class Type',
-                    'name' => 'class_type',
-                    'type' => 'select',
-                    'required' => 1,
-                    'choices' => [
-                        'tiny-tots' => 'Tiny Tots',
-                        'red-pre' => 'Red Pre-Rally',
-                        'red' => 'Red',
-                        'orange-pre' => 'Orange Pre-Rally',
-                        'orange' => 'Orange',
-                        'teen-1' => 'Teen 1',
-                        'orange-2' => 'Orange 2',
-                        'green' => 'Green',
-                        'yellow-1' => 'Yellow Ball',
-                        'yellow-2' => 'Yellow Ball Open',
-                    ]
+                    'key' => 'field_usctdp_class_course',
+                    'label' => 'Course',
+                    'name' => 'course',
+                    'type' => 'post_object',
+                    'post_type' => array(
+                        0 => 'usctdp-course',
+                    ),
+                    'required' => 1
                 ],
                 [
                     'key' => 'field_usctdp_class_dow',
@@ -202,12 +193,12 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
         }
 
         if ($class_data) {
-            $class_type = $class_data['field_usctdp_class_type'];
+            $class_course = $class_data['field_usctdp_class_course'];
             $class_dow = $class_data['field_usctdp_class_dow'];
             $class_time_string = $class_data['field_usctdp_class_start_time'];
             $class_start_time = DateTime::createFromFormat('H:i:s', $class_time_string);
             return [
-                'type' => $class_type,
+                'course' => $class_course,
                 'dow' => $class_dow,
                 'start_time' => $class_start_time
             ];
@@ -253,25 +244,16 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
     public function get_computed_post_fields($data, $postarr)
     {
         $result = [];
-        if ($data['post_type'] === 'usctdp-class') {
-            $fields = $this->extract_fields_from_post($postarr);
-            if ($fields) {
-                $type = self::type_value_to_label($fields['type']);
-                $dow = self::dow_value_to_label($fields['dow']);
-                $start = $fields['start_time']->format('g:i A');
-                $result['post_title'] = sanitize_text_field("$type, $dow at $start");
-            }
+        if ($data['post_type'] === 'usctdp-class' && isset($_POST['acf'])) {
+            $course_id = $_POST['acf']['field_usctdp_class_course'];
+            $session_id = $_POST['acf']['field_usctdp_class_session'];
+            $course_name = get_field('field_usctdp_course_name', $course_id);
+            $session_duration = get_field('field_usctdp_session_duration', $session_id);
+            $dow = self::dow_value_to_label($_POST['acf']['field_usctdp_class_dow']);
+            $start_time = DateTime::createFromFormat('H:i:s', $_POST['acf']['field_usctdp_class_start_time']);
+            $result['post_title'] = self::create_class_title($course_name, $dow, $start_time, $session_duration);
         }
         return $result;
-    }
-
-    public static function type_value_to_label($type)
-    {
-        $choices = acf_get_field('field_usctdp_class_type')['choices'];
-        if (array_key_exists($type, $choices)) {
-            return $choices[$type];
-        }
-        return '';
     }
 
     public static function dow_value_to_label($dow)
@@ -281,5 +263,11 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
             return $choices[$dow];
         }
         return '';
+    }
+
+    public static function create_class_title($course_name, $dow, $start_time, $duration)
+    {
+        $time = $start_time->format('g:i A');
+        return sanitize_text_field("$course_name, $dow at $time ($duration Weeks)");
     }
 }

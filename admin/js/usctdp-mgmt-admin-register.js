@@ -2,6 +2,39 @@
     "use strict";
 
     $(document).ready(function () {
+        function load_registration_section(class_id, student_id) {
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.class_qualification_action,
+                    class_id: class_id,
+                    student_id: student_id,
+                    security: usctdp_mgmt_admin.class_qualification_nonce,
+                },
+                success: function (response) {
+                    var current_size = response.data.registered;
+                    var max_size = response.data.capacity;
+                    $('#class-current-size').text(current_size);
+                    $('#class-max-size').text(max_size);
+                    if (response.data.student_registered) {
+                        add_notification('The selected student is already registered for this class.');
+                    } else {
+                        if (current_size >= max_size) {
+                            add_notification('This class is currently full.');
+                        } else {
+                            $('#registration-section').show();
+                            reset_registration_section();
+                        }
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                }
+            });
+        }
+
         $('input[type="radio"][name="payment_status"]').on('change', function () {
             var selectedValue = $(this).val();
             if (selectedValue === 'paid') {
@@ -22,8 +55,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-session',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {
@@ -54,9 +87,11 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-class',
-                        filter_parent_session: $('#session-selector').val(),
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
+                        'filter[session][value]': $('#session-selector').val(),
+                        'filter[session][compare]': '=',
+                        'filter[session][type]': 'NUMERIC'
                     };
                 },
                 processResults: function (data) {
@@ -70,12 +105,21 @@
         $('#class-selector').on('change', function () {
             const selectedValue = this.value;
             if (selectedValue === '') {
-                $('#student-selection-section').hide();
+                if (usctdp_mgmt_admin.preloaded_student_id) {
+                    $('#registration-section').hide();
+                    $('#notifications-section').children().remove();
+                } else {
+                    $('#student-selection-section').hide();
+                }
             } else {
-                $('#student-selection-section').show();
+                if (usctdp_mgmt_admin.preloaded_student_id) {
+                    load_registration_section(selectedValue, usctdp_mgmt_admin.preloaded_student_id);
+                } else {
+                    $('#student-selection-section').show();
+                    $('#student-selector').val(null);
+                    $('#student-selector').trigger('change');
+                }
             }
-            $('#student-selector').val(null);
-            $('#student-selector').trigger('change');
         });
 
         $('#student-selector').select2({
@@ -87,8 +131,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-student',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {
@@ -107,37 +151,9 @@
             if (selectedStudent === '' || selectedClass === '') {
                 return;
             }
-            $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'GET',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.qualification_action,
-                    class_id: selectedClass,
-                    student_id: selectedStudent,
-                    security: usctdp_mgmt_admin.qualification_nonce,
-                },
-                success: function (responseData) {
-                    var current_size = responseData.registered;
-                    var max_size = responseData.capacity;
-                    $('#class-current-size').text(current_size);
-                    $('#class-max-size').text(max_size);
-                    if (responseData.student_registered) {
-                        add_notification('The selected student is already registered for this class.');
-                    } else {
-                        if (current_size >= max_size) {
-                            add_notification('This class is currently full.');
-                        } else {
-                            $('#registration-section').show();
-                            reset_registration_section();
-                        }
-                    }
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("AJAX Error:", textStatus, errorThrown);
-                }
-            });
+            load_registration_section(selectedClass, selectedStudent);
         });
+
 
         function add_notification(message) {
             var notif = '<div class="notification">';
@@ -156,7 +172,6 @@
             $('#payment-amount-pending').val('');
             $('#notes').val('');
         }
-
 
         if (usctdp_mgmt_admin.preloaded_session_name) {
             const newOption = new Option(
@@ -182,6 +197,11 @@
             $('#class-selector').trigger('change');
         }
 
+        if (usctdp_mgmt_admin.preloaded_student_name) {
+            $('#student-selector').hide();
+            $('#student-selector').attr('disabled', true);
+            $('#student-name').text(usctdp_mgmt_admin.preloaded_student_name);
+        }
     });
 })(jQuery);
 

@@ -5,404 +5,70 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-global $wp_filter;
-
-class Data_Generator_Command
+class Usctdp_Cli_Command
 {
-    // @formatter:off
-    private $first_names = [
-        "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda",
-        "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
-        "Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
-        "Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
-        "Steven", "Kimberly", "Paul", "Dorothy", "Andrew", "Emily", "Joshua", "Donna"
-    ]; 
-
-    private $last_names = [
-        "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
-        "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
-        "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
-        "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill",
-        "Flores", "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell",
-        "Mitchell", "Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz"
-    ];
-    // @formatter:on
-
-    private $sessions = [
-        [
-            "session_name" => "Session I",
-            "start_date" => "20260825",
-            "end_date" => "20261005",
-        ],
-        [
-            "session_name" => "Session II",
-            "start_date" => "20261013",
-            "end_date" => "20261221",
-        ]
-    ];
-
-    private $classes = [
-        [
-            "class_type" => "tiny-tots",
-            "day_of_week" => "mon",
-            "start_time" => "3:30 PM",
-            "end_time" => "4:15 PM",
-            "level" => "1",
-            "capacity" => 10,
-            "one_day_price" => 10.00,
-            "two_day_price" => 20.00,
-        ],
-        [
-            "class_type" => "tiny-tots",
-            "day_of_week" => "tues",
-            "start_time" => "10:00 AM",
-            "end_time" => "10:45 AM",
-            "level" => "1",
-            "capacity" => 10,
-            "one_day_price" => 10.00,
-            "two_day_price" => 20.00,
-        ],
-        [
-            "class_type" => "tiny-tots",
-            "day_of_week" => "tues",
-            "start_time" => "1:00 PM",
-            "end_time" => "1:45 PM",
-            "level" => "1",
-            "capacity" => 10,
-            "one_day_price" => 10.00,
-            "two_day_price" => 20.00,
-        ],
-        [
-            "class_type" => "tiny-tots",
-            "day_of_week" => "fri",
-            "start_time" => "3:30 PM",
-            "end_time" => "4:15 PM",
-            "level" => "1",
-            "capacity" => 10,
-            "one_day_price" => 10.00,
-            "two_day_price" => 20.00,
-        ],
-        [
-            "class_type" => "tiny-tots",
-            "day_of_week" => "fri",
-            "start_time" => "6:00 PM",
-            "end_time" => "6:45 PM",
-            "level" => "1",
-            "capacity" => 10,
-            "one_day_price" => 10.00,
-            "two_day_price" => 20.00,
-        ],
-        [
-            "class_type" => "tiny-tots",
-            "day_of_week" => "sun",
-            "start_time" => "11:00 AM",
-            "end_time" => "11:45 AM",
-            "level" => "1",
-            "capacity" => 10,
-            "one_day_price" => 10.00,
-            "two_day_price" => 20.00,
-        ],
-        [
-            "class_type" => "tiny-tots",
-            "day_of_week" => "sun",
-            "start_time" => "12:00 PM",
-            "end_time" => "12:45 PM",
-            "level" => "1",
-            "capacity" => 10,
-            "one_day_price" => 10.00,
-            "two_day_price" => 20.00,
-        ]
-    ];
-
-    private function generate_staff($count)
+    public function __construct()
     {
-        $seen = [];
-        $result = [];
-        $i = 0;
-        while($i < $count) {
-            $first_name = $this->first_names[array_rand($this->first_names)];
-            $last_name = $this->last_names[array_rand($this->last_names)];
-            if (isset($seen[$first_name . " " . $last_name])) {
-                continue;
-            }
-            $post_id = wp_insert_post([
-                'post_title'    => $first_name . " " . $last_name,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-staff'
-            ]);
-            update_field('first_name', $first_name, $post_id);
-            update_field('last_name', $last_name, $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            $seen[$first_name . " " . $last_name] = true;
-            $i++;
-            $result[] = [
-                "id" => $post_id
-            ];
-        }
-        return $result;
+        $this->load_dependencies();
     }
 
-    private function generate_families($count)
+    private function load_dependencies()
     {
-        $result = [];
-        $seen = [];
-        $i = 0;
-        while($i < $count) {
-            $last_name = $this->last_names[array_rand($this->last_names)];
-            if (isset($seen[$last_name])) {
-                continue;
-            }
-            
-            // Define the user data array
-            $userdata = array(
-                'user_login' => $last_name, 
-                'user_pass' => bin2hex(random_bytes(16)),
-                'user_email' => $last_name . '@example.com', 
-                'first_name' => 'Family',
-                'last_name' => $last_name,
-                'display_name' => $last_name, 
-                'role' => 'subscriber' 
-            );
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-clean.php";
 
-            $user_id = wp_insert_user( $userdata );
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-import-session-data.php";
 
-            $family_id = wp_insert_post([
-                'post_title'    => "$last_name Family",
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-family'
-            ]);
-            update_field('last_name', $last_name, $family_id);
-            update_field('phone_number', "555-555-5555", $family_id);
-            update_field('address', "123 Main St", $family_id);
-            update_field('city', "Springfield", $family_id);
-            update_field('state', "IL", $family_id);
-            update_field('zip', "62704", $family_id);
-            update_field('assigned_user', $user_id, $family_id);
-            wp_set_post_terms($family_id, ["test-data"], 'post_tag', false);
-            $seen[$last_name] = true;
-            $i++;
-            $num_students = rand(1, 5);
-            $result[] = [
-                "id" => $family_id,
-                "students" => $this->generate_students($num_students, $family_id, $last_name)
-            ];
-        }
-        return $result;
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-random-people-generator.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-random-registration-generator.php";
     }
 
-    private function generate_students($count, $family_id, $last_name)
+    public function gen_people($args, $assoc_args)
     {
-        $result = [];
-        $seen = [];
-        $i = 0;
-        while($i < $count) {
-            $first_name = $this->first_names[array_rand($this->first_names)];
-            if (isset($seen[$first_name])) {
-                continue;
-            }
-            $name = $first_name . " " . $last_name;
-            $post_id = wp_insert_post([
-                'post_title'    => $name,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-student'
-            ]);
-            update_field('first_name', $first_name, $post_id);
-            update_field('last_name', $last_name, $post_id);
-            $year = mt_rand(2000, 2020);
-            $month = mt_rand(1, 12);
-            $day = mt_rand(1, date('t', mktime(0, 0, 0, $month, 1, $year)));
-            $random_birth_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-            update_field('birth_date', $random_birth_date, $post_id);
-            update_field('family', $family_id, $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            $seen[$first_name] = true;
-            $i++;
-            $result[] = [
-                "id" => $post_id,
-                "name" => $name
-            ];
-        }
-        return $result;
+        $generator = new Usctdp_Random_People_Generator();
+        $generator->generate_random(10, 20, 8);
     }
 
-    private function generate_sessions()
+    public function gen_registrations($args, $assoc_args)
     {
-        $result = [];
-        foreach ($this->sessions as $session) {
-            $start_date = DateTime::createFromFormat("Ymd", $session['start_date']);
-            $end_date = DateTime::createFromFormat("Ymd", $session['end_date']);
-            $title = Usctdp_Mgmt_Session::create_session_title(
-                $session['session_name'],
-                $start_date,
-                $end_date
-            );
-            $post_id = wp_insert_post([
-                'post_title'    => $title,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-session'
-            ]);
-            foreach ($session as $key => $value) {
-                update_field($key, $value, $post_id);
-            }
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            $result[] = [
-                "id" => $post_id,
-                "classes" => $this->generate_classes(
-                    $post_id,
-                    $start_date,
-                    $end_date
-                )
-            ];
+        $generator = new Usctdp_Random_Registration_Generator();
+        $count = 50;
+        if (isset($args[0])) {
+            $count = intval($args[0]);
         }
-        return $result;
+        $generator->generate_random($count);
     }
 
-    private function get_dow_value($dow_label)
+    public function import_sessions($args, $assoc_args)
     {
-        switch ($dow_label) {
-            case 'mon':
-                return 1;
-            case 'tues':
-                return 2;
-            case 'wed':
-                return 3;
-            case 'thurs':
-                return 4;
-            case 'fri':
-                return 5;
-            case 'sat':
-                return 6;
-            case 'sun':
-                return 7;
+        $file_path = '';
+        if ($args && count($args) > 0) {
+            $file_path = $args[0];
+        } else {
+            WP_CLI::error('File path not provided');
+            return;
         }
-    }
-
-    private function generate_classes($session, $start_date, $end_date)
-    {
-        $result = [];
-        foreach ($this->classes as $class) {
-            $type_label = Usctdp_Mgmt_Class::type_value_to_label($class['class_type']);
-            $dow_label = Usctdp_Mgmt_Class::dow_value_to_label($class['day_of_week']);
-            $title = "{$type_label}, {$dow_label} at {$class['start_time']}";
-            $post_id = wp_insert_post([
-                'post_title'    => $title,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-class'
-            ]);
-            foreach ($class as $key => $value) {
-                update_field($key, $value, $post_id);
-            }
-            update_field("parent_session", $session, $post_id);
-            $dow_value = $this->get_dow_value($class['day_of_week']);
-            $class_dates = [];
-
-            $interval = new DateInterval('P1D');
-            $period = new DatePeriod($start_date, $interval, $end_date->modify('+1 day'));
-            foreach ($period as $date) {
-                if ((int)$date->format('N') === $dow_value) {
-                    $class_dates[] = $date->format('Y-m-d');
-                }
-            }
-            update_field("date_list", implode(',', $class_dates), $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            $result[] = [
-                "id" => $post_id,
-                "cap" => $class['capacity'],
-                "title" => $title
-            ];
-        }
-        return $result;
-    }
-
-    private function generate_registrations($count, $sessions, $families)
-    {
-        $result = [];
-        $enrolled = [];
-        $i = 0;
-        while($i < $count) {
-            $session = $sessions[array_rand($sessions)];
-            $class = $session['classes'][array_rand($session['classes'])];
-            $family = $families[array_rand($families)];
-            $student = $family['students'][array_rand($family['students'])];
-
-            if (
-                isset($enrolled[$class['id']]) && (
-                    in_array($student['id'], $enrolled[$class['id']]["roster"]) ||
-                    count($enrolled[$class['id']]["roster"]) >= $class['cap']
-                )
-            ) {
-                continue;
-            }
-
-            $post_id = wp_insert_post([
-                'post_title'    => "{$student['name']} - {$class['title']}",
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-registration'
-            ]);
-            update_field("student", $student['id'], $post_id);
-            update_field("class", $class['id'], $post_id);
-            update_field("created", date('Y-m-d H:i:s'), $post_id);
-            update_field("outstanding_balance", 0, $post_id);
-            update_field("payment_method", "check", $post_id);
-            update_field("payment_date", date('Y-m-d H:i:s'), $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            $i++;
-            $result[] = [
-                "id" => $post_id
-            ];
-        }
-        return $result;
-    }
-
-    /**
-     * The main command method.
-     * @param array $args Indexed array of positional arguments.
-     * @param array $assoc_args Associative array of named arguments.
-     */
-    public function generate($args, $assoc_args)
-    {
-        WP_CLI::log('Generating staff...');
-        $staff = $this->generate_staff(10);
-        WP_CLI::log('Generating sessions and classes...');
-        $sessions = $this->generate_sessions();
-        WP_CLI::log('Generating families and students...');
-        $families = $this->generate_families(15);
-        WP_CLI::log('Generating registrations...');
-        $this->generate_registrations(50, $sessions, $families);
+        $generator = new Usctdp_Import_Session_Data();
+        $generator->import($file_path);
     }
 
     public function clean($args, $assoc_args)
     {
-        $post_types = [
-            'usctdp-session',
-            'usctdp-staff',
-            'usctdp-class',
-            'usctdp-family',
-            'usctdp-student',
-            'usctdp-registration'
-        ];
-        foreach ($post_types as $post_type) {
-            WP_CLI::log('Removing ' . $post_type . ' entities...');
-            $posts = get_posts([
-                'post_type' => $post_type,
-                'posts_per_page' => -1,
-                'post_status' => 'publish',
-                'tag' => 'test-data'
-            ]);
-            foreach ($posts as $post) {
-                wp_delete_post($post->ID, true);
-            }
+        $cleaner = new Usctdp_Clean();
+        $target = "";
+        if ($args && count($args) > 0) {
+            $target = $args[0];
+        } else {
+            WP_CLI::error('Target not provided (one of all, classes, people)');
+            return;
         }
-
-        WP_CLI::log('Removing users...');
-        $users = get_users([
-            "role" => "subscriber" 
-        ]); 
-        foreach ( $users as $user ) {
-            wp_delete_user($user->ID);
-        }
+        $cleaner->clean($target);
     }
 }
 
 // Register the command with WP-CLI
-WP_CLI::add_command('usctdp-data', 'Data_Generator_Command');
+WP_CLI::add_command('usctdp', 'Usctdp_Cli_Command');

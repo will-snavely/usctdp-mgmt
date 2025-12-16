@@ -10,8 +10,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-family',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce,
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
                     };
                 },
                 processResults: function (data) {
@@ -34,8 +34,8 @@
                 type: 'POST',
                 data: function (d) {
                     var familyFilterValue = $('#family-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_action;
-                    d.security = usctdp_mgmt_admin.datatable_nonce;
+                    d.action = usctdp_mgmt_admin.datatable_search_action;
+                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
                     d.post_type = 'usctdp-student';
                     d['filter[family][value]'] = familyFilterValue;
                     d['filter[family][compare]'] = '=';
@@ -47,8 +47,8 @@
                 { data: 'last_name' },
                 {
                     data: 'birth_date',
-                    render: function (data) {
-                        if (data) {
+                    render: function (data, type) {
+                        if (data && type === 'display') {
                             const year = data.substring(0, 4);
                             const month = data.substring(4, 6);
                             const day = data.substring(6, 8);
@@ -60,8 +60,8 @@
                 },
                 {
                     data: 'birth_date',
-                    render: function (data) {
-                        if (data) {
+                    render: function (data, type) {
+                        if (data && type === 'display') {
                             const birthYear = parseInt(data.substring(0, 4), 10);
                             const birthMonth = parseInt(data.substring(4, 6), 10) - 1; // Month is 0-indexed
                             const birthDay = parseInt(data.substring(6, 8), 10);
@@ -72,14 +72,27 @@
                             const currentDay = today.getDate();
 
                             let age = currentYear - birthYear;
-
                             if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
                                 age--;
                             }
                             return age;
                         }
                         return '';
-
+                    }
+                },
+                {
+                    data: 'id',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            var registerUrl = 'admin.php?page=usctdp-admin-register&student_id=' + data;
+                            var cell = '<div class="family-actions">'
+                            cell += '<div class="action-item">'
+                            cell += '<a href="' + registerUrl + '" class="button button-small">Register</a> ';
+                            cell += '</div>';
+                            cell += '</div>';
+                            return cell;
+                        }
+                        return '';
                     }
                 }
             ]
@@ -96,10 +109,10 @@
                     method: 'GET',
                     dataType: 'json',
                     data: {
-                        action: usctdp_mgmt_admin.search_action,
+                        action: usctdp_mgmt_admin.select2_search_action,
                         post_type: 'usctdp-family',
                         post_id: selectedValue,
-                        security: usctdp_mgmt_admin.search_nonce,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
                         acf: 'true'
                     },
                     success: function (responseData) {
@@ -114,7 +127,7 @@
                             var user = familyData.acf["assigned_user"];
                             $("#family-email").text(user.user_email);
                         }
-                    
+
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error("AJAX Error:", textStatus, errorThrown);
@@ -123,9 +136,9 @@
             }
         });
 
-        $("#save-notes-button").on("click", function() {
+        $("#save-notes-button").on("click", function () {
             console.log("saving notes");
-        });  
+        });
     });
 
 })(jQuery);

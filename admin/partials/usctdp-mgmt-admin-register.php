@@ -13,6 +13,10 @@ $nonce_action = $post_handler["nonce_action"];
         method="post"
         id="register-form">
         <div id="context-selection-section">
+            <div id="preloaded-student-section">
+                <h2> Registering <span id="student-name"></span></h2>
+            </div>
+
             <div id="session-selection-section">
                 <h2> Select a Session </h2>
                 <select id="session-selector" name="session_id"></select>

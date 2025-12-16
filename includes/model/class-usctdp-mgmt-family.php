@@ -39,6 +39,13 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
             "title" => "Family Fields",
             "fields" => [
                 [
+                    'key' => 'field_usctdp_family_user',
+                    'label' => 'Assigned User',
+                    'name' => 'assigned_user',
+                    'type' => 'user',
+                    'required' => 1,
+                ],
+                [
                     "key" => "field_usctdp_family_last_name",
                     "label" => "Family Last Name",
                     "name" => "last_name",
@@ -86,13 +93,6 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
                     "name" => "notes",
                     "type" => "textarea",
                 ],
-                [
-                    'key' => 'field_usctdp_family_user',
-                    'label' => 'Assigned User',
-                    'name' => 'assigned_user', 
-                    'type' => 'user',
-                    'required' => 1,
-                ],
             ],
             'location' => array(
                 array(
@@ -115,13 +115,15 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
         $result = [];
         if ($data['post_type'] === 'usctdp-family' && isset($_POST['acf'])) {
             $family_last_name = $_POST['acf']['field_usctdp_family_last_name'];
-            $result['post_title'] = self::create_family_title($family_last_name);
+            $phone_number = $_POST['acf']['field_usctdp_phone_number'];
+            $result['post_title'] = self::create_family_title($family_last_name, $phone_number);
         }
         return $result;
     }
 
-    public static function create_family_title($last_name)
+    public static function create_family_title($last_name, $phone_number)
     {
-        return sanitize_text_field($last_name);
+        $last_four_digits = substr($phone_number, -4);
+        return sanitize_text_field($last_name . ' ' . $last_four_digits);
     }
 }

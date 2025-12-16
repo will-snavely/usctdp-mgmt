@@ -14,23 +14,40 @@
     </div>
     <div id="roster-section">
         <h2> Roster </h2>
-        <table id="roster-table" class="usctdp-custom-post-table">
-            <thead>
-                <tr>
-                    <th>Student</th>
-                    <th>Class</th>
-                </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>
+        <div id="roster-table-wrap">
+            <table id="roster-table" class="usctdp-custom-post-table">
+                <thead>
+                    <tr>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Age</th>
+                        <th>Level</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
 
         <h2> Actions </h2>
         <ul>
             <li>
-                <a id="register-student-button">
+                <a class="button button-primary" id="register-student-button">
                     Register Student
                 </a>
+            </li>
+            <li>
+                <div id="roster-print-action">
+                    <button id="print-roster-button" class="button button-primary">
+                        <span id="button-text">Print Roster</span>
+                    </button>
+                    <span id="roster-print-success" class="success">
+                        Success!
+                        <a href="" id="roster-link" target="_blank" rel="noopener noreferrer">Click to Open</a>
+                    </span>
+                    <span id="roster-print-error" class="error">Failed to generate roster. <span id="roster-error"></span></span>
+                </div>
             </li>
         </ul>
     </div>

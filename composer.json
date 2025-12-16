@@ -1,0 +1,13 @@
+{
+    "name": "hcd/usctdp-mgmt",
+    "description": "Wordpress plugin for USCTDP website",
+    "type": "wordpress-plugin",
+    "authors": [
+        {
+            "name": "Will Snavely"
+        }
+    ],
+    "require": {
+        "google/apiclient": "^2.18"
+    }
+}

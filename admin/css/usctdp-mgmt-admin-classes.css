@@ -8,8 +8,18 @@ ul {
     width: auto;
 }
 
+#table-filters {
+    display: flex;
+    justify-content: flex-start;
+    gap: 15px;
+}
+
 #session-filter {
-    width: 250px;
+    width: 200px;
+}
+
+#course-filter {
+    width: 200px;
 }
 
 #usctdp-classes-container {

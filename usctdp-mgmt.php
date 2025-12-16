@@ -62,10 +62,11 @@ function deactivate_usctdp_mgmt()
 register_activation_hook(__FILE__, "activate_usctdp_mgmt");
 register_deactivation_hook(__FILE__, "deactivate_usctdp_mgmt");
 
-/**
- * The core plugin class that is used to define internationalization,
- * admin-specific hooks, and public-facing site hooks.
- */
+if (file_exists(dirname(__DIR__, 3) . '/vendor/autoload.php')) {
+    require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
+} else {
+}
+
 require plugin_dir_path(__FILE__) . "includes/class-usctdp-mgmt.php";
 
 /**

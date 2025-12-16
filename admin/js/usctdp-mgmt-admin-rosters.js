@@ -11,8 +11,8 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-session',
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce
                     };
                 },
                 processResults: function (data) {
@@ -32,6 +32,8 @@
             }
             $('#class-selector').val(null);
             $('#class-selector').trigger('change');
+            $('#roster-print-success').hide();
+            $('#roster-print-error').hide();
         });
 
         $('#class-selector').select2({
@@ -43,9 +45,11 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-class',
-                        filter_parent_session: $('#session-selector').val(),
-                        action: usctdp_mgmt_admin.search_action,
-                        security: usctdp_mgmt_admin.search_nonce
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
+                        'filter[session][value]': $('#session-selector').val(),
+                        'filter[session][compare]': '=',
+                        'filter[session][type]': 'NUMERIC'
                     };
                 },
                 processResults: function (data) {
@@ -66,6 +70,53 @@
                 $('#register-student-button').attr('href', registerUrl);
             }
             table.ajax.reload();
+            $('#roster-print-success').hide();
+            $('#roster-print-error').hide();
+        });
+
+        function toggleLoading(isLoading) {
+            if (isLoading) {
+                $('#button-text').text('Working...');
+                $('#print-roster-button').addClass('is-loading');
+                $('#session-selector').attr('disabled', true);
+                $('#class-selector').attr('disabled', true);
+
+            } else {
+                $('#button-text').text('Print Roster');
+                $('#print-roster-button').removeClass('is-loading');
+                $('#session-selector').attr('disabled', false);
+                $('#class-selector').attr('disabled', false);
+            }
+        }
+        $('#print-roster-button').on('click', function () {
+            const selectedValue = $('#class-selector').val();
+            if (selectedValue === '') {
+                return;
+            }
+            $('#roster-print-success').hide();
+            $('#roster-print-error').hide();
+            toggleLoading(true);
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    class_id: selectedValue,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                },
+                success: function (response) {
+                    const url = 'https://docs.google.com/document/d/' + response.data.doc_id;
+                    $('#roster-link').attr('href', url);
+                    $('#roster-print-success').show();
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    $('#roster-print-error').show();
+                },
+                complete: function () {
+                    toggleLoading(false);
+                }
+            });
         });
 
         var table = $('#roster-table').DataTable({
@@ -80,12 +131,13 @@
                 type: 'POST',
                 data: function (d) {
                     var classFilterValue = $('#class-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_action;
-                    d.security = usctdp_mgmt_admin.datatable_nonce;
+                    d.action = usctdp_mgmt_admin.datatable_search_action;
+                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
                     d.post_type = 'usctdp-registration';
                     d['filter[class][value]'] = classFilterValue;
                     d['filter[class][compare]'] = '=';
                     d['filter[class][type]'] = 'NUMERIC';
+                    d['expand[]'] = 'usctdp-student';
                 }
             },
             columns: [
@@ -93,22 +145,72 @@
                     data: 'student',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            return data.post_title;
+                            return data.first_name;
                         }
                         return data;
                     }
                 },
                 {
-                    data: 'class',
+                    data: 'student',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            return data.post_title;
+                            return data.last_name;
                         }
                         return data;
+                    }
+                },
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            const birthdate = data.birth_date;
+                            const birthYear = parseInt(birthdate.substring(0, 4), 10);
+                            const birthMonth = parseInt(birthdate.substring(4, 6), 10) - 1; // Month is 0-indexed
+                            const birthDay = parseInt(birthdate.substring(6, 8), 10);
+
+                            const today = new Date();
+                            const currentYear = today.getFullYear();
+                            const currentMonth = today.getMonth();
+                            const currentDay = today.getDate();
+
+                            let age = currentYear - birthYear;
+                            if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
+                                age--;
+                            }
+                            return age;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            return "placeholder";
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            var cell = '<div class="roster-actions">'
+                            cell += '<div class="action-item">'
+                            cell += '<a href="#" class="button button-small">Remove Student</a> ';
+                            cell += '</div>';
+                            cell += '</div>';
+                            return cell;
+                        }
+                        return '';
                     }
                 }
             ]
         });
+
+        $('#roster-print-loading').hide();
+        $('#roster-print-success').hide();
+        $('#roster-print-error').hide();
 
         if (usctdp_mgmt_admin.preloaded_session_name) {
             const newOption = new Option(
@@ -135,4 +237,3 @@
         }
     });
 })(jQuery);
-

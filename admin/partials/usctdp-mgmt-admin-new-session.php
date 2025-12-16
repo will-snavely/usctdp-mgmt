@@ -10,7 +10,7 @@ $nonce_name = $post_handler["nonce_name"];
 $nonce_action = $post_handler["nonce_action"];
 
 $class_field_names = [
-    "field_usctdp_class_type",
+    "field_usctdp_class_course",
     "field_usctdp_class_dow",
     "field_usctdp_class_start_time",
     "field_usctdp_class_end_time",
