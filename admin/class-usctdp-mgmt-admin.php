@@ -1011,7 +1011,14 @@ class Usctdp_Mgmt_Admin
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
         $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'post';
         $search_val = isset($_POST['search']['value']) ? sanitize_text_field($_POST['search']['value']) : '';
+        $expand = isset($_POST['expand']) ? $_POST['expand'] : [];
         $paged = ($start / $length) + 1;
+
+        if (is_array($expand)) {
+            $expand = array_map('sanitize_text_field', $expand);
+        } else {
+            $expand = [sanitize_text_field($expand)];
+        }
 
         $meta_query = [];
         if (isset($_POST["filter"])) {
@@ -1048,14 +1055,26 @@ class Usctdp_Mgmt_Admin
             while ($query->have_posts()) {
                 $query->the_post();
                 $acf_fields = get_fields(get_the_ID());
-                $output_fields = array(
+                $output_fields = [
                     'id' => get_the_ID(),
                     'title' => get_the_title(),
-                    'edit' => get_edit_post_link(get_the_ID()),
-                    'permalink' => get_permalink(),
-                );
+                    'edit' => get_edit_post_link(get_the_ID())
+                ];
                 foreach ($acf_fields as $field_name => $field_value) {
-                    $output_fields[$field_name] = $field_value;
+                    if ($field_value instanceof WP_Post) {
+                        $output_fields[$field_name] = [
+                            'id' => $field_value->ID,
+                            'title' => $field_value->post_title
+                        ];
+                        if (in_array($field_value->post_type, $expand)) {
+                            $sub_fields = get_fields($field_value->ID);
+                            foreach ($sub_fields as $sub_name => $sub_value) {
+                                $output_fields[$field_name][$sub_name] = $sub_value;
+                            }
+                        }
+                    } else {
+                        $output_fields[$field_name] = $field_value;
+                    }
                 }
                 $data_output[] = $output_fields;
             }

@@ -14,16 +14,21 @@
     </div>
     <div id="roster-section">
         <h2> Roster </h2>
-        <table id="roster-table" class="usctdp-custom-post-table">
-            <thead>
-                <tr>
-                    <th>Student</th>
-                    <th>Class</th>
-                </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>
+        <div id="roster-table-wrap">
+            <table id="roster-table" class="usctdp-custom-post-table">
+                <thead>
+                    <tr>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Age</th>
+                        <th>Level</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
 
         <h2> Actions </h2>
         <ul>

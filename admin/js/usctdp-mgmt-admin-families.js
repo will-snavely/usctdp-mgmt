@@ -47,8 +47,8 @@
                 { data: 'last_name' },
                 {
                     data: 'birth_date',
-                    render: function (data) {
-                        if (data) {
+                    render: function (data, type) {
+                        if (data && type === 'display') {
                             const year = data.substring(0, 4);
                             const month = data.substring(4, 6);
                             const day = data.substring(6, 8);
@@ -60,8 +60,8 @@
                 },
                 {
                     data: 'birth_date',
-                    render: function (data) {
-                        if (data) {
+                    render: function (data, type) {
+                        if (data && type === 'display') {
                             const birthYear = parseInt(data.substring(0, 4), 10);
                             const birthMonth = parseInt(data.substring(4, 6), 10) - 1; // Month is 0-indexed
                             const birthDay = parseInt(data.substring(6, 8), 10);

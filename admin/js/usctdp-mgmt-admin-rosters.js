@@ -137,6 +137,7 @@
                     d['filter[class][value]'] = classFilterValue;
                     d['filter[class][compare]'] = '=';
                     d['filter[class][type]'] = 'NUMERIC';
+                    d['expand[]'] = 'usctdp-student';
                 }
             },
             columns: [
@@ -144,18 +145,64 @@
                     data: 'student',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            return data.post_title;
+                            return data.first_name;
                         }
                         return data;
                     }
                 },
                 {
-                    data: 'class',
+                    data: 'student',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            return data.post_title;
+                            return data.last_name;
                         }
                         return data;
+                    }
+                },
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            const birthdate = data.birth_date;
+                            const birthYear = parseInt(birthdate.substring(0, 4), 10);
+                            const birthMonth = parseInt(birthdate.substring(4, 6), 10) - 1; // Month is 0-indexed
+                            const birthDay = parseInt(birthdate.substring(6, 8), 10);
+
+                            const today = new Date();
+                            const currentYear = today.getFullYear();
+                            const currentMonth = today.getMonth();
+                            const currentDay = today.getDate();
+
+                            let age = currentYear - birthYear;
+                            if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
+                                age--;
+                            }
+                            return age;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            return "placeholder";
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            var cell = '<div class="roster-actions">'
+                            cell += '<div class="action-item">'
+                            cell += '<a href="#" class="button button-small">Remove Student</a> ';
+                            cell += '</div>';
+                            cell += '</div>';
+                            return cell;
+                        }
+                        return '';
                     }
                 }
             ]

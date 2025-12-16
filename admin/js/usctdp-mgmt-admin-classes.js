@@ -34,8 +34,8 @@
                 {
                     data: 'course',
                     render: function (data, type, row) {
-                        if (type === 'display' && data.post_title) {
-                            return data.post_title;
+                        if (type === 'display') {
+                            return data.title;
                         }
                         return data;
                     }
@@ -44,8 +44,8 @@
                 {
                     data: 'session',
                     render: function (data, type, row) {
-                        if (type === 'display' && data.post_title) {
-                            return data.post_title;
+                        if (type === 'display') {
+                            return data.title;
                         }
                         return data;
                     }
