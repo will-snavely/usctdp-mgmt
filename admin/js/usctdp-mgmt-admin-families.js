@@ -72,14 +72,27 @@
                             const currentDay = today.getDate();
 
                             let age = currentYear - birthYear;
-
                             if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
                                 age--;
                             }
                             return age;
                         }
                         return '';
-
+                    }
+                },
+                {
+                    data: 'id',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            var registerUrl = 'admin.php?page=usctdp-admin-register&student_id=' + data;
+                            var cell = '<div class="family-actions">'
+                            cell += '<div class="action-item">'
+                            cell += '<a href="' + registerUrl + '" class="button button-small">Register</a> ';
+                            cell += '</div>';
+                            cell += '</div>';
+                            return cell;
+                        }
+                        return '';
                     }
                 }
             ]
@@ -96,10 +109,10 @@
                     method: 'GET',
                     dataType: 'json',
                     data: {
-                        action: usctdp_mgmt_admin.search_action,
+                        action: usctdp_mgmt_admin.select2_search_action,
                         post_type: 'usctdp-family',
                         post_id: selectedValue,
-                        security: usctdp_mgmt_admin.search_nonce,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
                         acf: 'true'
                     },
                     success: function (responseData) {

@@ -369,7 +369,18 @@ class Usctdp_Mgmt_Admin
         $class_id_key = 'class_id';
         $class_id = '';
         $class_name = '';
+        $student_id_key = 'student_id';
+        $student_id = '';
+        $student_name = '';
 
+        if (isset($_GET[$student_id_key]) && is_numeric($_GET[$student_id_key])) {
+            $student_id = intval($_GET[$student_id_key]);
+            $student_post = get_post($student_id);
+            if ($student_post && $student_post->post_type === 'usctdp-student') {
+                $student_id = $student_id;
+                $student_name = $student_post->post_title;
+            }
+        }
         if (isset($_GET[$class_id_key]) && is_numeric($_GET[$class_id_key])) {
             $class_id = intval($_GET[$class_id_key]);
             $class_post = get_post($class_id);
@@ -395,6 +406,8 @@ class Usctdp_Mgmt_Admin
             'session_name' => $session_name,
             'class_id' => $class_id,
             'class_name' => $class_name,
+            'student_id' => $student_id,
+            'student_name' => $student_name,
         ];
     }
 
@@ -448,6 +461,8 @@ class Usctdp_Mgmt_Admin
         $js_data['preloaded_session_name'] = $context['session_name'];
         $js_data['preloaded_class_id'] = $context['class_id'];
         $js_data['preloaded_class_name'] = $context['class_name'];
+        $js_data['preloaded_student_id'] = $context['student_id'];
+        $js_data['preloaded_student_name'] = $context['student_name'];
 
         wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', $js_data);
     }
@@ -681,7 +696,7 @@ class Usctdp_Mgmt_Admin
 
     function ajax_get_class_qualification()
     {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['get_class_qualification'];
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['class_qualification'];
         if (! check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 400);
         }
@@ -1005,22 +1020,22 @@ class Usctdp_Mgmt_Admin
             ];
             foreach ($_POST["filter"] as $key => $filter) {
                 $meta_query[] = [
-                    'key'     => $key,
-                    'value'   => sanitize_text_field($filter['value']),
+                    'key' => $key,
+                    'value' => sanitize_text_field($filter['value']),
                     'compare' => sanitize_text_field($filter['compare']),
-                    'type'    => sanitize_text_field($filter['type'])
+                    'type' => sanitize_text_field($filter['type'])
                 ];
             }
         }
 
         $args = array(
-            'post_type'      => $post_type,
+            'post_type' => $post_type,
             'posts_per_page' => $length,
-            'paged'          => $paged,
-            'no_found_rows'  => false,
-            'meta_query'     => $meta_query,
-            'orderby'        => 'title',
-            'order'          => 'ASC',
+            'paged' => $paged,
+            'no_found_rows' => false,
+            'meta_query' => $meta_query,
+            'orderby' => 'title',
+            'order' => 'ASC',
         );
 
         if (! empty($search_val)) {

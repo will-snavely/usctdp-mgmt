@@ -35,7 +35,7 @@
                     <label for="family-phone">Phone</label>
                     <span id="family-phone_number"></span>
                 </div>
- 
+
                 <h2> Family Members</h2>
                 <div id="family-table-wrap">
                     <table id="family-members-table" class="usctdp-custom-post-table">
@@ -45,6 +45,7 @@
                                 <th>Last Name</th>
                                 <th>Birthdate</th>
                                 <th>Age</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="family-members-table-body">
@@ -55,8 +56,8 @@
                 <h2> Notes</h2>
                 <div id="family-notes-wrap">
                     <textarea id="family-notes" rows=5></textarea>
-                    <button id="save-notes-button" class="button button-primary"> 
-                        Save Notes 
+                    <button id="save-notes-button" class="button button-primary">
+                        Save Notes
                     </button>
                 </div>
             </div>
