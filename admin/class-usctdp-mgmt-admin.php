@@ -59,12 +59,6 @@ class Usctdp_Mgmt_Admin
     ];
 
     public static $post_handlers =  [
-        'new_session' => [
-            'submit_hook' => 'usctdp_new_session',
-            'nonce_name' => 'usctdp_new_session_nonce',
-            'nonce_action' => 'usctdp_new_session_nonce_action',
-            'callback' => 'new_session_handler'
-        ],
         'registration' => [
             'submit_hook' => 'usctdp_registration',
             'nonce_name' => 'usctdp_registration_nonce',
@@ -83,6 +77,11 @@ class Usctdp_Mgmt_Admin
             'action' => 'select2_search',
             'nonce' => 'select2_search_nonce',
             'callback' => 'ajax_select2_search'
+        ],
+        'save_field' => [
+            'action' => 'save_field',
+            'nonce' => 'save_field_nonce',
+            'callback' => 'ajax_save_field'
         ],
         'gen_roster' => [
             'action' => 'gen_roster',
@@ -348,7 +347,6 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
         $this->add_usctdp_submenu('rosters', 'Rosters', [$this, 'load_rosters_page']);
         $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
-        $this->add_usctdp_submenu('new-session', 'New Session');
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
     }
 
@@ -472,7 +470,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['datatable_search', 'select2_search'];
+        $handlers = ['datatable_search', 'select2_search', 'save_field'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -494,114 +492,6 @@ class Usctdp_Mgmt_Admin
             $message = esc_html($notice['message']);
             echo '<div class="notice ' . $class . ' is-dismissible"><p>' . $message . '</p></div>';
             delete_transient($transient_key);
-        }
-    }
-
-    public function new_session_handler()
-    {
-        $post_handler = Usctdp_Mgmt_Admin::$post_handlers['new_session'];
-        $nonce_name = $post_handler['nonce_name'];
-        $nonce_action = $post_handler['nonce_action'];
-
-        $unique_token = bin2hex(random_bytes(8));
-        $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
-        $redirect_url = add_query_arg(
-            'usctdp_token',
-            $unique_token,
-            $this->get_redirect_url('usctdp-admin-main')
-        );
-
-        $request_completed = false;
-        $created_ids = [];
-        $transient_data = null;
-
-        try {
-            if (!isset($_POST[$nonce_name]) || !wp_verify_nonce($_POST[$nonce_name], $nonce_action)) {
-                throw new ErrorException('Request verification failed.');
-            }
-            if (isset($_POST['session']) && is_array($_POST['session'])) {
-                $session_name = sanitize_text_field($_POST['session']['field_usctdp_session_name']);
-                $session_start = sanitize_text_field($_POST['session']['field_usctdp_session_start_date']);
-                $session_end = sanitize_text_field($_POST['session']['field_usctdp_session_end_date']);
-                $start_date = DateTime::createFromFormat('Y-m-d', $session_start);
-                $end_date = DateTime::createFromFormat('Y-m-d', $session_end);
-                $session_id = wp_insert_post([
-                    'post_type' => 'usctdp-session',
-                    'post_status' => 'publish',
-                    'post_title' => Usctdp_Mgmt_Session::create_session_title($session_name, $start_date, $end_date)
-                ]);
-
-                if (is_wp_error($session_id)) {
-                    throw new ErrorException('Error creating session: ' . $session_id->get_error_message());
-                }
-                $created_ids[] = $session_id;
-                foreach ($_POST['session'] as $key => $value) {
-                    if (!update_field($key, sanitize_text_field($value), $session_id)) {
-                        throw new ErrorException('Failed to update session field: ' . $key);
-                    }
-                }
-            } else {
-                throw new ErrorException('Session data not found.');
-            }
-
-            if (isset($_POST['usctdp_classes']) && is_array($_POST['usctdp_classes'])) {
-                foreach ($_POST['usctdp_classes'] as $key => $class_data) {
-                    $class_id = wp_insert_post([
-                        'post_title' => '',
-                        'post_type' => 'usctdp-class',
-                        'post_status' => 'publish',
-                        'meta_input' => [
-                            'class_index' => $key
-                        ]
-                    ]);
-                    if (is_wp_error($class_id)) {
-                        throw new ErrorException('Error creating class: ' . $class_id->get_error_message());
-                    }
-                    $created_ids[] = $class_id;
-                    foreach ($class_data as $key => $value) {
-                        if (!update_field($key, sanitize_text_field($value), $class_id)) {
-                            throw new ErrorException('Failed to update class field: ' . $key);
-                        }
-                    }
-                    if (!update_field('field_usctdp_class_session', $session_id, $class_id)) {
-                        throw new ErrorException('Failed to update class session field with: ' . $session_id);
-                    }
-                }
-            }
-            $message = "Session created successfully!";
-            $request_completed = true;
-            $transient_data = [
-                'type' => 'success',
-                'message' => $message
-            ];
-        } catch (Exception $e) {
-            $transient_data = [
-                'type' => 'error',
-                'message' => $message
-            ];
-            Usctdp_Mgmt_Logger::getLogger()->log_error($message);
-            $post_data = print_r($_POST, true);
-            Usctdp_Mgmt_Logger::getLogger()->log_error($post_data);
-        } finally {
-            if (!$request_completed) {
-                foreach ($created_ids as $id) {
-                    if (!wp_delete_post($id, true)) {
-                        Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                            'Failed to delete post "' . $id . '" in new_session_handler()'
-                        );
-                    }
-                }
-
-                if (!$transient_data) {
-                    $transient_data = [
-                        'type' => 'error',
-                        'message' => 'An unknown error occurred.'
-                    ];
-                }
-            }
-            set_transient($transient_key, $transient_data, 10);
-            wp_safe_redirect($redirect_url);
-            exit;
         }
     }
 
@@ -946,6 +836,46 @@ class Usctdp_Mgmt_Admin
         }
     }
 
+    function ajax_save_field()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_field'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        $post_id = isset($_GET['post_id']) ? sanitize_text_field($_GET['post_id']) : '';
+        $field_name = isset($_GET['field_name']) ? sanitize_text_field($_GET['field_name']) : '';
+        $field_value = isset($_GET['field_value']) ? sanitize_text_field($_GET['field_value']) : '';
+
+        if (!$post_id) {
+            wp_send_json_error('No post ID provided.', 400);
+        }
+
+        if (!is_numeric($post_id)) {
+            wp_send_json_error('Invalid post ID provided.', 400);
+        }
+
+        $post = get_post($post_id);
+        if (!$post) {
+            wp_send_json_error('Post with ID ' . $post_id . ' not found.', 400);
+        }
+
+        if (!$field_name) {
+            wp_send_json_error('No field name provided.', 400);
+        }
+
+        $field = get_field($field_name, $post_id);
+        if (!$field) {
+            wp_send_json_error('Field with name ' . $field_name . ' not found.', 400);
+        }
+
+        update_field($field_name, sanitize_text_field($field_value), $post_id);
+        wp_send_json_success([
+            'message' => 'Field saved successfully'
+        ]);
+    }
+
+
     function ajax_select2_search()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_search'];
@@ -953,7 +883,7 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $post_id = isset($_GET['p']) ? sanitize_text_field($_GET['p']) : '';
+        $post_id = isset($_GET['post_id']) ? sanitize_text_field($_GET['post_id']) : '';
         $search_term = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
         $post_type = isset($_GET['post_type']) ? sanitize_text_field($_GET['post_type']) : 'post';
         $include_acf = isset($_GET['acf']) ? sanitize_text_field($_GET['acf'] === 'true') : false;

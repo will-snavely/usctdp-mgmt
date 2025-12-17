@@ -104,6 +104,7 @@
             if (selectedValue && selectedValue !== '') {
                 $('#family-display-section').show();
                 table.ajax.reload();
+                console.log(selectedValue);
                 $.ajax({
                     url: usctdp_mgmt_admin.ajax_url,
                     method: 'GET',
@@ -116,6 +117,7 @@
                         acf: 'true'
                     },
                     success: function (responseData) {
+                        console.log(responseData);
                         if (responseData.items.length > 0) {
                             var familyData = responseData.items[0];
                             for (var key in familyData.acf) {
@@ -137,9 +139,41 @@
         });
 
         $("#save-notes-button").on("click", function () {
-            console.log("saving notes");
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.save_field_action,
+                    post_id: $('#family-selector').val(),
+                    field_name: 'notes',
+                    field_value: $('#family-notes').val(),
+                    security: usctdp_mgmt_admin.save_field_nonce,
+                },
+                success: function (responseData) {
+                    console.log(responseData);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                }
+            });
         });
     });
 
-})(jQuery);
+    [diff_block_end]
+}
+                        }
+var user = familyData.acf["assigned_user"];
+$("#family-email").text(user.user_email);
+                    }
+
+                },
+error: function (jqXHR, textStatus, errorThrown) {
+    console.error("AJAX Error:", textStatus, errorThrown);
+}
+            });
+        });
+    });
+
+}) (jQuery);
 

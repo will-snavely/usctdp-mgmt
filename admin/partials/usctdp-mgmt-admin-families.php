@@ -59,6 +59,14 @@
                     <button id="save-notes-button" class="button button-primary">
                         Save Notes
                     </button>
+                    <div id="save-notes-status">
+                        <span id="save-notes-success" class="hidden success">
+                            Saved!
+                        </span>
+                        <span id="save-notes-error" class="hidden error">
+                            Failed to save notes.
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>

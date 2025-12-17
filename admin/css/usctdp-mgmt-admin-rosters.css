@@ -53,42 +53,6 @@ div.dt-length select {
     display: none !important;
 }
 
-/* 1. Define the Keyframe Animation */
-@keyframes loading-pulse {
-    0% {
-        opacity: 1;
-        color: white;
-        /* Use your button's default text color */
-    }
-
-    50% {
-        opacity: 0.6;
-        color: lightgray;
-        /* A subtle change */
-        transform: scale(0.98);
-    }
-
-    100% {
-        opacity: 1;
-        color: white;
-    }
-}
-
-/* 2. Apply the animation when the 'is-loading' class is present */
-.is-loading #button-text {
-    /* Apply the animation */
-    animation: loading-pulse 1.5s infinite ease-in-out;
-}
-
-/* Optional: Styling for the disabled state */
-.is-loading {
-    cursor: wait;
-    /* Adjust color to match your design */
-    pointer-events: none;
-    /* Ensure no interaction */
-}
-
-
 .roster-actions {
     display: flex;
     flex-wrap: wrap;
