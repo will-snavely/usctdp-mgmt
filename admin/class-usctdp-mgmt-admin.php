@@ -610,70 +610,70 @@ class Usctdp_Mgmt_Admin
         $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration'];
         $nonce_name = $post_handler['nonce_name'];
         $nonce_action = $post_handler['nonce_action'];
-        error_log("registration_handler() called");
 
         $unique_token = bin2hex(random_bytes(8));
         $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
-        $redirect_url = add_query_arg(
-            'usctdp_token',
-            $unique_token,
-            $this->get_redirect_url('usctdp-admin-rosters')
-        );
 
         $request_completed = false;
         $transient_data = null;
+        $registration_id = null;
+        $class_id = null;
         try {
-            error_log("registration_handler() nonce check");
             if (!isset($_POST[$nonce_name]) || !wp_verify_nonce($_POST[$nonce_name], $nonce_action)) {
-                throw new ErrorException('Request verification failed.');
+                throw new Exception('Request verification failed.');
             }
-            error_log("registration_handler() nonce check passed");
 
-            error_log("registration_handler() class_id check");
             if (!isset($_POST['class_id'])) {
-                throw new ErrorException('Class ID not found.');
+                throw new Exception('Class ID not found.');
             }
-            error_log("registration_handler() class_id check passed");
-
-            error_log("registration_handler() student_id check");
             if (!isset($_POST['student_id'])) {
-                throw new ErrorException('Student ID not found.');
+                throw new Exception('Student ID not found.');
             }
-            error_log("registration_handler() student_id check passed");
 
-            error_log("registration_handler() class_id and student_id check passed");
             $class_id = $_POST['class_id'];
             $student_id = $_POST['student_id'];
+            if (!is_numeric($class_id) || !is_numeric($student_id)) {
+                throw new Exception('Class ID or Student ID is not a number.');
+            }
+
+            $class = get_post($class_id);
+            $student = get_post($student_id);
+            if (!$class) {
+                throw new Exception('Post with ID ' . $class_id . ' not found.');
+            }
+            if (!$student) {
+                throw new Exception('Post with ID ' . $student_id . ' not found.');
+            }
+            if ($class->post_type !== 'usctdp-class') {
+                throw new Exception('Post with ID ' . $class_id . ' is not a class.');
+            }
+            if ($student->post_type !== 'usctdp-student') {
+                throw new Exception('Post with ID ' . $student_id . ' is not a student.');
+            }
+
             $registration_id = wp_insert_post([
                 'post_title' => '',
                 'post_type' => 'usctdp-registration',
                 'post_status' => 'publish'
-            ]);
+            ], true);
             if (is_wp_error($registration_id)) {
-                throw new ErrorException('Error creating registration: ' . $registration_id->get_error_message());
+                throw new Exception('Error creating registration: ' . $registration_id->get_error_message());
             }
 
             if (!update_field('field_usctdp_registration_class', $class_id, $registration_id)) {
-                throw new ErrorException('Failed to update class field with: ' . $class_id);
+                throw new Exception('Failed to update class field with: ' . $class_id);
             }
             if (!update_field('field_usctdp_registration_student', $student_id, $registration_id)) {
-                throw new ErrorException('Failed to update student field with: ' . $student_id);
+                throw new Exception('Failed to update student field with: ' . $student_id);
             }
-            $redirect_url = add_query_arg(
-                'class_id',
-                $class_id,
-                $redirect_url
-            );
 
             $message = "Registration created successfully!";
-            error_log("registration_handler() message: " . $message);
             $request_completed = true;
             $transient_data = [
                 'type' => 'success',
                 'message' => $message
             ];
-        } catch (Exception $e) {
-            error_log("registration_handler() exception: " . $e->getMessage());
+        } catch (Throwable $e) {
             $transient_data = [
                 'type' => 'error',
                 'message' => $e->getMessage()
@@ -681,20 +681,29 @@ class Usctdp_Mgmt_Admin
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
         } finally {
             if (!$request_completed) {
+                if ($registration_id) {
+                    wp_delete_post($registration_id, true);
+                }
                 if (!$transient_data) {
                     $transient_data = [
                         'type' => 'error',
                         'message' => 'An unknown error occurred.'
                     ];
                 }
+                $redirect_url = add_query_arg([
+                    'usctdp_token' => $unique_token,
+                ],  $this->get_redirect_url('usctdp-admin-register'));
+            } else {
+                $redirect_url = add_query_arg([
+                    'class_id' => $class_id,
+                    'usctdp_token' => $unique_token,
+                ],  $this->get_redirect_url('usctdp-admin-rosters'));
             }
-            //set_transient($transient_key, $transient_data, 10);
-            error_log("registration_handler() redirecting to: " . $redirect_url);
+            set_transient($transient_key, $transient_data, 10);
             wp_safe_redirect($redirect_url);
             exit;
         }
     }
-
 
     function ajax_get_class_qualification()
     {
