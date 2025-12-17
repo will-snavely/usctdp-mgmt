@@ -601,7 +601,7 @@ class Usctdp_Mgmt_Admin
             }
             set_transient($transient_key, $transient_data, 10);
             wp_safe_redirect($redirect_url);
-            wp_die();
+            exit;
         }
     }
 
@@ -610,6 +610,7 @@ class Usctdp_Mgmt_Admin
         $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration'];
         $nonce_name = $post_handler['nonce_name'];
         $nonce_action = $post_handler['nonce_action'];
+        error_log("registration_handler() called");
 
         $unique_token = bin2hex(random_bytes(8));
         $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
@@ -620,21 +621,27 @@ class Usctdp_Mgmt_Admin
         );
 
         $request_completed = false;
-        $created_ids = [];
         $transient_data = null;
-
         try {
+            error_log("registration_handler() nonce check");
             if (!isset($_POST[$nonce_name]) || !wp_verify_nonce($_POST[$nonce_name], $nonce_action)) {
                 throw new ErrorException('Request verification failed.');
             }
+            error_log("registration_handler() nonce check passed");
 
+            error_log("registration_handler() class_id check");
             if (!isset($_POST['class_id'])) {
                 throw new ErrorException('Class ID not found.');
             }
+            error_log("registration_handler() class_id check passed");
+
+            error_log("registration_handler() student_id check");
             if (!isset($_POST['student_id'])) {
                 throw new ErrorException('Student ID not found.');
             }
+            error_log("registration_handler() student_id check passed");
 
+            error_log("registration_handler() class_id and student_id check passed");
             $class_id = $_POST['class_id'];
             $student_id = $_POST['student_id'];
             $registration_id = wp_insert_post([
@@ -659,12 +666,14 @@ class Usctdp_Mgmt_Admin
             );
 
             $message = "Registration created successfully!";
+            error_log("registration_handler() message: " . $message);
             $request_completed = true;
             $transient_data = [
                 'type' => 'success',
                 'message' => $message
             ];
         } catch (Exception $e) {
+            error_log("registration_handler() exception: " . $e->getMessage());
             $transient_data = [
                 'type' => 'error',
                 'message' => $e->getMessage()
@@ -672,14 +681,6 @@ class Usctdp_Mgmt_Admin
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
         } finally {
             if (!$request_completed) {
-                foreach ($created_ids as $id) {
-                    if (!wp_delete_post($id, true)) {
-                        Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                            'Failed to delete post "' . $id . '" in new_session_handler()'
-                        );
-                    }
-                }
-
                 if (!$transient_data) {
                     $transient_data = [
                         'type' => 'error',
@@ -687,9 +688,10 @@ class Usctdp_Mgmt_Admin
                     ];
                 }
             }
-            set_transient($transient_key, $transient_data, 10);
+            //set_transient($transient_key, $transient_data, 10);
+            error_log("registration_handler() redirecting to: " . $redirect_url);
             wp_safe_redirect($redirect_url);
-            wp_die();
+            exit;
         }
     }
 
@@ -752,7 +754,6 @@ class Usctdp_Mgmt_Admin
             'registered' => $found_posts,
             'student_registered' => $student_registered
         ]);
-        wp_die();
     }
 
     private function get_class_registrations($class_id)
@@ -996,7 +997,6 @@ class Usctdp_Mgmt_Admin
         }
         wp_reset_postdata();
         wp_send_json(array('items' => $results, 'found_posts' => $found_posts));
-        wp_die();
     }
 
     public function ajax_datatable_search()
@@ -1088,6 +1088,5 @@ class Usctdp_Mgmt_Admin
             "data"            => $data_output,
         );
         wp_send_json($response);
-        wp_die();
     }
 }
