@@ -843,9 +843,9 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $post_id = isset($_GET['post_id']) ? sanitize_text_field($_GET['post_id']) : '';
-        $field_name = isset($_GET['field_name']) ? sanitize_text_field($_GET['field_name']) : '';
-        $field_value = isset($_GET['field_value']) ? sanitize_text_field($_GET['field_value']) : '';
+        $post_id = isset($_POST['post_id']) ? sanitize_text_field($_POST['post_id']) : '';
+        $field_name = isset($_POST['field_name']) ? sanitize_text_field($_POST['field_name']) : '';
+        $field_value = isset($_POST['field_value']) ? $_POST['field_value'] : '';
 
         if (!$post_id) {
             wp_send_json_error('No post ID provided.', 400);
@@ -864,12 +864,19 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('No field name provided.', 400);
         }
 
-        $field = get_field($field_name, $post_id);
-        if (!$field) {
+        $field_obj = get_field_object($field_name, $post_id);
+        if (!$field_obj) {
             wp_send_json_error('Field with name ' . $field_name . ' not found.', 400);
         }
 
-        update_field($field_name, sanitize_text_field($field_value), $post_id);
+        $value = $field_value;
+        if ($field_obj['type'] == 'textarea') {
+            $value = sanitize_textarea_field(stripslashes($value));
+        } else {
+            $value = sanitize_text_field($value);
+        }
+
+        update_field($field_name, $value, $post_id);
         wp_send_json_success([
             'message' => 'Field saved successfully'
         ]);

@@ -159,21 +159,5 @@
             });
         });
     });
-
-    [diff_block_end]
-}
-                        }
-var user = familyData.acf["assigned_user"];
-$("#family-email").text(user.user_email);
-                    }
-
-                },
-error: function (jqXHR, textStatus, errorThrown) {
-    console.error("AJAX Error:", textStatus, errorThrown);
-}
-            });
-        });
-    });
-
 }) (jQuery);
 
