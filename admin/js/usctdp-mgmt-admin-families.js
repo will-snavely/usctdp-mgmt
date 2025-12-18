@@ -128,6 +128,7 @@
                             }
                             var user = familyData.acf["assigned_user"];
                             $("#family-email").text(user.user_email);
+                            $("#family-notes").val(familyData.acf["notes"]);
                         }
 
                     },
@@ -146,7 +147,7 @@
                 data: {
                     action: usctdp_mgmt_admin.save_field_action,
                     post_id: $('#family-selector').val(),
-                    field_name: 'notes',
+                    field_name: 'field_usctdp_family_notes',
                     field_value: $('#family-notes').val(),
                     security: usctdp_mgmt_admin.save_field_nonce,
                 },
@@ -159,5 +160,5 @@
             });
         });
     });
-}) (jQuery);
+})(jQuery);
 
