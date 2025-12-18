@@ -56,16 +56,18 @@
                 <h2> Notes</h2>
                 <div id="family-notes-wrap">
                     <textarea id="family-notes" rows=5></textarea>
-                    <button id="save-notes-button" class="button button-primary">
-                        Save Notes
-                    </button>
-                    <div id="save-notes-status">
-                        <span id="save-notes-success" class="hidden success">
-                            Saved!
-                        </span>
-                        <span id="save-notes-error" class="hidden error">
-                            Failed to save notes.
-                        </span>
+                    <div id="save-notes-action">
+                        <button id="save-notes-button" class="button button-primary">
+                            <span id="save-notes-text">Save Notes</span>
+                        </button>
+                        <div id="save-notes-status">
+                            <span id="save-notes-success" class="hidden success">
+                                Notes Saved!
+                            </span>
+                            <span id="save-notes-error" class="hidden error">
+                                Failed to save notes.
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>

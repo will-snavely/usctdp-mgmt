@@ -44,3 +44,14 @@ div.dt-length select {
     flex-wrap: wrap;
     gap: 5px;
 }
+
+#save-notes-action {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#save-notes-button {
+    width: 100px;
+    height: auto;
+}

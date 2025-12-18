@@ -100,6 +100,10 @@
 
         $('#family-selector').on('change', function () {
             const selectedValue = this.value;
+            $("#save-notes-error").addClass("hidden");
+            $("#save-notes-success").addClass("hidden");
+            $('#save-notes-text').text('Save Notes');
+            $('#save-notes-button').removeClass('is-loading');
             $('#family-display-section').hide();
             if (selectedValue && selectedValue !== '') {
                 $('#family-display-section').show();
@@ -140,6 +144,11 @@
         });
 
         $("#save-notes-button").on("click", function () {
+            $("#save-notes-error").addClass("hidden");
+            $("#save-notes-success").addClass("hidden");
+            $('#save-notes-text').text('Working...');
+            $("#save-notes-button").addClass("is-loading");
+            $('#family-selector').attr('disabled', true);
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'POST',
@@ -152,10 +161,17 @@
                     security: usctdp_mgmt_admin.save_field_nonce,
                 },
                 success: function (responseData) {
-                    console.log(responseData);
+                    $("#save-notes-error").addClass("hidden");
+                    $("#save-notes-success").removeClass("hidden");
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("AJAX Error:", textStatus, errorThrown);
+                    $("#save-notes-error").removeClass("hidden");
+                    $("#save-notes-success").addClass("hidden");
+                },
+                complete: function () {
+                    $('#save-notes-text').text('Save Notes');
+                    $('#save-notes-button').removeClass('is-loading');
+                    $('#family-selector').attr('disabled', false);
                 }
             });
         });
