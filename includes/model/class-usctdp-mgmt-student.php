@@ -62,6 +62,13 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
+                    'key' => 'field_usctdp_student_level',
+                    'label' => 'Level',
+                    'name' => 'level',
+                    'type' => 'number',
+                    'required' => 1
+                ],
+                [
                     "key" => "field_usctdp_student_family",
                     "label" => "Family",
                     "name" => "family",

@@ -2,25 +2,31 @@
     "use strict";
 
     $(document).ready(function () {
-        $('#registration-details-section').hide();
-        $('#preloaded-student-heading').hide();
-        $('#registration-history-section').hide();
-
-        function createSelectSection(kind, label) {
+        function createSelectSection(kind, label, hidden = false) {
+            var classes = '';
+            if (hidden) {
+                classes = 'hidden';
+            }
             return `
-                <div id='${kind}-selection-section'>
+                <div id='${kind}-selection-section' class='${classes}'>
                     <h2 id='${kind}-selector-label'> Select a ${label} </h2>
                     <select id='${kind}-selector' name='${kind}_id'></select>
                 </div>`;
         }
 
-        var $studentSelector = $(createSelectSection('student', 'Student'));
-        var $sessionSelector = $(createSelectSection('session', 'Session'));
-        var $classSelector = $(createSelectSection('class', 'Class'));
+        var $studentSelector = $(createSelectSection('student', 'Student', false));
+        var $sessionSelector = $(createSelectSection('session', 'Session', false));
+        var $classSelector = $(createSelectSection('class', 'Class', true));
 
-        $('#context-selection-section').append($studentSelector);
-        $('#context-selection-section').append($sessionSelector);
-        $('#context-selection-section').append($classSelector);
+        if (usctdp_mgmt_admin.preloaded_class_name) {
+            $('#context-selection-section').append($sessionSelector);
+            $('#context-selection-section').append($classSelector);
+            $('#context-selection-section').append($studentSelector);
+        } else {
+            $('#context-selection-section').append($studentSelector);
+            $('#context-selection-section').append($sessionSelector);
+            $('#context-selection-section').append($classSelector);
+        }
 
         $('#student-selector').select2({
             placeholder: "Search for a student...",
@@ -95,19 +101,11 @@
                 true,
                 true
             );
+            $('#student-selector-label').text('Student:');
             $('#student-selector').append(newOption);
             $('#student-selector').val(usctdp_mgmt_admin.preloaded_student_id);
             $('#session-selector').trigger('change');
             $('#student-selector').prop('disabled', true);
-            $('#student-selector-label').text('Registering ' + usctdp_mgmt_admin.preloaded_student_name);
-
-
-            //$('#preloaded-student-heading').show();
-            //$('#registration-history-section').show();
-            //$('#student-selector').hide();
-            //$('#student-selector').attr('disabled', true);
-            //$('#student-name-header').text(usctdp_mgmt_admin.preloaded_student_name);
-            //$('#student-name-history').text(usctdp_mgmt_admin.preloaded_student_name);
         }
 
         if (usctdp_mgmt_admin.preloaded_session_name) {
@@ -117,10 +115,12 @@
                 true,
                 true
             );
+            $('#session-selector-label').text('Session:');
             $('#session-selector').append(newOption)
             $('#session-selector').val(usctdp_mgmt_admin.preloaded_session_id);
             $('#session-selector').trigger('change');
             $('#session-selector').prop('disabled', true);
+
         }
 
         if (usctdp_mgmt_admin.preloaded_class_name) {
@@ -130,12 +130,13 @@
                 true,
                 true
             );
+            $('#class-selector-label').text('Class:');
             $('#class-selector').append(newOption);
             $('#class-selector').val(usctdp_mgmt_admin.preloaded_class_id);
             $('#class-selector').trigger('change');
             $('#class-selector').prop('disabled', true);
+            $('#class-selection-section').removeClass('hidden');
         }
-
 
         var registration_history_table = $('#registration-history-table').DataTable({
             processing: true,
@@ -162,11 +163,12 @@
                 {
                     data: 'class',
                     render: function (data, type, row) {
-                        if (type === 'display') {
+                        if (type === 'display' && data && data.title) {
                             return data.title;
                         }
                         return data;
-                    }
+                    },
+                    defaultContent: '',
                 },
                 {
                     data: 'class',
@@ -175,14 +177,15 @@
                             return data.session.post_title;
                         }
                         return data;
-                    }
+                    },
+                    defaultContent: '',
                 },
                 {
-                    data: 'level',
+                    data: 'starting_level',
                     defaultContent: '',
                     render: function (data, type, row) {
-                        if (type === 'display' && data && data.level) {
-                            return data.level;
+                        if (type === 'display' && data && data.starting_level) {
+                            return data.starting_level;
                         }
                         return data;
                     }
@@ -190,8 +193,76 @@
             ]
         });
 
+        if (usctdp_mgmt_admin.preloaded_student_name) {
+            const student_name = usctdp_mgmt_admin.preloaded_student_name;
+            $('#student-name-history').text(student_name);
+            $('#registration-history-section').show();
+            registration_history_table.ajax.reload();
+        }
+
+        var class_roster_table = $('#class-roster-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            searching: true,
+            paging: true,
+
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    var classFilterValue = $('#class-selector').val();
+                    d.action = usctdp_mgmt_admin.datatable_search_action;
+                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
+                    d.post_type = 'usctdp-registration';
+                    d['filter[class][value]'] = classFilterValue;
+                    d['filter[class][compare]'] = '=';
+                    d['filter[class][type]'] = 'NUMERIC';
+                    d['expand[]'] = 'usctdp-student';
+                }
+            },
+            columns: [
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display' && data && data.first_name) {
+                            return data.first_name;
+                        }
+                        return data;
+                    },
+                    defaultContent: '',
+                },
+                {
+                    data: 'student',
+                    render: function (data, type, row) {
+                        if (type === 'display' && data && data.last_name) {
+                            return data.last_name;
+                        }
+                        return data;
+                    },
+                    defaultContent: '',
+                },
+                {
+                    data: 'starting_level',
+                    render: function (data, type, row) {
+                        if (type === 'display' && data && data.starting_level) {
+                            return data.starting_level;
+                        }
+                        return data;
+                    },
+                    defaultContent: '',
+                }
+            ]
+        });
+
+        if (usctdp_mgmt_admin.preloaded_class_name) {
+            const class_name = usctdp_mgmt_admin.preloaded_class_name;
+            $('#class-roster-name').text(class_name);
+            toggle_class_roster(true);
+            class_roster_table.ajax.reload();
+        }
+
         function reset_registration_fields() {
-            $('#student-level').val('');
             $('#payment-amount-outstanding').val('');
             $('#payment-amount-paid').val('');
             $('#check-number-field').hide();
@@ -201,15 +272,31 @@
             $('#notifications-section').children().remove();
         }
 
-        function hide_registration_fields() {
-            $('#registration-details-section').hide();
+        function toggle_registration_fields(visible) {
+            if (visible) {
+                $('#registration-details-section').removeClass('hidden');
+            } else {
+                $('#registration-details-section').addClass('hidden');
+            }
         }
 
-        function show_registration_fields() {
-            $('#registration-details-section').show();
+        function toggle_registration_history(visible) {
+            if (visible) {
+                $('#registration-history-section').removeClass('hidden');
+            } else {
+                $('#registration-history-section').addClass('hidden');
+            }
         }
 
-        function set_notification(message, ignoreable = false) {
+        function toggle_class_roster(visible) {
+            if (visible) {
+                $('#class-roster-section').removeClass('hidden');
+            } else {
+                $('#class-roster-section').addClass('hidden');
+            }
+        }
+
+        function set_notification(slug, message, ignoreable = false) {
             var $notification = $("<div></div>");
             $notification.addClass('notification');
             var $message = $("<p></p>");
@@ -228,7 +315,12 @@
 
             $ignoreBtn.click(function () {
                 reset_registration_fields();
-                show_registration_fields();
+                toggle_registration_fields(true);
+                var $hiddenInput = $('<input type="hidden"></input>');
+                $hiddenInput.attr('id', 'ignore-' + slug);
+                $hiddenInput.attr('name', 'ignore-' + slug);
+                $hiddenInput.attr('value', "true");
+                $('#notifications-section').append($hiddenInput);
             });
         }
 
@@ -250,14 +342,24 @@
                     $('#class-max-size').text(max_size);
                     $('#one-day-price').text("$" + response.data.one_day_price);
                     $('#two-day-price').text("$" + response.data.two_day_price);
+                    $('#student-level').val(response.data.student_level).trigger('change');
+                    $('#class-level').text(response.data.class_level);
 
                     if (response.data.student_registered) {
-                        set_notification('The selected student is already registered for this class.', false);
+                        set_notification(
+                            'student-registered',
+                            'The selected student is already registered for this class.',
+                            false
+                        );
                     } else if (current_size >= max_size) {
-                        set_notification('This class is currently full.', true);
+                        set_notification(
+                            'class-full',
+                            'This class is currently full.',
+                            true
+                        );
                     } else {
                         reset_registration_fields();
-                        show_registration_fields();
+                        toggle_registration_fields(true);
                     }
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
@@ -269,9 +371,9 @@
         $('#session-selector').on('change', function () {
             const selectedValue = this.value;
             if (selectedValue === '') {
-                $('#class-selection-section').hide();
+                $('#class-selection-section').addClass('hidden');
             } else {
-                $('#class-selection-section').show();
+                $('#class-selection-section').removeClass('hidden');
             }
             $('#class-selector').val(null);
             $('#class-selector').trigger('change');
@@ -282,10 +384,17 @@
             const selectedClass = this.value;
 
             reset_registration_fields();
+            $('#class-roster-name').text('');
+            toggle_class_roster(false);
             if (selectedClass && selectedStudent) {
                 load_registration_details_section(selectedClass, selectedStudent);
+                const class_name = $('#class-selector').find(':selected').text();
+                $('#class-roster-name').text(class_name);
+                toggle_class_roster(true);
+                class_roster_table.ajax.reload();
             } else {
-                hide_registration_fields();
+                toggle_registration_fields(false);
+                toggle_class_roster(false);
             }
         });
 
@@ -294,24 +403,23 @@
             const selectedClass = $('#class-selector').val();
 
             reset_registration_fields();
-
             $('#student-name-history').text('');
-            $('#registration-history-section').hide();
+            toggle_registration_history(false);
             if (selectedStudent) {
                 const student_name = $('#student-selector').find(':selected').text();
                 $('#student-name-history').text(student_name);
-                $('#registration-history-section').show();
+                toggle_registration_history(true);
                 registration_history_table.ajax.reload();
 
                 if (selectedClass) {
                     load_registration_details_section(selectedClass, selectedStudent);
                 } else {
-                    hide_registration_fields();
+                    toggle_registration_fields(false);
                 }
             } else {
                 $('#student-name-history').text('');
-                $('#registration-history-section').hide();
-                hide_registration_fields();
+                toggle_registration_history(false);
+                toggle_registration_fields(false);
             }
         });
 
@@ -321,6 +429,12 @@
             } else {
                 $('#check-number-field').hide();
             }
+        });
+
+        $('form').on('submit', function () {
+            $('#student-selector').prop('disabled', false);
+            $('#session-selector').prop('disabled', false);
+            $('#class-selector').prop('disabled', false);
         });
     });
 })(jQuery);

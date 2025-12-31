@@ -5,7 +5,7 @@
     gap: 0px 5px;
     grid-auto-flow: row;
     grid-template-areas:
-        "registration-fields registration-history";
+        "registration-fields registration-related-data";
 }
 
 #registration-form-section {
@@ -14,10 +14,13 @@
     padding: 10px;
 }
 
-#registration-history-section {
-    grid-area: registration-history;
+#registration-related-data-section {
+    grid-area: registration-related-data;
     /* background-color: #dcdde0; */
     padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .selected-student-name {
@@ -34,14 +37,6 @@
 
 #student-selector {
     width: 350px;
-}
-
-#class-selection-section {
-    display: none;
-}
-
-#registration-section {
-    display: none;
 }
 
 #registration-details-section {

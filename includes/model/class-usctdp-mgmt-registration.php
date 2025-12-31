@@ -59,9 +59,9 @@ class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type
                     "required" => 1
                 ],
                 [
-                    "key" => "field_usctdp_registration_level",
-                    "label" => "Level",
-                    "name" => "level",
+                    "key" => "field_usctdp_registration_starting_level",
+                    "label" => "Starting Level",
+                    "name" => "starting_level",
                     "type" => "number",
                     "required" => 1
                 ],
@@ -99,15 +99,15 @@ class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type
     public function get_computed_post_fields($data, $postarr)
     {
         $result = [];
-        if ($data['post_type'] === 'usctdp-family' && isset($_POST['acf'])) {
-            $family_last_name = $_POST['acf']['field_usctdp_family_last_name'];
-            $result['post_title'] = self::create_family_title($family_last_name);
+        if ($data['post_type'] === 'usctdp-registration' && isset($_POST['acf'])) {
+            $registration_level = $_POST['acf']['field_usctdp_registration_level'];
+            $result['post_title'] = self::create_registration_title($registration_level);
         }
         return $result;
     }
 
-    public static function create_family_title($last_name)
+    public static function create_registration_title($level)
     {
-        return sanitize_text_field($last_name);
+        return sanitize_text_field($level);
     }
 }

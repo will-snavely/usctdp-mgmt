@@ -8,9 +8,6 @@ $nonce_action = $post_handler["nonce_action"];
 
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    <div id="preloaded-student-heading">
-        <h2> Registering <span class="selected-student-name" id="student-name-header"></span></h2>
-    </div>
     <div id="registration-container">
         <div id="registration-form-section">
             <form
@@ -19,7 +16,7 @@ $nonce_action = $post_handler["nonce_action"];
                 id="register-form">
                 <div id="context-selection-section"></div>
                 <div id="notifications-section"></div>
-                <div id="registration-details-section">
+                <div id="registration-details-section" class="hidden">
                     <h2> Registration Details</h2>
                     <div>
                         <strong>Current Enrollment:</strong>
@@ -34,6 +31,10 @@ $nonce_action = $post_handler["nonce_action"];
                     <div>
                         <strong>Two-Day Price:</strong>
                         <span id="two-day-price"></span>
+                    </div>
+                    <div>
+                        <strong>Class Level:</strong>
+                        <span id="class-level"></span>
                     </div>
 
                     <div id="registration-fields-section">
@@ -75,20 +76,38 @@ $nonce_action = $post_handler["nonce_action"];
             </form>
         </div>
 
-        <div id="registration-history-section">
-            <h2> Registration History for <span class="selected-student-name" id="student-name-history"></span></h2>
-            <div id="registration-history-table-wrap">
-                <table id="registration-history-table" class="usctdp-custom-post-table">
-                    <thead>
-                        <tr>
-                            <th>Class</th>
-                            <th>Session</th>
-                            <th>Level</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+        <div id="registration-related-data-section">
+            <div id="registration-history-section" class="hidden">
+                <h2> Registration History for <span id="student-name-history"></span></h2>
+                <div id="registration-history-table-wrap">
+                    <table id="registration-history-table" class="usctdp-custom-post-table">
+                        <thead>
+                            <tr>
+                                <th>Class</th>
+                                <th>Session</th>
+                                <th>Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="class-roster-section" class="hidden">
+                <h2> Roster for <span id="class-roster-name"></span></h2>
+                <div id="class-roster-table-wrap">
+                    <table id="class-roster-table" class="usctdp-custom-post-table">
+                        <thead>
+                            <tr>
+                                <th>First Name</th>
+                                <th>Last Name</th>
+                                <th>Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

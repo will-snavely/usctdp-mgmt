@@ -144,7 +144,7 @@
                 {
                     data: 'student',
                     render: function (data, type, row) {
-                        if (type === 'display') {
+                        if (type === 'display' && data && data.first_name) {
                             return data.first_name;
                         }
                         return data;
@@ -153,7 +153,7 @@
                 {
                     data: 'student',
                     render: function (data, type, row) {
-                        if (type === 'display') {
+                        if (type === 'display' && data && data.last_name) {
                             return data.last_name;
                         }
                         return data;
@@ -183,13 +183,14 @@
                     }
                 },
                 {
-                    data: 'student',
+                    data: 'starting_level',
                     render: function (data, type, row) {
-                        if (type === 'display') {
-                            return "placeholder";
+                        if (type === 'display' && data && data.starting_level) {
+                            return data.starting_level;
                         }
                         return data;
-                    }
+                    },
+                    defaultContent: '',
                 },
                 {
                     data: 'student',

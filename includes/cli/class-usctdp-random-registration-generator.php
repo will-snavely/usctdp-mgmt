@@ -23,6 +23,7 @@ class Usctdp_Random_Registration_Generator
                 continue;
             }
             $enrolled[$class->ID]["roster"][] = $student->ID;
+            $student_level = get_field("level", $student->ID);
 
             $post_id = wp_insert_post([
                 'post_title'    => "{$student->post_title} - {$class->post_title}",
@@ -32,9 +33,8 @@ class Usctdp_Random_Registration_Generator
             update_field("student", $student->ID, $post_id);
             update_field("class", $class->ID, $post_id);
             update_field("created", date('Y-m-d H:i:s'), $post_id);
-            //update_field("outstanding_balance", 0, $post_id);
-            //update_field("payment_method", "check", $post_id);
-            //update_field("payment_date", date('Y-m-d H:i:s'), $post_id);
+            update_field("balance", 0, $post_id);
+            update_field("starting_level", $student_level, $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $i++;
             $result[] = [

@@ -155,6 +155,7 @@ class Usctdp_Random_People_Generator
             $random_birth_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
             update_field('birth_date', $random_birth_date, $post_id);
             update_field('family', $family_id, $post_id);
+            update_field('level', rand(1, 5), $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $seen[$first_name] = true;
             $i++;

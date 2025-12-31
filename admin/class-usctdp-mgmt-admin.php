@@ -29,6 +29,8 @@ use Google\Service\Drive\DriveFile;
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
+class Web_Request_Exception extends Exception {}
+
 class Usctdp_Mgmt_Admin
 {
     /**
@@ -500,79 +502,130 @@ class Usctdp_Mgmt_Admin
         $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration'];
         $nonce_name = $post_handler['nonce_name'];
         $nonce_action = $post_handler['nonce_action'];
-
         $unique_token = bin2hex(random_bytes(8));
         $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
 
-        $request_completed = false;
         $transient_data = null;
         $registration_id = null;
         $class_id = null;
+        $transaction_started = false;
+        $transaction_completed = false;
+        global $wpdb;
+
         try {
+            if (!current_user_can('manage_options')) {
+                throw new Web_Request_Exception('You do not have permission to perform this action.');
+            }
+
             if (!isset($_POST[$nonce_name]) || !wp_verify_nonce($_POST[$nonce_name], $nonce_action)) {
-                throw new Exception('Request verification failed.');
+                throw new Web_Request_Exception('Request verification failed.');
             }
 
             if (!isset($_POST['class_id'])) {
-                throw new Exception('Class ID not found.');
+                throw new Web_Request_Exception('Class ID not found.');
             }
             if (!isset($_POST['student_id'])) {
-                throw new Exception('Student ID not found.');
+                throw new Web_Request_Exception('Student ID not found.');
             }
 
             $class_id = $_POST['class_id'];
             $student_id = $_POST['student_id'];
             if (!is_numeric($class_id) || !is_numeric($student_id)) {
-                throw new Exception('Class ID or Student ID is not a number.');
+                throw new Web_Request_Exception('Class ID or Student ID is not a number.');
             }
 
             $class = get_post($class_id);
             $student = get_post($student_id);
             if (!$class) {
-                throw new Exception('Post with ID ' . $class_id . ' not found.');
+                throw new Web_Request_Exception('Post with ID ' . $class_id . ' not found.');
             }
             if (!$student) {
-                throw new Exception('Post with ID ' . $student_id . ' not found.');
+                throw new Web_Request_Exception('Post with ID ' . $student_id . ' not found.');
             }
             if ($class->post_type !== 'usctdp-class') {
-                throw new Exception('Post with ID ' . $class_id . ' is not a class.');
+                throw new Web_Request_Exception('Post with ID ' . $class_id . ' is not a class.');
             }
             if ($student->post_type !== 'usctdp-student') {
-                throw new Exception('Post with ID ' . $student_id . ' is not a student.');
+                throw new Web_Request_Exception('Post with ID ' . $student_id . ' is not a student.');
+            }
+
+            $starting_level = $_POST['starting_level'] ?? null;
+            if (isset($_POST['starting_level'])) {
+                if (!is_numeric($starting_level)) {
+                    throw new Web_Request_Exception('Starting level is not a number.');
+                }
+                $starting_level = (int)$starting_level;
+            } else {
+                $starting_level = get_field('level', $student_id);
+            }
+
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+            $class_row = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT ID FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE",
+                    $class_id
+                )
+            );
+
+            if (!$class_row) {
+                throw new Web_Request_Exception('Class with ID ' . $class_id . ' not found.');
+            }
+
+            if ($this->is_student_enrolled($student_id, $class_id)) {
+                throw new Web_Request_Exception('Student is already enrolled in this class.');
+            }
+
+            $capacity = get_field('capacity', $class_id);
+            $registrations = $this->get_class_registration_count($class_id);
+            $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
+            error_log('ignore_full: ' . $ignore_full);
+            error_log($_POST['ignore-class-full']);
+            if (!$ignore_full && $registrations >= $capacity) {
+                throw new Web_Request_Exception('Class is full.');
             }
 
             $registration_id = wp_insert_post([
-                'post_title' => '',
+                'post_title' => sanitize_text_field($student->post_title . ' - ' . $class->post_title),
                 'post_type' => 'usctdp-registration',
                 'post_status' => 'publish'
             ], true);
             if (is_wp_error($registration_id)) {
-                throw new Exception('Error creating registration: ' . $registration_id->get_error_message());
+                $error = $registration_id->get_error_message();
+                throw new Web_Request_Exception('Error creating registration: ' . $error);
             }
 
             if (!update_field('field_usctdp_registration_class', $class_id, $registration_id)) {
-                throw new Exception('Failed to update class field with: ' . $class_id);
+                throw new Web_Request_Exception('Failed to update class field with: ' . $class_id);
             }
             if (!update_field('field_usctdp_registration_student', $student_id, $registration_id)) {
-                throw new Exception('Failed to update student field with: ' . $student_id);
+                throw new Web_Request_Exception('Failed to update student field with: ' . $student_id);
+            }
+            if (!update_field('field_usctdp_registration_starting_level', $starting_level, $registration_id)) {
+                throw new Web_Request_Exception('Failed to update starting level field with: ' . $starting_level);
             }
 
+            $wpdb->query('COMMIT');
+            $transaction_completed = true;
             $message = "Registration created successfully!";
-            $request_completed = true;
             $transient_data = [
                 'type' => 'success',
                 'message' => $message
             ];
         } catch (Throwable $e) {
+            $user_message = $e->getMessage();
+            if (!($e instanceof Web_Request_Exception)) {
+                $user_message = 'A system error occurred. Please try again.';
+            }
             $transient_data = [
                 'type' => 'error',
-                'message' => $e->getMessage()
+                'message' => $user_message
             ];
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
         } finally {
-            if (!$request_completed) {
-                if ($registration_id) {
-                    wp_delete_post($registration_id, true);
+            if (!$transaction_completed) {
+                if ($transaction_started) {
+                    $wpdb->query('ROLLBACK');
                 }
                 if (!$transient_data) {
                     $transient_data = [
@@ -595,6 +648,75 @@ class Usctdp_Mgmt_Admin
         }
     }
 
+    function is_student_enrolled($student_id, $class_id)
+    {
+        $registrations = get_posts([
+            'post_type' => 'usctdp-registration',
+            'posts_per_page' => -1,
+            'meta_query' => [
+                [
+                    'key' => 'student',
+                    'value' => $student_id,
+                    'compare' => 'IN'
+                ],
+                [
+                    'key' => 'class',
+                    'value' => $class_id,
+                    'compare' => 'IN'
+                ]
+            ]
+        ]);
+        return !empty($registrations);
+    }
+
+    function get_class_registration_count($class_id)
+    {
+        $registrations = get_posts([
+            'post_type' => 'usctdp-registration',
+            'posts_per_page' => -1,
+            'meta_query' => [
+                [
+                    'key' => 'class',
+                    'value' => $class_id,
+                    'compare' => 'IN'
+                ]
+            ]
+        ]);
+        return count($registrations);
+    }
+
+    function get_class_pricing($course_id, $session_id)
+    {
+        $price_query = get_posts([
+            'post_type'      => 'usctdp-pricing',
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                'relation' => 'AND',
+                [
+                    'key' => 'course',
+                    'value' => $course_id,
+                    'compare' => '=',
+                    'type' => 'NUMERIC'
+                ],
+                [
+                    'key' => 'session',
+                    'value' => $session_id,
+                    'compare' => '=',
+                    'type' => 'NUMERIC'
+                ]
+            ]
+        ]);
+        if (!empty($price_query)) {
+            $price = $price_query[0];
+            return [
+                'one_day_price' => get_field('one_day_price', $price->ID),
+                'two_day_price' => get_field('two_day_price', $price->ID)
+            ];
+        }
+
+        return null;
+    }
+
     function ajax_get_class_qualification()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['class_qualification'];
@@ -605,86 +727,37 @@ class Usctdp_Mgmt_Admin
         $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
         $student_id = isset($_GET['student_id']) ? sanitize_text_field($_GET['student_id']) : '';
         $capacity = get_field('capacity', $class_id);
-        $cap_query = new WP_Query([
-            'post_type'      => 'usctdp-registration',
-            'posts_per_page' => -1,
-            'meta_query'     => [
-                'relation' => 'AND',
-                [
-                    'key' => 'class',
-                    'value' => $class_id,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ]
-            ],
-        ]);
-        $found_posts = 0;
-        if ($cap_query->have_posts()) {
-            $found_posts = $cap_query->found_posts;
-        }
-        wp_reset_postdata();
-
-        $student_query = new WP_Query([
-            'post_type'      => 'usctdp-registration',
-            'posts_per_page' => -1,
-            'meta_query'     => [
-                'relation' => 'AND',
-                [
-                    'key' => 'student',
-                    'value' => $student_id,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ],
-                [
-                    'key' => 'class',
-                    'value' => $class_id,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ]
-            ]
-        ]);
-        $student_registered = false;
-        if ($student_query->have_posts()) {
-            $student_registered = true;
-        }
-        wp_reset_postdata();
+        $found_posts = $this->get_class_registration_count($class_id);
+        $student_registered = $this->is_student_enrolled($student_id, $class_id);
 
         $course = get_field('course', $class_id);
         $session = get_field('session', $class_id);
-        $price_query = new WP_Query([
-            'post_type'      => 'usctdp-pricing',
-            'posts_per_page' => -1,
-            'meta_query'     => [
-                'relation' => 'AND',
-                [
-                    'key' => 'course',
-                    'value' => $course->ID,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ],
-                [
-                    'key' => 'session',
-                    'value' => $session->ID,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ]
-            ]
-        ]);
         $one_day_price = null;
         $two_day_price = null;
-        if ($price_query->have_posts()) {
-            $price = $price_query->posts[0];
-            $one_day_price = get_field('one_day_price', $price->ID);
-            $two_day_price = get_field('two_day_price', $price->ID);
+        $pricing = $this->get_class_pricing($course->ID, $session->ID);
+        if ($pricing) {
+            $one_day_price = $pricing['one_day_price'];
+            $two_day_price = $pricing['two_day_price'];
         }
-        wp_reset_postdata();
+
+        $student_level = null;
+        if ($student_id) {
+            $student_level = get_field('level', $student_id);
+        }
+
+        $class_level = null;
+        if ($class_id) {
+            $class_level = get_field('level', $class_id);
+        }
 
         wp_send_json_success([
             'capacity' => $capacity,
             'registered' => $found_posts,
             'student_registered' => $student_registered,
             'one_day_price' => $one_day_price,
-            'two_day_price' => $two_day_price
+            'two_day_price' => $two_day_price,
+            'student_level' => $student_level,
+            'class_level' => $class_level
         ]);
     }
 
@@ -828,7 +901,7 @@ class Usctdp_Mgmt_Admin
                     'last' => $student_fields['last_name'],
                     'first' => $student_fields['first_name'],
                     'age' => strval($this->age_from_birthdate($student_fields['birth_date'])),
-                    'level' => "",
+                    'level' => $student_fields['level'],
                     'phone' => ""
                 ];
             }
