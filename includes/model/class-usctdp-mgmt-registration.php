@@ -59,35 +59,17 @@ class Usctdp_Mgmt_Registration extends Usctdp_Mgmt_Model_Type
                     "required" => 1
                 ],
                 [
-                    "key" => "field_usctdp_registration_created",
-                    "label" => "Created",
-                    "name" => "created",
-                    "type" => "date_time_picker",
+                    "key" => "field_usctdp_registration_level",
+                    "label" => "Level",
+                    "name" => "level",
+                    "type" => "number",
                     "required" => 1
                 ],
                 [
-                    "key" => "field_usctdp_outstanding_balance",
+                    "key" => "field_usctdp_registration_balance",
                     "label" => "Outstanding Balance",
-                    "name" => "outstanding_balance",
+                    "name" => "balance",
                     "type" => "number",
-                    "required" => 0
-                ],
-                [
-                    "key" => "field_usctdp_payment_method",
-                    "label" => "Payment Method",
-                    "name" => "payment_method",
-                    "type" => "select",
-                    "choices" => [
-                        "check" => "Check",
-                        "web_payment" => "Web Payment",
-                    ],
-                    "required" => 0
-                ],
-                [
-                    "key" => "field_usctdp_registration_payment_date",
-                    "label" => "Payment Date",
-                    "name" => "payment_date",
-                    "type" => "date_time_picker",
                     "required" => 0
                 ],
                 [

@@ -72,3 +72,7 @@ ul {
     color: red;
     font-weight: bold;
 }
+
+div.dt-length select {
+    width: 50px;
+}

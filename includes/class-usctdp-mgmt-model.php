@@ -42,7 +42,8 @@ class Usctdp_Mgmt_Model
             "class-usctdp-mgmt-registration.php",
             "class-usctdp-mgmt-class.php",
             "class-usctdp-mgmt-course.php",
-            "class-usctdp-mgmt-pricing.php"
+            "class-usctdp-mgmt-pricing.php",
+            "class-usctdp-mgmt-payment.php"
         ];
         $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
         foreach ($model_classes as $class) {

@@ -8,88 +8,88 @@ $nonce_action = $post_handler["nonce_action"];
 
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    <form
-        action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
-        method="post"
-        id="register-form">
-        <div id="context-selection-section">
-            <div id="preloaded-student-section">
-                <h2> Registering <span id="student-name"></span></h2>
-            </div>
-
-            <div id="session-selection-section">
-                <h2> Select a Session </h2>
-                <select id="session-selector" name="session_id"></select>
-            </div>
-            <div id="class-selection-section">
-                <h2> Select a Class </h2>
-                <select id="class-selector" name="class_id"></select>
-            </div>
-            <div id="student-selection-section">
-                <h2> Select a Student </h2>
-                <select id="student-selector" name="student_id"></select>
-            </div>
-            <div id="notifications-section"></div>
-
-            <div id="registration-section">
-                <h2> Registration </h2>
-                <div id="class-capacity-section">
-                    <p>
+    <div id="preloaded-student-heading">
+        <h2> Registering <span class="selected-student-name" id="student-name-header"></span></h2>
+    </div>
+    <div id="registration-container">
+        <div id="registration-form-section">
+            <form
+                action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
+                method="post"
+                id="register-form">
+                <div id="context-selection-section"></div>
+                <div id="notifications-section"></div>
+                <div id="registration-details-section">
+                    <h2> Registration Details</h2>
+                    <div>
                         <strong>Current Enrollment:</strong>
                         <span id="class-current-size"></span>
                         out of
                         <span id="class-max-size"></span>
-                    </p>
-                </div>
-
-                <div id="registration-fields-section">
-                    <div id="payment-status-section">
-                        <label for="payment-status">Payment Status</label>
-                        <div>
-                            <input type="radio" id="paid" name="payment_status" value="paid" checked />
-                            <label for="paid">Payment Received</label>
-                        </div>
-                        <div>
-                            <input type="radio" id="not-paid" name="payment_status" value="not-paid" />
-                            <label for="not-paid">Payment Pending</label>
-                        </div>
                     </div>
-                    <div id="existing-payment-info-section" class="field-list">
-                        <div id=" payment-method-section" class="form-field">
+                    <div>
+                        <strong>One-Day Price:</strong>
+                        <span id="one-day-price"></span>
+                    </div>
+                    <div>
+                        <strong>Two-Day Price:</strong>
+                        <span id="two-day-price"></span>
+                    </div>
+
+                    <div id="registration-fields-section">
+                        <div id="student-level-field" class="form-field">
+                            <label for="student-level">Student Level</label>
+                            <input type="number" id="student-level">
+                        </div>
+                        <div id="payment-amount-outstanding-field" class="form-field">
+                            <label for="payment-amount-outstanding">Outstanding Balance</label>
+                            <input type="number" id="payment-amount-outstanding">
+                        </div>
+                        <div id="payment-amount-paid-field" class="form-field">
+                            <label for="payment-amount-paid">Amount Paid</label>
+                            <input type="number" id="payment-amount-paid">
+                        </div>
+                        <div id="payment-method-field" class="form-field">
                             <label for="payment-method">Payment Method</label>
                             <select id="payment-method">
-                                <option value="">Select a Payment Method</option>
+                                <option value="">Select...</option>
                                 <option value="cash">Cash</option>
                                 <option value="check">Check</option>
                                 <option value="credit-card">Credit Card</option>
-                                <option value="other">Other</option>
                             </select>
                         </div>
-                        <div class="form-field">
-                            <label for="payment-amount">Payment Amount</label>
-                            <input type="number" id="payment-amount-existing">
+                        <div id="check-number-field" class="form-field">
+                            <label for="check-number">Check Number</label>
+                            <input type="text" id="check-number">
                         </div>
-                        <div class="form-field">
-                            <label for="payment-date">Payment Date</label>
-                            <input type="date" id="payment-date">
-                        </div>
-                    </div>
-                    <div id="payment-required-section" class="field-list">
-                        <div class="form-field">
-                            <label for="payment-amount-pending">Amount Pending</label>
-                            <input type="number" id="payment-amount-pending">
+                        <div id="notes-section">
+                            <label for="notes">Notes</label>
+                            <textarea id="notes" rows="5"></textarea>
                         </div>
                     </div>
-                    <div id="notes-section">
-                        <label for="notes">Notes</label>
-                        <textarea id="notes" rows="5"></textarea>
-                    </div>
-                </div>
 
-                <input type="hidden" name="action" value="<?php echo esc_attr($submit_hook); ?>">
-                <?php wp_nonce_field($nonce_action, $nonce_name); ?>
-                <?php submit_button('Register', 'primary', 'registration_submit'); ?>
+                    <input type="hidden" name="action" value="<?php echo esc_attr($submit_hook); ?>">
+                    <?php wp_nonce_field($nonce_action, $nonce_name); ?>
+                    <?php submit_button('Register', 'primary', 'registration_submit'); ?>
+                </div>
+            </form>
+        </div>
+
+        <div id="registration-history-section">
+            <h2> Registration History for <span class="selected-student-name" id="student-name-history"></span></h2>
+            <div id="registration-history-table-wrap">
+                <table id="registration-history-table" class="usctdp-custom-post-table">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Session</th>
+                            <th>Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
             </div>
         </div>
-    </form>
+    </div>
 </div>

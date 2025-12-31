@@ -1,3 +1,29 @@
+#registration-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+    gap: 0px 5px;
+    grid-auto-flow: row;
+    grid-template-areas:
+        "registration-fields registration-history";
+}
+
+#registration-form-section {
+    grid-area: registration-fields;
+    /* background-color: #dcdde0; */
+    padding: 10px;
+}
+
+#registration-history-section {
+    grid-area: registration-history;
+    /* background-color: #dcdde0; */
+    padding: 10px;
+}
+
+.selected-student-name {
+    font-weight: bold;
+}
+
 #session-selector {
     width: 350px;
 }
@@ -14,70 +40,55 @@
     display: none;
 }
 
-#student-selection-section {
+#registration-section {
     display: none;
 }
 
-#registration-section {
-    display: none;
+#registration-details-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 #registration-fields-section {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 450px;
-    border: 1px solid #000;
-}
-
-#registration-fields-section .field-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
     padding: 10px;
     box-sizing: border-box;
+    max-width: 500px;
 }
 
-#registration-fields-section .field-list .form-field label {
-    width: 150px;
-    font-weight: bold;
-}
-
-#registration-fields-section .field-list .form-field {
+#registration-fields-section .form-field {
     display: flex;
     gap: 10px;
     align-items: center;
     text-align: right;
 }
 
-#payment-status-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 100%;
-    padding: 10px;
-    border-bottom: 1px solid #000;
-    box-sizing: border-box;
+#registration-fields-section .form-field label {
+    width: 150px;
+    font-weight: bold;
+}
+
+#payment-amount-outstanding {
+    width: 150px;
+}
+
+#payment-amount-paid {
+    width: 150px;
 }
 
 #payment-method {
-    width: 200px;
+    width: 150px;
 }
 
-#payment-amount-existing {
-    width: 200px;
+#check-number {
+    width: 150px;
 }
 
-#payment-amount-pending {
-    width: 200px;
-}
-
-#payment-date {
-    width: 200px;
-}
-
-#payment-required-section {
-    display: none;
+#student-level {
+    width: 150px;
 }
 
 #notes-section {
@@ -85,7 +96,6 @@
     flex-direction: column;
     padding: 10px;
     width: 100%;
-    border-top: 1px solid #000;
     box-sizing: border-box;
 }
 
@@ -97,11 +107,16 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 450px;
+    max-width: 400px;
     margin-top: 15px;
 }
 
 .notification {
+    display: flex;
+    width: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
     background-color: #ffe0e0;
     color: #cc0000;
     border: 1px solid #cc0000;
@@ -109,4 +124,8 @@
     margin-bottom: 15px;
     border-radius: 5px;
     font-weight: bold;
+}
+
+.ignore-notification {
+    color: #cc0000 !important;
 }

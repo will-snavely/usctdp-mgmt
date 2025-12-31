@@ -24,10 +24,6 @@
     gap: 10px;
 }
 
-div.dt-length select {
-    width: 50px;
-}
-
 #roster-print-action {
     display: flex;
     gap: 10px;

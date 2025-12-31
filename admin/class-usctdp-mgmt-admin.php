@@ -448,7 +448,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['select2_search', 'class_qualification'];
+        $handlers = ['select2_search', 'class_qualification', 'datatable_search'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -648,10 +648,43 @@ class Usctdp_Mgmt_Admin
             $student_registered = true;
         }
         wp_reset_postdata();
+
+        $course = get_field('course', $class_id);
+        $session = get_field('session', $class_id);
+        $price_query = new WP_Query([
+            'post_type'      => 'usctdp-pricing',
+            'posts_per_page' => -1,
+            'meta_query'     => [
+                'relation' => 'AND',
+                [
+                    'key' => 'course',
+                    'value' => $course->ID,
+                    'compare' => '=',
+                    'type' => 'NUMERIC'
+                ],
+                [
+                    'key' => 'session',
+                    'value' => $session->ID,
+                    'compare' => '=',
+                    'type' => 'NUMERIC'
+                ]
+            ]
+        ]);
+        $one_day_price = null;
+        $two_day_price = null;
+        if ($price_query->have_posts()) {
+            $price = $price_query->posts[0];
+            $one_day_price = get_field('one_day_price', $price->ID);
+            $two_day_price = get_field('two_day_price', $price->ID);
+        }
+        wp_reset_postdata();
+
         wp_send_json_success([
             'capacity' => $capacity,
             'registered' => $found_posts,
-            'student_registered' => $student_registered
+            'student_registered' => $student_registered,
+            'one_day_price' => $one_day_price,
+            'two_day_price' => $two_day_price
         ]);
     }
 
@@ -881,7 +914,6 @@ class Usctdp_Mgmt_Admin
             'message' => 'Field saved successfully'
         ]);
     }
-
 
     function ajax_select2_search()
     {
