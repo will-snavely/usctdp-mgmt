@@ -107,5 +107,13 @@ class Usctdp_Mgmt_Public
             $this->version,
             false,
         );
+
+        wp_localize_script(
+            $this->plugin_name,
+            'usctdp_mgmt_params',
+            [
+                'ajax_url' => admin_url('admin-ajax.php')
+            ]
+        );
     }
 }

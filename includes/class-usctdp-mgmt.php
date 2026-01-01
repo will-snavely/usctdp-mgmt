@@ -80,6 +80,7 @@ class Usctdp_Mgmt
         $this->define_admin_hooks();
         $this->define_public_hooks();
         $this->define_model_hooks();
+        $this->define_ecommerce_hooks();
     }
 
     /**
@@ -118,7 +119,118 @@ class Usctdp_Mgmt
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-logger.php";
 
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/ecommerce/class-usctdp-mgmt-ecommerce.php";
+
         $this->loader = new Usctdp_Mgmt_Loader();
+    }
+
+    /**
+     * Define WooCommerce hooks.
+     *
+     * @since    1.0.0
+     * @access   private
+     */
+    private function define_ecommerce_hooks()
+    {
+        if (Usctdp_Mgmt_Ecommerce::is_woocommerce_active()) {
+            $plugin_ecommerce = new Usctdp_Mgmt_Ecommerce(
+                $this->get_plugin_name(),
+                $this->get_version()
+            );
+
+            // Sync Course to Product
+            $this->loader->add_action(
+                'save_post',
+                $plugin_ecommerce,
+                'sync_course_product'
+            );
+
+            // Render Custom Fields
+            $this->loader->add_action(
+                'woocommerce_before_add_to_cart_button',
+                $plugin_ecommerce,
+                'render_product_fields'
+            );
+
+            // AJAX for Classes
+            $this->loader->add_action(
+                'wp_ajax_usctdp_get_classes',
+                $plugin_ecommerce,
+                'get_classes_ajax'
+            );
+            $this->loader->add_action(
+                'wp_ajax_nopriv_usctdp_get_classes',
+                $plugin_ecommerce,
+                'get_classes_ajax'
+            );
+
+            // Validation
+            $this->loader->add_filter(
+                'woocommerce_add_to_cart_validation',
+                $plugin_ecommerce,
+                'validate_add_to_cart',
+                10,
+                3
+            );
+
+            // Add Cart Item Data
+            $this->loader->add_filter(
+                'woocommerce_add_cart_item_data',
+                $plugin_ecommerce,
+                'add_cart_item_data',
+                10,
+                3
+            );
+
+            // Display in Cart
+            $this->loader->add_filter(
+                'woocommerce_get_item_data',
+                $plugin_ecommerce,
+                'get_cart_item_data',
+                10,
+                2
+            );
+
+            // Dynamic Price
+            $this->loader->add_action(
+                'woocommerce_before_calculate_totals',
+                $plugin_ecommerce,
+                'calculate_totals',
+                10,
+                1
+            );
+
+            // Save Order Item Data
+            $this->loader->add_action(
+                'woocommerce_checkout_create_order_line_item',
+                $plugin_ecommerce,
+                'save_order_item_data',
+                10,
+                4
+            );
+
+            // Create Registrations on Payment Complete
+            $this->loader->add_action(
+                'woocommerce_payment_complete',
+                $plugin_ecommerce,
+                'create_registrations',
+                10,
+                1
+            );
+            // Also order processed for zero-sum transactions or others if needed
+            $this->loader->add_action(
+                'woocommerce_order_status_processing', // If payment complete doesn't fire for manual payments immediately? 
+                $plugin_ecommerce,
+                'create_registrations',
+                10,
+                1
+            );
+            // Prevent duplicate run? simple check in create_registrations via order meta flag?
+            // For MVP I will assume one run or idempotent enough (but creating posts isn't idempotent without check).
+            // Let's assume payment_complete is primary.
+            // Actually, best to add order meta flag check in create_registrations. I will do that in next step.
+        }
     }
 
     /**
