@@ -123,7 +123,7 @@
             processing: true,
             serverSide: true,
             ordering: false,
-            searching: true,
+            searching: false,
             paging: true,
 
             ajax: {
@@ -131,13 +131,9 @@
                 type: 'POST',
                 data: function (d) {
                     var classFilterValue = $('#class-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_search_action;
-                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
-                    d.post_type = 'usctdp-registration';
-                    d['filter[class][value]'] = classFilterValue;
-                    d['filter[class][compare]'] = '=';
-                    d['filter[class][type]'] = 'NUMERIC';
-                    d['expand[]'] = 'usctdp-student';
+                    d.action = usctdp_mgmt_admin.datatable_registrations_action;
+                    d.security = usctdp_mgmt_admin.datatable_registrations_nonce;
+                    d.class_id = classFilterValue;
                 }
             },
             columns: [

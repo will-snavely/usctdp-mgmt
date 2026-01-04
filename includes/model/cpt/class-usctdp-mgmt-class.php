@@ -128,20 +128,6 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
                     'return_format' => 'Ymd'
                 ],
                 [
-                    'key' => 'field_usctdp_class_one_day_price',
-                    'label' => 'One Day Price',
-                    'name' => 'one_day_price',
-                    'type' => 'number',
-                    'required' => 1
-                ],
-                [
-                    'key' => 'field_usctdp_class_two_day_price',
-                    'label' => 'Two Day Price',
-                    'name' => 'two_day_price',
-                    'type' => 'number',
-                    'required' => 1
-                ],
-                [
                     'key' => 'field_usctdp_class_instructors',
                     'label' => 'Instructors',
                     'name' => 'instructors',

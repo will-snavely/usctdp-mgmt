@@ -7,6 +7,7 @@ class Usctdp_Random_Registration_Generator
         $result = [];
         $enrolled = [];
         $i = 0;
+        $table = new Usctdp_Registration_Table();
 
         while ($i < $count) {
             $class = $classes[array_rand($classes)];
@@ -25,20 +26,26 @@ class Usctdp_Random_Registration_Generator
             $enrolled[$class->ID]["roster"][] = $student->ID;
             $student_level = get_field("level", $student->ID);
 
-            $post_id = wp_insert_post([
-                'post_title'    => "{$student->post_title} - {$class->post_title}",
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-registration'
+            $query = new Usctdp_Registration_Query();
+            $registration_id = $query->add_item([
+                'activity_id'    => $class->ID,
+                'student_id'     => $student->ID,
+                'starting_level' => $student_level,
+                'balance'        => 0,
+                'notes'          => ''
             ]);
-            update_field("student", $student->ID, $post_id);
-            update_field("class", $class->ID, $post_id);
-            update_field("created", date('Y-m-d H:i:s'), $post_id);
-            update_field("balance", 0, $post_id);
-            update_field("starting_level", $student_level, $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
+
+            if ($registration_id) {
+                WP_CLI::log("Successfully created registration ID: " . $registration_id);
+            } else {
+                WP_CLI::log("Failed to create registration.");
+            }
+
+            // TODO: Do I need something like this?
+            //wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $i++;
             $result[] = [
-                "id" => $post_id
+                "id" => $registration_id
             ];
         }
         return $result;

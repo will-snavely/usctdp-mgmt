@@ -75,6 +75,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'datatable_search_nonce',
             'callback' => 'ajax_datatable_search'
         ],
+        'datatable_registrations' => [
+            'action' => 'datatable_registrations',
+            'nonce' => 'datatable_registrations_nonce',
+            'callback' => 'ajax_datatable_registrations'
+        ],
         'select2_search' => [
             'action' => 'select2_search',
             'nonce' => 'select2_search_nonce',
@@ -119,28 +124,6 @@ class Usctdp_Mgmt_Admin
      */
     public function enqueue_styles()
     {
-        wp_enqueue_style(
-            $this->plugin_name . 'primary-css',
-            plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin.css',
-            [],
-            $this->version,
-            'all'
-        );
-        wp_enqueue_style(
-            $this->plugin_name . 'external-flatpickr-css',
-            'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
-            [],
-            $this->version,
-            'all'
-        );
-        wp_enqueue_style(
-            $this->plugin_name . 'external-datatables-css',
-            'https://cdn.datatables.net/2.3.5/css/dataTables.dataTables.min.css',
-            [],
-            $this->version,
-            'all'
-        );
-
         $screen = get_current_screen();
         if (in_array($screen->post_type, $this->hidden_title_post_types)) {
             wp_enqueue_style(
@@ -158,30 +141,7 @@ class Usctdp_Mgmt_Admin
      *
      * @since    1.0.0
      */
-    public function enqueue_scripts()
-    {
-        wp_enqueue_script(
-            $this->plugin_name . 'primary-js',
-            plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin.js',
-            ['jquery', 'acf-input'],
-            $this->version,
-            true
-        );
-        wp_enqueue_script(
-            $this->plugin_name . 'external-flatpickr-js',
-            'https://cdn.jsdelivr.net/npm/flatpickr',
-            ['jquery'],
-            $this->version,
-            true
-        );
-        wp_enqueue_script(
-            $this->plugin_name . 'external-datatables-js',
-            'https://cdn.datatables.net/2.3.5/js/dataTables.min.js',
-            ['jquery'],
-            $this->version,
-            true
-        );
-    }
+    public function enqueue_scripts() {}
 
     private function usctdp_script_id($suffix)
     {
@@ -195,10 +155,24 @@ class Usctdp_Mgmt_Admin
 
     private function enqueue_usctdp_page_script($suffix, $dependencies = [])
     {
+        wp_enqueue_script(
+            $this->plugin_name . 'primary-js',
+            plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin.js',
+            ['jquery', 'acf-input'],
+            $this->version,
+            true
+        );
+        wp_enqueue_script(
+            $this->plugin_name . 'external-datatables-js',
+            'https://cdn.datatables.net/2.3.5/js/dataTables.min.js',
+            ['jquery'],
+            $this->version,
+            true
+        );
+
         $deps = $dependencies ? $dependencies : [
             'jquery',
             'acf-input',
-            $this->plugin_name . 'external-flatpickr-js',
             $this->plugin_name . 'external-datatables-js',
             $this->plugin_name . 'primary-js'
         ];
@@ -213,6 +187,21 @@ class Usctdp_Mgmt_Admin
 
     private function enqueue_usctdp_page_style($suffix, $dependencies = [])
     {
+        wp_enqueue_style(
+            $this->plugin_name . 'primary-css',
+            plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin.css',
+            [],
+            $this->version,
+            'all'
+        );
+        wp_enqueue_style(
+            $this->plugin_name . 'external-datatables-css',
+            'https://cdn.datatables.net/2.3.5/css/dataTables.dataTables.min.css',
+            [],
+            $this->version,
+            'all'
+        );
+
         $deps = $dependencies ? $dependencies : [];
         wp_enqueue_style(
             $this->usctdp_style_id($suffix),
@@ -230,8 +219,6 @@ class Usctdp_Mgmt_Admin
 
     private function add_usctdp_submenu($page_slug, $title, $load_callback = null)
     {
-        $function_slug = str_replace('-', '_', $page_slug);
-        $callback = [$this, 'fetch_' . $function_slug . '_page'];
         $capability = 'manage_options';
         $menu_slug = 'usctdp-admin-' . $page_slug;
         $hook = add_submenu_page(
@@ -264,7 +251,6 @@ class Usctdp_Mgmt_Admin
             return;
         }
 
-        // HANDLE THE INITIAL BUTTON CLICK (Initiate Redirect to Google)
         if (isset($_GET['usctdp_google_auth']) && $_GET['usctdp_google_auth'] === '1') {
             error_log('USCTDP: Google OAuth Initiated');
             $scopes = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/documents'];
@@ -430,7 +416,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['datatable_search', 'select2_search', 'gen_roster'];
+        $handlers = ['datatable_search', 'select2_search', 'gen_roster', 'datatable_registrations'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -450,7 +436,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['select2_search', 'class_qualification', 'datatable_search'];
+        $handlers = ['select2_search', 'class_qualification', 'datatable_search', 'datatable_registrations'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -669,23 +655,35 @@ class Usctdp_Mgmt_Admin
         return !empty($registrations);
     }
 
-    function get_class_registration_count($class_id)
+    private function get_class_registrations($class_id)
     {
-        $registrations = get_posts([
-            'post_type' => 'usctdp-registration',
-            'posts_per_page' => -1,
-            'meta_query' => [
-                [
-                    'key' => 'class',
-                    'value' => $class_id,
-                    'compare' => 'IN'
-                ]
-            ]
+        $reg_query = new Usctdp_Mgmt_Registration_Query([
+            'activity_id' => $class_id
         ]);
-        return count($registrations);
+
+        $result = [];
+        foreach ($reg_query->items as $item) {
+            $result[] = [
+                'student_id' => $item->student_id,
+                'activity_id' => $item->activity_id,
+                'starting_level' => $item->starting_level,
+                'balance' => $item->balance,
+                'notes' => $item->notes
+            ];
+        }
+        return $result;
     }
 
-    function get_class_pricing($course_id, $session_id)
+    private function get_class_registration_count($class_id)
+    {
+        $reg_query = new Usctdp_Mgmt_Registration_Query([
+            'activity_id' => $class_id,
+            'count'  => true
+        ]);
+        return $reg_query->found_items;
+    }
+
+    private function get_class_pricing($course_id, $session_id)
     {
         $price_query = get_posts([
             'post_type'      => 'usctdp-pricing',
@@ -759,40 +757,6 @@ class Usctdp_Mgmt_Admin
             'student_level' => $student_level,
             'class_level' => $class_level
         ]);
-    }
-
-    private function get_class_registrations($class_id)
-    {
-        $args = array(
-            'post_type'      => 'usctdp-registration',
-            'posts_per_page' => -1,
-            'meta_query'     => [
-                [
-                    'key' => 'class',
-                    'value' => $class_id,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ]
-            ]
-        );
-        $query = new WP_Query($args);
-        $result = [];
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $acf_fields = get_fields(get_the_ID());
-                $output_fields = array(
-                    'id' => get_the_ID(),
-                    'title' => get_the_title(),
-                );
-                foreach ($acf_fields as $field_name => $field_value) {
-                    $output_fields[$field_name] = $field_value;
-                }
-                $result[] = $output_fields;
-            }
-            wp_reset_postdata();
-        }
-        return $result;
     }
 
     private function create_google_client()
@@ -895,7 +859,7 @@ class Usctdp_Mgmt_Admin
 
             $student_data = [];
             foreach ($registrations as $registration) {
-                $student_id = $registration['student'];
+                $student_id = $registration['student_id'];
                 $student_fields = get_fields($student_id);
                 $student_data[] = [
                     'last' => $student_fields['last_name'],
@@ -1048,6 +1012,76 @@ class Usctdp_Mgmt_Admin
         }
         wp_reset_postdata();
         wp_send_json(array('items' => $results, 'found_posts' => $found_posts));
+    }
+
+    public function ajax_datatable_registrations()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_registrations'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : null;
+        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+
+        // TODO: Think about this
+        //if (!$student_id && !$class_id) {
+        //    wp_send_json_error('Must provide student_id or class_id.', 400);
+        //}
+
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+            'orderby' => 'id',
+            'order' => 'DESC',
+        ];
+        if ($class_id) {
+            $args['activity_id'] = $class_id;
+        }
+        if ($student_id) {
+            $args['student_id'] = $student_id;
+        }
+
+        $reg_query = new Usctdp_Mgmt_Registration_Query($args);
+        $results = [];
+        foreach ($reg_query->items as $row) {
+            $student_id = $row->student_id;
+            $activity_id = $row->activity_id;
+
+            $result = [
+                "id" => $row->id,
+                "student_id" => $student_id,
+                "activity_id" => $activity_id,
+                "starting_level" => $row->starting_level,
+                "balance" => $row->balance,
+                "notes" => $row->notes,
+            ];
+
+            $result["student"] = [
+                "first_name" => get_field("first_name", $student_id),
+                "last_name" => get_field("last_name", $student_id),
+                "birth_date" => get_field("birth_date", $student_id)
+            ];
+
+            $session = get_field("session", $activity_id);
+            $result["activity"] = [
+                "name" => get_the_title($activity_id),
+                "session" => $session->post_title,
+            ];
+            $results[] = $result;
+        }
+
+        $response = array(
+            "draw"            => $draw,
+            "recordsTotal"    => count($results),
+            "recordsFiltered" => count($results),
+            "data"            => $results,
+        );
+        wp_send_json($response);
     }
 
     public function ajax_datatable_search()

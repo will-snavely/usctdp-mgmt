@@ -25,6 +25,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-random-registration-generator.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-create-products.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -41,6 +44,12 @@ class Usctdp_Cli_Command
             $count = intval($args[0]);
         }
         $generator->generate_random($count);
+    }
+
+    public function create_products($args, $assoc_args)
+    {
+        $generator = new Usctdp_Create_Products();
+        $generator->create();
     }
 
     public function import_sessions($args, $assoc_args)

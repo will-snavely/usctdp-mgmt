@@ -1,10 +1,9 @@
 <?php
-class Usctdp_Mgmt_Logger {
+class Usctdp_Mgmt_Logger
+{
     private static $instance = null;
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function getLogger()
     {
@@ -14,9 +13,7 @@ class Usctdp_Mgmt_Logger {
         return self::$instance;
     }
 
-    private function __clone()
-    {
-    }
+    private function __clone() {}
 
     public function log_critical($message)
     {

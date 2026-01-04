@@ -142,7 +142,7 @@
             processing: true,
             serverSide: true,
             ordering: false,
-            searching: true,
+            searching: false,
             paging: true,
 
             ajax: {
@@ -150,31 +150,27 @@
                 type: 'POST',
                 data: function (d) {
                     var studentFilterValue = $('#student-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_search_action;
-                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
-                    d.post_type = 'usctdp-registration';
-                    d['filter[student][value]'] = studentFilterValue;
-                    d['filter[student][compare]'] = '=';
-                    d['filter[student][type]'] = 'NUMERIC';
-                    d['expand[]'] = 'usctdp-class';
+                    d.action = usctdp_mgmt_admin.datatable_registrations_action;
+                    d.security = usctdp_mgmt_admin.datatable_registrations_nonce;
+                    d.student_id = studentFilterValue;
                 }
             },
             columns: [
                 {
-                    data: 'class',
+                    data: 'activity',
                     render: function (data, type, row) {
-                        if (type === 'display' && data && data.title) {
-                            return data.title;
+                        if (type === 'display' && data && data.name) {
+                            return data.name;
                         }
                         return data;
                     },
                     defaultContent: '',
                 },
                 {
-                    data: 'class',
+                    data: 'activity',
                     render: function (data, type, row) {
-                        if (type === 'display' && data && data.session && data.session.post_title) {
-                            return data.session.post_title;
+                        if (type === 'display' && data && data.session) {
+                            return data.session;
                         }
                         return data;
                     },
@@ -204,7 +200,7 @@
             processing: true,
             serverSide: true,
             ordering: false,
-            searching: true,
+            searching: false,
             paging: true,
 
             ajax: {
@@ -212,13 +208,9 @@
                 type: 'POST',
                 data: function (d) {
                     var classFilterValue = $('#class-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_search_action;
-                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
-                    d.post_type = 'usctdp-registration';
-                    d['filter[class][value]'] = classFilterValue;
-                    d['filter[class][compare]'] = '=';
-                    d['filter[class][type]'] = 'NUMERIC';
-                    d['expand[]'] = 'usctdp-student';
+                    d.action = usctdp_mgmt_admin.datatable_registrations_action;
+                    d.security = usctdp_mgmt_admin.datatable_registrations_nonce;
+                    d.class_id = classFilterValue;
                 }
             },
             columns: [

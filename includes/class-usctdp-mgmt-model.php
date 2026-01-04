@@ -34,20 +34,36 @@ class Usctdp_Mgmt_Model
 
     public function load_model_dependencies()
     {
-        $model_classes = [
+        $cpt_classes = [
             "class-usctdp-mgmt-staff.php",
             "class-usctdp-mgmt-session.php",
             "class-usctdp-mgmt-student.php",
             "class-usctdp-mgmt-family.php",
-            "class-usctdp-mgmt-registration.php",
             "class-usctdp-mgmt-class.php",
             "class-usctdp-mgmt-course.php",
             "class-usctdp-mgmt-pricing.php",
             "class-usctdp-mgmt-payment.php"
         ];
-        $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
-        foreach ($model_classes as $class) {
+        $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/cpt/";
+        foreach ($cpt_classes as $class) {
             require_once $prefix . $class;
+        }
+
+        $berlindb_entities = [
+            "registration"
+        ];
+        $db_prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/db/";
+        $kinds = [
+            ["schema", "schemas"],
+            ["table", "tables"],
+            ["row", "rows"],
+            ["query", "queries"],
+        ];
+        foreach ($berlindb_entities as $entity) {
+            foreach ($kinds as $kind) {
+                $file = "class-usctdp-mgmt-{$entity}-{$kind[0]}.php";
+                require_once $db_prefix . $kind[1] . "/" . $file;
+            }
         }
     }
 
@@ -60,9 +76,7 @@ class Usctdp_Mgmt_Model
             new Usctdp_Mgmt_Pricing(),
             new Usctdp_Mgmt_Class(),
             new Usctdp_Mgmt_Student(),
-            new Usctdp_Mgmt_Family(),
-            new Usctdp_Mgmt_Registration(),
-
+            new Usctdp_Mgmt_Family()
         ];
 
         $result = [];
@@ -70,6 +84,14 @@ class Usctdp_Mgmt_Model
             $result[$class->post_type] = $class;
         }
         return $result;
+    }
+
+    public function register_berlindb_entities()
+    {
+        $table = new Usctdp_Mgmt_Registration_Table();
+        if (! $table->exists()) {
+            $table->install();
+        }
     }
 
     public function register_model_types()

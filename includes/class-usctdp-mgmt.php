@@ -151,6 +151,7 @@ class Usctdp_Mgmt
     {
         $model = new Usctdp_Mgmt_Model();
 
+        $this->loader->add_action("init", $model, "register_berlindb_entities");
         $this->loader->add_action("acf/init", $model, "register_model_types");
 
         foreach ($model->model_types as $model_type) {
