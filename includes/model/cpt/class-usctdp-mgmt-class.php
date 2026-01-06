@@ -183,25 +183,9 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
         ];
     }
 
-    public function update_session_value($value, $post_id, $field)
-    {
-        try {
-            $query = new Usctdp_Mgmt_Activity_Link_Query([
-                "activity_id" => $post_id
-            ]);
-            foreach ($query->items as $item) {
-                $query->delete_item($item->id);
-            }
-            $query->add_item([
-                'family_id'    => $value,
-                'student_id'     => $post_id
-            ]);
-        } catch (\Throwable $th) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error("Failed to update family link for student $post_id");
-            Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
-        }
-        return $value;
-    }
+    public function update_session_value($value, $post_id, $field) {}
+
+    public function update_clinic_value($value, $post_id, $field) {}
 
     public function update_date_list_value($value, $post_id, $field, $original_value)
     {
