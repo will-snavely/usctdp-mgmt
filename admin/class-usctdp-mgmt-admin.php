@@ -103,7 +103,7 @@ class Usctdp_Mgmt_Admin
         'toggle_tag' => [
             'action' => 'toggle_tag',
             'nonce' => 'toggle_tag_nonce',
-            'callback' => 'ajax_toggle_tag'
+            'callback' => 'ajax_toggle_active_tag'
         ]
     ];
 
@@ -976,7 +976,7 @@ class Usctdp_Mgmt_Admin
         ]);
     }
 
-    function ajax_toggle_tag()
+    function ajax_toggle_active_tag()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['toggle_tag'];
         if (! check_ajax_referer($handler['nonce'], 'security', false)) {
@@ -984,15 +984,10 @@ class Usctdp_Mgmt_Admin
         }
 
         $post_id = isset($_POST['post_id']) ? sanitize_text_field($_POST['post_id']) : '';
-        $tag = isset($_POST['tag']) ? sanitize_text_field($_POST['tag']) : '';
         $toggle = isset($_POST['toggle']) ? sanitize_text_field($_POST['toggle']) : '';
 
         if (!$post_id) {
             wp_send_json_error('No post ID provided.', 400);
-        }
-
-        if (!$tag) {
-            wp_send_json_error('No tag provided.', 400);
         }
 
         if (!$toggle) {
@@ -1009,14 +1004,14 @@ class Usctdp_Mgmt_Admin
         }
 
         if ($toggle == 'on') {
-            $result = wp_add_post_tags($post_id, $tag);
+            $result = wp_set_post_terms($post_id, 'active', 'post_tag', false);
             if (!$result) {
-                wp_send_json_error('Failed to add tag to post.', 400);
+                wp_send_json_error('Failed to tag post as active.', 400);
             }
         } elseif ($toggle == 'off') {
-            $result = wp_remove_object_terms($post_id, $tag, 'post_tag');
+            $result = wp_set_post_terms($post_id, 'inactive', 'post_tag', false);
             if (!$result) {
-                wp_send_json_error('Failed to remove tag from post.', 400);
+                wp_send_json_error('Failed to tag post as inactive.', 400);
             }
         } else {
             wp_send_json_error('Invalid toggle provided.', 400);

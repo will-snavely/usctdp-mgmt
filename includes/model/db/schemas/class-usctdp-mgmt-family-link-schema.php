@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Schema;
 
-class Usctdp_Mgmt_Activity_Link_Schema extends Schema
+class Usctdp_Mgmt_Family_Link_Schema extends Schema
 {
     public $columns = [
         'id' => [
@@ -13,23 +13,23 @@ class Usctdp_Mgmt_Activity_Link_Schema extends Schema
             'extra'    => 'auto_increment',
             'primary'  => true,
             'sortable' => true,
-            'default'  => 0
+            'default' => 0
         ],
 
-        'activity_id' => [
-            'name'       => 'activity_id',
+        'family_id' => [
+            'name'       => 'family_id',
             'type'       => 'int',
             'unsigned'   => true,
             'index'      => true,
-            'default'    => 0,
+            'default' => 0,
         ],
 
-        'session_id' => [
-            'name'       => 'session_id',
+        'student_id' => [
+            'name'       => 'student_id',
             'type'       => 'int',
             'unsigned'   => true,
             'index'      => true,
-            'default'    => 0
+            'default' => 0
         ]
     ];
 }

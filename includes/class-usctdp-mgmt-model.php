@@ -51,7 +51,8 @@ class Usctdp_Mgmt_Model
 
         $berlindb_entities = [
             "registration",
-            "activity-link"
+            "activity-link",
+            "family-link"
         ];
         $db_prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/db/";
         $kinds = [
@@ -89,9 +90,15 @@ class Usctdp_Mgmt_Model
 
     public function register_berlindb_entities()
     {
-        $table = new Usctdp_Mgmt_Registration_Table();
-        if (! $table->exists()) {
-            $table->install();
+        $tables = [
+            new Usctdp_Mgmt_Registration_Table(),
+            new Usctdp_Mgmt_Activity_Link_Table(),
+            new Usctdp_Mgmt_Family_Link_Table()
+        ];
+        foreach ($tables as $table) {
+            if (! $table->exists()) {
+                $table->install();
+            }
         }
     }
 

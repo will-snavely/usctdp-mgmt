@@ -36,7 +36,7 @@ class Usctdp_Import_Clinic_Data
             update_field('end_date', $end_date->format('Y-m-d'), $post_id);
             update_field('length_weeks', $session['length_weeks'], $post_id);
             update_field('category', $session['category'], $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
+            wp_set_post_terms($post_id, ["test-data", "inactive"], 'post_tag', false);
             if (!isset($this->sessions_by_category[$session['category']])) {
                 $this->sessions_by_category[$session['category']] = [];
             }

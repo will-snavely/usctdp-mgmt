@@ -1,7 +1,7 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 
-    <h2>Active and Upcoming Sessions</h2>
+    <h2>Active Sessions</h2>
 
     <div id="usctdp-active-sessions-manager">
         <div style="margin-bottom: 20px;">
@@ -9,29 +9,19 @@
             <button type="button" id="add-active-session-btn" class="button">Make Active</button>
         </div>
 
-        <div id="upcoming-sessions-container">
-            <table id="upcoming-sessions-table" class="usctdp-custom-post-table">
+        <div id="active-sessions-container">
+            <table id="active-sessions-table" class="usctdp-custom-post-table">
                 <thead>
                     <tr>
                         <th>Session</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="upcoming-sessions-table-body">
+                <tbody id="active-sessions-table-body">
                 </tbody>
             </table>
         </div>
     </div>
-
-    <!--
-    <form action="options.php" method="post">
-        <?php
-        //settings_fields('usctdp_mgmt_group');
-        //do_settings_sections('usctdp-admin-main');
-        //submit_button();
-        ?>
-    </form>
--->
 
     <h2>Google Authorization:</h2>
     <ul>

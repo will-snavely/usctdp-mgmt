@@ -169,7 +169,8 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
     public function get_update_value_hooks()
     {
         return [
-            'field_usctdp_class_date_list' => 'update_date_list_value'
+            'field_usctdp_class_date_list' => 'update_date_list_value',
+            'field'
         ];
     }
 
@@ -177,8 +178,28 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
     {
         return [
             'field_usctdp_class_start_date' => 'prepare_start_date_field',
-            'field_usctdp_class_end_date' => 'prepare_end_date_field'
+            'field_usctdp_class_end_date' => 'prepare_end_date_field',
         ];
+    }
+
+    public function update_session_value($value, $post_id, $field)
+    {
+        try {
+            $query = new Usctdp_Mgmt_Family_Link_Query([
+                "student_id" => $post_id
+            ]);
+            foreach ($query->items as $item) {
+                $query->delete_item($item->id);
+            }
+            $query->add_item([
+                'family_id'    => $value,
+                'student_id'     => $post_id
+            ]);
+        } catch (\Throwable $th) {
+            Usctdp_Mgmt_Logger::getLogger()->log_error("Failed to update family link for student $post_id");
+            Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
+        }
+        return $value;
     }
 
     public function update_date_list_value($value, $post_id, $field, $original_value)

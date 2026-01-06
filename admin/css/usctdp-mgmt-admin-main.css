@@ -2,15 +2,15 @@
     width: 400px;
 }
 
-#upcoming-sessions-container {
+#active-sessions-container {
     max-width: 800px;
 }
 
-#upcoming-sessions-table th:first-child {
+#active-sessions-table th:first-child {
     width: 80%;
 }
 
-#upcoming-sessions-table th:nth-child(2) {
+#active-sessions-table th:nth-child(2) {
     width: 20%;
 }
 

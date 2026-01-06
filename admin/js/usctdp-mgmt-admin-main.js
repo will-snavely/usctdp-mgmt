@@ -10,6 +10,7 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-session',
+                        tag: 'inactive',
                         action: usctdp_mgmt_admin.select2_search_action,
                         security: usctdp_mgmt_admin.select2_search_nonce,
                     };
@@ -22,7 +23,7 @@
             }
         });
 
-        var upcomingSessionsTable = $('#upcoming-sessions-table').DataTable({
+        var activeSessionsTable = $('#active-sessions-table').DataTable({
             processing: true,
             serverSide: true,
             ordering: false,
@@ -61,7 +62,7 @@
                             var $button = $('<button></button>')
                             $button.addClass('button button-small remove-active-session-btn')
                             $button.attr('data-id', data)
-                            $button.text('Remove')
+                            $button.text('Deactivate')
                             $actionItem.append($button)
                             $cell.append($actionItem)
                             return $cell.get(0);
@@ -90,7 +91,7 @@
                         toggle: 'on',
                     },
                     success: function (response) {
-                        upcomingSessionsTable.ajax.reload();
+                        activeSessionsTable.ajax.reload();
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error("AJAX Error:", textStatus, errorThrown);
@@ -100,7 +101,7 @@
             $('#active-sessions-select2').val(null).trigger('change');
         });
 
-        $('#upcoming-sessions-table').on('click', 'button.remove-active-session-btn', function () {
+        $('#active-sessions-table').on('click', 'button.remove-active-session-btn', function () {
             var id = $(this).attr('data-id');
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -114,7 +115,7 @@
                     toggle: 'off',
                 },
                 success: function (response) {
-                    upcomingSessionsTable.ajax.reload();
+                    activeSessionsTable.ajax.reload();
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error("AJAX Error:", textStatus, errorThrown);
