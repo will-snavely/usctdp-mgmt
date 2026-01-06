@@ -22,17 +22,17 @@
                         d['filter[session][compare]'] = '=';
                         d['filter[session][type]'] = 'NUMERIC';
                     }
-                    var courseFilterValue = $('#course-filter').val();
-                    if (courseFilterValue) {
-                        d['filter[course][value]'] = courseFilterValue;
-                        d['filter[course][compare]'] = '=';
-                        d['filter[course][type]'] = 'NUMERIC';
+                    var clinicFilterValue = $('#clinic-filter').val();
+                    if (clinicFilterValue) {
+                        d['filter[clinic][value]'] = clinicFilterValue;
+                        d['filter[clinic][compare]'] = '=';
+                        d['filter[clinic][type]'] = 'NUMERIC';
                     }
                 }
             },
             columns: [
                 {
-                    data: 'course',
+                    data: 'clinic',
                     render: function (data, type, row) {
                         if (type === 'display') {
                             return data.title;
@@ -114,15 +114,15 @@
             }
         });
 
-        $('#course-filter').select2({
-            placeholder: "Search for a course...",
+        $('#clinic-filter').select2({
+            placeholder: "Search for a clinic...",
             allowClear: true,
             ajax: {
                 url: usctdp_mgmt_admin.ajax_url,
                 data: function (params) {
                     return {
                         q: params.term,
-                        post_type: 'usctdp-course',
+                        post_type: 'usctdp-clinic',
                         action: usctdp_mgmt_admin.select2_search_action,
                         security: usctdp_mgmt_admin.select2_search_nonce
                     };
@@ -141,7 +141,7 @@
         $first_row.after(filter_row);
 
         $('#table-filters').appendTo('#table-filter-row');
-        $('#session-filter, #course-filter').on('change', function () {
+        $('#session-filter, #clinic-filter').on('change', function () {
             table.ajax.reload();
         });
     });

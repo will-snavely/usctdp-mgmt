@@ -43,7 +43,7 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
                 [
                     'key' => 'field_usctdp_session_name',
                     'label' => 'Session Name',
-                    'name' => 'session_name',
+                    'name' => 'name',
                     'type' => 'text',
                     'required' => 1
                 ],
@@ -72,6 +72,13 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
                     'type' => 'number',
                     'required' => 1
                 ],
+                [
+                    'key' => 'field_usctdp_session_category',
+                    'label' => 'Session Category',
+                    'name' => 'category',
+                    'type' => 'text',
+                    'required' => 1,
+                ],
             ],
             'location' => array(
                 array(
@@ -99,19 +106,23 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
             $session_end = $_POST['acf']['field_usctdp_session_end_date'];
             $start_date = DateTime::createFromFormat('Ymd', $session_start);
             $end_date = DateTime::createFromFormat('Ymd', $session_end);
-            $result['post_title'] = self::create_session_title($session_name, $length_weeks, $start_date, $end_date);
+            $result['post_title'] = self::create_title($session_name, $length_weeks, $start_date, $end_date);
         }
         return $result;
     }
 
-    public static function create_session_title(
+    public static function create_title(
         $name,
         $length_weeks,
         $start_date,
         $end_date
     ) {
-        $start = $start_date->format('m/d/Y');
-        $end = $end_date->format('m/d/Y');
-        return sanitize_text_field($name . ' - ' . $length_weeks . ' weeks (' . $start . ' - ' . $end . ')');
+        $start = $start_date->format('Y');
+        $end = $end_date->format('Y');
+        $year = $start;
+        if ($start != $end) {
+            $year = $start . '/' . $end;
+        }
+        return sanitize_text_field($name . ' - ' . $year . ' - ' . $length_weeks . ' weeks');
     }
 }

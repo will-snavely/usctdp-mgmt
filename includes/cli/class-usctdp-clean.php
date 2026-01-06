@@ -6,6 +6,7 @@ class Usctdp_Clean
     {
         $post_types = [];
         $remove_users = false;
+        $remove_registrations = false;
         if ($target == "all") {
             $post_types = [
                 'usctdp-session',
@@ -13,32 +14,33 @@ class Usctdp_Clean
                 'usctdp-class',
                 'usctdp-family',
                 'usctdp-student',
-                'usctdp-registration',
-                'usctdp-course',
-                'usctdp-pricing'
+                'usctdp-clinic',
+                'usctdp-clinic-prices'
             ];
             $remove_users = true;
+            $remove_registrations = true;
         } else if ($target == "people") {
             $post_types = [
                 'usctdp-family',
                 'usctdp-student',
-                'usctdp-registration',
                 'usctdp-staff',
             ];
+            $remove_registrations = true;
             $remove_users = true;
         } else if ($target == "classes") {
             $post_types = [
                 'usctdp-session',
                 'usctdp-class',
-                'usctdp-course',
-                'usctdp-pricing',
-                'usctdp-registration'
+                'usctdp-clinic',
+                'usctdp-clinic-prices'
             ];
+            $remove_registrations = true;
             $remove_users = false;
         } else if ($target == "registrations") {
             $post_types = [
                 'usctdp-registration'
             ];
+            $remove_registrations = true;
             $remove_users = false;
         }
         foreach ($post_types as $post_type) {
@@ -62,6 +64,12 @@ class Usctdp_Clean
             foreach ($users as $user) {
                 wp_delete_user($user->ID);
             }
+        }
+
+        if ($remove_registrations) {
+            WP_CLI::log('Removing registrations...');
+            $table = new Usctdp_Mgmt_Registration_Table();
+            $table->delete_all();
         }
     }
 }

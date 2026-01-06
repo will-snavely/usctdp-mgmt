@@ -2,25 +2,12 @@
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     <div class="usctdp-mgmt-section">
         <section id="usctdp-classes-section">
-            <h2> Actions </h2>
-            <ul>
-                <li>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=usctdp-admin-new-session')); ?>">
-                        Create New Session
-                    </a>
-                </li>
-                <li>
-                    <a href="<?php echo esc_url(admin_url('post-new.php?post_type=usctdp-class')); ?>">
-                        Create New Class
-                    </a>
-                </li>
-            </ul>
             <h2> Active and Upcoming Classes </h2>
             <div id="usctdp-classes-container">
                 <div id="table-filters">
-                    <div id="course-filter-section" class="dt-layout-cell dt-layout-start">
-                        <label for="course-filter">Filter by Course:</label>
-                        <select id="course-filter"></select>
+                    <div id="clinic-filter-section" class="dt-layout-cell dt-layout-start">
+                        <label for="clinic-filter">Filter by Clinic:</label>
+                        <select id="clinic-filter"></select>
                     </div>
                     <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
                         <label for="session-filter">Filter by Session:</label>
@@ -30,7 +17,7 @@
                 <table id="usctdp-upcoming-classes-table" class="usctdp-custom-post-table">
                     <thead>
                         <tr>
-                            <th>Course</th>
+                            <th>Clinic</th>
                             <th>Session</th>
                             <th>Capacity</th>
                             <th>Staff</th>

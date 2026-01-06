@@ -51,12 +51,12 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_class_course',
-                    'label' => 'Course',
-                    'name' => 'course',
+                    'key' => 'field_usctdp_class_clinic',
+                    'label' => 'Clinic',
+                    'name' => 'clinic',
                     'type' => 'post_object',
                     'post_type' => array(
-                        0 => 'usctdp-course',
+                        0 => 'usctdp-clinic',
                     ),
                     'required' => 1
                 ],
@@ -166,34 +166,6 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
         ];
     }
 
-    private function extract_fields_from_post($postarr)
-    {
-        $class_data = null;
-        if (isset($_POST['acf'])) {
-            $class_data = $_POST['acf'];
-        } else if (
-            isset($_POST['usctdp_classes'])
-            && isset($postarr['meta_input'])
-            && isset($postarr['meta_input']['class_index'])
-        ) {
-            $index = $postarr['meta_input']['class_index'];
-            $class_data = $_POST['usctdp_classes'][$index];
-        }
-
-        if ($class_data) {
-            $class_course = $class_data['field_usctdp_class_course'];
-            $class_dow = $class_data['field_usctdp_class_dow'];
-            $class_time_string = $class_data['field_usctdp_class_start_time'];
-            $class_start_time = DateTime::createFromFormat('H:i:s', $class_time_string);
-            return [
-                'course' => $class_course,
-                'dow' => $class_dow,
-                'start_time' => $class_start_time
-            ];
-        }
-        return null;
-    }
-
     public function get_update_value_hooks()
     {
         return [
@@ -233,13 +205,13 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
     {
         $result = [];
         if ($data['post_type'] === 'usctdp-class' && isset($_POST['acf'])) {
-            $course_id = $_POST['acf']['field_usctdp_class_course'];
+            $clinic_id = $_POST['acf']['field_usctdp_class_clinic'];
             $session_id = $_POST['acf']['field_usctdp_class_session'];
-            $course_name = get_field('field_usctdp_course_name', $course_id);
+            $clinic_name = get_field('field_usctdp_clinic_name', $clinic_id);
             $session_duration = get_field('field_usctdp_session_duration', $session_id);
             $dow = self::dow_value_to_label($_POST['acf']['field_usctdp_class_dow']);
             $start_time = DateTime::createFromFormat('H:i:s', $_POST['acf']['field_usctdp_class_start_time']);
-            $result['post_title'] = self::create_class_title($course_name, $dow, $start_time, $session_duration);
+            $result['post_title'] = self::create_title($clinic_name, $dow, $start_time, $session_duration);
         }
         return $result;
     }
@@ -253,9 +225,9 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
         return '';
     }
 
-    public static function create_class_title($course_name, $dow, $start_time, $duration)
+    public static function create_title($clinic_name, $dow, $start_time, $duration)
     {
         $time = $start_time->format('g:i A');
-        return sanitize_text_field("$course_name, $dow at $time ($duration Weeks)");
+        return sanitize_text_field("$clinic_name, $dow at $time ($duration Weeks)");
     }
 }

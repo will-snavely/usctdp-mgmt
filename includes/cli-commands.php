@@ -18,7 +18,7 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-clean.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/cli/class-usctdp-import-session-data.php";
+            "includes/cli/class-usctdp-import-clinic-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-random-people-generator.php";
@@ -61,7 +61,7 @@ class Usctdp_Cli_Command
             WP_CLI::error('File path not provided');
             return;
         }
-        $generator = new Usctdp_Import_Session_Data();
+        $generator = new Usctdp_Import_Clinic_Data();
         $generator->import($file_path);
     }
 

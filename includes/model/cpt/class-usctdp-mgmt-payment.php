@@ -129,16 +129,16 @@ class Usctdp_Mgmt_Payment extends Usctdp_Mgmt_Model_Type
         if ($data['post_type'] === 'usctdp-pricing' && isset($_POST['acf'])) {
             $course = get_post($_POST['acf']['field_usctdp_pricing_course']);
             $session = get_post($_POST['acf']['field_usctdp_pricing_session']);
-            $session_name = get_field('session_name', $session->ID);
+            $session_name = get_field('name', $session->ID);
             $session_duration = get_field('length_weeks', $session->ID);
             $course_name = get_field('name', $course->ID);
 
-            $result['post_title'] = self::create_pricing_title($session_name, $session_duration, $course_name);
+            $result['post_title'] = self::create_title($session_name, $session_duration, $course_name);
         }
         return $result;
     }
 
-    public static function create_pricing_title($session_title, $session_duration, $course_title)
+    public static function create_title($session_title, $session_duration, $course_title)
     {
         return sanitize_text_field("Pricing: " . $session_title . ' - ' . $session_duration . ' Weeks - ' . $course_title);
     }

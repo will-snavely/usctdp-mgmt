@@ -1,9 +1,9 @@
 <?php
 
-class Usctdp_Mgmt_Course extends Usctdp_Mgmt_Model_Type
+class Usctdp_Mgmt_Clinic extends Usctdp_Mgmt_Model_Type
 {
     public string $post_type {
-        get => 'usctdp-course';
+        get => 'usctdp-clinic';
     }
 
     public array $wp_post_settings {
@@ -17,57 +17,64 @@ class Usctdp_Mgmt_Course extends Usctdp_Mgmt_Model_Type
             'supports' => ['title', 'author'],
 
             'labels' => [
-                'name' => __('Course', 'textdomain'),
-                'singular_name' => __('Course', 'textdomain'),
-                'menu_name' => __('Courses', 'textdomain'),
-                'name_admin_bar' => __('Courses', 'textdomain'),
+                'name' => __('Clinic', 'textdomain'),
+                'singular_name' => __('Clinic', 'textdomain'),
+                'menu_name' => __('Clinics', 'textdomain'),
+                'name_admin_bar' => __('Clinics', 'textdomain'),
                 'add_new' => __('Add New', 'textdomain'),
-                'add_new_item' => __('Add New Course', 'textdomain'),
-                'new_item' => __('New Course', 'textdomain'),
-                'edit_item' => __('Edit Course', 'textdomain'),
-                'view_item' => __('View Course', 'textdomain'),
-                'all_items' => __('All Courses', 'textdomain'),
-                'search_items' => __('Search Courses', 'textdomain'),
-                'not_found' => __('No course found.', 'textdomain'),
+                'add_new_item' => __('Add New Clinic', 'textdomain'),
+                'new_item' => __('New Clinic', 'textdomain'),
+                'edit_item' => __('Edit Clinic', 'textdomain'),
+                'view_item' => __('View Clinic', 'textdomain'),
+                'all_items' => __('All Clinics', 'textdomain'),
+                'search_items' => __('Search Clinics', 'textdomain'),
+                'not_found' => __('No clinic found.', 'textdomain'),
             ]
         ];
     }
 
     public array $acf_settings {
         get => [
-            'key' => 'group_usctdp_course',
-            'title' => 'Course Fields',
+            'key' => 'group_usctdp_clinic',
+            'title' => 'Clinic Fields',
             'fields' => [
                 [
-                    'key' => 'field_usctdp_course_name',
+                    'key' => 'field_usctdp_clinic_name',
                     'label' => 'Name',
                     'name' => 'name',
                     'type' => 'text',
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_course_age_range',
+                    'key' => 'field_usctdp_clinic_age_range',
                     'label' => 'Age Range',
                     'name' => 'age_range',
                     'type' => 'text',
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_course_age_group',
+                    'key' => 'field_usctdp_clinic_session_category',
+                    'label' => 'Session Category',
+                    'name' => 'session_category',
+                    'type' => 'text',
+                    'required' => 1
+                ],
+                [
+                    'key' => 'field_usctdp_clinic_age_group',
                     'label' => 'Age Group',
                     'name' => 'age_group',
                     'type' => 'text',
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_short_course_description',
+                    'key' => 'field_usctdp_short_clinic_description',
                     'label' => 'Short Description',
                     'name' => 'short_description',
                     'type' => 'text',
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_course_description',
+                    'key' => 'field_usctdp_clinic_description',
                     'label' => 'Description',
                     'name' => 'description',
                     'type' => 'textarea',
@@ -79,7 +86,7 @@ class Usctdp_Mgmt_Course extends Usctdp_Mgmt_Model_Type
                     array(
                         'param' => 'post_type',
                         'operator' => '==',
-                        'value' => 'usctdp-course',
+                        'value' => 'usctdp-clinic',
                     ),
                 ),
             ),
@@ -93,14 +100,14 @@ class Usctdp_Mgmt_Course extends Usctdp_Mgmt_Model_Type
     public function get_computed_post_fields($data, $postarr)
     {
         $result = [];
-        if ($data['post_type'] === 'usctdp-course' && isset($_POST['acf'])) {
-            $course_name = $_POST['acf']['field_usctdp_course_name'];
-            $result['post_title'] = self::create_course_title($course_name);
+        if ($data['post_type'] === 'usctdp-clinic' && isset($_POST['acf'])) {
+            $clinic_name = $_POST['acf']['field_usctdp_clinic_name'];
+            $result['post_title'] = self::create_title($clinic_name);
         }
         return $result;
     }
 
-    public static function create_course_title($name)
+    public static function create_title($name)
     {
         return sanitize_text_field($name);
     }

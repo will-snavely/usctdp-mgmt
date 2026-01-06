@@ -7,7 +7,6 @@ class Usctdp_Random_Registration_Generator
         $result = [];
         $enrolled = [];
         $i = 0;
-        $table = new Usctdp_Registration_Table();
 
         while ($i < $count) {
             $class = $classes[array_rand($classes)];
@@ -26,7 +25,7 @@ class Usctdp_Random_Registration_Generator
             $enrolled[$class->ID]["roster"][] = $student->ID;
             $student_level = get_field("level", $student->ID);
 
-            $query = new Usctdp_Registration_Query();
+            $query = new Usctdp_Mgmt_Registration_Query();
             $registration_id = $query->add_item([
                 'activity_id'    => $class->ID,
                 'student_id'     => $student->ID,
@@ -35,14 +34,6 @@ class Usctdp_Random_Registration_Generator
                 'notes'          => ''
             ]);
 
-            if ($registration_id) {
-                WP_CLI::log("Successfully created registration ID: " . $registration_id);
-            } else {
-                WP_CLI::log("Failed to create registration.");
-            }
-
-            // TODO: Do I need something like this?
-            //wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $i++;
             $result[] = [
                 "id" => $registration_id

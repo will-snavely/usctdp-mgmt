@@ -771,7 +771,7 @@ class Usctdp_Mgmt_Admin
         return $reg_query->found_items;
     }
 
-    private function get_class_pricing($course_id, $session_id)
+    private function get_class_pricing($clinic_id, $session_id)
     {
         $price_query = get_posts([
             'post_type'      => 'usctdp-pricing',
@@ -779,8 +779,8 @@ class Usctdp_Mgmt_Admin
             'meta_query'     => [
                 'relation' => 'AND',
                 [
-                    'key' => 'course',
-                    'value' => $course_id,
+                    'key' => 'clinic',
+                    'value' => $clinic_id,
                     'compare' => '=',
                     'type' => 'NUMERIC'
                 ],
@@ -816,11 +816,11 @@ class Usctdp_Mgmt_Admin
         $found_posts = $this->get_class_registration_count($class_id);
         $student_registered = $this->is_student_enrolled($student_id, $class_id);
 
-        $course = get_field('course', $class_id);
+        $clinic = get_field('clinic', $class_id);
         $session = get_field('session', $class_id);
         $one_day_price = null;
         $two_day_price = null;
-        $pricing = $this->get_class_pricing($course->ID, $session->ID);
+        $pricing = $this->get_class_pricing($clinic->ID, $session->ID);
         if ($pricing) {
             $one_day_price = $pricing['one_day_price'];
             $two_day_price = $pricing['two_day_price'];
@@ -925,13 +925,13 @@ class Usctdp_Mgmt_Admin
             $copyId = $copiedFile->getId();
 
             $requests = [
-                $this->text_replace('{{session_name}}',  get_field('session_name', $class_fields['session'])),
+                $this->text_replace('{{session_name}}',  get_field('name', $class_fields['session'])),
                 $this->text_replace('{{day_of_week}}', $class_fields['day_of_week']),
                 $this->text_replace('{{start_time}}', $class_fields['start_time']),
                 $this->text_replace('{{end_time}}', $class_fields['end_time']),
                 $this->text_replace('{{level}}', $class_fields['level']),
                 $this->text_replace('{{limit}}', $class_fields['capacity']),
-                $this->text_replace('{{age_group}}', get_field('age_group', $class_fields['course'])),
+                $this->text_replace('{{age_group}}', get_field('age_group', $class_fields['clinic'])),
                 $this->text_replace('{{start_date}}', isset($class_fields['start_date']) ? $class_fields['start_date'] : ''),
                 $this->text_replace('{{end_date}}', isset($class_fields['end_date']) ? $class_fields['end_date'] : ''),
             ];

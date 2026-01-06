@@ -79,7 +79,7 @@ class Usctdp_Random_People_Generator
             $last_name = $this->last_names[array_rand($this->last_names)];
             $random_last_four_digits = sprintf('%04d', rand(0, 9999));
             $phone_number = "555-555-" . $random_last_four_digits;
-            $family_title = Usctdp_Mgmt_Family::create_family_title($last_name, $phone_number);
+            $family_title = Usctdp_Mgmt_Family::create_title($last_name, $phone_number);
             if (isset($seen[$family_title])) {
                 continue;
             }
