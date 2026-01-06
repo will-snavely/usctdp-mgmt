@@ -66,7 +66,7 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_session_weeks',
+                    'key' => 'field_usctdp_session_length_weeks',
                     'label' => 'Length in Weeks',
                     'name' => 'length_weeks',
                     'type' => 'number',

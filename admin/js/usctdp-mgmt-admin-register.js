@@ -58,6 +58,7 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-session',
+                        tag: 'active',
                         action: usctdp_mgmt_admin.select2_search_action,
                         security: usctdp_mgmt_admin.select2_search_nonce
                     };

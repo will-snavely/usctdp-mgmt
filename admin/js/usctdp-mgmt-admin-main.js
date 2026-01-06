@@ -22,48 +22,104 @@
             }
         });
 
-        var activeSessionsTable = $('#active-sessions-table').DataTable({
-            paging: false,
+        var upcomingSessionsTable = $('#upcoming-sessions-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
             searching: false,
-            info: false,
-            lengthChange: false
+            paging: false,
+
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    d.action = usctdp_mgmt_admin.datatable_search_action;
+                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
+                    d.post_type = 'usctdp-session';
+                    d['tag'] = 'active';
+                }
+            },
+            columns: [
+                {
+                    data: 'title',
+                    render: function (data, type, row) {
+                        if (type === 'display' && data && data.title) {
+                            return data.title;
+                        }
+                        return data;
+                    },
+                    defaultContent: '',
+                },
+                {
+                    data: 'id',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            var $cell = $('<div></div>')
+                            $cell.addClass('session-actions')
+                            var $actionItem = $('<div></div>')
+                            $actionItem.addClass('action-item')
+                            var $button = $('<button></button>')
+                            $button.addClass('button button-small remove-active-session-btn')
+                            $button.attr('data-id', data)
+                            $button.text('Remove')
+                            $actionItem.append($button)
+                            $cell.append($actionItem)
+                            return $cell.get(0);
+                        }
+                        return '';
+                    },
+                    defaultContent: '',
+                }
+            ]
         });
 
         $('#add-active-session-btn').on('click', function () {
             var dataArray = $('#active-sessions-select2').select2('data');
             if (!dataArray || dataArray.length === 0) return;
 
-            var $inputContainer = $('#hidden-inputs-container');
             dataArray.forEach(function (data) {
-                if ($inputContainer.find('input[value="' + data.id + '"]').length > 0) {
-                    return;
-                }
-
-                var $button = $('<button></button>')
-                $button.attr('type', 'button')
-                $button.attr('class', 'remove-active-session-btn button-link-delete')
-                $button.text('Remove')
-
-                activeSessionsTable.row.add([
-                    data.text,
-                    $button.get(0)
-                ]).draw(false).node().setAttribute('data-id', data.id);
-
-                var $inputElem = $('<input></input>')
-                $inputElem.attr('type', 'hidden')
-                $inputElem.attr('name', 'usctdp_mgmt_options[active_sessions][]')
-                $inputElem.attr('value', data.id)
-                $inputContainer.append($inputElem)
+                $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: usctdp_mgmt_admin.toggle_tag_action,
+                        security: usctdp_mgmt_admin.toggle_tag_nonce,
+                        post_id: data.id,
+                        tag: 'active',
+                        toggle: 'on',
+                    },
+                    success: function (response) {
+                        upcomingSessionsTable.ajax.reload();
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.error("AJAX Error:", textStatus, errorThrown);
+                    }
+                });
             });
             $('#active-sessions-select2').val(null).trigger('change');
         });
 
-        $('#active-sessions-table').on('click', 'button.remove-active-session-btn', function () {
-            var $row = $(this).closest('tr');
-            var id = $row.data('id');
-            var $inputContainer = $('#hidden-inputs-container');
-            activeSessionsTable.row($row).remove().draw(false);
-            $inputContainer.find('input[value="' + id + '"]').remove();
+        $('#upcoming-sessions-table').on('click', 'button.remove-active-session-btn', function () {
+            var id = $(this).attr('data-id');
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.toggle_tag_action,
+                    security: usctdp_mgmt_admin.toggle_tag_nonce,
+                    post_id: id,
+                    tag: 'active',
+                    toggle: 'off',
+                },
+                success: function (response) {
+                    upcomingSessionsTable.ajax.reload();
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                }
+            });
         });
     });
 })(jQuery);

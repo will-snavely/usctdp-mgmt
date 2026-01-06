@@ -99,6 +99,11 @@ class Usctdp_Mgmt_Admin
             'action' => 'get_class_qualification',
             'nonce' => 'get_class_qualification_nonce',
             'callback' => 'ajax_get_class_qualification'
+        ],
+        'toggle_tag' => [
+            'action' => 'toggle_tag',
+            'nonce' => 'toggle_tag_nonce',
+            'callback' => 'ajax_toggle_tag'
         ]
     ];
 
@@ -337,7 +342,7 @@ class Usctdp_Mgmt_Admin
             $js_data = [
                 'ajax_url' => admin_url('admin-ajax.php'),
             ];
-            $handlers = ['select2_search'];
+            $handlers = ['select2_search', 'datatable_search', 'toggle_tag'];
             foreach ($handlers as $key) {
                 $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
                 $js_data[$key . "_action"] = $handler['action'];
@@ -353,78 +358,9 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
     }
 
-    public function settings_init()
-    {
-        // 1. Register the setting in the database
-        register_setting('usctdp_mgmt_group', 'usctdp_mgmt_options', [$this, 'usctdp_mgmt_sanitize_settings']);
+    public function settings_init() {}
 
-        // 2. Add a section
-        add_settings_section(
-            'usctdp_mgmt_active_and_upcoming_sessions',
-            'Active and Upcoming Sessions',
-            null,
-            'usctdp-admin-main'
-        );
-
-        add_settings_field(
-            'active_sessions',
-            'Active Sessions',
-            [$this, 'render_post_list_field'],
-            'usctdp-admin-main',
-            'usctdp_mgmt_active_and_upcoming_sessions'
-        );
-    }
-
-    public function usctdp_mgmt_sanitize_settings($input)
-    {
-        $new_input = array();
-        $new_input['active_sessions'] = isset($input['active_sessions']) ? array_map('intval', $input['active_sessions']) : array();
-        return $new_input;
-    }
-
-    function render_post_list_field()
-    {
-        $options = get_option('usctdp_mgmt_options');
-        $selected_ids = isset($options['active_sessions']) ? (array) $options['active_sessions'] : array();
-?>
-        <div id="usctdp-active-sessions-manager">
-            <div style="margin-bottom: 20px;">
-                <select id="active-sessions-select2"></select>
-                <button type="button" id="add-active-session-btn" class="button">Add Session</button>
-            </div>
-
-            <div id="table-container">
-                <table class="wp-list-table widefat striped usctdp-custom-post-table" id="active-sessions-table">
-                    <thead>
-                        <tr>
-                            <th>Session</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($selected_ids)): ?>
-                            <?php
-                        else:
-                            foreach ($selected_ids as $id): ?>
-                                <tr data-id="<?php echo $id; ?>">
-                                    <td><?php echo esc_html(get_the_title($id)); ?></td>
-                                    <td><button type="button" class="remove-active-session-btn button-link-delete">Remove</button></td>
-                                </tr>
-                        <?php
-                            endforeach;
-                        endif; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <div id="hidden-inputs-container">
-                <?php foreach ($selected_ids as $id) : ?>
-                    <input type="hidden" name="usctdp_mgmt_options[active_sessions][]" value="<?php echo $id; ?>">
-                <?php endforeach; ?>
-            </div>
-        </div>
-<?php
-    }
+    public function usctdp_mgmt_sanitize_settings($input) {}
 
     private function echo_admin_page($path)
     {
@@ -1040,6 +976,57 @@ class Usctdp_Mgmt_Admin
         ]);
     }
 
+    function ajax_toggle_tag()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['toggle_tag'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        $post_id = isset($_POST['post_id']) ? sanitize_text_field($_POST['post_id']) : '';
+        $tag = isset($_POST['tag']) ? sanitize_text_field($_POST['tag']) : '';
+        $toggle = isset($_POST['toggle']) ? sanitize_text_field($_POST['toggle']) : '';
+
+        if (!$post_id) {
+            wp_send_json_error('No post ID provided.', 400);
+        }
+
+        if (!$tag) {
+            wp_send_json_error('No tag provided.', 400);
+        }
+
+        if (!$toggle) {
+            wp_send_json_error('No toggle provided.', 400);
+        }
+
+        if (!is_numeric($post_id)) {
+            wp_send_json_error('Invalid post ID provided.', 400);
+        }
+
+        $post = get_post($post_id);
+        if (!$post) {
+            wp_send_json_error('Post with ID ' . $post_id . ' not found.', 400);
+        }
+
+        if ($toggle == 'on') {
+            $result = wp_add_post_tags($post_id, $tag);
+            if (!$result) {
+                wp_send_json_error('Failed to add tag to post.', 400);
+            }
+        } elseif ($toggle == 'off') {
+            $result = wp_remove_object_terms($post_id, $tag, 'post_tag');
+            if (!$result) {
+                wp_send_json_error('Failed to remove tag from post.', 400);
+            }
+        } else {
+            wp_send_json_error('Invalid toggle provided.', 400);
+        }
+
+        wp_send_json_success([
+            'message' => 'Tag toggled successfully'
+        ]);
+    }
+
     function ajax_select2_search()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_search'];
@@ -1051,6 +1038,7 @@ class Usctdp_Mgmt_Admin
         $search_term = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
         $post_type = isset($_GET['post_type']) ? sanitize_text_field($_GET['post_type']) : 'post';
         $include_acf = isset($_GET['acf']) ? sanitize_text_field($_GET['acf'] === 'true') : false;
+        $tag = isset($_GET['tag']) ? sanitize_text_field($_GET['tag']) : '';
         $results = array();
         $args = [
             'post_type' => $post_type,
@@ -1062,6 +1050,10 @@ class Usctdp_Mgmt_Admin
         } else {
             $args['s'] = $search_term;
             $args['posts_per_page'] = 10;
+        }
+
+        if ($tag) {
+            $args['tag'] = $tag;
         }
 
         $meta_query = [];
@@ -1184,6 +1176,7 @@ class Usctdp_Mgmt_Admin
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
         $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'post';
         $search_val = isset($_POST['search']['value']) ? sanitize_text_field($_POST['search']['value']) : '';
+        $tag = isset($_POST['tag']) ? sanitize_text_field($_POST['tag']) : '';
         $expand = isset($_POST['expand']) ? $_POST['expand'] : [];
         $paged = ($start / $length) + 1;
 
@@ -1217,6 +1210,10 @@ class Usctdp_Mgmt_Admin
             'orderby' => 'title',
             'order' => 'ASC',
         );
+
+        if ($tag) {
+            $args['tag'] = $tag;
+        }
 
         if (! empty($search_val)) {
             $args['s'] = $search_val;
