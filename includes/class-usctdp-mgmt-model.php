@@ -50,7 +50,8 @@ class Usctdp_Mgmt_Model
         }
 
         $berlindb_entities = [
-            "registration"
+            "registration",
+            "activity-link"
         ];
         $db_prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/db/";
         $kinds = [

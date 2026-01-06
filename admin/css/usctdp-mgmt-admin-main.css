@@ -1,0 +1,15 @@
+#active-sessions-select2 {
+    width: 400px;
+}
+
+#table-container {
+    max-width: 800px;
+}
+
+#active-sessions-table th:first-child {
+    width: 80%;
+}
+
+#active-sessions-table th:nth-child(2) {
+    width: 20%;
+}

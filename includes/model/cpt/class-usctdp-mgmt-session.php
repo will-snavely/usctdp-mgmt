@@ -10,11 +10,13 @@ class Usctdp_Mgmt_Session extends Usctdp_Mgmt_Model_Type
         get => [
             'public' => false,
             'show_ui' => true,
+            'show_in_rest' => true,
             'show_in_menu' => true,
             'query_var' => true,
             'capability_type' => 'post',
             'hierarchical' => false,
             'supports' => ['title', 'author'],
+            'taxonomies' => ['post_tag', 'category'],
 
             'labels' => [
                 'name' => __('Session', 'textdomain'),

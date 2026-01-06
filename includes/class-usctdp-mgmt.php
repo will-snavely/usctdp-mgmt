@@ -244,6 +244,12 @@ class Usctdp_Mgmt
             $plugin_admin,
             'usctdp_google_oauth_handler'
         );
+
+        $this->loader->add_action(
+            'admin_init',
+            $plugin_admin,
+            'settings_init'
+        );
     }
 
     /**

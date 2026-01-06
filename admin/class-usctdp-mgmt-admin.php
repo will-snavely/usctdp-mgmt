@@ -291,6 +291,7 @@ class Usctdp_Mgmt_Admin
                 if (isset($token['refresh_token'])) {
                     error_log('USCTDP: Google OAuth Refresh Token Received');
                     update_option('usctdp_google_refresh_token', $token['refresh_token']);
+                    update_option('usctdp_google_refresh_token_timestamp', date('Y-m-d H:i:s'));
                     $message = 'Authorization successful! Refresh Token stored.';
                 } else {
                     error_log('USCTDP: Google OAuth Refresh Token Not Received');
@@ -329,13 +330,100 @@ class Usctdp_Mgmt_Admin
                 $this->echo_admin_page($main_display);
             }
         );
-        add_action('load-' . $main_menu_page, function () {});
+        add_action('load-' . $main_menu_page, function () {
+            acf_form_head();
+            $this->enqueue_usctdp_page_script('main');
+            $this->enqueue_usctdp_page_style('main');
+            $js_data = [
+                'ajax_url' => admin_url('admin-ajax.php'),
+            ];
+            $handlers = ['select2_search'];
+            foreach ($handlers as $key) {
+                $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
+                $js_data[$key . "_action"] = $handler['action'];
+                $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
+            }
+            wp_localize_script($this->usctdp_script_id('main'), 'usctdp_mgmt_admin', $js_data);
+        });
 
         // Override the slug on the first menu item
         $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
         $this->add_usctdp_submenu('rosters', 'Rosters', [$this, 'load_rosters_page']);
         $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
+    }
+
+    public function settings_init()
+    {
+        // 1. Register the setting in the database
+        register_setting('usctdp_mgmt_group', 'usctdp_mgmt_options', [$this, 'usctdp_mgmt_sanitize_settings']);
+
+        // 2. Add a section
+        add_settings_section(
+            'usctdp_mgmt_active_and_upcoming_sessions',
+            'Active and Upcoming Sessions',
+            null,
+            'usctdp-admin-main'
+        );
+
+        add_settings_field(
+            'active_sessions',
+            'Active Sessions',
+            [$this, 'render_post_list_field'],
+            'usctdp-admin-main',
+            'usctdp_mgmt_active_and_upcoming_sessions'
+        );
+    }
+
+    public function usctdp_mgmt_sanitize_settings($input)
+    {
+        $new_input = array();
+        $new_input['active_sessions'] = isset($input['active_sessions']) ? array_map('intval', $input['active_sessions']) : array();
+        return $new_input;
+    }
+
+    function render_post_list_field()
+    {
+        $options = get_option('usctdp_mgmt_options');
+        $selected_ids = isset($options['active_sessions']) ? (array) $options['active_sessions'] : array();
+?>
+        <div id="usctdp-active-sessions-manager">
+            <div style="margin-bottom: 20px;">
+                <select id="active-sessions-select2"></select>
+                <button type="button" id="add-active-session-btn" class="button">Add Session</button>
+            </div>
+
+            <div id="table-container">
+                <table class="wp-list-table widefat striped usctdp-custom-post-table" id="active-sessions-table">
+                    <thead>
+                        <tr>
+                            <th>Session</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($selected_ids)): ?>
+                            <?php
+                        else:
+                            foreach ($selected_ids as $id): ?>
+                                <tr data-id="<?php echo $id; ?>">
+                                    <td><?php echo esc_html(get_the_title($id)); ?></td>
+                                    <td><button type="button" class="remove-active-session-btn button-link-delete">Remove</button></td>
+                                </tr>
+                        <?php
+                            endforeach;
+                        endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="hidden-inputs-container">
+                <?php foreach ($selected_ids as $id) : ?>
+                    <input type="hidden" name="usctdp_mgmt_options[active_sessions][]" value="<?php echo $id; ?>">
+                <?php endforeach; ?>
+            </div>
+        </div>
+<?php
     }
 
     private function echo_admin_page($path)
