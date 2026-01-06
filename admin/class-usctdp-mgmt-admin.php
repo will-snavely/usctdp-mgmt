@@ -341,6 +341,7 @@ class Usctdp_Mgmt_Admin
             $this->enqueue_usctdp_page_style('main');
             $js_data = [
                 'ajax_url' => admin_url('admin-ajax.php'),
+                'family_url' => admin_url('admin.php?page=usctdp-admin-families')
             ];
             $handlers = ['select2_search', 'datatable_search', 'toggle_tag'];
             foreach ($handlers as $key) {
@@ -371,54 +372,42 @@ class Usctdp_Mgmt_Admin
         }
     }
 
-    private function extract_session_and_class_context()
+    private function load_page_context($expected_params = [])
     {
-        $session_id_key = 'session_id';
-        $session_id = '';
-        $session_name = '';
-        $class_id_key = 'class_id';
-        $class_id = '';
-        $class_name = '';
-        $student_id_key = 'student_id';
-        $student_id = '';
-        $student_name = '';
-
-        if (isset($_GET[$student_id_key]) && is_numeric($_GET[$student_id_key])) {
-            $student_id = intval($_GET[$student_id_key]);
-            $student_post = get_post($student_id);
-            if ($student_post && $student_post->post_type === 'usctdp-student') {
-                $student_id = $student_id;
-                $student_name = $student_post->post_title;
-            }
-        }
-        if (isset($_GET[$class_id_key]) && is_numeric($_GET[$class_id_key])) {
-            $class_id = intval($_GET[$class_id_key]);
-            $class_post = get_post($class_id);
-
-            if ($class_post && $class_post->post_type === 'usctdp-class') {
-                $class_id = $class_id;
-                $class_name = $class_post->post_title;
-                $parent = get_field('session', $class_id);
-                $session_id = $parent->ID;
-                $session_name = $parent->post_title;
-            }
-        } else if (isset($_GET[$session_id_key]) && is_numeric($_GET[$session_id_key])) {
-            $session_id = intval($_GET[$session_id_key]);
-            $session_post = get_post($session_id);
-            if ($session_post && $session_post->post_type === 'usctdp-session') {
-                $session_id = $session_id;
-                $session_name = $session_post->post_title;
-            }
-        }
-
-        return [
-            'session_id' => $session_id,
-            'session_name' => $session_name,
-            'class_id' => $class_id,
-            'class_name' => $class_name,
-            'student_id' => $student_id,
-            'student_name' => $student_name,
+        $result = [];
+        $param_map = [
+            'session_id' => 'usctdp-session',
+            'class_id' => 'usctdp-class',
+            'student_id' => 'usctdp-student',
+            'family_id' => 'usctdp-family'
         ];
+        foreach ($expected_params as $key) {
+            if (isset($_GET[$key]) && is_numeric($_GET[$key])) {
+                $id = intval($_GET[$key]);
+                $post = get_post($id);
+                $post_type = $param_map[$key];
+                if ($post && $post->post_type === $post_type) {
+                    $result[$post_type] = [
+                        'id' => $id,
+                        'name' => $post->post_title
+                    ];
+
+                    if ($post_type === 'usctdp-class') {
+                        $session = get_field('session', $post->ID);
+                        $clinic = get_field('clinic', $post->ID);
+                        $result[$post_type]['session'] = [
+                            'id' => $session->ID,
+                            'name' => $session->post_title
+                        ];
+                        $result[$post_type]['clinic'] = [
+                            'id' => $clinic->ID,
+                            'name' => $clinic->post_title
+                        ];
+                    }
+                }
+            }
+        }
+        return $result;
     }
 
     public function load_classes_page()
@@ -446,12 +435,13 @@ class Usctdp_Mgmt_Admin
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        $context = $this->extract_session_and_class_context();
-        $js_data['preloaded_session_id'] = $context['session_id'];
-        $js_data['preloaded_session_name'] = $context['session_name'];
-        $js_data['preloaded_class_id'] = $context['class_id'];
-        $js_data['preloaded_class_name'] = $context['class_name'];
-
+        $context = $this->load_page_context(['class_id']);
+        if (isset($context['usctdp-class'])) {
+            $js_data['preloaded_class_id'] = $context['usctdp-class']['id'];
+            $js_data['preloaded_class_name'] = $context['usctdp-class']['name'];
+            $js_data['preloaded_session_id'] = $context['usctdp-class']['session']['id'];
+            $js_data['preloaded_session_name'] = $context['usctdp-class']['session']['name'];
+        }
         wp_localize_script($this->usctdp_script_id('rosters'), 'usctdp_mgmt_admin', $js_data);
     }
 
@@ -466,14 +456,17 @@ class Usctdp_Mgmt_Admin
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        $context = $this->extract_session_and_class_context();
-        $js_data['preloaded_session_id'] = $context['session_id'];
-        $js_data['preloaded_session_name'] = $context['session_name'];
-        $js_data['preloaded_class_id'] = $context['class_id'];
-        $js_data['preloaded_class_name'] = $context['class_name'];
-        $js_data['preloaded_student_id'] = $context['student_id'];
-        $js_data['preloaded_student_name'] = $context['student_name'];
-
+        $context = $this->load_page_context(['class_id', 'student_id']);
+        if (isset($context['usctdp-class'])) {
+            $js_data['preloaded_class_id'] = $context['usctdp-class']['id'];
+            $js_data['preloaded_class_name'] = $context['usctdp-class']['name'];
+            $js_data['preloaded_session_id'] = $context['usctdp-class']['session']['id'];
+            $js_data['preloaded_session_name'] = $context['usctdp-class']['session']['name'];
+        }
+        if (isset($context['usctdp-student'])) {
+            $js_data['preloaded_student_id'] = $context['usctdp-student']['id'];
+            $js_data['preloaded_student_name'] = $context['usctdp-student']['name'];
+        }
         wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', $js_data);
     }
 
@@ -487,6 +480,11 @@ class Usctdp_Mgmt_Admin
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
+            $context = $this->load_page_context(['family_id']);
+            if (isset($context['usctdp-family'])) {
+                $js_data['preloaded_family_id'] = $context['usctdp-family']['id'];
+                $js_data['preloaded_family_name'] = $context['usctdp-family']['name'];
+            }
         }
         wp_localize_script($this->usctdp_script_id('families'), 'usctdp_mgmt_admin', $js_data);
     }
@@ -710,7 +708,7 @@ class Usctdp_Mgmt_Admin
     private function get_class_pricing($clinic_id, $session_id)
     {
         $price_query = get_posts([
-            'post_type'      => 'usctdp-pricing',
+            'post_type'      => 'usctdp-clinic-prices',
             'posts_per_page' => -1,
             'meta_query'     => [
                 'relation' => 'AND',

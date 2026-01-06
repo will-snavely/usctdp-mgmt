@@ -4,7 +4,7 @@
     <h2>Active Sessions</h2>
 
     <div id="usctdp-active-sessions-manager">
-        <div style="margin-bottom: 20px;">
+        <div>
             <select id="active-sessions-select2"></select>
             <button type="button" id="add-active-session-btn" class="button">Make Active</button>
         </div>
@@ -20,6 +20,15 @@
                 <tbody id="active-sessions-table-body">
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <h2>Families</h2>
+
+    <div id="usctdp-families-manager">
+        <div>
+            <select id="families-select2"></select>
+            <button type="button" id="manage-family-btn" class="button" disabled>Manage Family</button>
         </div>
     </div>
 

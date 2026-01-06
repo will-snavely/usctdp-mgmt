@@ -170,7 +170,8 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
     {
         return [
             'field_usctdp_class_date_list' => 'update_date_list_value',
-            'field'
+            'field_usctdp_class_session' => 'update_session_value',
+            'field_usctdp_class_clinic' => 'update_clinic_value',
         ];
     }
 
@@ -185,8 +186,8 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
     public function update_session_value($value, $post_id, $field)
     {
         try {
-            $query = new Usctdp_Mgmt_Family_Link_Query([
-                "student_id" => $post_id
+            $query = new Usctdp_Mgmt_Activity_Link_Query([
+                "activity_id" => $post_id
             ]);
             foreach ($query->items as $item) {
                 $query->delete_item($item->id);

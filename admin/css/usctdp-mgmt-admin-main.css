@@ -2,6 +2,10 @@
     width: 400px;
 }
 
+#families-select2 {
+    width: 400px;
+}
+
 #active-sessions-container {
     max-width: 800px;
 }

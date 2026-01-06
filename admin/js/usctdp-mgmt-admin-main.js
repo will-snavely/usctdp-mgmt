@@ -23,6 +23,27 @@
             }
         });
 
+        $('#families-select2').select2({
+            placeholder: "Search for a family...",
+            allowClear: true,
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                        post_type: 'usctdp-family',
+                        action: usctdp_mgmt_admin.select2_search_action,
+                        security: usctdp_mgmt_admin.select2_search_nonce,
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.items
+                    };
+                }
+            }
+        });
+
         var activeSessionsTable = $('#active-sessions-table').DataTable({
             processing: true,
             serverSide: true,
@@ -121,6 +142,23 @@
                     console.error("AJAX Error:", textStatus, errorThrown);
                 }
             });
+        });
+
+        $('#families-select2').on('change', function () {
+            var dataArray = $('#families-select2').select2('data');
+            if (!dataArray || dataArray.length === 0) {
+                $('#manage-family-btn').prop('disabled', true);
+
+            } else {
+                $('#manage-family-btn').prop('disabled', false);
+            }
+        });
+
+        $('#manage-family-btn').on('click', function () {
+            var dataArray = $('#families-select2').select2('data');
+            if (!dataArray || dataArray.length === 0) return;
+            var id = dataArray[0].id;
+            window.location.href = usctdp_mgmt_admin.family_url + '&family_id=' + id;
         });
     });
 })(jQuery);

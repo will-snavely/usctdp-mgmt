@@ -175,6 +175,19 @@
                 }
             });
         });
+
+        if (usctdp_mgmt_admin.preloaded_family_name) {
+            const newOption = new Option(
+                usctdp_mgmt_admin.preloaded_family_name,
+                usctdp_mgmt_admin.preloaded_family_id,
+                true,
+                true
+            );
+            $('#family-selector').append(newOption);
+            $('#family-selector').val(usctdp_mgmt_admin.preloaded_family_id);
+            $('#family-selector').trigger('change');
+            $('#family-selector').prop('disabled', true);
+        }
     });
 })(jQuery);
 
