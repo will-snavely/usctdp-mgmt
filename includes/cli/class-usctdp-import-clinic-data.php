@@ -31,12 +31,12 @@ class Usctdp_Import_Clinic_Data
                 'post_status'   => 'publish',
                 'post_type'     => 'usctdp-session',
             ]);
-            update_field('name', $session['name'], $post_id);
-            update_field('start_date', $start_date->format('Y-m-d'), $post_id);
-            update_field('end_date', $end_date->format('Y-m-d'), $post_id);
-            update_field('length_weeks', $session['length_weeks'], $post_id);
-            update_field('category', $session['category'], $post_id);
-            wp_set_post_terms($post_id, ["test-data", "inactive"], 'post_tag', false);
+            update_field('field_usctdp_session_name', $session['name'], $post_id);
+            update_field('field_usctdp_session_start_date', $start_date->format('Y-m-d'), $post_id);
+            update_field('field_usctdp_session_end_date', $end_date->format('Y-m-d'), $post_id);
+            update_field('field_usctdp_session_length_weeks', $session['length_weeks'], $post_id);
+            update_field('field_usctdp_session_category', $session['category'], $post_id);
+            wp_set_post_terms($post_id, ["test-data", "active"], 'post_tag', false);
             if (!isset($this->sessions_by_category[$session['category']])) {
                 $this->sessions_by_category[$session['category']] = [];
             }
@@ -54,10 +54,10 @@ class Usctdp_Import_Clinic_Data
                 'post_status'   => 'publish',
                 'post_type'     => 'usctdp-clinic',
             ]);
-            update_field('name', $clinic['name'], $post_id);
-            update_field('age_range', $clinic['age_range'], $post_id);
-            update_field('age_group', $clinic['age_group'], $post_id);
-            update_field('session_category', $clinic['session_category'], $post_id);
+            update_field('field_usctdp_clinic_name', $clinic['name'], $post_id);
+            update_field('field_usctdp_clinic_age_range', $clinic['age_range'], $post_id);
+            update_field('field_usctdp_clinic_age_group', $clinic['age_group'], $post_id);
+            update_field('field_usctdp_clinic_session_category', $clinic['session_category'], $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $this->clinics[$clinic['name']] = $post_id;
         }
@@ -68,9 +68,9 @@ class Usctdp_Import_Clinic_Data
         foreach ($data["clinic_pricing"] as $pricing) {
             $session_id = $this->sessions[$pricing['session']];
             $clinic_id = $this->clinics[$pricing['clinic']];
-            $session_name = get_field('name', $session_id);
-            $session_duration = get_field('length_weeks', $session_id);
-            $clinic_name = get_field('name', $clinic_id);
+            $session_name = get_field('field_usctdp_session_name', $session_id);
+            $session_duration = get_field('field_usctdp_session_length_weeks', $session_id);
+            $clinic_name = get_field('field_usctdp_clinic_name', $clinic_id);
             $title = Usctdp_Mgmt_Clinic_Prices::create_title($session_name, $session_duration, $clinic_name);
             $post_id = wp_insert_post([
                 'post_title'    => $title,
@@ -78,10 +78,10 @@ class Usctdp_Import_Clinic_Data
                 'post_type'     => 'usctdp-clinic-prices',
             ]);
 
-            update_field('session', $session_id, $post_id);
-            update_field('clinic', $clinic_id, $post_id);
-            update_field('one_day_price', $pricing['1_day_price'], $post_id);
-            update_field('two_day_price', $pricing['2_day_price'], $post_id);
+            update_field('field_usctdp_clinic_prices_session', $session_id, $post_id);
+            update_field('field_usctdp_clinic_prices_clinic', $clinic_id, $post_id);
+            update_field('field_usctdp_clinic_prices_one_day_price', $pricing['1_day_price'], $post_id);
+            update_field('field_usctdp_clinic_prices_two_day_price', $pricing['2_day_price'], $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             if (!isset($this->pricing[$clinic_id])) {
                 $this->pricing[$clinic_id] = [];
@@ -110,13 +110,13 @@ class Usctdp_Import_Clinic_Data
                     'post_type'     => 'usctdp-class',
                 ]);
 
-                update_field('session', $session_id, $post_id);
-                update_field('clinic', $clinic_id, $post_id);
-                update_field('day_of_week', $dow, $post_id);
-                update_field('level', $class['level'], $post_id);
-                update_field('start_time', $start_time->format('H:i:s'), $post_id);
-                update_field('capacity', $class['capacity'], $post_id);
-                update_field('end_time', $end_time->format('H:i:s'), $post_id);
+                update_field('field_usctdp_class_session', $session_id, $post_id);
+                update_field('field_usctdp_class_clinic', $clinic_id, $post_id);
+                update_field('field_usctdp_class_dow', $dow, $post_id);
+                update_field('field_usctdp_class_level', $class['level'], $post_id);
+                update_field('field_usctdp_class_start_time', $start_time->format('H:i:s'), $post_id);
+                update_field('field_usctdp_class_capacity', $class['capacity'], $post_id);
+                update_field('field_usctdp_class_end_time', $end_time->format('H:i:s'), $post_id);
                 wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             }
         }

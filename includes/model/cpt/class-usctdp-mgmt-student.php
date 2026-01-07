@@ -76,7 +76,7 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type
                     "post_type" => array(
                         0 => "usctdp-family",
                     ),
-                    "required" => 0
+                    "required" => 1
                 ]
             ],
             'location' => array(
@@ -120,6 +120,21 @@ class Usctdp_Mgmt_Student extends Usctdp_Mgmt_Model_Type
             Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
         }
         return $value;
+    }
+
+    public function on_post_delete($post_id, $post)
+    {
+        try {
+            $query = new Usctdp_Mgmt_Family_Link_Query([
+                "student_id" => $post_id
+            ]);
+            foreach ($query->items as $item) {
+                $query->delete_item($item->id);
+            }
+        } catch (\Throwable $th) {
+            Usctdp_Mgmt_Logger::getLogger()->log_error("Failed to delete family link for student $post_id");
+            Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
+        }
     }
 
     public function get_computed_post_fields($data, $postarr)

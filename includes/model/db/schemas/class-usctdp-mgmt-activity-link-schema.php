@@ -30,6 +30,14 @@ class Usctdp_Mgmt_Activity_Link_Schema extends Schema
             'unsigned'   => true,
             'index'      => true,
             'default'    => 0
+        ],
+
+        'clinic_id' => [
+            'name'       => 'clinic_id',
+            'type'       => 'int',
+            'unsigned'   => true,
+            'index'      => true,
+            'default'    => 0
         ]
     ];
 }

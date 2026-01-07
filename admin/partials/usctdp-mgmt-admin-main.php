@@ -1,5 +1,42 @@
+<?php
+global $wpdb;
+
+$query = "
+    SELECT COUNT(id) as total_count, SUM(balance) as total_balance 
+    FROM {$wpdb->prefix}usctdp_registration 
+    WHERE balance > 0
+";
+
+$balance_results = $wpdb->get_row($query);
+if ($balance_results) {
+    $outstanding_count   = $balance_results->total_count;
+    $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+    $outstanding_balance = $formatter->format($balance_results->total_balance);
+} else {
+    $outstanding_count   = 0;
+    $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+    $outstanding_balance = $formatter->format(0);
+}
+?>
+
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+    <h2>Families</h2>
+
+    <div id="usctdp-families-manager">
+        <div>
+            <select id="families-select2"></select>
+            <button type="button" id="manage-family-btn" class="button" disabled>Manage Family</button>
+        </div>
+    </div>
+
+    <h2>Oustanding Balances</h2>
+    <div id="usctdp-oustanding-balances-manager">
+        <p><strong>Outstanding Registrations:</strong> <?php echo $outstanding_count; ?></p>
+        <p><strong>Outstanding Balance:</strong> <?php echo $outstanding_balance; ?></p>
+        <button type="button" class="button">Detailed Report</button>
+
+    </div>
 
     <h2>Active Sessions</h2>
 
@@ -23,14 +60,7 @@
         </div>
     </div>
 
-    <h2>Families</h2>
 
-    <div id="usctdp-families-manager">
-        <div>
-            <select id="families-select2"></select>
-            <button type="button" id="manage-family-btn" class="button" disabled>Manage Family</button>
-        </div>
-    </div>
 
     <h2>Google Authorization:</h2>
     <ul>

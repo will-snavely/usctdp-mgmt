@@ -183,9 +183,72 @@ class Usctdp_Mgmt_Class extends Usctdp_Mgmt_Model_Type
         ];
     }
 
-    public function update_session_value($value, $post_id, $field) {}
+    public function update_session_value($value, $post_id, $field)
+    {
+        try {
+            $query = new Usctdp_Mgmt_Activity_Link_Query([
+                "activity_id" => $post_id,
+                "number" => 1
+            ]);
 
-    public function update_clinic_value($value, $post_id, $field) {}
+            if (empty($query->items)) {
+                $query->add_item([
+                    'activity_id'   => $post_id,
+                    'session_id'    => $value,
+                ]);
+            } else {
+                $query->update_item($query->items[0]->id, [
+                    'session_id'    => $value
+                ]);
+            }
+        } catch (\Throwable $th) {
+            Usctdp_Mgmt_Logger::getLogger()->log_error("Failed to update session link for class $post_id");
+            Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
+        }
+        return $value;
+    }
+
+    public function update_clinic_value($value, $post_id, $field)
+    {
+        try {
+            $query = new Usctdp_Mgmt_Activity_Link_Query([
+                "activity_id" => $post_id,
+                "number" => 1
+            ]);
+
+            if (empty($query->items)) {
+                $query->add_item([
+                    'activity_id'   => $post_id,
+                    'clinic_id'    => $value,
+                ]);
+            } else {
+                $query->update_item($query->items[0]->id, [
+                    'clinic_id'    => $value
+                ]);
+            }
+        } catch (\Throwable $th) {
+            Usctdp_Mgmt_Logger::getLogger()->log_error("Failed to update clinic link for class $post_id");
+            Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
+        }
+        return $value;
+    }
+
+    public function on_post_delete($post_id, $post)
+    {
+        try {
+            $query = new Usctdp_Mgmt_Activity_Link_Query([
+                "activity_id" => $post_id,
+                "number" => 1
+            ]);
+
+            if (!empty($query->items)) {
+                $query->delete_item($query->items[0]->id);
+            }
+        } catch (\Throwable $th) {
+            Usctdp_Mgmt_Logger::getLogger()->log_error("Failed to delete activity link for class $post_id");
+            Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
+        }
+    }
 
     public function update_date_list_value($value, $post_id, $field, $original_value)
     {

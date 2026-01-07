@@ -183,6 +183,14 @@ class Usctdp_Mgmt
             99,
             2,
         );
+
+        $this->loader->add_action(
+            'delete_post',
+            $model,
+            'on_post_delete',
+            10,
+            2
+        );
     }
 
     /**

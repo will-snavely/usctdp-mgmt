@@ -14,6 +14,30 @@
                 </div>`;
         }
 
+        function toggle_registration_fields(visible) {
+            if (visible) {
+                $('#registration-details-section').removeClass('hidden');
+            } else {
+                $('#registration-details-section').addClass('hidden');
+            }
+        }
+
+        function toggle_registration_history(visible) {
+            if (visible) {
+                $('#registration-history-section').removeClass('hidden');
+            } else {
+                $('#registration-history-section').addClass('hidden');
+            }
+        }
+
+        function toggle_class_roster(visible) {
+            if (visible) {
+                $('#class-roster-section').removeClass('hidden');
+            } else {
+                $('#class-roster-section').addClass('hidden');
+            }
+        }
+
         var $studentSelector = $(createSelectSection('student', 'Student', false));
         var $sessionSelector = $(createSelectSection('session', 'Session', false));
         var $classSelector = $(createSelectSection('class', 'Class', true));
@@ -193,7 +217,7 @@
         if (usctdp_mgmt_admin.preloaded_student_name) {
             const student_name = usctdp_mgmt_admin.preloaded_student_name;
             $('#student-name-history').text(student_name);
-            $('#registration-history-section').show();
+            toggle_registration_history(true);
             registration_history_table.ajax.reload();
         }
 
@@ -263,30 +287,6 @@
             $('#payment-method').val('');
             $('#notes').val('');
             $('#notifications-section').children().remove();
-        }
-
-        function toggle_registration_fields(visible) {
-            if (visible) {
-                $('#registration-details-section').removeClass('hidden');
-            } else {
-                $('#registration-details-section').addClass('hidden');
-            }
-        }
-
-        function toggle_registration_history(visible) {
-            if (visible) {
-                $('#registration-history-section').removeClass('hidden');
-            } else {
-                $('#registration-history-section').addClass('hidden');
-            }
-        }
-
-        function toggle_class_roster(visible) {
-            if (visible) {
-                $('#class-roster-section').removeClass('hidden');
-            } else {
-                $('#class-roster-section').addClass('hidden');
-            }
         }
 
         function set_notification(slug, message, ignoreable = false) {

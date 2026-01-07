@@ -121,6 +121,21 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
         return $result;
     }
 
+    public function on_post_delete($post_id, $post)
+    {
+        try {
+            $query = new Usctdp_Mgmt_Family_Link_Query([
+                "family_id" => $post_id
+            ]);
+            foreach ($query->items as $item) {
+                $query->delete_item($item->id);
+            }
+        } catch (\Throwable $th) {
+            Usctdp_Mgmt_Logger::getLogger()->log_error("Failed to delete family links for family $post_id");
+            Usctdp_Mgmt_Logger::getLogger()->log_error($th->getMessage());
+        }
+    }
+
     public static function create_title($last_name, $phone_number)
     {
         $last_four_digits = substr($phone_number, -4);

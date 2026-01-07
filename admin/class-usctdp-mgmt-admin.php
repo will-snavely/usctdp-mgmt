@@ -56,8 +56,7 @@ class Usctdp_Mgmt_Admin
         'usctdp-family',
         'usctdp-staff',
         'usctdp-session',
-        'usctdp-class',
-        'usctdp-registration'
+        'usctdp-class'
     ];
 
     public static $post_handlers =  [
@@ -593,14 +592,17 @@ class Usctdp_Mgmt_Admin
                 throw new Web_Request_Exception('Class is full.');
             }
 
-            $registration_id = wp_insert_post([
-                'post_title' => sanitize_text_field($student->post_title . ' - ' . $class->post_title),
-                'post_type' => 'usctdp-registration',
-                'post_status' => 'publish'
-            ], true);
-            if (is_wp_error($registration_id)) {
-                $error = $registration_id->get_error_message();
-                throw new Web_Request_Exception('Error creating registration: ' . $error);
+            $registration_query = new Usctdp_Mgmt_Registration_Query([]);
+            $registration_id = $registration_query->add_item([
+                'activity_id' => $class_id,
+                'student_id' => $student_id,
+                'starting_level' => $starting_level,
+                'balance' => 0,
+                'notes' => ''
+            ]);
+
+            if (!$registration_id) {
+                throw new Web_Request_Exception('Failed to create registration.');
             }
 
             if (!update_field('field_usctdp_registration_class', $class_id, $registration_id)) {
@@ -658,23 +660,11 @@ class Usctdp_Mgmt_Admin
 
     function is_student_enrolled($student_id, $class_id)
     {
-        $registrations = get_posts([
-            'post_type' => 'usctdp-registration',
-            'posts_per_page' => -1,
-            'meta_query' => [
-                [
-                    'key' => 'student',
-                    'value' => $student_id,
-                    'compare' => 'IN'
-                ],
-                [
-                    'key' => 'class',
-                    'value' => $class_id,
-                    'compare' => 'IN'
-                ]
-            ]
+        $reg_query = new Usctdp_Mgmt_Registration_Query([
+            'student_id' => $student_id,
+            'activity_id' => $class_id
         ]);
-        return !empty($registrations);
+        return !empty($reg_query->items);
     }
 
     private function get_class_registrations($class_id)

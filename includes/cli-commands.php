@@ -40,10 +40,14 @@ class Usctdp_Cli_Command
     {
         $generator = new Usctdp_Random_Registration_Generator();
         $count = 50;
+        $chance_unpaid = 0;
         if (isset($args[0])) {
             $count = intval($args[0]);
         }
-        $generator->generate_random($count);
+        if (isset($args[1])) {
+            $chance_unpaid = intval($args[1]);
+        }
+        $generator->generate_random($count, $chance_unpaid);
     }
 
     public function create_products($args, $assoc_args)

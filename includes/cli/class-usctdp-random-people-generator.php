@@ -58,8 +58,8 @@ class Usctdp_Random_People_Generator
                 'post_status'   => 'publish',
                 'post_type'     => 'usctdp-staff'
             ]);
-            update_field('first_name', $first_name, $post_id);
-            update_field('last_name', $last_name, $post_id);
+            update_field('field_usctdp_staff_first_name', $first_name, $post_id);
+            update_field('field_usctdp_staff_last_name', $last_name, $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $seen[$first_name . " " . $last_name] = true;
             $i++;
@@ -101,22 +101,22 @@ class Usctdp_Random_People_Generator
                 'post_status'   => 'publish',
                 'post_type'     => 'usctdp-family'
             ]);
-            update_field('last_name', $last_name, $family_id);
-            update_field('phone_number', $phone_number, $family_id);
+            update_field('field_usctdp_family_last_name', $last_name, $family_id);
+            update_field('field_usctdp_family_phone_number', $phone_number, $family_id);
 
             $street_numbers = rand(100, 9999);
             $street_names = ["Main", "Oak", "Pine", "Maple", "Elm", "Cedar", "Park", "Church", "High", "Washington"];
             $street_types = ["St", "Ave", "Rd", "Ln", "Blvd", "Ct"];
             $random_street_name = $street_names[array_rand($street_names)];
             $random_street_type = $street_types[array_rand($street_types)];
-            update_field('address', "$street_numbers $random_street_name $random_street_type", $family_id);
-            update_field('city', "Pittsburgh", $family_id);
-            update_field('state', "PA", $family_id);
+            update_field('field_usctdp_family_address', "$street_numbers $random_street_name $random_street_type", $family_id);
+            update_field('field_usctdp_family_city', "Pittsburgh", $family_id);
+            update_field('field_usctdp_family_state', "PA", $family_id);
 
             $random_zip = sprintf('15%03d', rand(0, 999));
-            update_field('zip', $random_zip, $family_id);
+            update_field('field_usctdp_family_zip', $random_zip, $family_id);
 
-            update_field('assigned_user', $user_id, $family_id);
+            update_field('field_usctdp_family_user', $user_id, $family_id);
             wp_set_post_terms($family_id, ["test-data"], 'post_tag', false);
 
             $seen[$family_title] = true;
@@ -147,15 +147,15 @@ class Usctdp_Random_People_Generator
                 'post_status'   => 'publish',
                 'post_type'     => 'usctdp-student'
             ]);
-            update_field('first_name', $first_name, $post_id);
-            update_field('last_name', $last_name, $post_id);
+            update_field('field_usctdp_student_first_name', $first_name, $post_id);
+            update_field('field_usctdp_student_last_name', $last_name, $post_id);
             $year = mt_rand(2000, 2020);
             $month = mt_rand(1, 12);
             $day = mt_rand(1, date('t', mktime(0, 0, 0, $month, 1, $year)));
             $random_birth_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-            update_field('birth_date', $random_birth_date, $post_id);
-            update_field('family', $family_id, $post_id);
-            update_field('level', rand(1, 5), $post_id);
+            update_field('field_usctdp_student_birth_date', $random_birth_date, $post_id);
+            update_field('field_usctdp_student_family', $family_id, $post_id);
+            update_field('field_usctdp_student_level', rand(1, 5), $post_id);
             wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
             $seen[$first_name] = true;
             $i++;

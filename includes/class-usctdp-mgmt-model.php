@@ -20,6 +20,11 @@ abstract class Usctdp_Mgmt_Model_Type
     {
         return [];
     }
+
+    public function on_post_delete($post_id, $post)
+    {
+        return;
+    }
 }
 
 class Usctdp_Mgmt_Model
@@ -119,5 +124,12 @@ class Usctdp_Mgmt_Model
             }
         }
         return $data;
+    }
+
+    public function on_post_delete($post_id, $post)
+    {
+        if (isset($this->model_types[$post->post_type])) {
+            $this->model_types[$post->post_type]->on_post_delete($post_id, $post);
+        }
     }
 }
