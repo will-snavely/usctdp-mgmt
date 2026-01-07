@@ -79,6 +79,16 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'datatable_registrations_nonce',
             'callback' => 'ajax_datatable_registrations'
         ],
+        'datatable_balances' => [
+            'action' => 'datatable_balances',
+            'nonce' => 'datatable_balances_nonce',
+            'callback' => 'ajax_datatable_balances'
+        ],
+        'datatable_balances_detail' => [
+            'action' => 'datatable_balances_detail',
+            'nonce' => 'datatable_balances_detail_nonce',
+            'callback' => 'ajax_datatable_balances_detail'
+        ],
         'select2_search' => [
             'action' => 'select2_search',
             'nonce' => 'select2_search_nonce',
@@ -356,6 +366,7 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('rosters', 'Rosters', [$this, 'load_rosters_page']);
         $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
+        $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
     public function settings_init() {}
@@ -407,6 +418,20 @@ class Usctdp_Mgmt_Admin
             }
         }
         return $result;
+    }
+
+    public function load_balances_page()
+    {
+        $js_data = [
+            'ajax_url' => admin_url('admin-ajax.php'),
+        ];
+        $handlers = ['datatable_balances', 'datatable_balances_detail'];
+        foreach ($handlers as $key) {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
+            $js_data[$key . "_action"] = $handler['action'];
+            $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
+        }
+        wp_localize_script($this->usctdp_script_id('balances'), 'usctdp_mgmt_admin', $js_data);
     }
 
     public function load_classes_page()
@@ -1143,6 +1168,123 @@ class Usctdp_Mgmt_Admin
             "recordsTotal"    => count($results),
             "recordsFiltered" => count($results),
             "data"            => $results,
+        );
+        wp_send_json($response);
+    }
+
+    public function ajax_datatable_balances()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_balances'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 25;
+        $min_balance = isset($_POST['min_balance']) ? intval($_POST['min_balance']) : 0;
+        $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT 
+                    pt.post_title, 
+                    fam.family_id, 
+                    SUM(reg.balance) AS total_family_balance,
+                    COUNT(*) OVER() AS grand_total
+                FROM {$wpdb->prefix}usctdp_registration AS reg 
+                JOIN {$wpdb->prefix}usctdp_family_link AS fam ON reg.student_id = fam.student_id 
+                JOIN {$wpdb->prefix}posts AS pt ON fam.family_id = pt.ID
+                WHERE reg.balance > %d
+                GROUP BY fam.family_id, pt.post_title
+                ORDER BY total_family_balance DESC
+                LIMIT %d OFFSET %d",
+            $min_balance,
+            $length,
+            $start
+        );
+
+        $query_results = $wpdb->get_results($query);
+        $output_data = [];
+        $grand_total = 0;
+        if ($query_results) {
+            $grand_total = $query_results[0]->grand_total;
+            foreach ($query_results as $result) {
+                $output_data[] = [
+                    "family_id" => $result->family_id,
+                    "family_name" => $result->post_title,
+                    "total_balance" => $amount_fmt->format($result->total_family_balance),
+                ];
+            }
+        }
+
+        $response = array(
+            "draw"            => $draw,
+            "recordsTotal"    => $grand_total,
+            "recordsFiltered" => $grand_total,
+            "data"            => $output_data,
+        );
+        wp_send_json($response);
+    }
+
+    public function ajax_datatable_balances_detail()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_balances_detail'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 25;
+        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
+        $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+
+        if (!$family_id) {
+            wp_send_json_error('No family ID provided.', 400);
+        }
+
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT 
+                    pt1.post_title as activity_name, 
+                    pt2.post_title as student_name, 
+                    pt3.post_title as session_name,
+                    reg.balance as balance,
+                    COUNT(*) OVER() as grand_total
+                FROM {$wpdb->prefix}usctdp_registration AS reg 
+                JOIN {$wpdb->prefix}usctdp_family_link AS fam ON reg.student_id = fam.student_id
+                JOIN {$wpdb->prefix}usctdp_activity_link AS act ON reg.activity_id = act.activity_id 
+                JOIN {$wpdb->prefix}posts AS pt1 ON reg.activity_id = pt1.ID 
+                JOIN {$wpdb->prefix}posts AS pt2 ON reg.student_id = pt2.ID
+                JOIN {$wpdb->prefix}posts AS pt3 ON act.session_id = pt3.ID
+                WHERE fam.family_id = %d AND balance > 0
+                ORDER BY balance DESC
+                LIMIT %d OFFSET %d",
+            $family_id,
+            $length,
+            $start
+        );
+
+        $query_results = $wpdb->get_results($query);
+        $output_data = [];
+        if ($query_results) {
+            $grand_total = $query_results[0]->grand_total;
+            foreach ($query_results as $result) {
+                $output_data[] = [
+                    "activity_name" => $result->activity_name,
+                    "student_name" => $result->student_name,
+                    "session_name" => $result->session_name,
+                    "balance" => $amount_fmt->format($result->balance),
+                ];
+            }
+        }
+
+        $response = array(
+            "draw"            => $draw,
+            "recordsTotal"    => -$grand_total,
+            "recordsFiltered" => $grand_total,
+            "data"            => $output_data,
         );
         wp_send_json($response);
     }

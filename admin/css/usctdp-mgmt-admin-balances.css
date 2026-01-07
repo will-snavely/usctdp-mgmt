@@ -1,0 +1,33 @@
+#balances-table-wrap {
+    max-width: 400px;
+}
+
+.wp-dashboard-wrapper {
+    display: grid;
+    grid-template-columns: 600px 1fr;
+    grid-template-rows: 1fr;
+    height: 90vh;
+    gap: 10px;
+    background: #f1f1f1;
+}
+
+.master-pane {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.detail-pane {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+#balances-table tbody tr.selected-account {
+    background-color: #dcc849 !important;
+    /* Light blue */
+    border-left: 4px solid #0073aa;
+    /* WordPress blue accent */
+}
