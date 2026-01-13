@@ -68,7 +68,7 @@
                 $('#class-selector').attr('disabled', true);
 
             } else {
-                $('#print-roster-button.button-text').text('Print Roster');
+                $('#print-roster-button .button-text').text('Print Roster');
                 $('#print-roster-button').removeClass('is-loading');
                 $('#session-selector').attr('disabled', false);
                 $('#class-selector').attr('disabled', false);

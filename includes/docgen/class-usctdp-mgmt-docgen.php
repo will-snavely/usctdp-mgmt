@@ -112,8 +112,10 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->saveAs('php://output');
         $content = ob_get_clean();
 
+        $title = get_the_title($post_id);
+        $clean_title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
         $metadata_args = [
-            'name' => 'Roster: ' . get_the_title($post_id),
+            'name' => 'Roster: ' . $clean_title,
             'mimeType' => 'application/vnd.google-apps.document',
         ];
 

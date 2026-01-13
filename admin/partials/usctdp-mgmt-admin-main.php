@@ -9,13 +9,17 @@ $balance_query = "
 
 $balance_results = $wpdb->get_row($balance_query);
 if ($balance_results) {
-    $outstanding_count   = $balance_results->total_count;
+    $outstanding_count = $balance_results->total_count;
     $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
-    $outstanding_balance = $formatter->format($balance_results->total_balance);
+    if($balance_results->total_balance) {
+        $outstanding_balance = $formatter->format($balance_results->total_balance);
+    } else {
+        $outstanding_balance = $formatter->format(0.00);
+    }
 } else {
-    $outstanding_count   = 0;
+    $outstanding_count = 0;
     $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
-    $outstanding_balance = $formatter->format(0);
+    $outstanding_balance = $formatter->format(0.00);
 }
 
 $active_sessions = get_posts([
@@ -149,10 +153,12 @@ if ($clinic_roster_results) {
                                     <tr>
                                         <td><?php echo $roster['title']; ?></td>
                                         <td>
-                                            <a href="<?php echo $roster['drive_link']; ?>" class="button " target="_blank">View</a>
-                                            <button class="button refresh-session-roster" data-session-id="<?php echo $roster['id']; ?>">
-                                                <span class="button-text">Refresh</span>
-                                            </button>
+                                            <div class="action-buttons">
+                                                <a href="<?php echo $roster['drive_link']; ?>" class="button " target="_blank">View</a>
+                                                <button class="button refresh-session-roster" data-session-id="<?php echo $roster['id']; ?>">
+                                                    <span class="button-text">Refresh</span>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -181,10 +187,12 @@ if ($clinic_roster_results) {
                                     <tr>
                                         <td><?php echo $roster['title']; ?></td>
                                         <td>
-                                            <a href="<?php echo $roster['drive_link']; ?>" class="button" target="_blank">View</a>
-                                            <button class="button refresh-clinic-roster" data-clinic-id="<?php echo $roster['id']; ?>">
-                                                <span class="button-text">Refresh</span>
-                                            </button>
+                                            <div class="action-buttons">
+                                                <a href="<?php echo $roster['drive_link']; ?>" class="button" target="_blank">View</a>
+                                                <button class="button refresh-clinic-roster" data-clinic-id="<?php echo $roster['id']; ?>">
+                                                    <span class="button-text">Refresh</span>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

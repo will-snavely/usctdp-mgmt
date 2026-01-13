@@ -261,7 +261,8 @@ class Usctdp_Mgmt_Admin
 
     public function usctdp_google_oauth_handler()
     {
-        $redirect_url = "http://127.0.0.1/wp/wp-admin/admin.php?page=usctdp-admin-main";
+        $redirect_url = admin_url('admin.php?page=usctdp-admin-main');
+	error_log($redirect_url);
         if (!isset($_GET['page']) || $_GET['page'] !== 'usctdp-admin-main') {
             return;
         }
@@ -1181,7 +1182,7 @@ class Usctdp_Mgmt_Admin
 
         $response = array(
             "draw"            => $draw,
-            "recordsTotal"    => -$grand_total,
+            "recordsTotal"    => $grand_total,
             "recordsFiltered" => $grand_total,
             "data"            => $output_data,
         );

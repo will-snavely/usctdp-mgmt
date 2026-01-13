@@ -130,18 +130,18 @@
 @keyframes loading-pulse {
     0% {
         opacity: 1;
-        color: white;
+        color: #CCCCCC;
     }
 
     50% {
-        opacity: 0.6;
+        opacity: 0.8;
         color: #1c2576;
         transform: scale(0.98);
     }
 
     100% {
         opacity: 1;
-        color: white;
+        color: #CCCCCC;
     }
 }
 
@@ -160,4 +160,10 @@
 
 .refresh-clinic-roster {
     width: 80px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
 }

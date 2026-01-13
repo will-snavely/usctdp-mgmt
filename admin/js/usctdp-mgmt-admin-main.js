@@ -43,7 +43,7 @@
                 success: function (response) {
                     $row.find('a').removeClass('disabled');
                     toggleLoading(false, $row.find('button'));
-                    $row.find('a').attr('href', response.doc_url);
+                    $row.find('a').attr('href', response.data.doc_url);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error("AJAX Error:", textStatus, errorThrown);
