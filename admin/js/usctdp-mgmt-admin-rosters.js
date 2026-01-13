@@ -60,34 +60,21 @@
             }
         });
 
-        $('#class-selector').on('change', function () {
-            const selectedValue = this.value;
-            if (selectedValue === '') {
-                $('#roster-section').hide();
-            } else {
-                var registerUrl = 'admin.php?page=usctdp-admin-register&class_id=' + selectedValue;
-                $('#roster-section').show();
-                $('#register-student-button').attr('href', registerUrl);
-            }
-            table.ajax.reload();
-            $('#roster-print-success').hide();
-            $('#roster-print-error').hide();
-        });
-
         function toggleLoading(isLoading) {
             if (isLoading) {
-                $('#button-text').text('Working...');
+                $('#print-roster-button .button-text').text('Working...');
                 $('#print-roster-button').addClass('is-loading');
                 $('#session-selector').attr('disabled', true);
                 $('#class-selector').attr('disabled', true);
 
             } else {
-                $('#button-text').text('Print Roster');
+                $('#print-roster-button.button-text').text('Print Roster');
                 $('#print-roster-button').removeClass('is-loading');
                 $('#session-selector').attr('disabled', false);
                 $('#class-selector').attr('disabled', false);
             }
         }
+
         $('#print-roster-button').on('click', function () {
             const selectedValue = $('#class-selector').val();
             if (selectedValue === '') {
@@ -98,7 +85,7 @@
             toggleLoading(true);
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
-                method: 'GET',
+                method: 'POST',
                 dataType: 'json',
                 data: {
                     action: usctdp_mgmt_admin.gen_roster_action,
@@ -106,8 +93,7 @@
                     security: usctdp_mgmt_admin.gen_roster_nonce,
                 },
                 success: function (response) {
-                    const url = 'https://docs.google.com/document/d/' + response.data.doc_id;
-                    $('#roster-link').attr('href', url);
+                    $('#roster-link').attr('href', response.data.doc_url);
                     $('#roster-print-success').show();
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
@@ -125,6 +111,7 @@
             ordering: false,
             searching: false,
             paging: true,
+            deferLoading: 0,
 
             ajax: {
                 url: usctdp_mgmt_admin.ajax_url,
@@ -203,6 +190,21 @@
                     }
                 }
             ]
+        });
+
+        $('#class-selector').on('change', function () {
+            const selectedValue = this.value;
+            if (selectedValue === '') {
+                $('#roster-section').hide();
+            } else {
+                var registerUrl = 'admin.php?page=usctdp-admin-register&class_id=' + selectedValue;
+                $('#roster-section').show();
+                $('#register-student-button').attr('href', registerUrl);
+                table.ajax.reload();
+            }
+
+            $('#roster-print-success').hide();
+            $('#roster-print-error').hide();
         });
 
         $('#roster-print-loading').hide();

@@ -27,6 +27,9 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-random-registration-generator.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-roster-generator.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-create-products.php";
     }
 
@@ -49,6 +52,25 @@ class Usctdp_Cli_Command
         }
         $generator->generate_random($count, $chance_unpaid);
     }
+
+    public function gen_rosters($args, $assoc_args)
+    {
+        $include = [];
+        if ($args && count($args) > 0) {
+            $target = $args[0];
+            if ($target === 'all') {
+                $include = ['sessions', 'classes', 'clinics'];
+            } else {
+                $include = [$target];
+            }
+        } else {
+            WP_CLI::error('Target not provided (one of all, sessions, classes, clinics)');
+            return;
+        }
+        $generator = new Usctdp_Roster_Generator();
+        $generator->create_rosters($include);
+    }
+
 
     public function create_products($args, $assoc_args)
     {

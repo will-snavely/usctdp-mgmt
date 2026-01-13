@@ -1,9 +1,112 @@
+.grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
+
+    grid-template-areas:
+        'fam fam bal bal goog goog'
+        'srost srost srost crost crost crost'
+        'act act act crost crost crost';
+    gap: 10px;
+    height: 100%;
+}
+
+.grid-header {
+    display: block;
+    font-size: 1.75em;
+    font-weight: bold;
+}
+
+.grid-square {
+    display: grid;
+    background: #7cc4f0;
+    grid-template-rows: 2rem 1fr;
+    grid-template-columns: 1fr;
+    gap: 5px;
+}
+
+.grid-square-header {
+    background-color: #c1f1f1;
+    padding: 5px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.grid-square-content {
+    background-color: #ffffff;
+    padding: 10px;
+}
+
+#item-0 {
+    grid-area: fam;
+    grid-column: span 2;
+    padding: 5px;
+}
+
+#item-1 {
+    grid-area: bal;
+    grid-column: span 2;
+    padding: 5px;
+}
+
+#item-2 {
+    grid-area: goog;
+    grid-column: span 2;
+    padding: 5px;
+}
+
+#item-3 {
+    grid-area: srost;
+    grid-column: span 3;
+    padding: 5px;
+}
+
+#item-4 {
+    grid-area: crost;
+    grid-column: span 3;
+    padding: 5px;
+}
+
+#item-5 {
+    grid-area: act;
+    grid-column: span 3;
+    padding: 5px;
+}
+
+#usctdp-families-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#usctdp-oustanding-balances-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#balances-report-link {
+    display: inline-block;
+    text-align: center;
+    width: 80px;
+}
+
+#manage-family-btn {
+    width: 120px;
+}
+
+#usctdp-google-authorization-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
 #active-sessions-select2 {
-    width: 400px;
+    width: 300px;
 }
 
 #families-select2 {
-    width: 400px;
+    width: 200px;
 }
 
 #active-sessions-container {
@@ -22,4 +125,39 @@
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
+}
+
+@keyframes loading-pulse {
+    0% {
+        opacity: 1;
+        color: white;
+    }
+
+    50% {
+        opacity: 0.6;
+        color: #1c2576;
+        transform: scale(0.98);
+    }
+
+    100% {
+        opacity: 1;
+        color: white;
+    }
+}
+
+.is-loading .button-text {
+    animation: loading-pulse 1.5s infinite ease-in-out;
+}
+
+.is-loading {
+    cursor: wait;
+    pointer-events: none;
+}
+
+.refresh-session-roster {
+    width: 80px;
+}
+
+.refresh-clinic-roster {
+    width: 80px;
 }

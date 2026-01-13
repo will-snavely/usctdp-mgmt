@@ -40,7 +40,7 @@
             <li>
                 <div id="roster-print-action">
                     <button id="print-roster-button" class="button button-primary">
-                        <span id="button-text">Print Roster</span>
+                        <span class="button-text">Print Roster</span>
                     </button>
                     <span id="roster-print-success" class="success">
                         Success!

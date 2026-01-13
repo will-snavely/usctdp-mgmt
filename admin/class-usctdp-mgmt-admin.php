@@ -18,6 +18,7 @@ use Google\Service\Docs\InsertTextRequest;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 
+
 /**
  * The admin-specific functionality of the plugin.
  *
@@ -352,7 +353,7 @@ class Usctdp_Mgmt_Admin
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'family_url' => admin_url('admin.php?page=usctdp-admin-families')
             ];
-            $handlers = ['select2_search', 'datatable_search', 'toggle_tag'];
+            $handlers = ['select2_search', 'datatable_search', 'toggle_tag', 'gen_roster'];
             foreach ($handlers as $key) {
                 $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
                 $js_data[$key . "_action"] = $handler['action'];
@@ -692,25 +693,6 @@ class Usctdp_Mgmt_Admin
         return !empty($reg_query->items);
     }
 
-    private function get_class_registrations($class_id)
-    {
-        $reg_query = new Usctdp_Mgmt_Registration_Query([
-            'activity_id' => $class_id
-        ]);
-
-        $result = [];
-        foreach ($reg_query->items as $item) {
-            $result[] = [
-                'student_id' => $item->student_id,
-                'activity_id' => $item->activity_id,
-                'starting_level' => $item->starting_level,
-                'balance' => $item->balance,
-                'notes' => $item->notes
-            ];
-        }
-        return $result;
-    }
-
     private function get_class_registration_count($class_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
@@ -796,41 +778,6 @@ class Usctdp_Mgmt_Admin
         ]);
     }
 
-    private function create_google_client()
-    {
-        $refreshToken = get_option('usctdp_google_refresh_token');
-        if (empty($refreshToken)) {
-            throw new ErrorException('No refresh token found. User must re-authorize.');
-        }
-
-        $client = new Client();
-        $client->setClientId(env('GOOGLE_DOCS_CLIENT_ID'));
-        $client->setClientSecret(env('GOOGLE_DOCS_CLIENT_SECRET'));
-        $client->fetchAccessTokenWithRefreshToken($refreshToken);
-        return $client;
-    }
-
-    private function text_replace($search, $replace)
-    {
-        return new Google_Service_Docs_Request([
-            'replaceAllText' => [
-                'containsText' => [
-                    'text' => $search,
-                    'matchCase' => true
-                ],
-                'replaceText' => $replace
-            ]
-        ]);
-    }
-
-    private function age_from_birthdate($birthdate)
-    {
-        $birthDate = new DateTime($birthdate);
-        $today = new DateTime('today');
-        $age = $birthDate->diff($today)->y;
-        return $age;
-    }
-
     public function ajax_gen_roster()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['gen_roster'];
@@ -838,106 +785,58 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
-        if (empty($class_id)) {
-            wp_send_json_error('Class ID is required.', 400);
+        $class_id = isset($_POST['class_id']) ? sanitize_text_field($_POST['class_id']) : '';
+        $clinic_id = isset($_POST['clinic_id']) ? sanitize_text_field($_POST['clinic_id']) : '';
+        $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
+
+        $target = null;
+        if (!empty($class_id)) {
+            $target = get_post(intval($class_id));
+            if (!$target || $target->post_type !== 'usctdp-class') {
+                wp_send_json_error('Class with ID "' . $class_id . '" not found.', 404);
+            }
         }
 
-        $class = get_post($class_id);
-        if (!$class) {
-            wp_send_json_error('Class with ID "' . $class_id . '" not found.', 404);
+        if (!empty($clinic_id)) {
+            $target = get_post(intval($clinic_id));
+            if (!$target || $target->post_type !== 'usctdp-clinic') {
+                wp_send_json_error('Clinic with ID "' . $clinic_id . '" not found.', 404);
+            }
+            $clinic_sessions = isset($_POST['clinic_sessions']) ? sanitize_text_field($_POST['clinic_sessions']) : '';
         }
 
-        $sourceDocId = env('GOOGLE_DOC_ROSTER_TEMPLATE_ID');
-        $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
-        if (empty($sourceDocId) || empty($destinationFolderId)) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                'Server is not configured for Google Docs.'
-            );
-            wp_send_json_error('Server configuration error. Please contact the administrator.', 500);
+        if (!empty($session_id)) {
+            $target = get_post(intval($session_id));
+            if (!$target || $target->post_type !== 'usctdp-session') {
+                wp_send_json_error('Session with ID "' . $session_id . '" not found.', 404);
+            }
         }
 
-        $class_fields = get_fields($class_id);
-        $registrations = $this->get_class_registrations($class_id);
+        if (!$target) {
+            wp_send_json_error('Class ID, Clinic ID, or Session ID is required.', 400);
+        }
 
         try {
-            $newFileName = 'Roster: ' . $class->post_title;
-            $client = $this->create_google_client();
-            $driveService = new Drive($client);
-            $docsService = new Docs($client);
-
-            $newFileMetadata = new DriveFile([
-                'name' => $newFileName,
-                'parents' => [$destinationFolderId]
-            ]);
-            $copiedFile = $driveService->files->copy($sourceDocId, $newFileMetadata);
-            $copyId = $copiedFile->getId();
-
-            $requests = [
-                $this->text_replace('{{session_name}}',  get_field('name', $class_fields['session'])),
-                $this->text_replace('{{day_of_week}}', $class_fields['day_of_week']),
-                $this->text_replace('{{start_time}}', $class_fields['start_time']),
-                $this->text_replace('{{end_time}}', $class_fields['end_time']),
-                $this->text_replace('{{level}}', $class_fields['level']),
-                $this->text_replace('{{limit}}', $class_fields['capacity']),
-                $this->text_replace('{{age_group}}', get_field('age_group', $class_fields['clinic'])),
-                $this->text_replace('{{start_date}}', isset($class_fields['start_date']) ? $class_fields['start_date'] : ''),
-                $this->text_replace('{{end_date}}', isset($class_fields['end_date']) ? $class_fields['end_date'] : ''),
-            ];
-
-            if (isset($class_fields['instructors'])) {
-                $instructor_first_names = array_map(function ($instructor) {
-                    return $instructor['first_name'];
-                }, $class_fields['instructors']);
-                $requests[] = $this->text_replace('{{instructors}}', implode(', ', $instructor_first_names));
-            } else {
-                $requests[] = $this->text_replace('{{instructors}}', '');
+            $doc_gen = new Usctdp_Mgmt_Docgen();
+            if ($target->post_type === 'usctdp-class') {
+                $document = $doc_gen->generate_class_roster($target->ID);
+            } elseif ($target->post_type === 'usctdp-clinic') {
+                $document = $doc_gen->generate_clinic_roster($target->ID, $clinic_sessions);
+            } elseif ($target->post_type === 'usctdp-session') {
+                $document = $doc_gen->generate_session_roster($target->ID);
             }
-
-            $student_data = [];
-            foreach ($registrations as $registration) {
-                $student_id = $registration['student_id'];
-                $student_fields = get_fields($student_id);
-                $student_data[] = [
-                    'last' => $student_fields['last_name'],
-                    'first' => $student_fields['first_name'],
-                    'age' => strval($this->age_from_birthdate($student_fields['birth_date'])),
-                    'level' => $student_fields['level'],
-                    'phone' => ""
-                ];
-            }
-
-            $index = 1;
-            foreach ($student_data as $student) {
-                $requests[] = $this->text_replace('{{att_' . $index . '}}', "____" . $index);
-                $requests[] = $this->text_replace('{{last_' . $index . '}}', $student['last']);
-                $requests[] = $this->text_replace('{{first_' . $index . '}}', $student['first']);
-                $requests[] = $this->text_replace('{{age_' . $index . '}}', $student['age']);
-                $requests[] = $this->text_replace('{{level_' . $index . '}}', $student['level']);
-                $requests[] = $this->text_replace('{{phone_' . $index . '}}', $student['phone']);
-                $index += 1;
-            }
-
-            for ($i = $index; $i <= 20; $i++) {
-                $requests[] = $this->text_replace('{{att_' . $i . '}}', "");
-                $requests[] = $this->text_replace('{{last_' . $i . '}}', "");
-                $requests[] = $this->text_replace('{{first_' . $i . '}}', "");
-                $requests[] = $this->text_replace('{{level_' . $i . '}}', "");
-                $requests[] = $this->text_replace('{{age_' . $i . '}}', "");
-                $requests[] = $this->text_replace('{{phone_' . $i . '}}', "");
-            }
-
-            $batchUpdateRequest = new Google_Service_Docs_BatchUpdateDocumentRequest([
-                'requests' => $requests
-            ]);
-            $docsService->documents->batchUpdate($copyId, $batchUpdateRequest);
+            $drive_file = $doc_gen->upload_to_google_drive($document, $target->ID);
             wp_send_json_success([
                 'message' => 'Roster generated successfully',
-                'doc_id' => $copyId
+                'doc_id' => $drive_file->id,
+                'doc_url' => $drive_file->webViewLink
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt_Logger::getLogger()->log_critical(
                 'Error generating roster: ' . $e->getMessage()
+            );
+            Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                'Trace: ' . $e->getTraceAsString()
             );
             wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
         }

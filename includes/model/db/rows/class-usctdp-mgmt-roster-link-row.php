@@ -6,14 +6,13 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-class Usctdp_Mgmt_Activity_Link_Row extends Row
+class Usctdp_Mgmt_Roster_Link_Row extends Row
 {
     public function __construct($item)
     {
         parent::__construct($item);
         $this->id = (int) $this->id;
-        $this->activity_id = (int) $this->activity_id;
-        $this->session_id = (int) $this->session_id;
-        $this->clinic_id = (int) $this->clinic_id;
+        $this->entity_id = (int) $this->entity_id;
+        $this->drive_id = (string) $this->drive_id;
     }
 }

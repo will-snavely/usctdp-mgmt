@@ -1,16 +1,95 @@
 (function ($) {
     "use strict";
     $(document).ready(function () {
-        $('#active-sessions-select2').select2({
-            placeholder: "Search for a session...",
+        function toggleLoading(isLoading, $button) {
+            if (isLoading) {
+                $button.find('.button-text').text('Working...');
+                $button.addClass('is-loading');
+            } else {
+                $button.find('.button-text').text('Refresh');
+                $button.removeClass('is-loading');
+            }
+        }
+
+        $('#clinic-rosters-table').DataTable({
+            paging: false,
+            "initComplete": function () {
+                $('#clinic-rosters-table').removeClass('hidden');
+            }
+        });
+
+        $('#session-rosters-table').DataTable({
+            paging: false,
+            "initComplete": function () {
+                $('#session-rosters-table').removeClass('hidden');
+            }
+        });
+
+        $('#session-rosters-table').on('click', '.refresh-session-roster', function () {
+            var id = $(this).data('session-id');
+            var $row = $(this).closest('tr');
+            $row.find('a').addClass('disabled');
+            toggleLoading(true, $row.find('button'));
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                    session_id: id,
+                },
+                success: function (response) {
+                    $row.find('a').removeClass('disabled');
+                    toggleLoading(false, $row.find('button'));
+                    $row.find('a').attr('href', response.doc_url);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    $row.find('a').removeClass('disabled');
+                    toggleLoading(false, $row.find('button'));
+                }
+            });
+        })
+
+        $('#clinic-rosters-table').on('click', '.refresh-clinic-roster', function () {
+            var id = $(this).data('clinic-id');
+            var $row = $(this).closest('tr');
+            $row.find('a').addClass('disabled');
+            toggleLoading(true, $row.find('button'));
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                    session_id: id,
+                },
+                success: function (response) {
+                    $row.find('a').removeClass('disabled');
+                    toggleLoading(false, $row.find('button'));
+                    $row.find('a').attr('href', response.doc_url);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    $row.find('a').removeClass('disabled');
+                    toggleLoading(false, $row.find('button'));
+                }
+            });
+        })
+
+        $('#families-select2').select2({
+            placeholder: "Search for a family...",
             allowClear: true,
             ajax: {
                 url: usctdp_mgmt_admin.ajax_url,
                 data: function (params) {
                     return {
                         q: params.term,
-                        post_type: 'usctdp-session',
-                        tag: 'inactive',
+                        post_type: 'usctdp-family',
                         action: usctdp_mgmt_admin.select2_search_action,
                         security: usctdp_mgmt_admin.select2_search_nonce,
                     };
@@ -23,15 +102,16 @@
             }
         });
 
-        $('#families-select2').select2({
-            placeholder: "Search for a family...",
+        $('#active-sessions-select2').select2({
+            placeholder: "Search for a session...",
             allowClear: true,
             ajax: {
                 url: usctdp_mgmt_admin.ajax_url,
                 data: function (params) {
                     return {
                         q: params.term,
-                        post_type: 'usctdp-family',
+                        post_type: 'usctdp-session',
+                        tag: 'inactive',
                         action: usctdp_mgmt_admin.select2_search_action,
                         security: usctdp_mgmt_admin.select2_search_nonce,
                     };
@@ -143,6 +223,7 @@
                 }
             });
         });
+
 
         $('#families-select2').on('change', function () {
             var dataArray = $('#families-select2').select2('data');

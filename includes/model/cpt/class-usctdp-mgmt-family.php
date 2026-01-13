@@ -81,7 +81,7 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
                     "required" => 1,
                 ],
                 [
-                    "key" => "field_usctdp_phone_number",
+                    "key" => "field_usctdp_family_phone_number",
                     "label" => "Phone Number",
                     "name" => "phone_number",
                     "type" => "text",

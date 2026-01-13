@@ -118,6 +118,9 @@ class Usctdp_Mgmt
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-logger.php";
 
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/docgen/class-usctdp-mgmt-docgen.php";
+
         $this->loader = new Usctdp_Mgmt_Loader();
     }
 
