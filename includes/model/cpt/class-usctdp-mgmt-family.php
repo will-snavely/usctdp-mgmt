@@ -115,7 +115,7 @@ class Usctdp_Mgmt_Family extends Usctdp_Mgmt_Model_Type
         $result = [];
         if ($data['post_type'] === 'usctdp-family' && isset($_POST['acf'])) {
             $family_last_name = $_POST['acf']['field_usctdp_family_last_name'];
-            $phone_number = $_POST['acf']['field_usctdp_phone_number'];
+            $phone_number = $_POST['acf']['field_usctdp_family_phone_number'];
             $result['post_title'] = self::create_title($family_last_name, $phone_number);
         }
         return $result;
