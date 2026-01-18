@@ -18,7 +18,8 @@ class Usctdp_Mgmt_Family_Link_Schema extends Schema
 
         'family_id' => [
             'name'       => 'family_id',
-            'type'       => 'int',
+            'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
             'default' => 0,
@@ -26,7 +27,8 @@ class Usctdp_Mgmt_Family_Link_Schema extends Schema
 
         'student_id' => [
             'name'       => 'student_id',
-            'type'       => 'int',
+            'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
             'default' => 0

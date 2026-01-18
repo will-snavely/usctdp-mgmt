@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Schema;
 
-class Usctdp_Mgmt_Registration_Schema extends Schema
+class Usctdp_Mgmt_Transaction_Schema extends Schema
 {
     public $columns = [
         'id' => [
@@ -13,39 +13,43 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'extra'    => 'auto_increment',
             'primary'  => true,
             'sortable' => true,
-            'default' => 0
+            'default'  => 0
         ],
 
-        'activity_id' => [
-            'name'       => 'activity_id',
+        'family_id' => [
+            'name'       => 'family_id',
             'type'       => 'bigint',
-            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
-            'default' => 0,
+            'default'    => 0,
         ],
 
-        'student_id' => [
-            'name'       => 'student_id',
+        'registration_id' => [
+            'name'       => 'registration_id',
             'type'       => 'bigint',
-            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
-            'default' => 0
+            'default'    => 0
         ],
 
-        'starting_level' => [
-            'name'       => 'starting_level',
+        'kind' => [
+            'name'       => 'kind',
             'type'       => 'tinyint',
             'unsigned'   => true,
-            'default' => 0
+            'default'    => 0
         ],
 
-        'balance' => [
-            'name'       => 'balance',
-            'type'       => 'smallint',
-            'unsigned'   => true,
-            'default' => 0
+        'amount' => [
+            'name'       => 'amount',
+            'type'       => 'int',
+            'unsigned'   => false,
+            'default'    => 0
+        ],
+
+        'method' => [
+            'name'       => 'method',
+            'type'       => 'tinytext',
+            'default'    => 0
         ],
 
         'notes' => [

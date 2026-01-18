@@ -18,7 +18,8 @@ class Usctdp_Mgmt_Roster_Link_Schema extends Schema
 
         'entity_id' => [
             'name'       => 'entity_id',
-            'type'       => 'int',
+            'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
             'default' => 0,

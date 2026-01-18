@@ -18,7 +18,8 @@ class Usctdp_Mgmt_Activity_Link_Schema extends Schema
 
         'activity_id' => [
             'name'       => 'activity_id',
-            'type'       => 'int',
+            'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
             'default'    => 0,
@@ -26,7 +27,8 @@ class Usctdp_Mgmt_Activity_Link_Schema extends Schema
 
         'session_id' => [
             'name'       => 'session_id',
-            'type'       => 'int',
+            'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
             'default'    => 0
@@ -34,7 +36,8 @@ class Usctdp_Mgmt_Activity_Link_Schema extends Schema
 
         'clinic_id' => [
             'name'       => 'clinic_id',
-            'type'       => 'int',
+            'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
             'default'    => 0

@@ -17,7 +17,6 @@ class Usctdp_Create_Products
             $session = get_field('field_usctdp_clinic_prices_session', $price->ID);
             $oneday = get_field('field_usctdp_clinic_prices_one_day_price', $price->ID);
             $twoday = get_field('field_usctdp_clinic_prices_two_day_price', $price->ID);
-            
             if (!array_key_exists($clinic->ID, $clinic_data)) {
                 $clinic_data[$clinic->ID] = [];
             } 
@@ -42,8 +41,8 @@ class Usctdp_Create_Products
             $product->set_name($clinic_name);
             $product->set_description('Placeholder');
             $product->set_short_description('Placeholder');
-            $product->set_status('publish');
             $product->set_sku('clinic-' . $clinic_id);
+            $product->set_status('publish');
 
             $session_attribute = new WC_Product_Attribute();
             $session_attribute->set_name('Session');
@@ -63,6 +62,7 @@ class Usctdp_Create_Products
             $num_days_attr->set_options( array( 'One', 'Two' ) ); // The terms to use
             $num_days_attr->set_visible(true);
             $num_days_attr->set_variation(true);
+
             $product->set_attributes(array($session_attribute, $num_days_attr));
             $parent_id = $product->save();
 
@@ -72,11 +72,11 @@ class Usctdp_Create_Products
                     $variation = new WC_Product_Variation();
                     $variation->set_parent_id($parent_id);
                     $variation->set_attributes([ 
-                        'Session' => sanitize_title($session_name),
-                        'Days' => sanitize_title($day)
+                        sanitize_title('Session') => $session_name,
+                        sanitize_title('Days') => $day
                     ]);
                     $variation->set_regular_price($amt);
-                    $variation->set_manage_stock( true );
+                    $variation->set_manage_stock(true);
                     $variation->set_stock_quantity(10);
                     $variation->save();
                 }

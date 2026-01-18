@@ -6,7 +6,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-class Usctdp_Mgmt_Registration_Table extends Table
+class Usctdp_Mgmt_Transaction_Table extends Table
 {
     public $name = 'usctdp_transaction';
     protected $db_version_key = 'usctdp_transaction_version';
@@ -20,13 +20,13 @@ class Usctdp_Mgmt_Registration_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             family_id bigint(20) unsigned NOT NULL,
             registration_id bigint(20) unsigned NOT NULL,
-            amount int(10) signed NOT NULL,
+            kind tinyint unsigned NOT NULL,
+            amount int signed NOT NULL,
             method tinytext NOT NULL,
-            is_credit = bool,
             notes text NOT NULL,
             PRIMARY KEY (id),
             KEY family_id (activity_id),
-            KEY student_id (student_id)
+            KEY registration_id (student_id)
         ";
     }
 }

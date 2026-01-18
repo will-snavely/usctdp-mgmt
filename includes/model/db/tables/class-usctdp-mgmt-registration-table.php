@@ -18,10 +18,10 @@ class Usctdp_Mgmt_Registration_Table extends Table
     {
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            activity_id int(11) unsigned NOT NULL,
-            student_id int(11) unsigned NOT NULL,
-            starting_level int(11) unsigned NOT NULL,
-            balance int(11) unsigned NOT NULL,
+            activity_id bigint(20) unsigned NOT NULL,
+            student_id bigint(20) unsigned NOT NULL,
+            starting_level tinyint unsigned NOT NULL,
+            balance smallint unsigned NOT NULL,
             notes text NOT NULL,
             PRIMARY KEY (id),
             KEY activity_id (activity_id),

@@ -18,8 +18,8 @@ class Usctdp_Mgmt_Family_Link_Table extends Table
     {
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            family_id int(11) unsigned NOT NULL,
-            student_id int(11) unsigned NOT NULL,
+            family_id bigint(20) unsigned NOT NULL,
+            student_id bigint(20) unsigned NOT NULL,
             PRIMARY KEY (id),
             KEY family_id (family_id),
             KEY student_id (student_id)

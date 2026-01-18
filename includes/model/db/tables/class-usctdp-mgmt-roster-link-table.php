@@ -18,7 +18,7 @@ class Usctdp_Mgmt_Roster_Link_Table extends Table
     {
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            entity_id int(11) unsigned NOT NULL,
+            entity_id bigint(20) unsigned NOT NULL,
             drive_id TINYTEXT NOT NULL,
             PRIMARY KEY (id),
             KEY entity_id (entity_id)
