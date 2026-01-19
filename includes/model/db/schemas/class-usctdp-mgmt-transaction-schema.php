@@ -24,16 +24,34 @@ class Usctdp_Mgmt_Transaction_Schema extends Schema
             'default'    => 0,
         ],
 
-        'registration_id' => [
-            'name'       => 'registration_id',
+        'created_by' => [
+            'name'       => 'created_by',
             'type'       => 'bigint',
             'unsigned'   => true,
-            'index'      => true,
             'default'    => 0
+        ],
+
+        'created_at' => [
+            'name'       => 'created_at',
+            'type'       => 'datetime',
         ],
 
         'kind' => [
             'name'       => 'kind',
+            'type'       => 'tinyint',
+            'unsigned'   => true,
+            'default'    => 0
+        ],
+
+        'status' => [
+            'name'       => 'status',
+            'type'       => 'tinyint',
+            'unsigned'   => true,
+            'default'    => 0
+        ],
+
+        'method' => [
+            'name'       => 'method',
             'type'       => 'tinyint',
             'unsigned'   => true,
             'default'    => 0
@@ -46,10 +64,19 @@ class Usctdp_Mgmt_Transaction_Schema extends Schema
             'default'    => 0
         ],
 
-        'method' => [
-            'name'       => 'method',
-            'type'       => 'tinytext',
+        'reference_id' => [
+            'name'       => 'reference_id',
+            'type'       => 'bigint',
+            'unsigned'   => true,
+            'index'      => true,
             'default'    => 0
+        ],
+
+        'reference_string' => [
+            'name'       => 'reference_string',
+            'type'       => 'tinytext',
+            'index'      => true,
+            'default'    => ''
         ],
 
         'notes' => [
