@@ -53,9 +53,9 @@ class Usctdp_Mgmt_Clinic extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_clinic_session_category',
-                    'label' => 'Session Category',
-                    'name' => 'session_category',
+                    'key' => 'field_usctdp_clinic_category',
+                    'label' => 'Category',
+                    'name' => 'category',
                     'type' => 'text',
                     'required' => 1
                 ],
@@ -67,7 +67,7 @@ class Usctdp_Mgmt_Clinic extends Usctdp_Mgmt_Model_Type
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_short_clinic_description',
+                    'key' => 'field_usctdp_clinic_short_description',
                     'label' => 'Short Description',
                     'name' => 'short_description',
                     'type' => 'text',

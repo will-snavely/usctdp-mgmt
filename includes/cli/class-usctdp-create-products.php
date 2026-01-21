@@ -4,6 +4,32 @@ class Usctdp_Create_Products
 {
     public function __construct() {}
 
+    private function create_product_category(
+            $category_name,
+            $description,
+            $slug) {
+        $taxonomy = 'product_cat';
+        $term_exists = term_exists($category_name, $taxonomy);
+        if (!$term_exists) {
+            $result = wp_insert_term(
+                $category_name, 
+                $taxonomy,     
+                array(
+                    'description' => $description ,
+                    'slug'        => $slug
+                )
+            );
+
+            if (is_wp_error($result)) {
+                echo 'Error: ' . $result->get_error_message();
+            } else {
+                echo 'Category created successfully! Term ID: ' . $result['term_id'];
+            }
+        } else {
+            echo 'Category already exists.';
+        }
+    }
+
     private function create_clinic_products()
     {
         $clinic_prices = get_posts([
@@ -86,6 +112,34 @@ class Usctdp_Create_Products
 
     public function create()
     {
+        $categories = [
+            [
+                "cat" => "Beginning Juniors", 
+                "desc" => "Offerings for beginning junior players.",
+                "slug" => "junior-beginners"
+            ],
+            [
+                "cat" => "Advanced Juniors", 
+                "desc" => "Offerings for intermediate and advanced junior players.",
+                "slug" => "junior-advanced"
+            ],
+            [
+                "cat" => "Adult Clinics", 
+                "desc" => "Tennis instruction for adults of all levels.",
+                "slug" => "adult-clinics"
+            ],
+            [
+                "cat" => "Adult Cardio", 
+                "desc" => "Exercise programs for adults of all levels.",
+                "slug" => "adult-cardio"
+            ]
+        ];
+
+        WP_CLI::log('Creating product categories...');
+        foreach($categories as $cat) {
+            WP_CLI::log('Creating category: ' . $cat['cat']);
+            create_product_category($cat['cat'], $cat['desc'], $cat['slug']);
+        }
         WP_CLI::log('Creating products...');
         $this->create_clinic_products();
     }

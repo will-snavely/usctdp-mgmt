@@ -78,7 +78,7 @@ class Usctdp_Cli_Command
         $generator->create();
     }
 
-    public function import_sessions($args, $assoc_args)
+    public function import_clinics($args, $assoc_args)
     {
         $file_path = '';
         if ($args && count($args) > 0) {
@@ -87,8 +87,15 @@ class Usctdp_Cli_Command
             WP_CLI::error('File path not provided');
             return;
         }
+    
+        $skip_download = false;
+        if ($args && count($args) > 1) {
+            if($args[1] === "true") {
+                $skip_download = true;
+            }
+        }
         $generator = new Usctdp_Import_Clinic_Data();
-        $generator->import($file_path);
+        $generator->import($file_path, $skip_download);
     }
 
     public function clean($args, $assoc_args)

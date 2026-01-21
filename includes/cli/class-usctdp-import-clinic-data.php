@@ -2,127 +2,158 @@
 
 class Usctdp_Import_Clinic_Data
 {
-    private $sessions;
-    private $clinics;
-    private $pricing;
-    private $sessions_by_category;
+    private $image_map;
+    private $category_map;
 
     public function __construct()
     {
-        $this->sessions = [];
-        $this->clinics = [];
-        $this->pricing = [];
-        $this->sessions_by_category = [];
+        require_once( ABSPATH . 'wp-admin/includes/image.php' );
+        require_once( ABSPATH . 'wp-admin/includes/file.php' );
+        require_once( ABSPATH . 'wp-admin/includes/media.php' );
+        $this->image_map = [];
+        $this->category_map = [];
     }
 
-    private function import_clinic_sessions($data)
-    {
-        foreach ($data["clinic_sessions"] as $session) {
-            $start_date = new DateTime($session['start_date']);
-            $end_date = new DateTime($session['end_date']);
-            $title = Usctdp_Mgmt_Session::create_title(
-                $session['name'],
-                $session['length_weeks'],
-                $start_date,
-                $end_date
+    private function get_or_import_image($local_file, $external_id) {
+        global $wpdb;
+
+        $existing_attachment = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM $wpdb->postmeta 
+            WHERE meta_key = '_external_source_id' 
+            AND meta_value = %s 
+            LIMIT 1",
+            $external_id
+        ));
+
+        if ($existing_attachment) {
+            return $existing_attachment; 
+        }
+
+        $file_array = array(
+            'name'     => basename($local_file),
+            'tmp_name' => $local_file
+        );
+        $id = media_handle_sideload($file_array, 0);
+        if (is_wp_error($id)) {
+            return false;
+        }
+        
+        if($external_id) {
+            update_post_meta($id, '_external_source_id', $external_id);
+        }
+        return $id;
+    }
+
+    private function create_product_category(
+            $category_name,
+            $description,
+            $slug,
+            $image_id,
+            $term_order) {
+        $taxonomy = 'product_cat';
+        $existing_id = term_exists($category_name, $taxonomy);
+        if (!$existing_id) {
+            $result = wp_insert_term(
+                $category_name, 
+                $taxonomy,     
+                array(
+                    'description' => $description ,
+                    'slug'        => $slug
+                )
             );
-            $post_id = wp_insert_post([
-                'post_title'    => $title,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-session',
-            ]);
-            update_field('field_usctdp_session_name', $session['name'], $post_id);
-            update_field('field_usctdp_session_start_date', $start_date->format('Y-m-d'), $post_id);
-            update_field('field_usctdp_session_end_date', $end_date->format('Y-m-d'), $post_id);
-            update_field('field_usctdp_session_length_weeks', $session['length_weeks'], $post_id);
-            update_field('field_usctdp_session_category', $session['category'], $post_id);
-            wp_set_post_terms($post_id, ["test-data", "active"], 'post_tag', false);
-            if (!isset($this->sessions_by_category[$session['category']])) {
-                $this->sessions_by_category[$session['category']] = [];
+
+            if (is_wp_error($result)) {
+                WP_CLI::error('Error: ' . $result->get_error_message());
+                return false;
+            } else {
+                $term_id = $result['term_id'];
+                WP_CLI::log('Category created, term ID: ' . $term_id);
+                update_term_meta($term_id, 'thumbnail_id', $image_id);
+                update_term_meta($term_id, 'term_order', $term_order);
+                return $term_id;
             }
-            $this->sessions_by_category[$session['category']][] = $post_id;
-            $this->sessions[$session['name']] = $post_id;
+        } else {
+            WP_CLI::log("Term already exists.");
+            return $existing_id;
         }
     }
 
-    private function import_clinics($data)
+    private function create_clinic_product($clinic, $post_id, $menu_order)
     {
-        foreach ($data["clinics"] as $clinic) {
-            $title = Usctdp_Mgmt_Clinic::create_title($clinic['name']);
-            $post_id = wp_insert_post([
-                'post_title'    => $title,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-clinic',
-            ]);
-            update_field('field_usctdp_clinic_name', $clinic['name'], $post_id);
-            update_field('field_usctdp_clinic_age_range', $clinic['age_range'], $post_id);
-            update_field('field_usctdp_clinic_age_group', $clinic['age_group'], $post_id);
-            update_field('field_usctdp_clinic_session_category', $clinic['session_category'], $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            $this->clinics[$clinic['name']] = $post_id;
+        $clinic_name = $clinic['name']; 
+        $sku = 'clinic-' . $post_id;
+        $existing_id = wc_get_product_id_by_sku($sku);
+        if($existing_id) {
+            WP_CLI::log('Product already exists for clinic: ' . $clinic_name);
+            return $existing_id;
         }
+
+        $product = new WC_Product_Variable();
+        WP_CLI::log('Creating product for clinic: ' . $clinic_name);
+        $product->set_name($clinic_name);
+        $age_range = $clinic['age_range'];
+        $product->set_description($clinic['description']);
+        $product->set_short_description($clinic['short_description'] . ' - Ages ' . $age_range);
+        $product->set_sku($sku);
+        $product->set_image_id($this->image_map[$clinic['image_id']]);
+        $product->update_meta_data('_clinic_id', $post_id);
+        $product->set_menu_order($menu_order);
+        $product->set_status('publish');
+
+        $session_attribute = new WC_Product_Attribute();
+        $session_attribute->set_name('Session');
+        $session_attribute->set_options([]);
+        $session_attribute->set_position(0);
+        $session_attribute->set_visible(true);
+        $session_attribute->set_variation(true);
+
+        $num_days_attr = new WC_Product_Attribute();
+        $num_days_attr->set_name('Days'); 
+        $num_days_attr->set_options(array('One', 'Two'));
+        $num_days_attr->set_visible(true);
+        $num_days_attr->set_variation(true);
+
+        $product->set_attributes(array($session_attribute, $num_days_attr));
+
+        $term_id = $this->category_map[$clinic['category']]['term_id'];
+        $product->set_category_ids([$term_id]);
+        $parent_id = $product->save();
     }
 
-    private function import_clinic_prices($data)
+    private function create_clinic($clinic)
     {
-        foreach ($data["clinic_pricing"] as $pricing) {
-            $session_id = $this->sessions[$pricing['session']];
-            $clinic_id = $this->clinics[$pricing['clinic']];
-            $session_name = get_field('field_usctdp_session_name', $session_id);
-            $session_duration = get_field('field_usctdp_session_length_weeks', $session_id);
-            $clinic_name = get_field('field_usctdp_clinic_name', $clinic_id);
-            $title = Usctdp_Mgmt_Clinic_Prices::create_title($session_name, $session_duration, $clinic_name);
-            $post_id = wp_insert_post([
-                'post_title'    => $title,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-clinic-prices',
-            ]);
+        $title = Usctdp_Mgmt_Clinic::create_title($clinic['name']);
+        $existing_post = get_posts([
+            'post_type'   => 'usctdp-clinic',
+            'title'       => $title,
+            'numberposts' => 1,  
+        ]);
 
-            update_field('field_usctdp_clinic_prices_session', $session_id, $post_id);
-            update_field('field_usctdp_clinic_prices_clinic', $clinic_id, $post_id);
-            update_field('field_usctdp_clinic_prices_one_day_price', $pricing['1_day_price'], $post_id);
-            update_field('field_usctdp_clinic_prices_two_day_price', $pricing['2_day_price'], $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            if (!isset($this->pricing[$clinic_id])) {
-                $this->pricing[$clinic_id] = [];
-            }
-            $this->pricing[$clinic_id][$session_id] = $post_id;
+        if(!empty($existing_post)) {
+            $found_post = $existing_post[0];
+            $post_id = $found_post->ID;
+            WP_CLI::log("Existing clinic named $title found with id $post_id");
+            return $post_id;
         }
+
+        WP_CLI::log("Creating clinic $title");
+        $post_id = wp_insert_post([
+            'post_title'    => $title,
+            'post_status'   => 'publish',
+            'post_type'     => 'usctdp-clinic',
+        ]);
+
+        update_field('field_usctdp_clinic_name', $clinic['name'], $post_id);
+        update_field('field_usctdp_clinic_age_range', $clinic['age_range'], $post_id);
+        update_field('field_usctdp_clinic_age_group', $clinic['age_group'], $post_id);
+        update_field('field_usctdp_clinic_category', $clinic['category'], $post_id);
+        update_field('field_usctdp_clinic_description', $clinic['description'], $post_id);
+        update_field('field_usctdp_clinic_short_description', $clinic['short_description'], $post_id);
+        wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
+        return $post_id;
     }
 
-    private function import_clinic_classes($data)
-    {
-        foreach ($data["clinic_classes"] as $class) {
-            $clinic_id = $this->clinics[$class['clinic']];
-            $clinic_name = get_field('name', $clinic_id);
-            $clinic_category = get_field('session_category', $clinic_id);
-            $dow = $class['day'];
-            $start_time = new DateTime($class['start_time']);
-            $end_time = new DateTime($class['end_time']);
-            $sessions = $this->sessions_by_category[$clinic_category];
-
-            foreach ($sessions as $session_id) {
-                $session_duration = get_field('length_weeks', $session_id);
-                $title = Usctdp_Mgmt_Class::create_title($clinic_name, $dow, $start_time, $session_duration);
-                $post_id = wp_insert_post([
-                    'post_title'    => $title,
-                    'post_status'   => 'publish',
-                    'post_type'     => 'usctdp-class',
-                ]);
-
-                update_field('field_usctdp_class_session', $session_id, $post_id);
-                update_field('field_usctdp_class_clinic', $clinic_id, $post_id);
-                update_field('field_usctdp_class_dow', $dow, $post_id);
-                update_field('field_usctdp_class_level', $class['level'], $post_id);
-                update_field('field_usctdp_class_start_time', $start_time->format('H:i:s'), $post_id);
-                update_field('field_usctdp_class_capacity', $class['capacity'], $post_id);
-                update_field('field_usctdp_class_end_time', $end_time->format('H:i:s'), $post_id);
-                wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            }
-        }
-    }
-
-    public function import($file_path)
+    public function import($file_path, $skip_download=false)
     {
         if (!file_exists($file_path)) {
             WP_CLI::error(sprintf('File not found: %s', $file_path));
@@ -137,17 +168,60 @@ class Usctdp_Import_Clinic_Data
 
         $data = json_decode($json_content, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            WP_CLI::error(sprintf('Error decoding JSON from file %s: %s', $file_path, json_last_error_msg()));
+            WP_CLI::error(sprintf(
+                'Error decoding JSON from file %s: %s',
+                $file_path,
+                json_last_error_msg()));
             return;
         }
 
-        WP_CLI::log('Importing sessions...');
-        $this->import_clinic_sessions($data);
-        WP_CLI::log('Importing clinics...');
-        $this->import_clinics($data);
-        WP_CLI::log('Importing clinic pricing...');
-        $this->import_clinic_prices($data);
-        WP_CLI::log('Importing classes...');
-        $this->import_clinic_classes($data);
+        $image_ids = [];
+        foreach($data["categories"] as $category) {
+            $image_ids[] = $category["image_id"]; 
+        } 
+        foreach($data["clinics"] as $clinic) {
+            $image_ids[] = $clinic["image_id"]; 
+        }
+        
+        $idx = 1;
+        $url_pref = 'https://docs.google.com/uc?export=download&id=';
+        $this->image_map = [];
+        foreach($image_ids as $image_id) {
+            $url = $url_pref . $image_id;
+            $path = "/tmp/$idx.jpg";
+
+            if(!$skip_download) {
+                $curl_cmd = "curl -L '$url' -o $path";
+                WP_CLI::log($curl_cmd);
+                shell_exec($curl_cmd);
+            }
+
+            $attachment_id = $this->get_or_import_image($path, $image_id); 
+            $this->image_map[$image_id] = $attachment_id;
+            $idx += 1;
+        }
+
+        $this->category_map = [];
+        $term_order = 0;
+        foreach($data["categories"] as $category) {
+            $term_id = $this->create_product_category(
+                $category['name'],
+                $category['description'],
+                sanitize_title($category['name']),
+                $this->image_map[$category['image_id']],
+                $term_order
+            );
+            if($term_id) {
+                $this->category_map[$category['name']] = $term_id;
+            } 
+            $term_order += 1;
+        }
+        
+        $menu_order = 0;
+        foreach ($data["clinics"] as $clinic) {
+            $clinic_id = $this->create_clinic($clinic, $menu_order);
+            $this->create_clinic_product($clinic, $clinic_id, $menu_order);
+            $menu_order += 10;
+        }
     }
 }
