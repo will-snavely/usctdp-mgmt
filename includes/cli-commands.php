@@ -18,7 +18,7 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-clean.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/cli/class-usctdp-import-clinic-data.php";
+            "includes/cli/class-usctdp-import-product-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-random-people-generator.php";
@@ -28,9 +28,6 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-roster-generator.php";
-
-        require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/cli/class-usctdp-create-products.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -71,14 +68,7 @@ class Usctdp_Cli_Command
         $generator->create_rosters($include);
     }
 
-
-    public function create_products($args, $assoc_args)
-    {
-        $generator = new Usctdp_Create_Products();
-        $generator->create();
-    }
-
-    public function import_clinics($args, $assoc_args)
+    public function import_products($args, $assoc_args)
     {
         $file_path = '';
         if ($args && count($args) > 0) {
@@ -94,7 +84,7 @@ class Usctdp_Cli_Command
                 $skip_download = true;
             }
         }
-        $generator = new Usctdp_Import_Clinic_Data();
+        $generator = new Usctdp_Import_Product_Data();
         $generator->import($file_path, $skip_download);
     }
 

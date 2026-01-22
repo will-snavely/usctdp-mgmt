@@ -46,6 +46,7 @@ class Usctdp_Mgmt_Model
             "class-usctdp-mgmt-family.php",
             "class-usctdp-mgmt-class.php",
             "class-usctdp-mgmt-clinic.php",
+            "class-usctdp-mgmt-tournament.php",
             "class-usctdp-mgmt-clinic-prices.php"
         ];
         $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/cpt/";
@@ -82,6 +83,7 @@ class Usctdp_Mgmt_Model
             new Usctdp_Mgmt_Staff(),
             new Usctdp_Mgmt_Session(),
             new Usctdp_Mgmt_Clinic(),
+            new Usctdp_Mgmt_Tournament(),
             new Usctdp_Mgmt_Clinic_Prices(),
             new Usctdp_Mgmt_Class(),
             new Usctdp_Mgmt_Student(),

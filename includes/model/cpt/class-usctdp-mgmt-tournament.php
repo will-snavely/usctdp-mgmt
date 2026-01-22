@@ -1,9 +1,9 @@
 <?php
 
-class Usctdp_Mgmt_Clinic extends Usctdp_Mgmt_Model_Type
+class Usctdp_Mgmt_Tournament extends Usctdp_Mgmt_Model_Type
 {
     public string $post_type {
-        get => 'usctdp-clinic';
+        get => 'usctdp-tournament';
     }
 
     public array $wp_post_settings {
@@ -17,50 +17,43 @@ class Usctdp_Mgmt_Clinic extends Usctdp_Mgmt_Model_Type
             'supports' => ['title', 'author'],
 
             'labels' => [
-                'name' => __('Clinic', 'textdomain'),
-                'singular_name' => __('Clinic', 'textdomain'),
-                'menu_name' => __('Clinics', 'textdomain'),
-                'name_admin_bar' => __('Clinics', 'textdomain'),
+                'name' => __('Tournament', 'textdomain'),
+                'singular_name' => __('Tournament', 'textdomain'),
+                'menu_name' => __('Tournaments', 'textdomain'),
+                'name_admin_bar' => __('Tournaments', 'textdomain'),
                 'add_new' => __('Add New', 'textdomain'),
-                'add_new_item' => __('Add New Clinic', 'textdomain'),
-                'new_item' => __('New Clinic', 'textdomain'),
-                'edit_item' => __('Edit Clinic', 'textdomain'),
-                'view_item' => __('View Clinic', 'textdomain'),
-                'all_items' => __('All Clinics', 'textdomain'),
-                'search_items' => __('Search Clinics', 'textdomain'),
-                'not_found' => __('No clinic found.', 'textdomain'),
+                'add_new_item' => __('Add New Tournament', 'textdomain'),
+                'new_item' => __('New Tournament', 'textdomain'),
+                'edit_item' => __('Edit Tournament', 'textdomain'),
+                'view_item' => __('View Tournament', 'textdomain'),
+                'all_items' => __('All Tournaments', 'textdomain'),
+                'search_items' => __('Search Tournaments', 'textdomain'),
+                'not_found' => __('No tournament found.', 'textdomain'),
             ]
         ];
     }
 
     public array $acf_settings {
         get => [
-            'key' => 'group_usctdp_clinic',
-            'title' => 'Clinic Fields',
+            'key' => 'group_usctdp_tournament',
+            'title' => 'Tournament Fields',
             'fields' => [
                 [
-                    'key' => 'field_usctdp_clinic_name',
+                    'key' => 'field_usctdp_tournament_name',
                     'label' => 'Name',
                     'name' => 'name',
                     'type' => 'text',
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_clinic_age_range',
-                    'label' => 'Age Range',
-                    'name' => 'age_range',
-                    'type' => 'text',
-                    'required' => 1
-                ],
-                [
-                    'key' => 'field_usctdp_clinic_category',
+                    'key' => 'field_usctdp_tournament_category',
                     'label' => 'Category',
                     'name' => 'category',
                     'type' => 'text',
                     'required' => 1
                 ],
                 [
-                    'key' => 'field_usctdp_clinic_age_group',
+                    'key' => 'field_usctdp_tournament_age_group',
                     'label' => 'Age Group',
                     'name' => 'age_group',
                     'type' => 'text',
@@ -72,7 +65,7 @@ class Usctdp_Mgmt_Clinic extends Usctdp_Mgmt_Model_Type
                     array(
                         'param' => 'post_type',
                         'operator' => '==',
-                        'value' => 'usctdp-clinic',
+                        'value' => 'usctdp-tournament',
                     ),
                 ),
             ),
@@ -86,9 +79,9 @@ class Usctdp_Mgmt_Clinic extends Usctdp_Mgmt_Model_Type
     public function get_computed_post_fields($data, $postarr)
     {
         $result = [];
-        if ($data['post_type'] === 'usctdp-clinic' && isset($_POST['acf'])) {
-            $clinic_name = $_POST['acf']['field_usctdp_clinic_name'];
-            $result['post_title'] = self::create_title($clinic_name);
+        if ($data['post_type'] === 'usctdp-tournament' && isset($_POST['acf'])) {
+            $tournament_name = $_POST['acf']['field_usctdp_tournament_name'];
+            $result['post_title'] = self::create_title($tournament_name);
         }
         return $result;
     }
