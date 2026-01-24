@@ -21,6 +21,9 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-import-product-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-import-session-data.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-random-people-generator.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -28,6 +31,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-roster-generator.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-clean-products.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -88,6 +94,19 @@ class Usctdp_Cli_Command
         $generator->import($file_path, $skip_download);
     }
 
+    public function import_sessions($args, $assoc_args)
+    {
+        $file_path = '';
+        if ($args && count($args) > 0) {
+            $file_path = $args[0];
+        } else {
+            WP_CLI::error('File path not provided');
+            return;
+        }
+        $generator = new Usctdp_Import_Session_Data();
+        $generator->import($file_path);
+    }
+
     public function clean($args, $assoc_args)
     {
         $cleaner = new Usctdp_Clean();
@@ -100,6 +119,13 @@ class Usctdp_Cli_Command
         }
         $cleaner->clean($target);
     }
+
+    public function clean_products($args, $assoc_args)
+    {
+        $cleaner = new Usctdp_Clean_Products();
+        $cleaner->clean_products();
+    }
+
 }
 
 // Register the command with WP-CLI

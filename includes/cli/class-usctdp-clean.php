@@ -5,6 +5,7 @@ class Usctdp_Clean
     public function clean($target)
     {
         $post_types = [];
+        $tables = [];
         $remove_users = false;
         $remove_registrations = false;
         if ($target == "all") {

@@ -45,48 +45,12 @@ class Usctdp_Import_Product_Data
         return $id;
     }
 
-    private function create_product_category(
-            $category_name,
-            $description,
-            $slug,
-            $parent_id,
-            $image_id,
-            $term_order) {
-        $taxonomy = 'product_cat';
-        $existing_id = term_exists($category_name, $taxonomy);
-        if (!$existing_id) {
-            $args = [
-                'description' => $description,
-                'slug'        => $slug
-            ];
-            if($parent_id) {
-                $args['parent'] = $parent_id;
-            }
-
-            $result = wp_insert_term(
-                $category_name, 
-                $taxonomy,     
-                $args
-            );
-
-            if (is_wp_error($result)) {
-                WP_CLI::error('Error: ' . $result->get_error_message());
-                return false;
-            } else {
-                $term_id = $result['term_id'];
-                WP_CLI::log('Category created, term ID: ' . $term_id);
-                if($image_id) {
-                    update_term_meta($term_id, 'thumbnail_id', $image_id);
-                }
-                if($term_order) {
-                    update_term_meta($term_id, 'term_order', $term_order);
-                }
-                return $term_id;
-            }
-        } else {
-            WP_CLI::log("Term already exists.");
-            return $existing_id['term_id'];
-        }
+    private function link_product($product_id, $activity_id) {
+        $query = new Usctdp_Mgmt_Product_Link_Query([]);
+        $query->add_item([
+            'activity_id' => $activity_id,
+            'product_id' => $product_id
+        ]);
     }
 
     private function create_clinic_product($clinic, $post_id, $menu_order)
@@ -116,13 +80,11 @@ class Usctdp_Import_Product_Data
         $session_attribute->set_position(0);
         $session_attribute->set_visible(true);
         $session_attribute->set_variation(true);
-
         $num_days_attr = new WC_Product_Attribute();
         $num_days_attr->set_name('Days'); 
         $num_days_attr->set_options(array('One', 'Two'));
         $num_days_attr->set_visible(true);
         $num_days_attr->set_variation(true);
-
         $product->set_attributes(array($session_attribute, $num_days_attr));
         return $product->save();
     }
@@ -177,7 +139,7 @@ class Usctdp_Import_Product_Data
         if(!empty($existing_post)) {
             $found_post = $existing_post[0];
             $post_id = $found_post->ID;
-            WP_CLI::log("Existing tournament  named $title found with id $post_id");
+            WP_CLI::log("Existing tournament named $title found with id $post_id");
             return $post_id;
         }
 
@@ -278,6 +240,7 @@ class Usctdp_Import_Product_Data
         foreach ($data["clinics"] as $clinic) {
             $clinic_id = $this->create_clinic($clinic, $menu_order);
             $product_id = $this->create_clinic_product($clinic, $clinic_id, $menu_order);
+            $this->link_product($product_id, $clinic_id);
 
             $age_group = sanitize_title($clinic["age_group"]);
             $level = sanitize_title($clinic["level"]);

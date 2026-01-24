@@ -4,32 +4,6 @@ class Usctdp_Create_Products
 {
     public function __construct() {}
 
-    private function create_product_category(
-            $category_name,
-            $description,
-            $slug) {
-        $taxonomy = 'product_cat';
-        $term_exists = term_exists($category_name, $taxonomy);
-        if (!$term_exists) {
-            $result = wp_insert_term(
-                $category_name, 
-                $taxonomy,     
-                array(
-                    'description' => $description ,
-                    'slug'        => $slug
-                )
-            );
-
-            if (is_wp_error($result)) {
-                echo 'Error: ' . $result->get_error_message();
-            } else {
-                echo 'Category created successfully! Term ID: ' . $result['term_id'];
-            }
-        } else {
-            echo 'Category already exists.';
-        }
-    }
-
     private function create_clinic_products()
     {
         $clinic_prices = get_posts([

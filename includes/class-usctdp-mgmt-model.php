@@ -34,7 +34,7 @@ class Usctdp_Mgmt_Model
     public function __construct()
     {
         $this->load_model_dependencies();
-        $this->model_types = $this->get_model_types();
+        $this->model_types = $this->create_model_types();
     }
 
     public function load_model_dependencies()
@@ -61,6 +61,7 @@ class Usctdp_Mgmt_Model
             "roster-link",
             "transaction",
             "transaction-link",
+            "product-link",
         ];
         $db_prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/db/";
         $kinds = [
@@ -77,7 +78,7 @@ class Usctdp_Mgmt_Model
         }
     }
 
-    private function get_model_types()
+    private function create_model_types()
     {
         $classes = [
             new Usctdp_Mgmt_Staff(),
@@ -97,16 +98,25 @@ class Usctdp_Mgmt_Model
         return $result;
     }
 
-    public function register_berlindb_entities()
-    {
-        $tables = [
+    public function get_cpt_types() {
+        return $this->model_types;
+    }
+
+    public function get_db_tables() {
+        return [
             new Usctdp_Mgmt_Registration_Table(),
+            new Usctdp_Mgmt_Transaction_Table(),
             new Usctdp_Mgmt_Activity_Link_Table(),
             new Usctdp_Mgmt_Family_Link_Table(),
             new Usctdp_Mgmt_Roster_Link_Table(),
-            new Usctdp_Mgmt_Transaction_Table(),
             new Usctdp_Mgmt_Transaction_Link_Table(),
+            new Usctdp_Mgmt_Product_Link_Table(),
         ];
+    }
+
+    public function register_berlindb_entities()
+    {
+        $tables = $this->get_db_tables();
         foreach ($tables as $table) {
             if (! $table->exists()) {
                 $table->install();
