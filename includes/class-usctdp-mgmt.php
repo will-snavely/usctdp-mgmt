@@ -80,6 +80,7 @@ class Usctdp_Mgmt
         $this->define_admin_hooks();
         $this->define_public_hooks();
         $this->define_model_hooks();
+        $this->define_woocommerce_hooks();
     }
 
     /**
@@ -105,6 +106,9 @@ class Usctdp_Mgmt
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-model.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/class-usctdp-mgmt-woocommerce.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-i18n.php";
@@ -193,6 +197,40 @@ class Usctdp_Mgmt
             'on_post_delete',
             10,
             2
+        );
+    }
+
+    private function define_woocommerce_hooks() {
+        $commerce_handler = new Usctdp_Mgmt_Woocommerce(); 
+        $this->loader->add_action(
+            'woocommerce_before_variations_form',
+            $commerce_handler,
+            'display_before_variations_form',
+        );
+        $this->loader->add_action(
+            'woocommerce_before_variations_table',
+            $commerce_handler,
+            'display_before_variations_table',
+        );
+        $this->loader->add_action(
+            'woocommerce_after_variations_table',
+            $commerce_handler,
+            'display_after_variations_table',
+        );
+        $this->loader->add_action(
+            'woocommerce_before_add_to_cart_button',
+            $commerce_handler,
+            'display_before_cart_button',
+        );
+        $this->loader->add_action(
+            'woocommerce_after_add_to_cart_button',
+            $commerce_handler,
+            'display_after_cart_button',
+        );
+        $this->loader->add_action(
+            'woocommerce_after_variations_form',
+            $commerce_handler,
+            'display_after_variations_form',
         );
     }
 
