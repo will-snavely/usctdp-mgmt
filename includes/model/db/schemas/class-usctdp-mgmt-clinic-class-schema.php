@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Schema;
 
-class Usctdp_Mgmt_Registration_Schema extends Schema
+class Usctdp_Mgmt_Clinic_Class_Schema extends Schema
 {
     public $columns = [
         'id' => [
@@ -15,31 +15,47 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'sortable' => true,
         ],
 
-        'activity_id' => [
-            'name'       => 'activity_id',
+        'session_id' => [
+            'name'       => 'session_id',
             'type'       => 'bigint',
             'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
         ],
 
-        'student_id' => [
-            'name'       => 'student_id',
+        'clinic_id' => [
+            'name'       => 'clinic_id',
             'type'       => 'bigint',
             'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
         ],
 
-        'starting_level' => [
-            'name'       => 'starting_level',
-            'type'       => 'tinytext',
+        'day_of_week' => [
+            'name'       => 'day_of_week',
+            'type'       => 'tinyint',
+            'unsigned'   => true,
         ],
 
-        'balance' => [
-            'name'       => 'balance',
+        'start_time' => [
+            'name'       => 'start_time',
+            'type'       => 'time',
+        ],
+
+        'end_time' => [
+            'name'       => 'end_time',
+            'type'       => 'time',
+        ],
+
+        'capacity' => [
+            'name'       => 'capacity',
             'type'       => 'smallint',
             'unsigned'   => true,
+        ],
+
+        'level' => [
+            'name'       => 'level',
+            'type'       => 'tinytext',
         ],
 
         'notes' => [

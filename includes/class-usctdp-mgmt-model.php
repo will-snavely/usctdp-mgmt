@@ -30,6 +30,7 @@ abstract class Usctdp_Mgmt_Model_Type
 class Usctdp_Mgmt_Model
 {
     public $model_types;
+    public static $token_suffix = "_xxxx";
 
     public function __construct()
     {
@@ -37,12 +38,29 @@ class Usctdp_Mgmt_Model
         $this->model_types = $this->create_model_types();
     }
 
+    public static function append_token_suffix($str) {
+        $parts = preg_split('/\s+/', $str, -1, PREG_SPLIT_NO_EMPTY); 
+        $result = [];
+        foreach($parts as $part) {
+            if(strlen($part) <= 2 && ctype_alnum($part)) {
+                $result[] = $part . self::$token_suffix;
+            } else {
+                $result[] = $part;
+            }
+        }
+        return implode(" ", $result);
+    }
+
+    public static function strip_token_suffix($str) {
+        $result = str_replace(self::$token_suffix, "", $str);
+        return $result;
+    }
+
     public function load_model_dependencies()
     {
         $cpt_classes = [
             "class-usctdp-mgmt-staff.php",
             "class-usctdp-mgmt-session.php",
-            "class-usctdp-mgmt-student.php",
             "class-usctdp-mgmt-family.php",
             "class-usctdp-mgmt-class.php",
             "class-usctdp-mgmt-clinic.php",
@@ -56,6 +74,9 @@ class Usctdp_Mgmt_Model
 
         $berlindb_entities = [
             "registration",
+            "session",
+            "student",
+            "clinic-class",
             "activity-link",
             "family-link",
             "roster-link",
@@ -82,12 +103,8 @@ class Usctdp_Mgmt_Model
     {
         $classes = [
             new Usctdp_Mgmt_Staff(),
-            new Usctdp_Mgmt_Session(),
             new Usctdp_Mgmt_Clinic(),
             new Usctdp_Mgmt_Tournament(),
-            new Usctdp_Mgmt_Clinic_Prices(),
-            new Usctdp_Mgmt_Class(),
-            new Usctdp_Mgmt_Student(),
             new Usctdp_Mgmt_Family()
         ];
 
@@ -105,8 +122,10 @@ class Usctdp_Mgmt_Model
     public function get_db_tables() {
         return [
             new Usctdp_Mgmt_Registration_Table(),
+            new Usctdp_Mgmt_Session_Table(),
+            new Usctdp_Mgmt_Student_Table(),
+            new Usctdp_Mgmt_Clinic_Class_Table(),
             new Usctdp_Mgmt_Transaction_Table(),
-            new Usctdp_Mgmt_Activity_Link_Table(),
             new Usctdp_Mgmt_Family_Link_Table(),
             new Usctdp_Mgmt_Roster_Link_Table(),
             new Usctdp_Mgmt_Transaction_Link_Table(),

@@ -20,7 +20,7 @@ class Usctdp_Mgmt_Registration_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             activity_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned NOT NULL,
-            starting_level tinyint unsigned NOT NULL,
+            starting_level tinytext NOT NULL,
             balance smallint unsigned NOT NULL,
             notes text NOT NULL,
             PRIMARY KEY (id),

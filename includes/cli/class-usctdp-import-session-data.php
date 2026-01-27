@@ -29,48 +29,65 @@ class Usctdp_Import_Session_Data
         }
     }
 
+    private function get_category_integer(string $cat) {
+        $cats = [
+            'junior: beginner'    => 1,
+            'junior: advanced'   => 2,
+            'adult' => 3,
+            'cardio tennis'  => 4,
+        ];
+        $normalized_cat = strtolower(trim($cat));
+        return $cats[$normalized_cat] ?? false;
+    }
+
+    private function get_day_integer(string $day) {
+        $days = [
+            'monday'    => 1,
+            'tuesday'   => 2,
+            'wednesday' => 3,
+            'thursday'  => 4,
+            'friday'    => 5,
+            'saturday'  => 6,
+            'sunday'    => 7
+        ];
+        $normalized_day = strtolower(trim($day));
+        return $days[$normalized_day] ?? false;
+    }
+
     private function import_sessions($data)
     {
         foreach ($data["sessions"] as $session) {
             $start_date = new DateTime($session['start_date']);
             $end_date = new DateTime($session['end_date']);
-            $title = Usctdp_Mgmt_Session::create_title(
-                $session['name'],
-                $session['length_weeks'],
-                $start_date,
-                $end_date
-            );
-
-            $existing_post = get_posts([
-                'post_type'   => 'usctdp-session',
-                'title'       => $title,
-                'numberposts' => 1,
-                'post_status' => 'publish'
+            $name = $session['name'];
+            $query = new Usctdp_Mgmt_Session_Query([
+                "name" => $name,
+                "start_date" => $start_date->format("Y-m-d"),
+                "number" => 1
             ]);
-            if(!empty($existing_post)) {
-                $session_id = $existing_post[0]->ID;
-                WP_CLI::log("Session '$title' already exists (id=$session_id)");
-                $this->sessions[$session['name']] = $session_id;
-                continue;
+
+            $session_id = 0;
+            if(!empty($query->items)) {
+                $session_id = $query->items[0]->id;
+                WP_CLI::log("Session '$name' already exists (id=$session_id)");
+            } else {
+                $title = Usctdp_Mgmt_Session_Table::create_title(
+                    $session['name'], $session['length_weeks'], $start_date, $end_date);
+                $session_id = $query->add_item([       
+                    "name" => $session['name'],
+                    "title" => $title,
+                    "is_active" => 1,
+                    "start_date" => $start_date->format("Y-m-d"),
+                    "end_date" => $end_date->format("Y-m-d"),
+                    "num_weeks" => $session['length_weeks'],
+                    "category" => $this->get_category_integer($session["category"]),
+                ]);
             }
-
-            WP_CLI::log("Creating session '$title'");
-            $post_id = wp_insert_post([
-                'post_title'    => $title,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-session',
-            ]);
-            update_field('field_usctdp_session_name', $session['name'], $post_id);
-            update_field('field_usctdp_session_start_date', $start_date->format('Y-m-d'), $post_id);
-            update_field('field_usctdp_session_end_date', $end_date->format('Y-m-d'), $post_id);
-            update_field('field_usctdp_session_length_weeks', $session['length_weeks'], $post_id);
-            update_field('field_usctdp_session_category', $session['category'], $post_id);
-            wp_set_post_terms($post_id, ["test-data", "active"], 'post_tag', false);
             if (!isset($this->sessions_by_category[$session['category']])) {
                 $this->sessions_by_category[$session['category']] = [];
             }
-            $this->sessions_by_category[$session['category']][] = $post_id;
-            $this->sessions[$session['name']] = $post_id;
+            $this->sessions_by_category[$session['category']][] = $session_id;
+            $this->sessions[$session['name']] = $session_id;
         }
     }
 
@@ -111,7 +128,6 @@ class Usctdp_Import_Session_Data
             }
             $clinic = $clinics_by_title[$clinic_title]; 
             $clinic_id = $clinic->ID;
-            $session_id = $this->sessions[$pricing['session']];
             $query = new Usctdp_Mgmt_Product_Link_Query([
                 "activity_id" => $clinic_id,
                 "number" => 1,
@@ -122,7 +138,7 @@ class Usctdp_Import_Session_Data
                 if(!isset($sessions_by_product[$product_id])) {
                     $sessions_by_product[$product_id] = [];  
                 }
-                $sessions_by_product[$product_id][$session_id] = [
+                $sessions_by_product[$product_id][$pricing['session']] = [
                     "One" => $pricing['1_day_price'],
                     "Two" => $pricing['2_day_price']
                 ];
@@ -134,31 +150,25 @@ class Usctdp_Import_Session_Data
         foreach($sessions_by_product as $product_id => $sessions) {
             $this->delete_all_product_variations($product_id);
             $product = wc_get_product($product_id);
-            WP_CLI::log(print_r($product->get_attributes(), true));
-            $session_names = [];
             ksort($sessions);
-            foreach($sessions as $session_id => $_) {
-                $session_names[$session_id] = get_field('field_usctdp_session_name', $session_id);
-            }
             $session_attribute = new WC_Product_Attribute();
             $session_attribute->set_name('Session');
-            $session_attribute->set_options(array_values($session_names));
+            $session_attribute->set_options(array_keys($sessions));
             $session_attribute->set_position(0);
             $session_attribute->set_visible(true);
             $session_attribute->set_variation(true);
 
-            //WP_CLI::log("Populating session attribute with: " . implode(",", $session_names));
             $attributes = $product->get_attributes();
             $attributes['session'] = $session_attribute;
             $product->set_attributes($attributes);
             $product->save();
 
-            foreach($sessions as $session_id => $pricing) {
+            foreach($sessions as $session_name => $pricing) {
                 foreach($pricing as $day => $amt) {
                     $variation = new WC_Product_Variation();
                     $variation->set_parent_id($product_id);
                     $variation->set_attributes([ 
-                        sanitize_title('Session') => $session_names[$session_id],
+                        sanitize_title('Session') => $session_name,
                         sanitize_title('Days') => $day
                     ]);
                     $variation->set_regular_price($amt);
@@ -171,32 +181,38 @@ class Usctdp_Import_Session_Data
 
     private function import_clinic_classes($data)
     {
-        foreach ($data["clinic_classes"] as $class) {
-            $clinic_id = $this->clinics[$class['clinic']];
-            $clinic_name = get_field('name', $clinic_id);
-            $clinic_category = get_field('session_category', $clinic_id);
+        foreach ($data["classes"] as $class) {
+            $clinic_name = $class['clinic'];
+            $clinic = $this->get_clinic_by_title($class['clinic']);
+            $clinic_id = $clinic->ID;
+            $clinic_category = get_field('field_usctdp_clinic_category', $clinic_id);
             $dow = $class['day'];
             $start_time = new DateTime($class['start_time']);
             $end_time = new DateTime($class['end_time']);
             $sessions = $this->sessions_by_category[$clinic_category];
-
             foreach ($sessions as $session_id) {
-                $session_duration = get_field('length_weeks', $session_id);
-                $title = Usctdp_Mgmt_Class::create_title($clinic_name, $dow, $start_time, $session_duration);
-                $post_id = wp_insert_post([
-                    'post_title'    => $title,
-                    'post_status'   => 'publish',
-                    'post_type'     => 'usctdp-class',
+                $day_of_week = $this->get_day_integer($class['day']);
+                $query = new Usctdp_Mgmt_Clinic_Class_Query([
+                    "session_id" => $session_id,
+                    "clinic_id" => $clinic_id,
+                    "day_of_week" => $day_of_week,
+                    "start_time" => $start_time->format("H:i:s")
                 ]);
-
-                update_field('field_usctdp_class_session', $session_id, $post_id);
-                update_field('field_usctdp_class_clinic', $clinic_id, $post_id);
-                update_field('field_usctdp_class_dow', $dow, $post_id);
-                update_field('field_usctdp_class_level', $class['level'], $post_id);
-                update_field('field_usctdp_class_start_time', $start_time->format('H:i:s'), $post_id);
-                update_field('field_usctdp_class_capacity', $class['capacity'], $post_id);
-                update_field('field_usctdp_class_end_time', $end_time->format('H:i:s'), $post_id);
-                wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
+                if(!empty($query->items)) {
+                    $class_id = $query->items[0]->id;
+                    WP_CLI::log("Class already exists (id=$class_id)");
+                } else {
+                    $query->add_item([       
+                        "session_id" => $session_id, 
+                        "clinic_id" => $clinic_id,
+                        "day_of_week" => $day_of_week,
+                        "start_time" => $start_time->format("H:i:s"),
+                        "end_time" => $end_time->format("H:i:s"),
+                        "capacity" => $class['capacity'],
+                        "level" => (string) $class['level'],
+                        "notes" => '',
+                    ]);
+                }
             }
         }
     }
@@ -224,7 +240,7 @@ class Usctdp_Import_Session_Data
         $this->import_sessions($data);
         WP_CLI::log('Importing clinic pricing...');
         $this->import_clinic_prices($data);
-        //WP_CLI::log('Importing classes...');
-        //$this->import_clinic_classes($data);
+        WP_CLI::log('Importing classes...');
+        $this->import_clinic_classes($data);
     }
 }

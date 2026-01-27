@@ -57,7 +57,6 @@ class Usctdp_Mgmt_Admin
         'usctdp-family',
         'usctdp-staff',
         'usctdp-session',
-        'usctdp-class'
     ];
 
     public static $post_handlers =  [
@@ -94,6 +93,16 @@ class Usctdp_Mgmt_Admin
             'action' => 'select2_search',
             'nonce' => 'select2_search_nonce',
             'callback' => 'ajax_select2_search'
+        ],
+        'select2_session_search' => [
+            'action' => 'select2_session_search',
+            'nonce' => 'select2_session_search_nonce',
+            'callback' => 'ajax_select2_session_search'
+        ],
+        'student_datatable' => [
+            'action' => 'select2_student_datatable',
+            'nonce' => 'select2_student_datatable_nonce',
+            'callback' => 'ajax_select2_student_datatable'
         ],
         'save_field' => [
             'action' => 'save_field',
@@ -455,7 +464,13 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['datatable_search', 'select2_search', 'gen_roster', 'datatable_registrations'];
+        $handlers = [
+            'datatable_search',
+            'select2_session_search',
+            'select2_search',
+            'gen_roster',
+            'datatable_registrations'
+        ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -935,6 +950,96 @@ class Usctdp_Mgmt_Admin
         ]);
     }
 
+    function ajax_select2_session_search()
+    {
+        $results = [];
+        try {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_session_search'];
+            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+            }
+
+            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
+            $is_active = isset($_GET['active']) ? intval($_GET['active']) : '';
+            $query_results = Usctdp_Mgmt_Session_Query::search_sessions($search, $is_active, 10);
+            if ($query_results) {
+                foreach ($query_results as $result) {
+                    $results[] = array(
+                        'id'   => $result->id,
+                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title)
+                    );
+                }
+            }
+        } catch(Throwable $e) {
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+        }
+        wp_send_json(array('items' => $results));
+    }
+
+    function ajax_student_datatable()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['student_datatable'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+            'orderby' => 'id',
+            'order' => 'DESC',
+        ];
+        if ($class_id) {
+            $args['activity_id'] = $class_id;
+        }
+        if ($student_id) {
+            $args['student_id'] = $student_id;
+        }
+
+        $reg_query = new Usctdp_Mgmt_Registration_Query($args);
+        $results = [];
+        foreach ($reg_query->items as $row) {
+            $student_id = $row->student_id;
+            $activity_id = $row->activity_id;
+
+            $result = [
+                "id" => $row->id,
+                "student_id" => $student_id,
+                "activity_id" => $activity_id,
+                "starting_level" => $row->starting_level,
+                "balance" => $row->balance,
+                "notes" => $row->notes,
+            ];
+
+            $result["student"] = [
+                "first_name" => get_field("first_name", $student_id),
+                "last_name" => get_field("last_name", $student_id),
+                "birth_date" => get_field("birth_date", $student_id)
+            ];
+
+            $session = get_field("session", $activity_id);
+            $result["activity"] = [
+                "name" => get_the_title($activity_id),
+                "session" => $session->post_title,
+            ];
+            $results[] = $result;
+        }
+
+        $response = array(
+            "draw"            => $draw,
+            "recordsTotal"    => count($results),
+            "recordsFiltered" => count($results),
+            "data"            => $results,
+        );
+        wp_send_json($response);
+    }
+
     function ajax_select2_search()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_search'];
@@ -1012,10 +1117,9 @@ class Usctdp_Mgmt_Admin
         $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : null;
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
 
-        // TODO: Think about this
-        //if (!$student_id && !$class_id) {
-        //    wp_send_json_error('Must provide student_id or class_id.', 400);
-        //}
+        if (!$student_id && !$class_id) {
+            wp_send_json_error('Must provide student_id or class_id.', 400);
+        }
 
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
