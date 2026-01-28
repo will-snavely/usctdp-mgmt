@@ -7,7 +7,7 @@ class Usctdp_Import_Session_Data
 
     public function __construct()
     {
-        $this->sessions = [];
+        $this->session_data = [];
         $this->sessions_by_category = [];
     }
 
@@ -91,7 +91,7 @@ class Usctdp_Import_Session_Data
                 $this->sessions_by_category[$session['category']] = [];
             }
             $this->sessions_by_category[$session['category']][] = $session_id;
-            $this->sessions[$session['name']] = $session_id;
+            $this->session_data[$session_id] = $session;
         }
     }
 
@@ -207,9 +207,16 @@ class Usctdp_Import_Session_Data
                     $class_id = $query->items[0]->id;
                     WP_CLI::log("Class already exists (id=$class_id)");
                 } else {
+                    $title = Usctdp_Mgmt_Clinic_Class_Table::create_title(
+                        $clinic_name,
+                        $dow,
+                        $start_time,
+                        $this->session_data[$session_id]['length_weeks']
+                    );
                     $query->add_item([
                         "session_id" => $session_id,
                         "clinic_id" => $clinic_id,
+                        "title" => $title,
                         "day_of_week" => $day_of_week,
                         "start_time" => $start_time->format("H:i:s"),
                         "end_time" => $end_time->format("H:i:s"),

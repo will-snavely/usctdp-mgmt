@@ -31,6 +31,12 @@ class Usctdp_Mgmt_Clinic_Class_Schema extends Schema
             'index'      => true,
         ],
 
+        'title' => [
+            'name'       => 'title',
+            'type'       => 'tinytext',
+            'index'      => true,
+        ],
+
         'day_of_week' => [
             'name'       => 'day_of_week',
             'type'       => 'tinyint',

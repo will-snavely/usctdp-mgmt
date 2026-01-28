@@ -1,6 +1,8 @@
 (function ($) {
     "use strict";
     $(document).ready(function () {
+        var preloaded_data = null;
+
         $('#family-selector').select2({
             placeholder: "Search for a family...",
             allowClear: true,
@@ -64,18 +66,18 @@
         });
 
         $('#family-selector').on('change', function () {
-            const selectedValue = this.value;
-            var data = $(this).select2('data')[0];
             $("#save-notes-error").addClass("hidden");
             $("#save-notes-success").addClass("hidden");
             $('#save-notes-text').text('Save Notes');
             $('#save-notes-button').removeClass('is-loading');
             $('#family-display-section').hide();
 
+            const selectedValue = this.value;
+            var data = preloaded_data ? preloaded_data : $(this).select2('data')[0];
             if (selectedValue && selectedValue !== '') {
                 $('#family-display-section').show();
                 $("#family-email").text(data.email);
-                $("#family-notes").text(data.notes);
+                $("#family-notes").val(data.notes);
                 if (data.phone_numbers && data.phone_numbers.length > 0) {
                     $("#family-phone").text(data.phone_numbers.join(" | "));
                 } else {
@@ -90,7 +92,6 @@
         });
 
         $("#save-notes-button").on("click", function () {
-            /*
             $("#save-notes-error").addClass("hidden");
             $("#save-notes-success").addClass("hidden");
             $('#save-notes-text').text('Working...');
@@ -101,15 +102,18 @@
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.save_field_action,
-                    post_id: $('#family-selector').val(),
-                    field_name: 'field_usctdp_family_notes',
-                    field_value: $('#family-notes').val(),
-                    security: usctdp_mgmt_admin.save_field_nonce,
+                    action: usctdp_mgmt_admin.save_family_notes_action,
+                    family_id: $('#family-selector').val(),
+                    notes: $('#family-notes').val(),
+                    security: usctdp_mgmt_admin.save_family_notes_nonce,
                 },
                 success: function (responseData) {
                     $("#save-notes-error").addClass("hidden");
                     $("#save-notes-success").removeClass("hidden");
+
+                    // Update the local cache of the notes
+                    var data = preloaded_data ? preloaded_data : $('#family-selector').select2('data')[0];
+                    data.notes = $('#family-notes').val();
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     $("#save-notes-error").removeClass("hidden");
@@ -121,18 +125,18 @@
                     $('#family-selector').attr('disabled', false);
                 }
             });
-            */
         });
 
-        if (usctdp_mgmt_admin.preloaded_family_name) {
+        if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.family_id) {
+            preloaded_data = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
             const newOption = new Option(
-                usctdp_mgmt_admin.preloaded_family_name,
-                usctdp_mgmt_admin.preloaded_family_id,
+                preloaded_data.title,
+                preloaded_data.id,
                 true,
                 true
             );
             $('#family-selector').append(newOption);
-            $('#family-selector').val(usctdp_mgmt_admin.preloaded_family_id);
+            $('#family-selector').val(preloaded_data.id);
             $('#family-selector').trigger('change');
             $('#family-selector').prop('disabled', true);
         }

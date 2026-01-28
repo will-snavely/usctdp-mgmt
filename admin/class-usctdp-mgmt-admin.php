@@ -102,10 +102,10 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'student_datatable_nonce',
             'callback' => 'ajax_student_datatable'
         ],
-        'save_field' => [
-            'action' => 'save_field',
-            'nonce' => 'save_field_nonce',
-            'callback' => 'ajax_save_field'
+        'save_family_notes' => [
+            'action' => 'save_family_notes',
+            'nonce' => 'save_family_notes_nonce',
+            'callback' => 'ajax_save_family_notes'
         ],
         'gen_roster' => [
             'action' => 'gen_roster',
@@ -269,7 +269,6 @@ class Usctdp_Mgmt_Admin
     public function usctdp_google_oauth_handler()
     {
         $redirect_url = admin_url('admin.php?page=usctdp-admin-main');
-        error_log($redirect_url);
         if (!isset($_GET['page']) || $_GET['page'] !== 'usctdp-admin-main') {
             return;
         }
@@ -391,42 +390,93 @@ class Usctdp_Mgmt_Admin
         }
     }
 
+    private function db_id_query($query_class, $id)
+    {
+        $result = [];
+        $query = new $query_class([
+            'id' => $id,
+            'number' => 1
+        ]);
+        if (!empty($query->items)) {
+            foreach ($query->items[0] as $key => $value) {
+                if ((!str_contains($key, ":protected"))) {
+                    $result[$key] = $value;
+                }
+            }
+            return $result;
+        }
+        return null;
+    }
+
+    private function get_class_data($id)
+    {
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT 
+                    cls.id as class_id, cls.title as class_name, cls.day_of_week as class_day_of_week,
+                    cls.start_time as class_start_time, cls.end_time as class_end_time,
+                    cls.capacity as class_capacity, cls.level as class_level,
+                    cls.notes as class_notes,
+                    sess.id as session_id, sess.title as session_name,
+                    sess.start_date as session_start_date, sess.end_date as session_end_date,
+                    sess.num_weeks as session_num_weeks, sess.category as session_category,
+                    post.post_title as clinic_name, post.ID as clinic_id,
+                FROM {$wpdb->prefix}usctdp_clinic_class AS cls 
+                JOIN {$wpdb->prefix}usctdp_session AS sess ON cls.session_id = sess.id
+                JOIN {$wpdb->prefix}posts AS post ON cls.clinic_id = post.ID 
+                WHERE cls.id = %d",
+            $id
+        );
+        $result = $wpdb->get_row($query);
+        return $result;
+    }
+    /**
+     * 
+     * @param array $args 
+     * @return array 
+     */
     private function load_page_context($expected_params = [])
     {
         $result = [];
-        $param_map = [
-            'session_id' => 'usctdp-session',
-            'class_id' => 'usctdp-class',
-            'student_id' => 'usctdp-student',
-            'family_id' => 'usctdp-family'
+        $query_map = [
+            'session_id' => function ($id) {
+                return $this->db_id_query('Usctdp_Mgmt_Session_Query', $id);
+            },
+            'class_id' => function ($id) {
+                return $this->get_class_data($id);
+            },
+            'student_id' => function ($id) {
+                return $this->db_id_query('Usctdp_Mgmt_Student_Query', $id);
+            },
+            'family_id' => function ($id) {
+                return $this->db_id_query('Usctdp_Mgmt_Family_Query', $id);
+            }
         ];
         foreach ($expected_params as $key) {
-            if (isset($_GET[$key]) && is_numeric($_GET[$key])) {
+            if (isset($_GET[$key]) && is_numeric($_GET[$key]) && isset($query_map[$key])) {
                 $id = intval($_GET[$key]);
-                $post = get_post($id);
-                $post_type = $param_map[$key];
-                if ($post && $post->post_type === $post_type) {
-                    $result[$post_type] = [
-                        'id' => $id,
-                        'name' => $post->post_title
-                    ];
-
-                    if ($post_type === 'usctdp-class') {
-                        $session = get_field('session', $post->ID);
-                        $clinic = get_field('clinic', $post->ID);
-                        $result[$post_type]['session'] = [
-                            'id' => $session->ID,
-                            'name' => $session->post_title
-                        ];
-                        $result[$post_type]['clinic'] = [
-                            'id' => $clinic->ID,
-                            'name' => $clinic->post_title
-                        ];
-                    }
-                }
+                $result[$key] = [
+                    $id => $query_map[$key]($id)
+                ];
             }
         }
         return $result;
+    }
+
+    private function get_query_object($key)
+    {
+        switch ($key) {
+            case 'class_id':
+                return 'Usctdp_Mgmt_Clinic_Class_Query';
+            case 'session_id':
+                return 'Usctdp_Mgmt_Session_Query';
+            case 'student_id':
+                return 'Usctdp_Mgmt_Student_Query';
+            case 'family_id':
+                return 'Usctdp_Mgmt_Family_Query';
+            default:
+                return null;
+        }
     }
 
     public function load_balances_page()
@@ -475,12 +525,7 @@ class Usctdp_Mgmt_Admin
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
         $context = $this->load_page_context(['class_id']);
-        if (isset($context['usctdp-class'])) {
-            $js_data['preloaded_class_id'] = $context['usctdp-class']['id'];
-            $js_data['preloaded_class_name'] = $context['usctdp-class']['name'];
-            $js_data['preloaded_session_id'] = $context['usctdp-class']['session']['id'];
-            $js_data['preloaded_session_name'] = $context['usctdp-class']['session']['name'];
-        }
+        $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('rosters'), 'usctdp_mgmt_admin', $js_data);
     }
 
@@ -514,16 +559,13 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['save_field', 'student_datatable', 'select2_family_search'];
+        $handlers = ['save_family_notes', 'student_datatable', 'select2_family_search'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
             $context = $this->load_page_context(['family_id']);
-            if (isset($context['usctdp-family'])) {
-                $js_data['preloaded_family_id'] = $context['usctdp-family']['id'];
-                $js_data['preloaded_family_name'] = $context['usctdp-family']['name'];
-            }
+            $js_data['preload'] = $context;
         }
         wp_localize_script($this->usctdp_script_id('families'), 'usctdp_mgmt_admin', $js_data);
     }
@@ -626,8 +668,6 @@ class Usctdp_Mgmt_Admin
             $capacity = get_field('capacity', $class_id);
             $registrations = $this->get_class_registration_count($class_id);
             $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
-            error_log('ignore_full: ' . $ignore_full);
-            error_log($_POST['ignore-class-full']);
             if (!$ignore_full && $registrations >= $capacity) {
                 throw new Web_Request_Exception('Class is full.');
             }
@@ -718,34 +758,11 @@ class Usctdp_Mgmt_Admin
 
     private function get_class_pricing($clinic_id, $session_id)
     {
-        $price_query = get_posts([
-            'post_type'      => 'usctdp-clinic-prices',
-            'posts_per_page' => -1,
-            'meta_query'     => [
-                'relation' => 'AND',
-                [
-                    'key' => 'clinic',
-                    'value' => $clinic_id,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ],
-                [
-                    'key' => 'session',
-                    'value' => $session_id,
-                    'compare' => '=',
-                    'type' => 'NUMERIC'
-                ]
-            ]
-        ]);
-        if (!empty($price_query)) {
-            $price = $price_query[0];
-            return [
-                'one_day_price' => get_field('one_day_price', $price->ID),
-                'two_day_price' => get_field('two_day_price', $price->ID)
-            ];
-        }
-
-        return null;
+        // TODO: rewrite the lookup query
+        return [
+            'one_day_price' => "TBD",
+            'two_day_price' => "TBD"
+        ];
     }
 
     function ajax_get_class_qualification()
@@ -856,49 +873,41 @@ class Usctdp_Mgmt_Admin
         }
     }
 
-    function ajax_save_field()
+    function ajax_save_family_notes()
     {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_field'];
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_family_notes'];
         if (! check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $post_id = isset($_POST['post_id']) ? sanitize_text_field($_POST['post_id']) : '';
-        $field_name = isset($_POST['field_name']) ? sanitize_text_field($_POST['field_name']) : '';
-        $field_value = isset($_POST['field_value']) ? $_POST['field_value'] : '';
+        $family_id = isset($_POST['family_id']) ? sanitize_text_field($_POST['family_id']) : '';
+        $notes = isset($_POST['notes']) ? $_POST['notes'] : '';
 
-        if (!$post_id) {
-            wp_send_json_error('No post ID provided.', 400);
+        if (!$family_id) {
+            wp_send_json_error('No family ID provided.', 400);
         }
 
-        if (!is_numeric($post_id)) {
-            wp_send_json_error('Invalid post ID provided.', 400);
+        if (!is_numeric($family_id)) {
+            wp_send_json_error('Invalid family ID provided.', 400);
         }
 
-        $post = get_post($post_id);
-        if (!$post) {
-            wp_send_json_error('Post with ID ' . $post_id . ' not found.', 400);
+        $query = new Usctdp_Mgmt_Family_Query([
+            'id' => $family_id,
+            'number' => 1
+        ]);
+        if (empty($query->items)) {
+            wp_send_json_error('Family with ID ' . $family_id . ' not found.', 400);
         }
 
-        if (!$field_name) {
-            wp_send_json_error('No field name provided.', 400);
+        $notes = sanitize_textarea_field(stripslashes($notes));
+        $result = $query->update_item($family_id, [
+            'notes' => $notes
+        ]);
+        if (!$result) {
+            wp_send_json_error('Failed to update family notes due to an unexpected server error.', 500);
         }
-
-        $field_obj = get_field_object($field_name, $post_id);
-        if (!$field_obj) {
-            wp_send_json_error('Field with name ' . $field_name . ' not found.', 400);
-        }
-
-        $value = $field_value;
-        if ($field_obj['type'] == 'textarea') {
-            $value = sanitize_textarea_field(stripslashes($value));
-        } else {
-            $value = sanitize_text_field($value);
-        }
-
-        update_field($field_name, $value, $post_id);
         wp_send_json_success([
-            'message' => 'Field saved successfully'
+            'message' => 'Notes saved successfully'
         ]);
     }
 

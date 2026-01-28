@@ -6,7 +6,8 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-enum Day_Of_Week: int {
+enum Day_Of_Week: int
+{
     case Monday = 1;
     case Tuesday = 2;
     case Wednesday = 3;
@@ -24,6 +25,7 @@ class Usctdp_Mgmt_Clinic_Class_Row extends Row
         $this->id = (int) $this->id;
         $this->session_id = (int) $this->family_id;
         $this->clinic_id = (int) $this->created_by;
+        $this->title = (string) $this->title;
         $this->day_of_week = Day_Of_Week::from($this->day_of_week);
         $this->start_time = DateTime::createFromFormat('Y-m-d H:i:s', '1970-01-01 ' . $this->start_time);
         $this->end_time = DateTime::createFromFormat('Y-m-d H:i:s', '1970-01-01 ' . $this->end_time);

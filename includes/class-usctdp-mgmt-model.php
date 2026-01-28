@@ -62,12 +62,8 @@ class Usctdp_Mgmt_Model
     {
         $cpt_classes = [
             "class-usctdp-mgmt-staff.php",
-            "class-usctdp-mgmt-session.php",
-            "class-usctdp-mgmt-family.php",
-            "class-usctdp-mgmt-class.php",
             "class-usctdp-mgmt-clinic.php",
-            "class-usctdp-mgmt-tournament.php",
-            "class-usctdp-mgmt-clinic-prices.php"
+            "class-usctdp-mgmt-tournament.php"
         ];
         $prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/cpt/";
         foreach ($cpt_classes as $class) {
