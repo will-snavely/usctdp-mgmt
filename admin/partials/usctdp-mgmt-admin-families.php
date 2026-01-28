@@ -33,7 +33,7 @@
                 </div>
                 <div id="family-phone-wrap" class="family-field">
                     <label for="family-phone">Phone</label>
-                    <span id="family-phone_number"></span>
+                    <span id="family-phone"></span>
                 </div>
 
                 <h2> Family Members</h2>

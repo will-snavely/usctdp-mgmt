@@ -18,10 +18,13 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-clean.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/cli/class-usctdp-import-product-data.php";
+            "includes/cli/class-usctdp-import-clinic-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-import-session-data.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-import-family-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-random-people-generator.php";
@@ -74,7 +77,7 @@ class Usctdp_Cli_Command
         $generator->create_rosters($include);
     }
 
-    public function import_products($args, $assoc_args)
+    public function import_families($args, $assoc_args)
     {
         $file_path = '';
         if ($args && count($args) > 0) {
@@ -83,14 +86,27 @@ class Usctdp_Cli_Command
             WP_CLI::error('File path not provided');
             return;
         }
-    
+        $generator = new Usctdp_Import_Family_Data();
+        $generator->import($file_path);
+    }
+
+    public function import_clinics($args, $assoc_args)
+    {
+        $file_path = '';
+        if ($args && count($args) > 0) {
+            $file_path = $args[0];
+        } else {
+            WP_CLI::error('File path not provided');
+            return;
+        }
+
         $skip_download = false;
         if ($args && count($args) > 1) {
-            if($args[1] === "true") {
+            if ($args[1] === "true") {
                 $skip_download = true;
             }
         }
-        $generator = new Usctdp_Import_Product_Data();
+        $generator = new Usctdp_Import_Clinic_Data();
         $generator->import($file_path, $skip_download);
     }
 
@@ -125,7 +141,6 @@ class Usctdp_Cli_Command
         $cleaner = new Usctdp_Clean_Products();
         $cleaner->clean_products();
     }
-
 }
 
 // Register the command with WP-CLI

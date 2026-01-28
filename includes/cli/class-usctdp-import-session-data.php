@@ -3,33 +3,32 @@
 class Usctdp_Import_Session_Data
 {
     private $sessions;
-    private $clinics;
-    private $pricing;
     private $sessions_by_category;
 
     public function __construct()
     {
         $this->sessions = [];
-        $this->clinics = [];
         $this->sessions_by_category = [];
     }
 
-    private function get_clinic_by_title($title) {
+    private function get_clinic_by_title($title)
+    {
         $args = array(
             'post_type'      => 'usctdp-clinic',
             'title'          => $title,
-            'post_status'    => 'publish', 
+            'post_status'    => 'publish',
             'numberposts'    => 1
         );
         $posts = get_posts($args);
-        if(!empty($posts)) {
+        if (!empty($posts)) {
             return $posts[0];
         } else {
             return false;
         }
     }
 
-    private function get_category_integer(string $cat) {
+    private function get_category_integer(string $cat)
+    {
         $cats = [
             'junior: beginner'    => 1,
             'junior: advanced'   => 2,
@@ -40,7 +39,8 @@ class Usctdp_Import_Session_Data
         return $cats[$normalized_cat] ?? false;
     }
 
-    private function get_day_integer(string $day) {
+    private function get_day_integer(string $day)
+    {
         $days = [
             'monday'    => 1,
             'tuesday'   => 2,
@@ -67,13 +67,17 @@ class Usctdp_Import_Session_Data
             ]);
 
             $session_id = 0;
-            if(!empty($query->items)) {
+            if (!empty($query->items)) {
                 $session_id = $query->items[0]->id;
                 WP_CLI::log("Session '$name' already exists (id=$session_id)");
             } else {
                 $title = Usctdp_Mgmt_Session_Table::create_title(
-                    $session['name'], $session['length_weeks'], $start_date, $end_date);
-                $session_id = $query->add_item([       
+                    $session['name'],
+                    $session['length_weeks'],
+                    $start_date,
+                    $end_date
+                );
+                $session_id = $query->add_item([
                     "name" => $session['name'],
                     "title" => $title,
                     "is_active" => 1,
@@ -98,7 +102,8 @@ class Usctdp_Import_Session_Data
      * @param bool $force       True to permanently delete, false to move to trash.
      * @return bool             True on success, false on failure.
      */
-    private function delete_all_product_variations($product_id, $force = true) {
+    private function delete_all_product_variations($product_id, $force = true)
+    {
         $product = wc_get_product($product_id);
         if (!$product || !$product->is_type('variable')) {
             return false;
@@ -123,20 +128,20 @@ class Usctdp_Import_Session_Data
         $sessions_by_product = [];
         foreach ($data["pricing"] as $pricing) {
             $clinic_title = $pricing['clinic'];
-            if(!isset($clinics_by_title[$clinic_title])) {
+            if (!isset($clinics_by_title[$clinic_title])) {
                 $clinics_by_title[$clinic_title] = $this->get_clinic_by_title($clinic_title);
             }
-            $clinic = $clinics_by_title[$clinic_title]; 
+            $clinic = $clinics_by_title[$clinic_title];
             $clinic_id = $clinic->ID;
             $query = new Usctdp_Mgmt_Product_Link_Query([
                 "activity_id" => $clinic_id,
                 "number" => 1,
             ]);
-            if(!empty($query->items)) {
+            if (!empty($query->items)) {
                 $result = $query->items[0];
                 $product_id = $result->product_id;
-                if(!isset($sessions_by_product[$product_id])) {
-                    $sessions_by_product[$product_id] = [];  
+                if (!isset($sessions_by_product[$product_id])) {
+                    $sessions_by_product[$product_id] = [];
                 }
                 $sessions_by_product[$product_id][$pricing['session']] = [
                     "One" => $pricing['1_day_price'],
@@ -147,7 +152,7 @@ class Usctdp_Import_Session_Data
             }
         }
 
-        foreach($sessions_by_product as $product_id => $sessions) {
+        foreach ($sessions_by_product as $product_id => $sessions) {
             $this->delete_all_product_variations($product_id);
             $product = wc_get_product($product_id);
             ksort($sessions);
@@ -163,11 +168,11 @@ class Usctdp_Import_Session_Data
             $product->set_attributes($attributes);
             $product->save();
 
-            foreach($sessions as $session_name => $pricing) {
-                foreach($pricing as $day => $amt) {
+            foreach ($sessions as $session_name => $pricing) {
+                foreach ($pricing as $day => $amt) {
                     $variation = new WC_Product_Variation();
                     $variation->set_parent_id($product_id);
-                    $variation->set_attributes([ 
+                    $variation->set_attributes([
                         sanitize_title('Session') => $session_name,
                         sanitize_title('Days') => $day
                     ]);
@@ -198,12 +203,12 @@ class Usctdp_Import_Session_Data
                     "day_of_week" => $day_of_week,
                     "start_time" => $start_time->format("H:i:s")
                 ]);
-                if(!empty($query->items)) {
+                if (!empty($query->items)) {
                     $class_id = $query->items[0]->id;
                     WP_CLI::log("Class already exists (id=$class_id)");
                 } else {
-                    $query->add_item([       
-                        "session_id" => $session_id, 
+                    $query->add_item([
+                        "session_id" => $session_id,
                         "clinic_id" => $clinic_id,
                         "day_of_week" => $day_of_week,
                         "start_time" => $start_time->format("H:i:s"),
