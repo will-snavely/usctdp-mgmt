@@ -24,7 +24,7 @@ class Usctdp_Mgmt_Student_Schema extends Schema
             'index'      => true,
             'default' => 0,
         ],
-        
+
         'title' => [
             'name'       => 'title',
             'type'       => 'tinytext',

@@ -11,13 +11,6 @@
  */
 
 use Google\Client;
-use Google\Service\Docs;
-use Google\Service\Docs\Request as DocsRequest;
-use Google\Service\Docs\BatchUpdateDocumentRequest;
-use Google\Service\Docs\InsertTextRequest;
-use Google\Service\Drive;
-use Google\Service\Drive\DriveFile;
-
 
 /**
  * The admin-specific functionality of the plugin.
@@ -99,10 +92,15 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'select2_session_search_nonce',
             'callback' => 'ajax_select2_session_search'
         ],
+        'select2_family_search' => [
+            'action' => 'select2_family_search',
+            'nonce' => 'select2_family_search_nonce',
+            'callback' => 'ajax_select2_family_search'
+        ],
         'student_datatable' => [
-            'action' => 'select2_student_datatable',
-            'nonce' => 'select2_student_datatable_nonce',
-            'callback' => 'ajax_select2_student_datatable'
+            'action' => 'student_datatable',
+            'nonce' => 'student_datatable_nonce',
+            'callback' => 'ajax_student_datatable'
         ],
         'save_field' => [
             'action' => 'save_field',
@@ -271,7 +269,7 @@ class Usctdp_Mgmt_Admin
     public function usctdp_google_oauth_handler()
     {
         $redirect_url = admin_url('admin.php?page=usctdp-admin-main');
-	error_log($redirect_url);
+        error_log($redirect_url);
         if (!isset($_GET['page']) || $_GET['page'] !== 'usctdp-admin-main') {
             return;
         }
@@ -516,7 +514,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['datatable_search', 'select2_search', 'save_field'];
+        $handlers = ['save_field', 'student_datatable', 'select2_family_search'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -958,10 +956,10 @@ class Usctdp_Mgmt_Admin
             if (! check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
-
+            $query = new Usctdp_Mgmt_Session_Query();
             $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
             $is_active = isset($_GET['active']) ? intval($_GET['active']) : '';
-            $query_results = Usctdp_Mgmt_Session_Query::search_sessions($search, $is_active, 10);
+            $query_results = $query->search_sessions($search, $is_active, 10);
             if ($query_results) {
                 foreach ($query_results as $result) {
                     $results[] = array(
@@ -970,11 +968,52 @@ class Usctdp_Mgmt_Admin
                     );
                 }
             }
-        } catch(Throwable $e) {
+        } catch (Throwable $e) {
             wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
         }
         wp_send_json(array('items' => $results));
+    }
+
+    function ajax_select2_family_search()
+    {
+        $results = [];
+        try {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_family_search'];
+            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+            }
+
+            $query = new Usctdp_Mgmt_Family_Query();
+            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
+            $query_results = $query->search_families($search, 10);
+            if ($query_results) {
+                foreach ($query_results as $result) {
+                    $results[] = array(
+                        'id'   => $result->id,
+                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title),
+                        'address' => $result->address,
+                        'city' => $result->city,
+                        'state' => $result->state,
+                        'zip' => $result->zip,
+                        'phone_numbers' => json_decode($result->phone_numbers),
+                        'email' => $result->email,
+                        'notes' => $result->notes,
+                    );
+                }
+            }
+        } catch (Throwable $e) {
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+        }
+        wp_send_json(array('items' => $results));
+    }
+
+    function age_from_birth_date($birth_date)
+    {
+        $today = new DateTime('now');
+        $age = $today->diff($birth_date);
+        return $age->y;
     }
 
     function ajax_student_datatable()
@@ -986,49 +1025,30 @@ class Usctdp_Mgmt_Admin
 
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
-        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
-        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        if (!$family_id) {
+            wp_send_json_error('No family ID provided.', 400);
+        }
 
         $args = [
-            'number' => $length,
-            'offset' => $start,
+            'family_id' => $family_id,
             'orderby' => 'id',
             'order' => 'DESC',
         ];
-        if ($class_id) {
-            $args['activity_id'] = $class_id;
-        }
-        if ($student_id) {
-            $args['student_id'] = $student_id;
-        }
 
-        $reg_query = new Usctdp_Mgmt_Registration_Query($args);
+        $reg_query = new Usctdp_Mgmt_Student_Query($args);
         $results = [];
         foreach ($reg_query->items as $row) {
-            $student_id = $row->student_id;
-            $activity_id = $row->activity_id;
-
-            $result = [
+            $birth_date_str = $row->birth_date ? $row->birth_date->format('m/d/Y') : '--';
+            $age_str = $row->birth_date ? strval($this->age_from_birth_date($row->birth_date)) : '--';
+            $results[] = [
                 "id" => $row->id,
-                "student_id" => $student_id,
-                "activity_id" => $activity_id,
-                "starting_level" => $row->starting_level,
-                "balance" => $row->balance,
-                "notes" => $row->notes,
+                "first" => $row->first,
+                "last" => $row->last,
+                "birth_date" => $birth_date_str,
+                "age" => $age_str,
+                "level" => $row->level,
             ];
-
-            $result["student"] = [
-                "first_name" => get_field("first_name", $student_id),
-                "last_name" => get_field("last_name", $student_id),
-                "birth_date" => get_field("birth_date", $student_id)
-            ];
-
-            $session = get_field("session", $activity_id);
-            $result["activity"] = [
-                "name" => get_the_title($activity_id),
-                "session" => $session->post_title,
-            ];
-            $results[] = $result;
         }
 
         $response = array(

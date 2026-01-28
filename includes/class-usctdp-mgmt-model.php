@@ -38,11 +38,12 @@ class Usctdp_Mgmt_Model
         $this->model_types = $this->create_model_types();
     }
 
-    public static function append_token_suffix($str) {
-        $parts = preg_split('/\s+/', $str, -1, PREG_SPLIT_NO_EMPTY); 
+    public static function append_token_suffix($str)
+    {
+        $parts = preg_split('/\s+/', $str, -1, PREG_SPLIT_NO_EMPTY);
         $result = [];
-        foreach($parts as $part) {
-            if(strlen($part) <= 2 && ctype_alnum($part)) {
+        foreach ($parts as $part) {
+            if (strlen($part) <= 2 && ctype_alnum($part)) {
                 $result[] = $part . self::$token_suffix;
             } else {
                 $result[] = $part;
@@ -51,7 +52,8 @@ class Usctdp_Mgmt_Model
         return implode(" ", $result);
     }
 
-    public static function strip_token_suffix($str) {
+    public static function strip_token_suffix($str)
+    {
         $result = str_replace(self::$token_suffix, "", $str);
         return $result;
     }
@@ -76,6 +78,7 @@ class Usctdp_Mgmt_Model
             "registration",
             "session",
             "student",
+            "family",
             "clinic-class",
             "activity-link",
             "family-link",
@@ -105,7 +108,6 @@ class Usctdp_Mgmt_Model
             new Usctdp_Mgmt_Staff(),
             new Usctdp_Mgmt_Clinic(),
             new Usctdp_Mgmt_Tournament(),
-            new Usctdp_Mgmt_Family()
         ];
 
         $result = [];
@@ -115,15 +117,18 @@ class Usctdp_Mgmt_Model
         return $result;
     }
 
-    public function get_cpt_types() {
+    public function get_cpt_types()
+    {
         return $this->model_types;
     }
 
-    public function get_db_tables() {
+    public function get_db_tables()
+    {
         return [
             new Usctdp_Mgmt_Registration_Table(),
             new Usctdp_Mgmt_Session_Table(),
             new Usctdp_Mgmt_Student_Table(),
+            new Usctdp_Mgmt_Family_Table(),
             new Usctdp_Mgmt_Clinic_Class_Table(),
             new Usctdp_Mgmt_Transaction_Table(),
             new Usctdp_Mgmt_Family_Link_Table(),

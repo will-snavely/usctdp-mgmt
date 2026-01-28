@@ -16,7 +16,11 @@ class Usctdp_Mgmt_Student_Row extends Row
         $this->first = (string) $this->first;
         $this->last = (string) $this->last;
         $this->title = (string) $this->title;
-        $this->birth_date = DateTime::createFromFormat('Y-m-d', $this->birth_date);
+        if ($this->birth_date == "0000-00-00") {
+            $this->birth_date = null;
+        } else {
+            $this->birth_date = DateTime::createFromFormat('Y-m-d', $this->birth_date);
+        }
         $this->level = (string) $this->level;
     }
 }
