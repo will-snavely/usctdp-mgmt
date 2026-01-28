@@ -13,71 +13,33 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    d.action = usctdp_mgmt_admin.datatable_search_action;
-                    d.security = usctdp_mgmt_admin.datatable_search_nonce;
-                    d.post_type = 'usctdp-class';
+                    d.action = usctdp_mgmt_admin.class_datatable_action;
+                    d.security = usctdp_mgmt_admin.class_datatable_nonce;
                     var sessionFilterValue = $('#session-filter').val();
                     if (sessionFilterValue) {
-                        d['filter[session][value]'] = sessionFilterValue;
-                        d['filter[session][compare]'] = '=';
-                        d['filter[session][type]'] = 'NUMERIC';
+                        d.session_id = sessionFilterValue;
                     }
                     var clinicFilterValue = $('#clinic-filter').val();
                     if (clinicFilterValue) {
-                        d['filter[clinic][value]'] = clinicFilterValue;
-                        d['filter[clinic][compare]'] = '=';
-                        d['filter[clinic][type]'] = 'NUMERIC';
+                        d.clinic_id = clinicFilterValue;
                     }
                 }
             },
             columns: [
-                {
-                    data: 'clinic',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                            return data.title;
-                        }
-                        return data;
-                    }
-
-                },
-                {
-                    data: 'session',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                            return data.title;
-                        }
-                        return data;
-                    }
-                },
-                { data: 'capacity' },
+                { data: 'clinic_name' },
+                { data: 'session_name' },
+                { data: 'class_capacity' },
                 {
                     data: 'instructors',
                     defaultContent: '',
-                    render: function (data, type, row) {
-                        /*
-                        if (type === 'display') {
-                            var cell = '<div class="instructors-wrapper">';
-                            data.forEach(function (instructor) {
-                                cell += '<span class="badge">' + instructor + '</span>';
-                            });
-                            cell += '</div>';
-                            return cell;
-                        }*/
-                        return data;
-                    }
                 },
                 {
-                    data: 'id',
+                    data: 'class_id',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            var editUrl = 'post.php?post=' + data + '&action=edit';
                             var rosterUrl = 'admin.php?page=usctdp-admin-rosters&class_id=' + data;
                             var registerUrl = 'admin.php?page=usctdp-admin-register&class_id=' + data;
                             var cell = '<div class="class-actions">'
-                            cell += '<div class="action-item">'
-                            cell += '<a href="' + editUrl + '" class="button button-small">Edit Details</a> ';
-                            cell += '</div>';
                             cell += '<div class="action-item">'
                             cell += '<a href="' + rosterUrl + '" class="button button-small">Roster</a> ';
                             cell += '</div>';
@@ -101,9 +63,8 @@
                 data: function (params) {
                     return {
                         q: params.term,
-                        post_type: 'usctdp-session',
-                        action: usctdp_mgmt_admin.select2_search_action,
-                        security: usctdp_mgmt_admin.select2_search_nonce
+                        action: usctdp_mgmt_admin.select2_session_search_action,
+                        security: usctdp_mgmt_admin.select2_session_search_nonce
                     };
                 },
                 processResults: function (data) {

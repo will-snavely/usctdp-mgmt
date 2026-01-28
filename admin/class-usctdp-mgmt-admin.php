@@ -102,6 +102,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'student_datatable_nonce',
             'callback' => 'ajax_student_datatable'
         ],
+        'class_datatable' => [
+            'action' => 'class_datatable',
+            'nonce' => 'class_datatable_nonce',
+            'callback' => 'ajax_class_datatable'
+        ],
         'save_family_notes' => [
             'action' => 'save_family_notes',
             'nonce' => 'save_family_notes_nonce',
@@ -116,11 +121,6 @@ class Usctdp_Mgmt_Admin
             'action' => 'get_class_qualification',
             'nonce' => 'get_class_qualification_nonce',
             'callback' => 'ajax_get_class_qualification'
-        ],
-        'toggle_tag' => [
-            'action' => 'toggle_tag',
-            'nonce' => 'toggle_tag_nonce',
-            'callback' => 'ajax_toggle_active_tag'
         ]
     ];
 
@@ -360,6 +360,7 @@ class Usctdp_Mgmt_Admin
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'family_url' => admin_url('admin.php?page=usctdp-admin-families')
             ];
+            // TODO: remove toggle_tag
             $handlers = ['select2_search', 'datatable_search', 'toggle_tag', 'gen_roster'];
             foreach ($handlers as $key) {
                 $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
@@ -408,27 +409,75 @@ class Usctdp_Mgmt_Admin
         return null;
     }
 
-    private function get_class_data($id)
+    private function get_class_data($args)
     {
         global $wpdb;
+
+        $where_clause = '';
+        $where_args = [];
+        $conditions = [];
+        if (isset($args["id"])) {
+            $conditions[] = "cls.id = %d";
+            $where_args[] = $args['id'];
+        }
+        if (isset($args["session_id"])) {
+            $conditions[] = "sess.id = %d";
+            $where_args[] = $args['session_id'];
+        }
+        if (isset($args["clinic_id"])) {
+            $conditions[] = "post.ID = %d";
+            $where_args[] = $args['clinic_id'];
+        }
+        if ($conditions) {
+            $where_clause = "WHERE " . implode(" AND ", $conditions);
+        }
+
+        $limit_clause = '';
+        $limit_args = [];
+        if (isset($args["number"])) {
+            $limit_clause = "LIMIT %d";
+            $limit_args[] = $args['number'];
+        }
+        if (isset($args["offset"])) {
+            $limit_clause .= " OFFSET %d";
+            $limit_args[] = $args['offset'];
+        }
+
+        $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
         $query = $wpdb->prepare(
             "   SELECT 
                     cls.id as class_id, cls.title as class_name, cls.day_of_week as class_day_of_week,
                     cls.start_time as class_start_time, cls.end_time as class_end_time,
                     cls.capacity as class_capacity, cls.level as class_level,
                     cls.notes as class_notes,
-                    sess.id as session_id, sess.title as session_name,
+                    sess.id as session_id, 
+                    REPLACE(sess.title, '{$token_suffix}', '') as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
-                    post.post_title as clinic_name, post.ID as clinic_id,
+                    post.post_title as clinic_name, post.ID as clinic_id
                 FROM {$wpdb->prefix}usctdp_clinic_class AS cls 
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON cls.session_id = sess.id
                 JOIN {$wpdb->prefix}posts AS post ON cls.clinic_id = post.ID 
-                WHERE cls.id = %d",
-            $id
+                {$where_clause}
+                ORDER BY cls.id DESC
+                {$limit_clause}",
+            array_merge($where_args, $limit_args)
         );
-        $result = $wpdb->get_row($query);
-        return $result;
+        $window = $wpdb->get_results($query);
+
+        $count_query = $wpdb->prepare(
+            "   SELECT COUNT(*) as count
+                FROM {$wpdb->prefix}usctdp_clinic_class AS cls 
+                JOIN {$wpdb->prefix}usctdp_session AS sess ON cls.session_id = sess.id
+                JOIN {$wpdb->prefix}posts AS post ON cls.clinic_id = post.ID 
+                {$where_clause}",
+            $where_args
+        );
+        $count = $wpdb->get_row($count_query);
+        return [
+            'data' => $window,
+            'count' => $count->count
+        ];
     }
     /**
      * 
@@ -443,7 +492,10 @@ class Usctdp_Mgmt_Admin
                 return $this->db_id_query('Usctdp_Mgmt_Session_Query', $id);
             },
             'class_id' => function ($id) {
-                return $this->get_class_data($id);
+                return $this->get_class_data([
+                    'id' => $id,
+                    'number' => 1
+                ]);
             },
             'student_id' => function ($id) {
                 return $this->db_id_query('Usctdp_Mgmt_Student_Query', $id);
@@ -461,22 +513,6 @@ class Usctdp_Mgmt_Admin
             }
         }
         return $result;
-    }
-
-    private function get_query_object($key)
-    {
-        switch ($key) {
-            case 'class_id':
-                return 'Usctdp_Mgmt_Clinic_Class_Query';
-            case 'session_id':
-                return 'Usctdp_Mgmt_Session_Query';
-            case 'student_id':
-                return 'Usctdp_Mgmt_Student_Query';
-            case 'family_id':
-                return 'Usctdp_Mgmt_Family_Query';
-            default:
-                return null;
-        }
     }
 
     public function load_balances_page()
@@ -498,7 +534,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['datatable_search', 'select2_search'];
+        $handlers = ['datatable_search', 'select2_search', 'class_datatable', 'select2_session_search'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -911,52 +947,6 @@ class Usctdp_Mgmt_Admin
         ]);
     }
 
-    function ajax_toggle_active_tag()
-    {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['toggle_tag'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
-        }
-
-        $post_id = isset($_POST['post_id']) ? sanitize_text_field($_POST['post_id']) : '';
-        $toggle = isset($_POST['toggle']) ? sanitize_text_field($_POST['toggle']) : '';
-
-        if (!$post_id) {
-            wp_send_json_error('No post ID provided.', 400);
-        }
-
-        if (!$toggle) {
-            wp_send_json_error('No toggle provided.', 400);
-        }
-
-        if (!is_numeric($post_id)) {
-            wp_send_json_error('Invalid post ID provided.', 400);
-        }
-
-        $post = get_post($post_id);
-        if (!$post) {
-            wp_send_json_error('Post with ID ' . $post_id . ' not found.', 400);
-        }
-
-        if ($toggle == 'on') {
-            $result = wp_set_post_terms($post_id, 'active', 'post_tag', false);
-            if (!$result) {
-                wp_send_json_error('Failed to tag post as active.', 400);
-            }
-        } elseif ($toggle == 'off') {
-            $result = wp_set_post_terms($post_id, 'inactive', 'post_tag', false);
-            if (!$result) {
-                wp_send_json_error('Failed to tag post as inactive.', 400);
-            }
-        } else {
-            wp_send_json_error('Invalid toggle provided.', 400);
-        }
-
-        wp_send_json_success([
-            'message' => 'Tag toggled successfully'
-        ]);
-    }
-
     function ajax_select2_session_search()
     {
         $results = [];
@@ -1065,6 +1055,40 @@ class Usctdp_Mgmt_Admin
             "recordsTotal"    => count($results),
             "recordsFiltered" => count($results),
             "data"            => $results,
+        );
+        wp_send_json($response);
+    }
+
+    public function ajax_class_datatable()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['class_datatable'];
+        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
+        $clinic_id = isset($_POST['clinic_id']) ? intval($_POST['clinic_id']) : null;
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+        ];
+        if ($session_id) {
+            $args['session_id'] = $session_id;
+        }
+        if ($clinic_id) {
+            $args['clinic_id'] = $clinic_id;
+        }
+
+        $result = $this->get_class_data($args);
+        $response = array(
+            "draw"            => $draw,
+            "recordsTotal"    => $result['count'],
+            "recordsFiltered" => $result['count'],
+            "data"            => $result['data'],
         );
         wp_send_json($response);
     }
