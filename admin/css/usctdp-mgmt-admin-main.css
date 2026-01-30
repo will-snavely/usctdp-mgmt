@@ -5,7 +5,7 @@
 
     grid-template-areas:
         'fam fam bal bal goog goog'
-        'srost srost fr fr fr fr';
+        'srost srost . . . .';
     gap: 10px;
     height: 100%;
 }

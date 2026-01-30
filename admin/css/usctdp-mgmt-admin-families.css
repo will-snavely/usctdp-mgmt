@@ -1,9 +1,35 @@
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
 #family-selector {
     width: 250px;
 }
 
-#family-display-section {
-    display: none;
+#family-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-template-rows: auto 1fr 1fr;
+    gap: 20px;
+    grid-auto-flow: row;
+    grid-template-areas:
+        "family-details family-notes family-notes family-notes family-notes family-notes"
+        "family-members family-members family-members family-members family-members family-members"
+        ". . . . . .";
+}
+
+.family-details {
+    grid-area: family-details;
+}
+
+.family-notes {
+    grid-area: family-notes;
+}
+
+.family-members {
+    grid-area: family-members;
 }
 
 div.dt-length select {
@@ -11,19 +37,39 @@ div.dt-length select {
 }
 
 #family-table-wrap {
-    max-width: 1000px;
+    max-width: 800px;
+    min-width: 0;
 }
 
-#family-details .family-field {
+#family-info-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 5px;
+    padding: 5px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.family-field {
     display: flex;
-    gap: 10px;
-    align-items: center;
-    text-align: right;
+    flex-direction: column;
+    padding-bottom: 5px;
 }
 
-#family-details .family-field label {
-    width: 50px;
-    font-weight: bold;
+.family-field label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #666;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.family-field span {
+    font-size: 1rem;
+    color: #333;
+    min-height: 1.2em;
+    /* Prevents collapse if empty */
 }
 
 #family-notes-wrap {
@@ -52,6 +98,6 @@ div.dt-length select {
 }
 
 #save-notes-button {
-    width: 100px;
+    width: 80px;
     height: auto;
 }

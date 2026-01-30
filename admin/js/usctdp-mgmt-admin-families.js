@@ -70,12 +70,12 @@
             $("#save-notes-success").addClass("hidden");
             $('#save-notes-text').text('Save Notes');
             $('#save-notes-button').removeClass('is-loading');
-            $('#family-display-section').hide();
+            $('#family-container').addClass('hidden');
 
             const selectedValue = this.value;
             var data = preloaded_data ? preloaded_data : $(this).select2('data')[0];
             if (selectedValue && selectedValue !== '') {
-                $('#family-display-section').show();
+                $('#family-container').removeClass('hidden');
                 $("#family-email").text(data.email);
                 $("#family-notes").val(data.notes);
                 if (data.phone_numbers && data.phone_numbers.length > 0) {
