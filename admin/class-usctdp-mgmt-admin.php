@@ -23,7 +23,9 @@ use Google\Client;
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
-class Web_Request_Exception extends Exception {}
+class Web_Request_Exception extends Exception
+{
+}
 
 class Usctdp_Mgmt_Admin
 {
@@ -52,7 +54,7 @@ class Usctdp_Mgmt_Admin
         'usctdp-session',
     ];
 
-    public static $post_handlers =  [
+    public static $post_handlers = [
         'registration' => [
             'submit_hook' => 'usctdp_registration',
             'nonce_name' => 'usctdp_registration_nonce',
@@ -173,7 +175,9 @@ class Usctdp_Mgmt_Admin
      *
      * @since    1.0.0
      */
-    public function enqueue_scripts() {}
+    public function enqueue_scripts()
+    {
+    }
 
     private function usctdp_script_id($suffix)
     {
@@ -395,9 +399,13 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
-    public function settings_init() {}
+    public function settings_init()
+    {
+    }
 
-    public function usctdp_mgmt_sanitize_settings($input) {}
+    public function usctdp_mgmt_sanitize_settings($input)
+    {
+    }
 
     private function echo_admin_page($path)
     {
@@ -561,7 +569,7 @@ class Usctdp_Mgmt_Admin
             return;
         }
 
-        $transient_key = Usctdp_Mgmt_Admin::$transient_prefix  . '_' . $unique_token;
+        $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
         if ($notice = get_transient($transient_key)) {
             $class = 'notice-' . sanitize_html_class($notice['type']);
             $message = esc_html($notice['message']);
@@ -627,7 +635,7 @@ class Usctdp_Mgmt_Admin
                 if (!is_numeric($starting_level)) {
                     throw new Web_Request_Exception('Starting level is not a number.');
                 }
-                $starting_level = (int)$starting_level;
+                $starting_level = (int) $starting_level;
             } else {
                 $starting_level = get_field('level', $student_id);
             }
@@ -709,12 +717,12 @@ class Usctdp_Mgmt_Admin
                 }
                 $redirect_url = add_query_arg([
                     'usctdp_token' => $unique_token,
-                ],  $this->get_redirect_url('usctdp-admin-register'));
+                ], $this->get_redirect_url('usctdp-admin-register'));
             } else {
                 $redirect_url = add_query_arg([
                     'class_id' => $class_id,
                     'usctdp_token' => $unique_token,
-                ],  $this->get_redirect_url('usctdp-admin-rosters'));
+                ], $this->get_redirect_url('usctdp-admin-rosters'));
             }
             set_transient($transient_key, $transient_data, 10);
             wp_safe_redirect($redirect_url);
@@ -735,7 +743,7 @@ class Usctdp_Mgmt_Admin
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
             'activity_id' => $class_id,
-            'count'  => true
+            'count' => true
         ]);
         return $reg_query->found_items;
     }
@@ -752,7 +760,7 @@ class Usctdp_Mgmt_Admin
     function ajax_get_class_qualification()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['class_qualification'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 400);
         }
 
@@ -796,7 +804,7 @@ class Usctdp_Mgmt_Admin
     public function ajax_gen_roster()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['gen_roster'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
@@ -860,7 +868,7 @@ class Usctdp_Mgmt_Admin
     function ajax_save_family_notes()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_family_notes'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
@@ -900,7 +908,7 @@ class Usctdp_Mgmt_Admin
         $results = [];
         try {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_session_search'];
-            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
             $query = new Usctdp_Mgmt_Session_Query();
@@ -911,7 +919,7 @@ class Usctdp_Mgmt_Admin
             if ($query_results) {
                 foreach ($query_results as $result) {
                     $results[] = array(
-                        'id'   => $result->id,
+                        'id' => $result->id,
                         'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title)
                     );
                 }
@@ -928,7 +936,7 @@ class Usctdp_Mgmt_Admin
         $results = [];
         try {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers['session_rosters'];
-            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
             $query = new Usctdp_Mgmt_Session_Query();
@@ -944,7 +952,7 @@ class Usctdp_Mgmt_Admin
     {
         try {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers['toggle_session_active'];
-            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
             $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : '';
@@ -976,7 +984,7 @@ class Usctdp_Mgmt_Admin
         $results = [];
         try {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_family_search'];
-            if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
 
@@ -986,7 +994,7 @@ class Usctdp_Mgmt_Admin
             if ($query_results) {
                 foreach ($query_results as $result) {
                     $results[] = array(
-                        'id'   => $result->id,
+                        'id' => $result->id,
                         'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title),
                         'address' => $result->address,
                         'city' => $result->city,
@@ -1015,7 +1023,7 @@ class Usctdp_Mgmt_Admin
     function ajax_student_datatable()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['student_datatable'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
 
@@ -1048,10 +1056,10 @@ class Usctdp_Mgmt_Admin
         }
 
         $response = array(
-            "draw"            => $draw,
-            "recordsTotal"    => count($results),
+            "draw" => $draw,
+            "recordsTotal" => count($results),
             "recordsFiltered" => count($results),
-            "data"            => $results,
+            "data" => $results,
         );
         wp_send_json($response);
     }
@@ -1059,7 +1067,7 @@ class Usctdp_Mgmt_Admin
     public function ajax_class_datatable()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['class_datatable'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
 
@@ -1083,10 +1091,10 @@ class Usctdp_Mgmt_Admin
         $class_query = new Usctdp_Mgmt_Clinic_Class_Query([]);
         $result = $class_query->get_class_data($args);
         $response = array(
-            "draw"            => $draw,
-            "recordsTotal"    => $result['count'],
+            "draw" => $draw,
+            "recordsTotal" => $result['count'],
             "recordsFiltered" => $result['count'],
-            "data"            => $result['data'],
+            "data" => $result['data'],
         );
         wp_send_json($response);
     }
@@ -1094,7 +1102,7 @@ class Usctdp_Mgmt_Admin
     function ajax_select2_search()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_search'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
@@ -1127,10 +1135,10 @@ class Usctdp_Mgmt_Admin
             ];
             foreach ($_GET["filter"] as $key => $filter) {
                 $meta_query[] = [
-                    'key'     => $key,
-                    'value'   => sanitize_text_field($filter['value']),
+                    'key' => $key,
+                    'value' => sanitize_text_field($filter['value']),
                     'compare' => sanitize_text_field($filter['compare']),
-                    'type'    => sanitize_text_field($filter['type'])
+                    'type' => sanitize_text_field($filter['type'])
                 ];
             }
         }
@@ -1145,7 +1153,7 @@ class Usctdp_Mgmt_Admin
             while ($query->have_posts()) {
                 $query->the_post();
                 $result = array(
-                    'id'   => get_the_ID(),
+                    'id' => get_the_ID(),
                     'text' => html_entity_decode(get_the_title())
                 );
                 if ($include_acf) {
@@ -1161,7 +1169,7 @@ class Usctdp_Mgmt_Admin
     public function ajax_datatable_registrations()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_registrations'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
 
@@ -1219,10 +1227,10 @@ class Usctdp_Mgmt_Admin
         }
 
         $response = array(
-            "draw"            => $draw,
-            "recordsTotal"    => count($results),
+            "draw" => $draw,
+            "recordsTotal" => count($results),
             "recordsFiltered" => count($results),
-            "data"            => $results,
+            "data" => $results,
         );
         wp_send_json($response);
     }
@@ -1230,7 +1238,7 @@ class Usctdp_Mgmt_Admin
     public function ajax_datatable_balances()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_balances'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
 
@@ -1274,10 +1282,10 @@ class Usctdp_Mgmt_Admin
         }
 
         $response = array(
-            "draw"            => $draw,
-            "recordsTotal"    => $grand_total,
+            "draw" => $draw,
+            "recordsTotal" => $grand_total,
             "recordsFiltered" => $grand_total,
-            "data"            => $output_data,
+            "data" => $output_data,
         );
         wp_send_json($response);
     }
@@ -1285,7 +1293,7 @@ class Usctdp_Mgmt_Admin
     public function ajax_datatable_balances_detail()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_balances_detail'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
 
@@ -1336,10 +1344,10 @@ class Usctdp_Mgmt_Admin
         }
 
         $response = array(
-            "draw"            => $draw,
-            "recordsTotal"    => $grand_total,
+            "draw" => $draw,
+            "recordsTotal" => $grand_total,
             "recordsFiltered" => $grand_total,
-            "data"            => $output_data,
+            "data" => $output_data,
         );
         wp_send_json($response);
     }
@@ -1347,7 +1355,7 @@ class Usctdp_Mgmt_Admin
     public function ajax_datatable_search()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_search'];
-        if (! check_ajax_referer($handler['nonce'], 'security', false)) {
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
 
@@ -1395,7 +1403,7 @@ class Usctdp_Mgmt_Admin
             $args['tag'] = $tag;
         }
 
-        if (! empty($search_val)) {
+        if (!empty($search_val)) {
             $args['s'] = $search_val;
         }
 
@@ -1432,10 +1440,10 @@ class Usctdp_Mgmt_Admin
         }
 
         $response = array(
-            "draw"            => $draw,
-            "recordsTotal"    => $query->found_posts,
+            "draw" => $draw,
+            "recordsTotal" => $query->found_posts,
             "recordsFiltered" => $query->found_posts,
-            "data"            => $data_output,
+            "data" => $data_output,
         );
         wp_send_json($response);
     }
