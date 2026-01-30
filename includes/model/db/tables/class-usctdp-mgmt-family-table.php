@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Table;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -13,13 +13,6 @@ class Usctdp_Mgmt_Family_Table extends Table
     public $description = 'USCTDP Families';
     protected $version = '1.0.0';
     protected $upgrades = array();
-
-    public static function create_title($first, $last)
-    {
-        $sanitized = sanitize_text_field($first . ' ' . $last);
-        return Usctdp_Mgmt_Model::append_token_suffix($sanitized);
-    }
-
     public function set_schema()
     {
         $this->schema = "

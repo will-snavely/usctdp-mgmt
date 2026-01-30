@@ -1,7 +1,7 @@
 <?php
 
 // Check to ensure WordPress functions are available and prevent direct access.
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 

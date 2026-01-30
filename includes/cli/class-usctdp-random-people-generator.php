@@ -40,6 +40,14 @@ class Usctdp_Random_People_Generator
         "Long", "Ross", "Foster", "Jimenez", "Powell", "Jenkins", "Perry", "Russell",
         "Sullivan", "Bell", "Coleman", "Butler", "Henderson", "Barnes", "Fisher", "Graham"
     ];
+
+    private $street_names = [
+        "Main", "Oak", "Pine", "Maple", "Elm", "Cedar", "Park", "Church", "High", "Washington"
+    ];
+
+    private $street_types = [
+        "St", "Ave", "Blvd", "Ln", "Dr", "Ct", "Way", "Rd", "Pl", "Ter"
+    ];
     // @formatter:on
 
     private function generate_staff($count)
@@ -54,9 +62,9 @@ class Usctdp_Random_People_Generator
                 continue;
             }
             $post_id = wp_insert_post([
-                'post_title'    => $first_name . " " . $last_name,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-staff'
+                'post_title' => $first_name . " " . $last_name,
+                'post_status' => 'publish',
+                'post_type' => 'usctdp-staff'
             ]);
             update_field('field_usctdp_staff_first_name', $first_name, $post_id);
             update_field('field_usctdp_staff_last_name', $last_name, $post_id);
@@ -69,7 +77,6 @@ class Usctdp_Random_People_Generator
         }
         return $result;
     }
-
     private function generate_families($count, $max_students)
     {
         $result = [];
@@ -79,45 +86,44 @@ class Usctdp_Random_People_Generator
             $last_name = $this->last_names[array_rand($this->last_names)];
             $random_last_four_digits = sprintf('%04d', rand(0, 9999));
             $phone_number = "555-555-" . $random_last_four_digits;
-            $family_title = Usctdp_Mgmt_Family::create_title($last_name, $phone_number);
+            $family_title = $last_name . ' ' . $random_last_four_digits;
             if (isset($seen[$family_title])) {
                 continue;
             }
 
+            WP_CLI::log("Generating family: " . $last_name);
             // Define the user data array
             $userdata = array(
-                'user_login' => $last_name,
+                'user_login' => $last_name . $random_last_four_digits,
                 'user_pass' => bin2hex(random_bytes(16)),
-                'user_email' => $last_name . '@example.com',
+                'user_email' => $last_name . $random_last_four_digits . '@example.com',
                 'first_name' => 'Family',
                 'last_name' => $last_name,
-                'display_name' => $last_name,
+                'display_name' => $last_name . ' ' . $random_last_four_digits,
                 'role' => 'subscriber'
             );
             $user_id = wp_insert_user($userdata);
-
-            $family_id = wp_insert_post([
-                'post_title'    => $family_title,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-family'
-            ]);
-            update_field('field_usctdp_family_last_name', $last_name, $family_id);
-            update_field('field_usctdp_family_phone_number', $phone_number, $family_id);
-
+            if (is_wp_error($user_id)) {
+                WP_CLI::error($user_id->get_error_message());
+                return;
+            }
             $street_numbers = rand(100, 9999);
-            $street_names = ["Main", "Oak", "Pine", "Maple", "Elm", "Cedar", "Park", "Church", "High", "Washington"];
-            $street_types = ["St", "Ave", "Rd", "Ln", "Blvd", "Ct"];
-            $random_street_name = $street_names[array_rand($street_names)];
-            $random_street_type = $street_types[array_rand($street_types)];
-            update_field('field_usctdp_family_address', "$street_numbers $random_street_name $random_street_type", $family_id);
-            update_field('field_usctdp_family_city', "Pittsburgh", $family_id);
-            update_field('field_usctdp_family_state', "PA", $family_id);
-
+            $random_street_name = $this->street_names[array_rand($this->street_names)];
+            $random_street_type = $this->street_types[array_rand($this->street_types)];
             $random_zip = sprintf('15%03d', rand(0, 999));
-            update_field('field_usctdp_family_zip', $random_zip, $family_id);
-
-            update_field('field_usctdp_family_user', $user_id, $family_id);
-            wp_set_post_terms($family_id, ["test-data"], 'post_tag', false);
+            $query = new Usctdp_Mgmt_Family_Query([]);
+            $family_id = $query->add_item([
+                "title" => $family_title,
+                "last" => $last_name,
+                "address" => $street_numbers . " " . $random_street_name . " " . $random_street_type,
+                "city" => "Pittsburgh",
+                "state" => "PA",
+                "zip" => $random_zip,
+                "phone_numbers" => json_encode([$phone_number]),
+                "email" => $last_name . "@example.com",
+                "user_id" => $user_id,
+                "notes" => "",
+            ]);
 
             $seen[$family_title] = true;
             $i++;
@@ -142,25 +148,24 @@ class Usctdp_Random_People_Generator
                 continue;
             }
             $name = $first_name . " " . $last_name;
-            $post_id = wp_insert_post([
-                'post_title'    => $name,
-                'post_status'   => 'publish',
-                'post_type'     => 'usctdp-student'
-            ]);
-            update_field('field_usctdp_student_first_name', $first_name, $post_id);
-            update_field('field_usctdp_student_last_name', $last_name, $post_id);
-            $year = mt_rand(2000, 2020);
+            $query = new Usctdp_Mgmt_Student_Query([]);
+            $year = mt_rand(1980, 2020);
             $month = mt_rand(1, 12);
             $day = mt_rand(1, date('t', mktime(0, 0, 0, $month, 1, $year)));
             $random_birth_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-            update_field('field_usctdp_student_birth_date', $random_birth_date, $post_id);
-            update_field('field_usctdp_student_family', $family_id, $post_id);
-            update_field('field_usctdp_student_level', rand(1, 5), $post_id);
-            wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-            $seen[$first_name] = true;
+            WP_CLI::log("Generating student: " . $first_name . " " . $last_name);
+            $student_id = $query->add_item([
+                "title" => $first_name . ' ' . $last_name,
+                "family_id" => $family_id,
+                "first" => $first_name,
+                "last" => $last_name,
+                "birth_date" => $random_birth_date,
+                "level" => rand(1, 5),
+            ]);
+
             $i++;
             $result[] = [
-                "id" => $post_id,
+                "id" => $student_id,
                 "name" => $name
             ];
         }

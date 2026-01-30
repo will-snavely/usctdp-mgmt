@@ -2,7 +2,9 @@
 
 class Usctdp_Import_Family_Data
 {
-    public function __construct() {}
+    public function __construct()
+    {
+    }
 
     private function import_student($student, $family_id, $family)
     {
@@ -13,7 +15,7 @@ class Usctdp_Import_Family_Data
             $birth_date_str = $birth_date->format('Y-m-d');
         }
         $query->add_item([
-            "title" => $student["first"]  . ' ' . $family["last"],
+            "title" => $student["first"] . ' ' . $family["last"],
             "family_id" => $family_id,
             "first" => $student["first"],
             "last" => $family["last"],

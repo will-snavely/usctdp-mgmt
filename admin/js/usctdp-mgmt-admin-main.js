@@ -55,9 +55,8 @@
                 data: function (params) {
                     return {
                         q: params.term,
-                        post_type: 'usctdp-family',
-                        action: usctdp_mgmt_admin.select2_search_action,
-                        security: usctdp_mgmt_admin.select2_search_nonce,
+                        action: usctdp_mgmt_admin.select2_family_search_action,
+                        security: usctdp_mgmt_admin.select2_family_search_nonce,
                     };
                 },
                 processResults: function (data) {
