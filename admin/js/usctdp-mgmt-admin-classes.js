@@ -2,11 +2,30 @@
     "use strict";
     $(document).ready(function () {
         // DataTables Initialization
+        var $daysOfWeek = {
+            1: 'Monday',
+            2: 'Tuesday',
+            3: 'Wednesday',
+            4: 'Thursday',
+            5: 'Friday',
+            6: 'Saturday',
+            7: 'Sunday'
+        };
+
+        function displayTime(dateObj) {
+            const options = {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            };
+            return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+        }
+
         var table = $('#usctdp-upcoming-classes-table').DataTable({
             processing: true,
             serverSide: true,
             ordering: false,
-            searching: true,
+            searching: false,
             paging: true,
 
             ajax: {
@@ -25,9 +44,33 @@
                     }
                 }
             },
+            initComplete: function () {
+                $('#usctdp-upcoming-classes-table').removeClass('hidden');
+            },
             columns: [
                 { data: 'clinic_name' },
                 { data: 'session_name' },
+                {
+                    data: 'class_day_of_week',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            return $daysOfWeek[data];
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'class_start_time',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            const [hours, minutes, seconds] = data.split(':').map(Number);
+                            const dateObj = new Date();
+                            dateObj.setHours(hours, minutes, seconds);
+                            return displayTime(dateObj);
+                        }
+                        return data;
+                    }
+                },
                 { data: 'class_capacity' },
                 {
                     data: 'instructors',
@@ -100,7 +143,6 @@
         var $first_row = $table_controls.find("div.dt-layout-row").first();
         var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>"
         $first_row.after(filter_row);
-
         $('#table-filters').appendTo('#table-filter-row');
         $('#session-filter, #clinic-filter').on('change', function () {
             table.ajax.reload();

@@ -1,12 +1,11 @@
 .grid-layout {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: 150px auto;
 
     grid-template-areas:
         'fam fam bal bal goog goog'
-        'srost srost srost crost crost crost'
-        'act act act crost crost crost';
+        'srost srost fr fr fr fr';
     gap: 10px;
     height: 100%;
 }
@@ -35,6 +34,7 @@
 .grid-square-content {
     background-color: #ffffff;
     padding: 10px;
+    min-width: 0;
 }
 
 #item-0 {
@@ -57,26 +57,23 @@
 
 #item-3 {
     grid-area: srost;
-    grid-column: span 3;
+    grid-column: span 2;
     padding: 5px;
-}
-
-#item-4 {
-    grid-area: crost;
-    grid-column: span 3;
-    padding: 5px;
-}
-
-#item-5 {
-    grid-area: act;
-    grid-column: span 3;
-    padding: 5px;
+    min-width: 0;
 }
 
 #usctdp-families-manager {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+#families-select2 {
+    width: 200px;
+}
+
+#manage-family-btn {
+    width: 120px;
 }
 
 #usctdp-oustanding-balances-manager {
@@ -88,11 +85,7 @@
 #balances-report-link {
     display: inline-block;
     text-align: center;
-    width: 80px;
-}
-
-#manage-family-btn {
-    width: 120px;
+    width: 100px;
 }
 
 #usctdp-google-authorization-manager {
@@ -101,27 +94,61 @@
     gap: 5px;
 }
 
-#active-sessions-select2 {
-    width: 300px;
+#usctdp-session-rosters-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
 }
 
-#families-select2 {
+#session-rosters-container {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#session-rosters-select-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 0;
+}
+
+#active-sessions-select2 {
     width: 200px;
 }
 
-#active-sessions-container {
-    max-width: 800px;
+#session-rosters-table {
+    table-layout: fixed;
 }
 
-#active-sessions-table th:first-child {
-    width: 80%;
+#session-rosters-table tbody tr td {
+    vertical-align: middle;
 }
 
-#active-sessions-table th:nth-child(2) {
-    width: 20%;
+#session-rosters-table thead tr th {
+    font-weight: bold;
+    background-color: #83cdf5;
+}
+
+#session-rosters-table tbody tr {
+    height: auto;
+}
+
+#session-rosters-table tbody tr:nth-child(odd) {
+    background-color: #d5d1d1;
+}
+
+#session-rosters-table tbody tr:nth-child(even) {
+    background-color: #f1f1f1;
 }
 
 .session-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.action-buttons {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
@@ -152,18 +179,4 @@
 .is-loading {
     cursor: wait;
     pointer-events: none;
-}
-
-.refresh-session-roster {
-    width: 80px;
-}
-
-.refresh-clinic-roster {
-    width: 80px;
-}
-
-.action-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
 }

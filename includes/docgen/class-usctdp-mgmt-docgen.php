@@ -26,23 +26,34 @@ class Usctdp_Mgmt_Docgen
         $this->template_file = $docgen_dir . 'templates/roster_template.docx';
     }
 
+    private function int_to_day($day)
+    {
+        switch ($day) {
+            case 1:
+                return 'Monday';
+            case 2:
+                return 'Tuesday';
+            case 3:
+                return 'Wednesday';
+            case 4:
+                return 'Thursday';
+            case 5:
+                return 'Friday';
+            case 6:
+                return 'Saturday';
+            case 7:
+                return 'Sunday';
+            default:
+                return 'Unknown';
+        }
+    }
+
     private function get_class_registrations($class_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
             'activity_id' => $class_id
         ]);
-
-        $result = [];
-        foreach ($reg_query->items as $item) {
-            $result[] = [
-                'student_id' => $item->student_id,
-                'activity_id' => $item->activity_id,
-                'starting_level' => $item->starting_level,
-                'balance' => $item->balance,
-                'notes' => $item->notes
-            ];
-        }
-        return $result;
+        return $reg_query->items;
     }
 
     private function get_drive_id($post_id)
@@ -67,52 +78,50 @@ class Usctdp_Mgmt_Docgen
 
     public function generate_session_roster($session_id)
     {
-        $activity_query = new Usctdp_Mgmt_Activity_Link_Query([
+        WP_CLI::log("Generating session roster for session " . $session_id);
+        $class_query = new Usctdp_Mgmt_Clinic_Class_Query([
             'session_id' => $session_id
         ]);
         $templateProcessor = new TemplateProcessor($this->template_file);
-        $class_ids = [];
-        foreach ($activity_query->items as $item) {
-            $class_ids[] = $item->activity_id;
-        }
-        $templateProcessor->cloneBlock('roster', count($class_ids), true, true);
-        foreach ($class_ids as $index => $class_id) {
-            $this->generate_class_roster_impl($templateProcessor, $class_id, $index + 1);
+        $templateProcessor->cloneBlock('roster', count($class_query->items), true, true);
+        $index = 1;
+        foreach ($class_query->items as $item) {
+            WP_CLI::log("Generating class roster for class " . $item->id);
+            $this->generate_class_roster_impl($templateProcessor, $item->id, $index);
+            $index++;
         }
         return $templateProcessor;
     }
 
     public function generate_clinic_roster($clinic_id, $session_id)
     {
-        $activity_query = new Usctdp_Mgmt_Activity_Link_Query([
+        $activity_query = new Usctdp_Mgmt_Clinic_Class_Query([
             'clinic_id' => $clinic_id,
             'session_id' => $session_id
         ]);
         $templateProcessor = new TemplateProcessor($this->template_file);
-        $class_ids = [];
+        $templateProcessor->cloneBlock('roster', count($activity_query->items), true, true);
+        $index = 1;
         foreach ($activity_query->items as $item) {
-            $class_ids[] = $item->activity_id;
-        }
-        $templateProcessor->cloneBlock('roster', count($class_ids), true, true);
-        foreach ($class_ids as $index => $class_id) {
-            $this->generate_class_roster_impl($templateProcessor, $class_id, $index + 1);
+            $this->generate_class_roster_impl($templateProcessor, $item->id, $index);
+            $index++;
         }
         return $templateProcessor;
     }
 
-    public function upload_to_google_drive($templateProcessor, $post_id)
+    public function upload_to_google_drive($templateProcessor, $session)
     {
         $client = $this->create_google_client();
         $drive = new Drive($client);
 
-        $drive_id = $this->get_drive_id($post_id);
+        $drive_id = $this->get_drive_id($session->id);
         $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
 
         ob_start();
         $templateProcessor->saveAs('php://output');
         $content = ob_get_clean();
 
-        $title = get_the_title($post_id);
+        $title = $session->title;
         $clean_title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
         $metadata_args = [
             'name' => 'Roster: ' . $clean_title,
@@ -141,7 +150,7 @@ class Usctdp_Mgmt_Docgen
 
             $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
             $link_query->add_item([
-                'entity_id' => $post_id,
+                'entity_id' => $session_id,
                 'drive_id' => $file->id
             ]);
         }
@@ -162,59 +171,70 @@ class Usctdp_Mgmt_Docgen
         return $client;
     }
 
-    private function age_from_birthdate($birthdate)
-    {
-        $today = new DateTime('today');
-        $age = $birthdate->diff($today)->y;
-        return $age;
-    }
-
     private function generate_class_roster_impl($templateProcessor, $class_id, $block_id)
     {
-        $class_fields = get_fields($class_id);
+        $class_query = new Usctdp_Mgmt_Clinic_Class_Query();
+        $class_data = $class_query->get_class_data([
+            'id' => $class_id,
+            'number' => 1
+        ]);
+        if (empty($class_data['data'])) {
+            throw new ErrorException('Class not found');
+        }
+        $class_fields = $class_data['data'][0];
         $registrations = $this->get_class_registrations($class_id);
-        $session_name = get_field('name', $class_fields['session']);
-        $age_group = get_field('age_group', $class_fields['clinic']);
-        $start_date_raw = get_field('start_date', $class_fields['session']);
-        $start_date = $start_date_raw ? DateTime::createFromFormat('Ymd', $start_date_raw)->format('m/d/Y') : '';
-        $end_date_raw = get_field('end_date', $class_fields['session']);
-        $end_date = $end_date_raw ? DateTime::createFromFormat('Ymd', $end_date_raw)->format('m/d/Y') : '';
+        $session_name = $class_fields->session_name;
+        $age_group = get_field('usctdp_clinic_age_group', $class_fields->clinic_id);
+        $start_date_raw = $class_fields->session_start_date;
+        $start_date = $start_date_raw ? DateTime::createFromFormat('Y-m-d', $start_date_raw)->format('m/d/Y') : '';
+        $end_date_raw = $class_fields->session_end_date;
+        $end_date = $end_date_raw ? DateTime::createFromFormat('Y-m-d', $end_date_raw)->format('m/d/Y') : '';
+        $start_time_raw = $class_fields->class_start_time;
+        $start_time = $start_time_raw ? DateTime::createFromFormat('H:i:s', $start_time_raw)->format('g:i A') : '';
+        $end_time_raw = $class_fields->class_end_time;
+        $end_time = $end_time_raw ? DateTime::createFromFormat('H:i:s', $end_time_raw)->format('g:i A') : '';
+
         $templateProcessor->setValue("session_title#$block_id", $session_name);
-        $templateProcessor->setValue("dow#$block_id", $class_fields['day_of_week']);
-        $templateProcessor->setValue("stime#$block_id", $class_fields['start_time']);
-        $templateProcessor->setValue("etime#$block_id", $class_fields['end_time']);
-        $templateProcessor->setValue("clinic_level#$block_id", $class_fields['level']);
-        $templateProcessor->setValue("cap#$block_id", $class_fields['capacity']);
+        $templateProcessor->setValue("dow#$block_id", $this->int_to_day($class_fields->class_day_of_week));
+        $templateProcessor->setValue("stime#$block_id", $start_time);
+        $templateProcessor->setValue("etime#$block_id", $end_time);
+        $templateProcessor->setValue("clinic_level#$block_id", $class_fields->class_level);
+        $templateProcessor->setValue("cap#$block_id", $class_fields->class_capacity);
         $templateProcessor->setValue("age_group#$block_id", $age_group);
         $templateProcessor->setValue("sdate#$block_id", $start_date);
         $templateProcessor->setValue("edate#$block_id", $end_date);
 
-        if (isset($class_fields['instructors'])) {
-            $templateProcessor->setValue("insts#$block_id", '');
-        } else {
-            $templateProcessor->setValue("insts#$block_id", '');
-        }
-
-        if (isset($class_fields['instructors'])) {
-            $templateProcessor->setValue("insts#$block_id", '');
-        } else {
-            $templateProcessor->setValue("insts#$block_id", '');
-        }
+        // TODO: Add instructors
+        $templateProcessor->setValue("insts#$block_id", '');
         $templateProcessor->setValue("skipped_clinics#$block_id", '');
         $templateProcessor->setValue("session_short_code#$block_id", '');
 
         $student_data = [];
         $idx = 1;
         foreach ($registrations as $registration) {
-            $family = get_field('field_usctdp_student_family', $registration['student_id']);
-            $student_id = $registration['student_id'];
-            $phone = get_field('field_usctdp_family_phone_number', $family);
-            $first_name = get_field('field_usctdp_student_first_name', $student_id);
-            $last_name = get_field('field_usctdp_student_last_name', $student_id);
-            $student_birthdate_raw = get_field('field_usctdp_student_birth_date', $student_id);
-            $student_birthdate = DateTime::createFromFormat('Ymd', $student_birthdate_raw);
-            $level = $registration['starting_level'];
-            $student_age = $this->age_from_birthdate($student_birthdate);
+            $student_query = new Usctdp_Mgmt_Student_Query([
+                'id' => $registration->student_id,
+                'number' => 1
+            ]);
+            if (empty($student_query->items)) {
+                throw new ErrorException('Student ' . $registration->student_id . ' not found');
+            }
+            $student_data = $student_query->items[0];
+
+            $family_query = new Usctdp_Mgmt_Family_Query([
+                'id' => $student_data->family_id,
+                'number' => 1
+            ]);
+            if (empty($family_query->items)) {
+                throw new ErrorException('Family ' . $student_data->family_id . ' not found');
+            }
+            $family_data = $family_query->items[0];
+
+            $phone = implode('/', $family_data->phone_numbers);
+            $first_name = $student_data->first_name;
+            $last_name = $student_data->last_name;
+            $level = $registration->starting_level;
+            $student_age = $student_data->age;
 
             $student_data[] = [
                 'att#' . $block_id => "___" . $idx,

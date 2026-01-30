@@ -13,11 +13,13 @@
                         <select id="session-filter"></select>
                     </div>
                 </div>
-                <table id="usctdp-upcoming-classes-table" class="usctdp-custom-post-table">
+                <table id="usctdp-upcoming-classes-table" class="usctdp-custom-post-table hidden">
                     <thead>
                         <tr>
                             <th>Clinic</th>
                             <th>Session</th>
+                            <th>Day</th>
+                            <th>Time</th>
                             <th>Capacity</th>
                             <th>Staff</th>
                             <th>Actions</th>

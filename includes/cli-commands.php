@@ -61,20 +61,8 @@ class Usctdp_Cli_Command
 
     public function gen_rosters($args, $assoc_args)
     {
-        $include = [];
-        if ($args && count($args) > 0) {
-            $target = $args[0];
-            if ($target === 'all') {
-                $include = ['sessions', 'classes', 'clinics'];
-            } else {
-                $include = [$target];
-            }
-        } else {
-            WP_CLI::error('Target not provided (one of all, sessions, classes, clinics)');
-            return;
-        }
         $generator = new Usctdp_Roster_Generator();
-        $generator->create_rosters($include);
+        $generator->create_rosters();
     }
 
     public function import_families($args, $assoc_args)
