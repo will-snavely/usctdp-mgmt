@@ -8,6 +8,12 @@
     width: 250px;
 }
 
+.family-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 #family-container {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
@@ -57,7 +63,7 @@ div.dt-length select {
     padding-bottom: 5px;
 }
 
-.family-field label {
+label {
     font-size: 0.85rem;
     text-transform: uppercase;
     color: #666;
@@ -76,6 +82,7 @@ div.dt-length select {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    margin-top: 5px;
     gap: 10px;
     width: 100%;
     max-width: 500px;
@@ -97,7 +104,29 @@ div.dt-length select {
     align-items: center;
 }
 
-#save-notes-button {
-    width: 80px;
-    height: auto;
+@keyframes loading-pulse {
+    0% {
+        opacity: 1;
+        color: #CCCCCC;
+    }
+
+    50% {
+        opacity: 0.8;
+        color: #1c2576;
+        transform: scale(0.98);
+    }
+
+    100% {
+        opacity: 1;
+        color: #CCCCCC;
+    }
+}
+
+.is-loading .button-text {
+    animation: loading-pulse 1.5s infinite ease-in-out;
+}
+
+.is-loading {
+    cursor: wait;
+    pointer-events: none;
 }

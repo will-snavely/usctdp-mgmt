@@ -43,7 +43,8 @@ if ($balance_results) {
             <div id="usctdp-oustanding-balances-manager" class="grid-square-content">
                 <span><strong>Outstanding Registrations:</strong> <?php echo $outstanding_count; ?></span>
                 <span><strong>Outstanding Balance:</strong> <?php echo $outstanding_balance; ?></span>
-                <a href="<?php echo admin_url('admin.php?page=usctdp-admin-balances'); ?>" id="balances-report-link" type="button" class="button">View Report</a>
+                <a href="<?php echo admin_url('admin.php?page=usctdp-admin-balances'); ?>" id="balances-report-link"
+                    type="button" class="button">View Report</a>
             </div>
         </div>
         <div id="item-2" class="grid-square">
@@ -51,9 +52,11 @@ if ($balance_results) {
                 <span class="grid-header">Google Auth</span>
             </div>
             <div id="usctdp-google-authorization-manager" class="grid-square-content">
-                <span><strong>Refresh Token Present:</strong> <?php echo get_option('usctdp_google_refresh_token') ? 'Yes' : 'No'; ?></span>
+                <span><strong>Refresh Token Present:</strong>
+                    <?php echo get_option('usctdp_google_refresh_token') ? 'Yes' : 'No'; ?></span>
                 <?php if (get_option('usctdp_google_refresh_token_timestamp')) { ?>
-                    <span><strong>Refresh Token Timestamp:</strong> <?php echo get_option('usctdp_google_refresh_token_timestamp'); ?></span>
+                    <span><strong>Refresh Token Timestamp:</strong>
+                        <?php echo get_option('usctdp_google_refresh_token_timestamp'); ?></span>
                 <?php } ?>
                 <span>
                     <?php $auth_url = admin_url('admin.php?page=usctdp-admin-main&usctdp_google_auth=1'); ?>

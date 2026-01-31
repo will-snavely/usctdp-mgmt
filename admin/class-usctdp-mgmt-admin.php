@@ -119,6 +119,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'class_datatable_nonce',
             'callback' => 'ajax_class_datatable'
         ],
+        'save_family_fields' => [
+            'action' => 'save_family_fields',
+            'nonce' => 'save_family_fields_nonce',
+            'callback' => 'ajax_save_family_fields'
+        ],
         'save_family_notes' => [
             'action' => 'save_family_notes',
             'nonce' => 'save_family_notes_nonce',
@@ -551,7 +556,12 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['save_family_notes', 'student_datatable', 'select2_family_search'];
+        $handlers = [
+            'save_family_notes',
+            'save_family_fields',
+            'student_datatable',
+            'select2_family_search'
+        ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -865,6 +875,70 @@ class Usctdp_Mgmt_Admin
         }
     }
 
+    function ajax_save_family_fields()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_family_fields'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        $default_sanitizer = function ($value) {
+            return sanitize_text_field($value);
+        };
+        $post_fields_sanitizers = [
+            'email' => $default_sanitizer,
+            'address' => $default_sanitizer,
+            'city' => $default_sanitizer,
+            'state' => $default_sanitizer,
+            'zip' => $default_sanitizer,
+            'phone' => function ($value) {
+                $parts = explode('|', sanitize_text_field($value));
+                return json_encode($parts);
+            }
+        ];
+
+        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
+        if (!$family_id) {
+            wp_send_json_error('No family ID provided.', 400);
+        }
+        try {
+            $args = [];
+            foreach ($post_fields_sanitizers as $field => $handler) {
+                if (isset($_POST[$field])) {
+                    $args[$field] = $handler($_POST[$field]);
+                }
+            }
+            if (empty($args)) {
+                wp_send_json_success([
+                    'message' => 'No work to do.'
+                ]);
+            }
+            $query = new Usctdp_Mgmt_Family_Query([
+                'id' => $family_id,
+                'number' => 1
+            ]);
+            if (empty($query->items)) {
+                wp_send_json_error('Family with ID ' . $family_id . ' not found.', 400);
+            }
+            $result = $query->update_item($family_id, $args);
+            if ($result) {
+                wp_send_json_success([
+                    'message' => 'Family updated successfully'
+                ]);
+            } else {
+                wp_send_json_error('Failed to update family.', 500);
+            }
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                'Error updating family: ' . $e->getMessage()
+            );
+            Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                'Trace: ' . $e->getTraceAsString()
+            );
+            wp_send_json_error('An unexpected server error occurred during family update.', 500);
+        }
+    }
+
     function ajax_save_family_notes()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_family_notes'];
@@ -892,6 +966,11 @@ class Usctdp_Mgmt_Admin
         }
 
         $notes = sanitize_textarea_field(stripslashes($notes));
+        if ($notes === $query->items[0]->notes) {
+            wp_send_json_success([
+                'message' => 'No work to do.'
+            ]);
+        }
         $result = $query->update_item($family_id, [
             'notes' => $notes
         ]);

@@ -2,6 +2,7 @@
     "use strict";
     $(document).ready(function () {
         var preloaded_data = null;
+        var edit_mode = false;
 
         $('#family-selector').select2({
             placeholder: "Search for a family...",
@@ -30,6 +31,7 @@
             ordering: false,
             searching: false,
             paging: false,
+            info: false,
             deferLoading: 0,
 
             ajax: {
@@ -65,6 +67,12 @@
             ]
         });
 
+        function updateFamilyField(id, value) {
+            $('#' + id + ' .view-mode').text(value);
+            $('#' + id + ' .edit-mode').val(value);
+            $('#' + id).data('orig-value', value);
+        }
+
         $('#family-selector').on('change', function () {
             $("#save-notes-error").addClass("hidden");
             $("#save-notes-success").addClass("hidden");
@@ -76,18 +84,86 @@
             var data = preloaded_data ? preloaded_data : $(this).select2('data')[0];
             if (selectedValue && selectedValue !== '') {
                 $('#family-container').removeClass('hidden');
-                $("#family-email").text(data.email);
-                $("#family-notes").val(data.notes);
+                updateFamilyField('family-email', data.email);
+                updateFamilyField('family-address', data.address);
+                updateFamilyField('family-city', data.city);
+                updateFamilyField('family-state', data.state);
+                updateFamilyField('family-zip', data.zip);
                 if (data.phone_numbers && data.phone_numbers.length > 0) {
-                    $("#family-phone").text(data.phone_numbers.join(" | "));
+                    updateFamilyField('family-phone', data.phone_numbers.join(" | "));
                 } else {
-                    $("#family-phone").text('Not available');
+                    updateFamilyField('family-phone', 'Not available');
                 }
-                $("#family-address").text(data.address);
-                $("#family-city").text(data.city);
-                $("#family-state").text(data.state);
-                $("#family-zip").text(data.zip);
+                $('#family-notes').val(data.notes);
                 membersTable.ajax.reload();
+            }
+        });
+
+        function saveFamilyFields() {
+            const fields = {
+                'family-email': 'email',
+                'family-address': 'address',
+                'family-city': 'city',
+                'family-state': 'state',
+                'family-zip': 'zip',
+                'family-phone': 'phone'
+            };
+            const changedData = {};
+            Object.entries(fields).forEach(([divId, fieldName]) => {
+                const curValue = $('#' + divId + ' .edit-mode').val().trim();
+                const origValue = $('#' + divId).data('orig-value').trim();
+                if (curValue !== origValue) {
+                    changedData[fieldName] = curValue;
+                }
+            });
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.save_family_fields_action,
+                    security: usctdp_mgmt_admin.save_family_fields_nonce,
+                    family_id: $('#family-selector').val(),
+                    ...changedData
+                },
+                success: function (responseData) {
+                    Object.entries(fields).forEach(([divId, fieldName]) => {
+                        if (fieldName in changedData) {
+                            updateFamilyField(divId, changedData[fieldName]);
+                        }
+                    });
+                },
+                error: function (xhr, status, error) {
+                    alert("Update failed!");
+                },
+                complete: function () {
+                    $('#edit-family-button').text('Edit');
+                    $('#edit-family-button').removeClass('is-loading');
+                    $("#family-info-list .family-field").each(function () {
+                        $(this).find('.view-mode').removeClass('hidden');
+                        $(this).find('.edit-mode').addClass('hidden');
+                        $(this).find('.edit-mode').prop('disabled', false);
+                    });
+                    edit_mode = false;
+                }
+            });
+        }
+
+        $('#edit-family-button').on('click', function () {
+            if (edit_mode) {
+                $("#family-info-list .family-field").each(function () {
+                    $(this).find('.edit-mode').prop('disabled', true);
+                });
+                $('#edit-family-button').text('Working...');
+                $('#edit-family-button').addClass('is-loading');
+                saveFamilyFields();
+            } else {
+                $(this).text('Save');
+                $("#family-info-list .family-field").each(function () {
+                    $(this).find('.view-mode').addClass('hidden');
+                    $(this).find('.edit-mode').removeClass('hidden');
+                });
+                edit_mode = true;
             }
         });
 

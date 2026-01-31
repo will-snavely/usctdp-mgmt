@@ -1,3 +1,13 @@
+<?php
+$family_fields = [
+    'email' => 'E-mail',
+    'address' => 'Address',
+    'city' => 'City',
+    'state' => 'State',
+    'zip' => 'Zip',
+    'phone' => 'Phone'
+];
+?>
 <div class="main-content">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     <div id="selection-section">
@@ -10,36 +20,25 @@
 
     <div id="family-container" class="hidden">
         <div class="family-details">
-            <h2>Family Information</h2>
             <div id="family-info-list">
-                <div id="family-email-wrap" class="family-field">
-                    <label for="family-email">E-mail</label>
-                    <span id="family-email"></span>
-                </div>
-                <div id="family-address-wrap" class="family-field">
-                    <label for="family-address">Address</label>
-                    <span id="family-address"></span>
-                </div>
-                <div id="family-city-wrap" class="family-field">
-                    <label for="family-city">City</label>
-                    <span id="family-city"></span>
-                </div>
-                <div id="family-state-wrap" class="family-field">
-                    <label for="family-state">State</label>
-                    <span id="family-state"></span>
-                </div>
-                <div id="family-zip-wrap" class="family-field">
-                    <label for="family-zip">Zip</label>
-                    <span id="family-zip"></span>
-                </div>
-                <div id="family-phone-wrap" class="family-field">
-                    <label for="family-phone">Phone</label>
-                    <span id="family-phone"></span>
-                </div>
+                <?php foreach ($family_fields as $field => $label): ?>
+                    <div id="family-<?php echo esc_attr($field); ?>" class="family-field">
+                        <label>
+                            <?php echo esc_html($label); ?>
+                        </label>
+                        <span class="view-mode"></span>
+                        <input type="text" class="edit-mode hidden">
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <div id="family-actions">
+                <button id="edit-family-button" class="button button-primary">
+                    <span id="edit-family-text" class="button-text">Edit</span>
+                </button>
             </div>
         </div>
         <div class="family-notes">
-            <h2> Notes</h2>
+            <label>Notes</label>
             <div id="family-notes-wrap">
                 <textarea id="family-notes" rows=10></textarea>
                 <div id="save-notes-action">
