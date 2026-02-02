@@ -23,9 +23,7 @@ use Google\Client;
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
-class Web_Request_Exception extends Exception
-{
-}
+class Web_Request_Exception extends Exception {}
 
 class Usctdp_Mgmt_Admin
 {
@@ -104,10 +102,10 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'toggle_session_active_nonce',
             'callback' => 'ajax_toggle_session_active'
         ],
-        'select2_family_search' => [
-            'action' => 'select2_family_search',
-            'nonce' => 'select2_family_search_nonce',
-            'callback' => 'ajax_select2_family_search'
+        'select2_student_search' => [
+            'action' => 'select2_student_search',
+            'nonce' => 'select2_student_search_nonce',
+            'callback' => 'ajax_select2_student_search'
         ],
         'student_datatable' => [
             'action' => 'student_datatable',
@@ -118,6 +116,11 @@ class Usctdp_Mgmt_Admin
             'action' => 'class_datatable',
             'nonce' => 'class_datatable_nonce',
             'callback' => 'ajax_class_datatable'
+        ],
+        'select2_family_search' => [
+            'action' => 'select2_family_search',
+            'nonce' => 'select2_family_search_nonce',
+            'callback' => 'ajax_select2_family_search'
         ],
         'save_family_fields' => [
             'action' => 'save_family_fields',
@@ -138,7 +141,12 @@ class Usctdp_Mgmt_Admin
             'action' => 'get_class_qualification',
             'nonce' => 'get_class_qualification_nonce',
             'callback' => 'ajax_get_class_qualification'
-        ]
+        ],
+        'select2_class_search' => [
+            'action' => 'select2_class_search',
+            'nonce' => 'select2_class_search_nonce',
+            'callback' => 'ajax_select2_class_search'
+        ],
     ];
 
     public static $transient_prefix = 'usctdp_admin_transient';
@@ -180,9 +188,7 @@ class Usctdp_Mgmt_Admin
      *
      * @since    1.0.0
      */
-    public function enqueue_scripts()
-    {
-    }
+    public function enqueue_scripts() {}
 
     private function usctdp_script_id($suffix)
     {
@@ -404,13 +410,9 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
-    public function settings_init()
-    {
-    }
+    public function settings_init() {}
 
-    public function usctdp_mgmt_sanitize_settings($input)
-    {
-    }
+    public function usctdp_mgmt_sanitize_settings($input) {}
 
     private function echo_admin_page($path)
     {
@@ -453,13 +455,25 @@ class Usctdp_Mgmt_Admin
             },
             'class_id' => function ($id) {
                 $class_query = new Usctdp_Mgmt_Clinic_Class_Query([]);
-                return $class_query->get_class_data([
+                $result = $class_query->get_class_data([
                     'id' => $id,
                     'number' => 1
                 ]);
+                if (!empty($result['data'])) {
+                    return $result['data'][0];
+                }
+                return null;
             },
             'student_id' => function ($id) {
-                return $this->db_id_query('Usctdp_Mgmt_Student_Query', $id);
+                $student_query = new Usctdp_Mgmt_Student_Query([]);
+                $result = $student_query->get_student_data([
+                    'id' => $id,
+                    'number' => 1
+                ]);
+                if (!empty($result['data'])) {
+                    return $result['data'][0];
+                }
+                return null;
             },
             'family_id' => function ($id) {
                 return $this->db_id_query('Usctdp_Mgmt_Family_Query', $id);
@@ -531,23 +545,23 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['select2_search', 'class_qualification', 'datatable_search', 'datatable_registrations'];
+        $handlers = [
+            'select2_search',
+            'class_qualification',
+            'datatable_search',
+            'datatable_registrations',
+            'select2_family_search',
+            'select2_student_search',
+            'select2_session_search',
+            'select2_class_search'
+        ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
         $context = $this->load_page_context(['class_id', 'student_id']);
-        if (isset($context['usctdp-class'])) {
-            $js_data['preloaded_class_id'] = $context['usctdp-class']['id'];
-            $js_data['preloaded_class_name'] = $context['usctdp-class']['name'];
-            $js_data['preloaded_session_id'] = $context['usctdp-class']['session']['id'];
-            $js_data['preloaded_session_name'] = $context['usctdp-class']['session']['name'];
-        }
-        if (isset($context['usctdp-student'])) {
-            $js_data['preloaded_student_id'] = $context['usctdp-student']['id'];
-            $js_data['preloaded_student_name'] = $context['usctdp-student']['name'];
-        }
+        $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', $js_data);
     }
 
@@ -588,6 +602,15 @@ class Usctdp_Mgmt_Admin
         }
     }
 
+    function convertToCents(string $amount): int
+    {
+        $amount = trim($amount);
+        if (!preg_match('/^\d*(\.\d{1,2})?$/', $amount) || $amount === '.' || $amount === '') {
+            return false;
+        }
+        return (int) round((float)$amount * 100);
+    }
+
     function registration_handler()
     {
         $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration'];
@@ -604,6 +627,7 @@ class Usctdp_Mgmt_Admin
         global $wpdb;
 
         try {
+            error_log(print_r($_POST, true));
             if (!current_user_can('manage_options')) {
                 throw new Web_Request_Exception('You do not have permission to perform this action.');
             }
@@ -613,61 +637,69 @@ class Usctdp_Mgmt_Admin
             }
 
             if (!isset($_POST['class_id'])) {
-                throw new Web_Request_Exception('Class ID not found.');
+                throw new Web_Request_Exception('Class ID not provided.');
             }
             if (!isset($_POST['student_id'])) {
-                throw new Web_Request_Exception('Student ID not found.');
+                throw new Web_Request_Exception('Student ID not provided.');
             }
 
             $class_id = $_POST['class_id'];
             $student_id = $_POST['student_id'];
-            if (!is_numeric($class_id) || !is_numeric($student_id)) {
-                throw new Web_Request_Exception('Class ID or Student ID is not a number.');
+            if (!is_numeric($class_id)) {
+                throw new Web_Request_Exception('Class ID is not a number.');
+            }
+            if (!is_numeric($student_id)) {
+                throw new Web_Request_Exception('Student ID is not a number.');
             }
 
-            $class = get_post($class_id);
-            $student = get_post($student_id);
-            if (!$class) {
-                throw new Web_Request_Exception('Post with ID ' . $class_id . ' not found.');
-            }
-            if (!$student) {
-                throw new Web_Request_Exception('Post with ID ' . $student_id . ' not found.');
-            }
-            if ($class->post_type !== 'usctdp-class') {
-                throw new Web_Request_Exception('Post with ID ' . $class_id . ' is not a class.');
-            }
-            if ($student->post_type !== 'usctdp-student') {
-                throw new Web_Request_Exception('Post with ID ' . $student_id . ' is not a student.');
-            }
-
-            $starting_level = $_POST['starting_level'] ?? null;
+            $starting_level = 0;
             if (isset($_POST['starting_level'])) {
-                if (!is_numeric($starting_level)) {
+                if (!is_numeric($_POST['starting_level'])) {
                     throw new Web_Request_Exception('Starting level is not a number.');
                 }
-                $starting_level = (int) $starting_level;
-            } else {
-                $starting_level = get_field('level', $student_id);
+                $starting_level = (int) $_POST['starting_level'];
+            }
+
+            $balance = 0;
+            if (isset($_POST['balance'])) {
+                $balance = $this->convertToCents($_POST['balance']);
+                if ($balance === false) {
+                    throw new Web_Request_Exception('Balance is not a valid currency amount.');
+                }
+            }
+
+            $notes = '';
+            if (isset($_POST['notes'])) {
+                $notes = sanitize_textarea_field(stripslashes($_POST['notes']));
             }
 
             $wpdb->query('START TRANSACTION');
             $transaction_started = true;
             $class_row = $wpdb->get_row(
                 $wpdb->prepare(
-                    "SELECT ID FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE",
+                    "SELECT id FROM {$wpdb->prefix}usctdp_clinic_class WHERE id = %d FOR UPDATE",
                     $class_id
                 )
             );
-
             if (!$class_row) {
                 throw new Web_Request_Exception('Class with ID ' . $class_id . ' not found.');
+            }
+
+            $student_row = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}usctdp_student WHERE id = %d",
+                    $student_id
+                )
+            );
+            if (!$student_row) {
+                throw new Web_Request_Exception('Student with ID ' . $student_id . ' not found.');
             }
 
             if ($this->is_student_enrolled($student_id, $class_id)) {
                 throw new Web_Request_Exception('Student is already enrolled in this class.');
             }
 
-            $capacity = get_field('capacity', $class_id);
+            $capacity = $this->get_class_capacity($class_id);
             $registrations = $this->get_class_registration_count($class_id);
             $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
             if (!$ignore_full && $registrations >= $capacity) {
@@ -679,22 +711,12 @@ class Usctdp_Mgmt_Admin
                 'activity_id' => $class_id,
                 'student_id' => $student_id,
                 'starting_level' => $starting_level,
-                'balance' => 0,
-                'notes' => ''
+                'balance' => $balance,
+                'notes' => $notes
             ]);
 
             if (!$registration_id) {
                 throw new Web_Request_Exception('Failed to create registration.');
-            }
-
-            if (!update_field('field_usctdp_registration_class', $class_id, $registration_id)) {
-                throw new Web_Request_Exception('Failed to update class field with: ' . $class_id);
-            }
-            if (!update_field('field_usctdp_registration_student', $student_id, $registration_id)) {
-                throw new Web_Request_Exception('Failed to update student field with: ' . $student_id);
-            }
-            if (!update_field('field_usctdp_registration_starting_level', $starting_level, $registration_id)) {
-                throw new Web_Request_Exception('Failed to update starting level field with: ' . $starting_level);
             }
 
             $wpdb->query('COMMIT');
@@ -758,13 +780,16 @@ class Usctdp_Mgmt_Admin
         return $reg_query->found_items;
     }
 
-    private function get_class_pricing($clinic_id, $session_id)
+    private function get_class_capacity($class_id)
     {
-        // TODO: rewrite the lookup query
-        return [
-            'one_day_price' => "TBD",
-            'two_day_price' => "TBD"
-        ];
+        $class_query = new Usctdp_Mgmt_Clinic_Class_Query([
+            'id' => $class_id,
+            'number' => 1
+        ]);
+        if (empty($class_query->items)) {
+            return null;
+        }
+        return $class_query->items[0]->capacity;
     }
 
     function ajax_get_class_qualification()
@@ -776,38 +801,14 @@ class Usctdp_Mgmt_Admin
 
         $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
         $student_id = isset($_GET['student_id']) ? sanitize_text_field($_GET['student_id']) : '';
-        $capacity = get_field('capacity', $class_id);
+        $capacity = $this->get_class_capacity($class_id);
         $found_posts = $this->get_class_registration_count($class_id);
         $student_registered = $this->is_student_enrolled($student_id, $class_id);
-
-        $clinic = get_field('clinic', $class_id);
-        $session = get_field('session', $class_id);
-        $one_day_price = null;
-        $two_day_price = null;
-        $pricing = $this->get_class_pricing($clinic->ID, $session->ID);
-        if ($pricing) {
-            $one_day_price = $pricing['one_day_price'];
-            $two_day_price = $pricing['two_day_price'];
-        }
-
-        $student_level = null;
-        if ($student_id) {
-            $student_level = get_field('level', $student_id);
-        }
-
-        $class_level = null;
-        if ($class_id) {
-            $class_level = get_field('level', $class_id);
-        }
 
         wp_send_json_success([
             'capacity' => $capacity,
             'registered' => $found_posts,
             'student_registered' => $student_registered,
-            'one_day_price' => $one_day_price,
-            'two_day_price' => $two_day_price,
-            'student_level' => $student_level,
-            'class_level' => $class_level
         ]);
     }
 
@@ -1082,6 +1083,62 @@ class Usctdp_Mgmt_Admin
                         'phone_numbers' => json_decode($result->phone_numbers),
                         'email' => $result->email,
                         'notes' => $result->notes,
+                    );
+                }
+            }
+        } catch (Throwable $e) {
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+        }
+        wp_send_json(array('items' => $results));
+    }
+
+    function ajax_select2_student_search()
+    {
+        $results = [];
+        try {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_student_search'];
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+            }
+
+            $query = new Usctdp_Mgmt_Student_Query();
+            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
+            $family_id = isset($_GET['family_id']) ? intval($_GET['family_id']) : null;
+            $query_results = $query->search_students($search, $family_id, 10);
+            if ($query_results) {
+                foreach ($query_results as $result) {
+                    $results[] = array(
+                        'id' => $result->id,
+                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title),
+                    );
+                }
+            }
+        } catch (Throwable $e) {
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+        }
+        wp_send_json(array('items' => $results));
+    }
+
+    function ajax_select2_class_search()
+    {
+        $results = [];
+        try {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_class_search'];
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+            }
+
+            $query = new Usctdp_Mgmt_Clinic_Class_Query();
+            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
+            $session_id = isset($_GET['session_id']) ? intval($_GET['session_id']) : null;
+            $query_results = $query->search_classes($search, $session_id, 10);
+            if ($query_results) {
+                foreach ($query_results as $result) {
+                    $results[] = array(
+                        'id' => $result->id,
+                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title),
                     );
                 }
             }

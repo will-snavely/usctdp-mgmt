@@ -15,6 +15,35 @@ class Usctdp_Mgmt_Clinic_Class_Query extends Query
     protected $item_name_plural = 'clinic_classes';
     protected $item_shape = 'Usctdp_Mgmt_Clinic_Class_Row';
 
+    public function search_classes($query, $session_id, $limit = 10)
+    {
+        global $wpdb;
+        $sql = "SELECT * FROM {$wpdb->prefix}{$this->table_name}";
+        $args = [];
+        $conditions = [];
+        if ($query) {
+            $parts = preg_split("/\s+/", trim($query));
+            $query_terms = [];
+            foreach ($parts as $part) {
+                $query_terms[] = "+$part*";
+            }
+            $conditions[] = "MATCH(title) AGAINST(%s IN BOOLEAN MODE)";
+            $args[] = implode(" ", $query_terms);
+        }
+        if ($session_id !== null) {
+            $conditions[] = "session_id = %d";
+            $args[] = $session_id;
+        }
+        if (!empty($conditions)) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
+        }
+        $sql .= " ORDER BY title ASC LIMIT %d";
+        $args[] = $limit;
+
+        $query = $wpdb->prepare($sql, $args);
+        return $wpdb->get_results($query);
+    }
+
     public function get_class_data($args)
     {
         global $wpdb;
@@ -48,7 +77,6 @@ class Usctdp_Mgmt_Clinic_Class_Query extends Query
             $limit_clause .= " OFFSET %d";
             $limit_args[] = $args['offset'];
         }
-
         $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
         $query = $wpdb->prepare(
             "   SELECT

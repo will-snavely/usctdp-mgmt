@@ -1,48 +1,48 @@
 #registration-container {
-    display: grid;
+    /*    display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr;
     gap: 0px 5px;
     grid-auto-flow: row;
     grid-template-areas:
-        "registration-fields registration-related-data";
+        "ctx det";
+        */
 }
 
-#registration-form-section {
-    grid-area: registration-fields;
-    /* background-color: #dcdde0; */
+#registration-form-content {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+#context-selection-section {
     padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#registration-details-section {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
 #registration-related-data-section {
-    grid-area: registration-related-data;
-    /* background-color: #dcdde0; */
     padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.context-selector {
+    width: 300px;
 }
 
 .selected-student-name {
     font-weight: bold;
-}
-
-#session-selector {
-    width: 350px;
-}
-
-#class-selector {
-    width: 350px;
-}
-
-#student-selector {
-    width: 350px;
-}
-
-#registration-details-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
 }
 
 #registration-fields-section {
@@ -50,8 +50,12 @@
     flex-direction: column;
     gap: 10px;
     padding: 10px;
-    box-sizing: border-box;
-    max-width: 500px;
+}
+
+#check-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 #registration-fields-section .form-field {
@@ -66,30 +70,17 @@
     font-weight: bold;
 }
 
-#payment-amount-outstanding {
+#registration-fields-section .form-field input {
     width: 150px;
 }
 
-#payment-amount-paid {
-    width: 150px;
-}
-
-#payment-method {
-    width: 150px;
-}
-
-#check-number {
-    width: 150px;
-}
-
-#student-level {
+#registration-fields-section .form-field select {
     width: 150px;
 }
 
 #notes-section {
     display: flex;
     flex-direction: column;
-    padding: 10px;
     width: 100%;
     box-sizing: border-box;
 }
@@ -123,4 +114,11 @@
 
 .ignore-notification {
     color: #cc0000 !important;
+}
+
+#registration-submit-button-wrap {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    width: 100%;
 }

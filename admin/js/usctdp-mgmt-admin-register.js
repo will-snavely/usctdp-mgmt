@@ -2,16 +2,372 @@
     "use strict";
 
     $(document).ready(function () {
-        function createSelectSection(kind, label, hidden = false) {
-            var classes = '';
+        function createSelector(id, name, label, hidden, disabled, options = []) {
+            var classes = 'context-selector-section';
             if (hidden) {
                 classes = 'hidden';
             }
+            var optionsHtml = '';
+            for (const option of options) {
+                optionsHtml += `
+                    <option value='${option.id}'>${option.name}</option>`;
+            }
             return `
-                <div id='${kind}-selection-section' class='${classes}'>
-                    <h2 id='${kind}-selector-label'> Select a ${label} </h2>
-                    <select id='${kind}-selector' name='${kind}_id'></select>
+                <div id='${id}-section' class='${classes}'>
+                    <h2 id='${id}-label'> ${label} </h2>
+                    <select id='${id}' name='${name}' class='context-selector' ${disabled ? 'disabled' : ''}>
+                        ${optionsHtml}
+                    </select>
                 </div>`;
+        }
+
+        function defaultSelect2Options(placeholder, action, nonce, filter = function () { return {} }) {
+            return {
+                placeholder: placeholder,
+                allowClear: true,
+                ajax: {
+                    url: usctdp_mgmt_admin.ajax_url,
+                    data: function (params) {
+                        return {
+                            q: params.term,
+                            action: action,
+                            security: nonce,
+                            ...filter()
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.items
+                        };
+                    }
+                }
+            }
+        }
+
+        var contextData = {};
+        var pageMode = 'none_preloaded';
+        var preloadedData = { student: null, class: null };
+        if (usctdp_mgmt_admin.preload) {
+            if (usctdp_mgmt_admin.preload.student_id && usctdp_mgmt_admin.preload.class_id) {
+                pageMode = 'all_preloaded';
+            } else if (usctdp_mgmt_admin.preload.student_id) {
+                pageMode = 'student_preloaded';
+            } else if (usctdp_mgmt_admin.preload.class_id) {
+                pageMode = 'class_preloaded';
+            }
+            if (usctdp_mgmt_admin.preload.student_id) {
+                preloadedData.student = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+                contextData['family-selector'] = preloadedData.student.family_id;
+                contextData['student-selector'] = preloadedData.student.student_id;
+            }
+            if (usctdp_mgmt_admin.preload.class_id) {
+                preloadedData.class = Object.values(usctdp_mgmt_admin.preload.class_id)[0];
+                contextData['clinic-class-selector'] = preloadedData.class.class_id;
+                contextData['session-selector'] = preloadedData.class.session_id;
+                contextData['activity-kind-selector'] = "Clinic";
+            }
+        }
+
+        var contextSelectors = {
+            'family-selector': {
+                selector: function () {
+                    var options = [];
+                    var hidden = false;
+                    var disabled = false;
+                    if (preloadedData.student) {
+                        options.push({
+                            id: preloadedData.student.family_id,
+                            name: preloadedData.student.family_name
+                        });
+                        disabled = true;
+                    }
+
+                    return $(createSelector(
+                        'family-selector',
+                        'family_id',
+                        'Select a Family',
+                        hidden,
+                        disabled,
+                        options
+                    ));
+                },
+                nextSelector: {
+                    options: ['student-selector'],
+                    choose: function () {
+                        return 'student-selector';
+                    },
+                },
+                select2Options: function () {
+                    if (preloadedData.student) {
+                        return {
+                            placeholder: "Select a family...",
+                            allowClear: true
+                        };
+                    } else {
+                        return defaultSelect2Options(
+                            "Search for a family...",
+                            usctdp_mgmt_admin.select2_family_search_action,
+                            usctdp_mgmt_admin.select2_family_search_nonce
+                        );
+                    }
+                },
+            },
+            'student-selector': {
+                selector: function () {
+                    var options = [];
+                    var hidden = true;
+                    var disabled = false;
+                    if (preloadedData.student) {
+                        options.push({
+                            id: preloadedData.student.student_id,
+                            name: preloadedData.student.student_name
+                        });
+                        hidden = false;
+                        disabled = true;
+                    }
+
+                    return $(createSelector(
+                        'student-selector',
+                        'student_id',
+                        'Select a Student',
+                        hidden,
+                        disabled,
+                        options
+                    ));
+                },
+                nextSelector: {
+                    options: ['activity-kind-selector'],
+                    choose: function () {
+                        return 'activity-kind-selector';
+                    },
+                },
+                select2Options: function () {
+                    if (preloadedData.student) {
+                        return {
+                            placeholder: "Select a student...",
+                            allowClear: true
+                        };
+                    } else {
+                        return defaultSelect2Options(
+                            "Search for a student...",
+                            usctdp_mgmt_admin.select2_student_search_action,
+                            usctdp_mgmt_admin.select2_student_search_nonce,
+                            function () {
+                                return {
+                                    family_id: $('#family-selector').val()
+                                };
+                            }
+                        );
+                    }
+                }
+            },
+            'activity-kind-selector': {
+                selector: function () {
+                    var disabled = false;
+                    var hidden = true;
+                    var options = [
+                        { id: 'clinic', name: 'Clinic' },
+                        { id: 'tournament', name: 'Tournament' },
+                    ];
+
+                    if (preloadedData.class) {
+                        options = [
+                            { id: 'clinic', name: 'Clinic' }
+                        ];
+                        disabled = true;
+                        hidden = false;
+
+                    } else {
+                        hidden = preloadedData.student === null;
+                    }
+
+                    return $(createSelector(
+                        'activity-kind-selector',
+                        'activity_kind',
+                        'Select an Activity Kind',
+                        hidden,
+                        disabled,
+                        options
+                    ));
+                },
+                nextSelector: {
+                    options: ['session-selector', 'activity-selector'],
+                    choose: function () {
+                        var val = $('#activity-kind-selector').val();
+                        if (val === 'clinic') {
+                            return 'session-selector'
+                        } else if (val === 'tournament') {
+                            return 'activity-selector'
+                        }
+                    }
+                },
+                select2Options: function () {
+                    return {
+                        placeholder: "Select the type of activity...",
+                        allowClear: true
+                    };
+                }
+            },
+            'tournament-selector': {
+                selector: function () {
+                    return $(createSelector(
+                        'tournament-selector',
+                        'tournament_id',
+                        'Select a Tournament',
+                        true,
+                        false,
+                        []
+                    ))
+                },
+                nextSelector: {
+                    options: ['activity-selector'],
+                    choose: function () {
+                        return 'activity-selector'
+                    }
+                },
+                select2Options: function () {
+                    return defaultSelect2Options(
+                        "Search for a tournament...",
+                        usctdp_mgmt_admin.select2_tournament_search_action,
+                        usctdp_mgmt_admin.select2_tournament_search_nonce
+                    );
+                },
+            },
+            'session-selector': {
+                selector: function () {
+                    var options = [];
+                    var hidden = true;
+                    var disabled = false;
+                    if (preloadedData.class) {
+                        options.push({
+                            id: preloadedData.class.session_id,
+                            name: preloadedData.class.session_name
+                        });
+                        hidden = false;
+                        disabled = true;
+                    }
+                    return $(createSelector(
+                        'session-selector',
+                        'session_id',
+                        'Select a Session',
+                        hidden,
+                        disabled,
+                        options
+                    ));
+                },
+                nextSelector: {
+                    options: ['clinic-class-selector', 'tournament-class-selector'],
+                    choose: function () {
+                        return 'clinic-class-selector'
+                    }
+                },
+                select2Options: function () {
+                    if (preloadedData.class) {
+                        return {
+                            placeholder: "Select a session...",
+                            allowClear: true
+                        };
+                    } else {
+                        return defaultSelect2Options(
+                            "Search for a session...",
+                            usctdp_mgmt_admin.select2_session_search_action,
+                            usctdp_mgmt_admin.select2_session_search_nonce
+                        );
+                    }
+                },
+            },
+            'clinic-class-selector': {
+                selector: function () {
+                    var options = [];
+                    var hidden = true;
+                    var disabled = false;
+                    if (preloadedData.class) {
+                        options.push({
+                            id: preloadedData.class.class_id,
+                            name: preloadedData.class.class_name
+                        });
+                        hidden = false;
+                        disabled = true;
+                    }
+                    return $(createSelector(
+                        'clinic-class-selector',
+                        'class_id',
+                        'Select a Clinic',
+                        hidden,
+                        disabled,
+                        options
+                    ));
+                },
+                nextSelector: {
+                    options: [],
+                    choose: function () {
+                        return null;
+                    }
+                },
+                select2Options: function () {
+                    if (preloadedData.class) {
+                        return {
+                            placeholder: "Select a clinic...",
+                            allowClear: true
+                        };
+                    } else {
+                        return defaultSelect2Options(
+                            "Search for a clinic...",
+                            usctdp_mgmt_admin.select2_class_search_action,
+                            usctdp_mgmt_admin.select2_class_search_nonce,
+                            function () {
+                                return {
+                                    session_id: $('#session-selector').val()
+                                }
+                            }
+                        );
+                    }
+                }
+            }
+        }
+
+        for (const [key, value] of Object.entries(contextSelectors)) {
+            var $selector = value.selector();
+            $selector.appendTo('#context-selectors');
+            if (value.select2Options) {
+                $(`#${key}`).select2(value.select2Options());
+            }
+            if ($(`#${key}`).prop('disabled')) {
+                continue;
+            }
+
+            $(`#${key}`).on('change', function () {
+                const selectedValue = this.value;
+                const nextSelector = value.nextSelector.choose();
+                const $nextSection = $(`#${nextSelector}-section`);
+                contextData[key] = selectedValue;
+                if ($nextSection) {
+                    if (selectedValue === '') {
+                        for (const option of value.nextSelector.options) {
+                            if ($(`#${option}`).prop('disabled')) {
+                                continue;
+                            }
+                            $(`#${option}-section`).addClass('hidden');
+                        }
+                    } else {
+
+                        $nextSection.removeClass('hidden');
+                    }
+                }
+                for (const option of value.nextSelector.options) {
+                    if ($(`#${option}`).prop('disabled')) {
+                        continue;
+                    }
+                    $(`#${option}`).val(null);
+                    $(`#${option}`).trigger('change');
+                }
+                console.log(contextData);
+                if (contextData['student-selector'] && contextData['clinic-class-selector']) {
+                    load_class_registration(contextData['clinic-class-selector'], contextData['student-selector']);
+                } else {
+                    toggle_registration_fields(false);
+                }
+            });
         }
 
         function toggle_registration_fields(visible) {
@@ -22,269 +378,10 @@
             }
         }
 
-        function toggle_registration_history(visible) {
-            if (visible) {
-                $('#registration-history-section').removeClass('hidden');
-            } else {
-                $('#registration-history-section').addClass('hidden');
-            }
-        }
-
-        function toggle_class_roster(visible) {
-            if (visible) {
-                $('#class-roster-section').removeClass('hidden');
-            } else {
-                $('#class-roster-section').addClass('hidden');
-            }
-        }
-
-        var $studentSelector = $(createSelectSection('student', 'Student', false));
-        var $sessionSelector = $(createSelectSection('session', 'Session', false));
-        var $classSelector = $(createSelectSection('class', 'Class', true));
-
-        if (usctdp_mgmt_admin.preloaded_class_name) {
-            $('#context-selection-section').append($sessionSelector);
-            $('#context-selection-section').append($classSelector);
-            $('#context-selection-section').append($studentSelector);
-        } else {
-            $('#context-selection-section').append($studentSelector);
-            $('#context-selection-section').append($sessionSelector);
-            $('#context-selection-section').append($classSelector);
-        }
-
-        $('#student-selector').select2({
-            placeholder: "Search for a student...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        post_type: 'usctdp-student',
-                        action: usctdp_mgmt_admin.select2_search_action,
-                        security: usctdp_mgmt_admin.select2_search_nonce
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
-
-        $('#session-selector').select2({
-            placeholder: "Search for a session...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        post_type: 'usctdp-session',
-                        tag: 'active',
-                        action: usctdp_mgmt_admin.select2_search_action,
-                        security: usctdp_mgmt_admin.select2_search_nonce
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
-
-        $('#class-selector').select2({
-            placeholder: "Search for a class...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        post_type: 'usctdp-class',
-                        action: usctdp_mgmt_admin.select2_search_action,
-                        security: usctdp_mgmt_admin.select2_search_nonce,
-                        'filter[session][value]': $('#session-selector').val(),
-                        'filter[session][compare]': '=',
-                        'filter[session][type]': 'NUMERIC'
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
-
-        if (usctdp_mgmt_admin.preloaded_student_name) {
-            const newOption = new Option(
-                usctdp_mgmt_admin.preloaded_student_name,
-                usctdp_mgmt_admin.preloaded_student_id,
-                true,
-                true
-            );
-            $('#student-selector-label').text('Student:');
-            $('#student-selector').append(newOption);
-            $('#student-selector').val(usctdp_mgmt_admin.preloaded_student_id);
-            $('#session-selector').trigger('change');
-            $('#student-selector').prop('disabled', true);
-        }
-
-        if (usctdp_mgmt_admin.preloaded_session_name) {
-            const newOption = new Option(
-                usctdp_mgmt_admin.preloaded_session_name,
-                usctdp_mgmt_admin.preloaded_session_id,
-                true,
-                true
-            );
-            $('#session-selector-label').text('Session:');
-            $('#session-selector').append(newOption)
-            $('#session-selector').val(usctdp_mgmt_admin.preloaded_session_id);
-            $('#session-selector').trigger('change');
-            $('#session-selector').prop('disabled', true);
-
-        }
-
-        if (usctdp_mgmt_admin.preloaded_class_name) {
-            const newOption = new Option(
-                usctdp_mgmt_admin.preloaded_class_name,
-                usctdp_mgmt_admin.preloaded_class_id,
-                true,
-                true
-            );
-            $('#class-selector-label').text('Class:');
-            $('#class-selector').append(newOption);
-            $('#class-selector').val(usctdp_mgmt_admin.preloaded_class_id);
-            $('#class-selector').trigger('change');
-            $('#class-selector').prop('disabled', true);
-            $('#class-selection-section').removeClass('hidden');
-        }
-
-        var registration_history_table = $('#registration-history-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ordering: false,
-            searching: false,
-            paging: true,
-
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                type: 'POST',
-                data: function (d) {
-                    var studentFilterValue = $('#student-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_registrations_action;
-                    d.security = usctdp_mgmt_admin.datatable_registrations_nonce;
-                    d.student_id = studentFilterValue;
-                }
-            },
-            columns: [
-                {
-                    data: 'activity',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.name) {
-                            return data.name;
-                        }
-                        return data;
-                    },
-                    defaultContent: '',
-                },
-                {
-                    data: 'activity',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.session) {
-                            return data.session;
-                        }
-                        return data;
-                    },
-                    defaultContent: '',
-                },
-                {
-                    data: 'starting_level',
-                    defaultContent: '',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.starting_level) {
-                            return data.starting_level;
-                        }
-                        return data;
-                    }
-                }
-            ]
-        });
-
-        if (usctdp_mgmt_admin.preloaded_student_name) {
-            const student_name = usctdp_mgmt_admin.preloaded_student_name;
-            $('#student-name-history').text(student_name);
-            toggle_registration_history(true);
-            registration_history_table.ajax.reload();
-        }
-
-        var class_roster_table = $('#class-roster-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ordering: false,
-            searching: false,
-            paging: true,
-
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                type: 'POST',
-                data: function (d) {
-                    var classFilterValue = $('#class-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_registrations_action;
-                    d.security = usctdp_mgmt_admin.datatable_registrations_nonce;
-                    d.class_id = classFilterValue;
-                }
-            },
-            columns: [
-                {
-                    data: 'student',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.first_name) {
-                            return data.first_name;
-                        }
-                        return data;
-                    },
-                    defaultContent: '',
-                },
-                {
-                    data: 'student',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.last_name) {
-                            return data.last_name;
-                        }
-                        return data;
-                    },
-                    defaultContent: '',
-                },
-                {
-                    data: 'starting_level',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.starting_level) {
-                            return data.starting_level;
-                        }
-                        return data;
-                    },
-                    defaultContent: '',
-                }
-            ]
-        });
-
-        if (usctdp_mgmt_admin.preloaded_class_name) {
-            const class_name = usctdp_mgmt_admin.preloaded_class_name;
-            $('#class-roster-name').text(class_name);
-            toggle_class_roster(true);
-            class_roster_table.ajax.reload();
-        }
-
         function reset_registration_fields() {
-            $('#payment-amount-outstanding').val('');
-            $('#payment-amount-paid').val('');
-            $('#check-number-field').hide();
-            $('#check-number').val('');
-            $('#payment-method').val('');
+            $('.form-field input').val('');
+            $('.form-field select').val(null);
+            $('#check-fields').addClass('hidden');
             $('#notes').val('');
             $('#notifications-section').children().remove();
         }
@@ -317,7 +414,7 @@
             });
         }
 
-        function load_registration_details_section(class_id, student_id) {
+        function load_class_registration(class_id, student_id) {
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'GET',
@@ -333,10 +430,6 @@
                     var max_size = response.data.capacity;
                     $('#class-current-size').text(current_size);
                     $('#class-max-size').text(max_size);
-                    $('#one-day-price').text("$" + response.data.one_day_price);
-                    $('#two-day-price').text("$" + response.data.two_day_price);
-                    $('#student-level').val(response.data.student_level).trigger('change');
-                    $('#class-level').text(response.data.class_level);
 
                     if (response.data.student_registered) {
                         set_notification(
@@ -361,73 +454,16 @@
             });
         }
 
-        $('#session-selector').on('change', function () {
-            const selectedValue = this.value;
-            if (selectedValue === '') {
-                $('#class-selection-section').addClass('hidden');
-            } else {
-                $('#class-selection-section').removeClass('hidden');
-            }
-            $('#class-selector').val(null);
-            $('#class-selector').trigger('change');
-        });
-
-        $('#class-selector').on('change', function () {
-            const selectedStudent = $('#student-selector').val();
-            const selectedClass = this.value;
-
-            reset_registration_fields();
-            $('#class-roster-name').text('');
-            toggle_class_roster(false);
-            if (selectedClass && selectedStudent) {
-                load_registration_details_section(selectedClass, selectedStudent);
-                const class_name = $('#class-selector').find(':selected').text();
-                $('#class-roster-name').text(class_name);
-                toggle_class_roster(true);
-                class_roster_table.ajax.reload();
-            } else {
-                toggle_registration_fields(false);
-                toggle_class_roster(false);
-            }
-        });
-
-        $('#student-selector').on('change', function () {
-            const selectedStudent = this.value;
-            const selectedClass = $('#class-selector').val();
-
-            reset_registration_fields();
-            $('#student-name-history').text('');
-            toggle_registration_history(false);
-            if (selectedStudent) {
-                const student_name = $('#student-selector').find(':selected').text();
-                $('#student-name-history').text(student_name);
-                toggle_registration_history(true);
-                registration_history_table.ajax.reload();
-
-                if (selectedClass) {
-                    load_registration_details_section(selectedClass, selectedStudent);
-                } else {
-                    toggle_registration_fields(false);
-                }
-            } else {
-                $('#student-name-history').text('');
-                toggle_registration_history(false);
-                toggle_registration_fields(false);
-            }
-        });
-
         $('#payment-method').on('change', function () {
             if (this.value === 'check') {
-                $('#check-number-field').show();
+                $('#check-fields').removeClass('hidden');
             } else {
-                $('#check-number-field').hide();
+                $('#check-fields').addClass('hidden');
             }
         });
 
         $('form').on('submit', function () {
-            $('#student-selector').prop('disabled', false);
-            $('#session-selector').prop('disabled', false);
-            $('#class-selector').prop('disabled', false);
+            $('.context-selector').prop('disabled', false);
         });
     });
 })(jQuery);

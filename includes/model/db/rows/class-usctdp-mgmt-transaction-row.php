@@ -9,7 +9,7 @@ if (! defined('ABSPATH')) {
 enum Transaction_Kind: int
 {
     case Payment = 1;
-    case Credit = 2;
+    case ClubCredit = 2;
 }
 
 enum Transaction_Method: int
@@ -20,11 +20,13 @@ enum Transaction_Method: int
     case PayPal = 4;
 }
 
-enum Transaction_Status: int
+enum Check_Status: int
 {
+    case None = 0;
     case Pending = 1;
     case Voided = 2;
-    case Completed = 3;
+    case Cleared = 3;
+    case Bounced = 4;
 }
 
 class Usctdp_Mgmt_Transaction_Row extends Row
@@ -37,11 +39,14 @@ class Usctdp_Mgmt_Transaction_Row extends Row
         $this->created_by = (int) $this->created_by;
         $this->created_at = new DateTime($this->family_id);
         $this->kind = Transaction_Kind::from($this->kind);
-        $this->status = Transaction_Status::from($this->status);
         $this->method = Transaction_Method::from($this->method);
         $this->amount = (int) $this->amount;
-        $this->reference_id = (int) $this->reference_id;
-        $this->reference_string = (string) $this->notes;
+        $this->check_status = Check_Status::from($this->check_status);
+        $this->check_date_received = new DateTime($this->check_date_received);
+        $this->check_cleared_date = new DateTime($this->check_cleared_date);
+        $this->woocommerce_order_id = (int) $this->woocommerce_order_id;
+        $this->paypal_transaction_id = (string) $this->paypal_transaction_id;
+        $this->history = json_decode($this->history, true);
         $this->notes = (string) $this->notes;
     }
 }

@@ -18,7 +18,6 @@
             }
         });
 
-
         $('#session-rosters-table').on('click', '.refresh-session-roster', function () {
             var id = $(this).data('session-id');
             var $row = $(this).closest('tr');
@@ -214,4 +213,3 @@
         });
     });
 })(jQuery);
-

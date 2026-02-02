@@ -43,18 +43,10 @@ class Usctdp_Mgmt_Transaction_Schema extends Schema
             'default'    => 0
         ],
 
-        'status' => [
-            'name'       => 'status',
-            'type'       => 'tinyint',
-            'unsigned'   => true,
-            'default'    => 0
-        ],
-
         'method' => [
             'name'       => 'method',
             'type'       => 'tinyint',
-            'unsigned'   => true,
-            'default'    => 0
+            'unsigned'   => true
         ],
 
         'amount' => [
@@ -64,19 +56,48 @@ class Usctdp_Mgmt_Transaction_Schema extends Schema
             'default'    => 0
         ],
 
-        'reference_id' => [
-            'name'       => 'reference_id',
+        'check_number' => [
+            'name'       => 'check_number',
+            'type'       => 'tinytext',
+            'default'    => ''
+        ],
+
+        'check_status' => [
+            'name'       => 'check_status',
+            'type'       => 'tinyint',
+            'unsigned'   => true,
+            'default'    => 0
+        ],
+
+        'check_date_received' => [
+            'name'       => 'check_date_received',
+            'type'       => 'date'
+        ],
+
+        'check_cleared_date' => [
+            'name'       => 'check_cleared_date',
+            'type'       => 'date'
+        ],
+
+        'woocommerce_order_id' => [
+            'name'       => 'woocommerce_order_id',
             'type'       => 'bigint',
             'unsigned'   => true,
             'index'      => true,
             'default'    => 0
         ],
 
-        'reference_string' => [
-            'name'       => 'reference_string',
+        'paypal_transaction_id' => [
+            'name'       => 'paypal_transaction_id',
             'type'       => 'tinytext',
             'index'      => true,
             'default'    => ''
+        ],
+
+        'history' => [
+            'name'       => 'history',
+            'type'       => 'json',
+            'default'    => '[]'
         ],
 
         'notes' => [
