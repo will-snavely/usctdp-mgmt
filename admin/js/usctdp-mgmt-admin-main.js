@@ -128,7 +128,7 @@
                             var $cell = $('<div></div>')
                             $cell.addClass('session-actions')
                             addAction($cell, 'View Roster', 'view-session-roster', row)
-                            addAction($cell, 'Hide Session', 'remove-active-session-btn', row)
+                            addAction($cell, 'Hide', 'remove-active-session-btn', row)
                             return $cell.get(0);
                         }
                         return '';

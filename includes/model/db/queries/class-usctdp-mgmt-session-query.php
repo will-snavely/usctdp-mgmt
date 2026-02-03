@@ -115,7 +115,11 @@ class Usctdp_Mgmt_Session_Query extends Query
             SELECT COUNT(*) as count
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             {$where_clause}";
-        $count_query = $wpdb->prepare($count_sql, $where_args);
+	if(empty($where_args)) {
+            $count_query = $count_sql;
+        } else {
+            $count_query = $wpdb->prepare($count_sql, $where_args);
+        }
         $count = $wpdb->get_var($count_query);
         return [
             'data' => $window,

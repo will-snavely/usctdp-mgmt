@@ -68,7 +68,7 @@ if ($balance_results) {
         </div>
         <div id="item-3" class="grid-square">
             <div class="grid-square-header">
-                <span class="grid-header">Session Rosters</span>
+                <span class="grid-header">Clinic Rosters</span>
             </div>
             <div id="usctdp-session-rosters-manager" class="grid-square-content">
                 <div id="session-rosters-select-container">

@@ -1478,15 +1478,15 @@ class Usctdp_Mgmt_Admin
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT 
-                    pt.post_title, 
-                    fam.family_id, 
+                    fam.title as family_name,
+                    fam.id as family_id,
                     SUM(reg.balance) AS total_family_balance,
                     COUNT(*) OVER() AS grand_total
                 FROM {$wpdb->prefix}usctdp_registration AS reg 
-                JOIN {$wpdb->prefix}usctdp_family_link AS fam ON reg.student_id = fam.student_id 
-                JOIN {$wpdb->prefix}posts AS pt ON fam.family_id = pt.ID
+                JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id 
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON fam.id = stu.family_id
                 WHERE reg.balance > %d
-                GROUP BY fam.family_id, pt.post_title
+                GROUP BY fam.id, fam.title
                 ORDER BY total_family_balance DESC
                 LIMIT %d OFFSET %d",
             $min_balance,
@@ -1502,7 +1502,7 @@ class Usctdp_Mgmt_Admin
             foreach ($query_results as $result) {
                 $output_data[] = [
                     "family_id" => $result->family_id,
-                    "family_name" => $result->post_title,
+                    "family_name" => $result->family_name,
                     "total_balance" => $amount_fmt->format($result->total_family_balance),
                 ];
             }
@@ -1529,6 +1529,7 @@ class Usctdp_Mgmt_Admin
         $length = isset($_POST['length']) ? intval($_POST['length']) : 25;
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
         $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+        $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
 
         if (!$family_id) {
             wp_send_json_error('No family ID provided.', 400);
@@ -1537,27 +1538,27 @@ class Usctdp_Mgmt_Admin
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT 
-                    pt1.post_title as activity_name, 
-                    pt2.post_title as student_name, 
-                    pt3.post_title as session_name,
+                    cls.title as activity_name,
+                    stu.title as student_name,
+                    REPLACE(sesh.title, '{$token_suffix}', '') as session_name,
                     reg.balance as balance,
                     COUNT(*) OVER() as grand_total
                 FROM {$wpdb->prefix}usctdp_registration AS reg 
-                JOIN {$wpdb->prefix}usctdp_family_link AS fam ON reg.student_id = fam.student_id
-                JOIN {$wpdb->prefix}usctdp_activity_link AS act ON reg.activity_id = act.activity_id 
-                JOIN {$wpdb->prefix}posts AS pt1 ON reg.activity_id = pt1.ID 
-                JOIN {$wpdb->prefix}posts AS pt2 ON reg.student_id = pt2.ID
-                JOIN {$wpdb->prefix}posts AS pt3 ON act.session_id = pt3.ID
-                WHERE fam.family_id = %d AND balance > 0
+                JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id
+                JOIN {$wpdb->prefix}usctdp_clinic_class AS cls ON reg.activity_id = cls.id
+                JOIN {$wpdb->prefix}usctdp_session AS sesh ON cls.session_id = sesh.id
+                WHERE stu.family_id = %d AND balance > 0
                 ORDER BY balance DESC
                 LIMIT %d OFFSET %d",
             $family_id,
             $length,
             $start
         );
+        error_log($query);
 
         $query_results = $wpdb->get_results($query);
         $output_data = [];
+        $grand_total = 0;
         if ($query_results) {
             $grand_total = $query_results[0]->grand_total;
             foreach ($query_results as $result) {

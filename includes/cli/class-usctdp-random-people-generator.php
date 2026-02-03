@@ -91,7 +91,6 @@ class Usctdp_Random_People_Generator
                 continue;
             }
 
-            WP_CLI::log("Generating family: " . $last_name);
             // Define the user data array
             $userdata = array(
                 'user_login' => $last_name . $random_last_four_digits,
@@ -153,7 +152,6 @@ class Usctdp_Random_People_Generator
             $month = mt_rand(1, 12);
             $day = mt_rand(1, date('t', mktime(0, 0, 0, $month, 1, $year)));
             $random_birth_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-            WP_CLI::log("Generating student: " . $first_name . " " . $last_name);
             $student_id = $query->add_item([
                 "title" => $first_name . ' ' . $last_name,
                 "family_id" => $family_id,
