@@ -80,7 +80,7 @@
                     data: 'class_id',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            var rosterUrl = 'admin.php?page=usctdp-admin-rosters&class_id=' + data;
+                            var rosterUrl = 'admin.php?page=usctdp-admin-clinic-rosters&class_id=' + data;
                             var registerUrl = 'admin.php?page=usctdp-admin-register&class_id=' + data;
                             var cell = '<div class="class-actions">'
                             cell += '<div class="action-item">'

@@ -117,6 +117,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'class_datatable_nonce',
             'callback' => 'ajax_class_datatable'
         ],
+        'registrations_datatable' => [
+            'action' => 'registrations_datatable',
+            'nonce' => 'registrations_datatable_nonce',
+            'callback' => 'ajax_registrations_datatable'
+        ],
         'select2_family_search' => [
             'action' => 'select2_family_search',
             'nonce' => 'select2_family_search_nonce',
@@ -404,7 +409,7 @@ class Usctdp_Mgmt_Admin
 
         // Override the slug on the first menu item
         $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
-        $this->add_usctdp_submenu('rosters', 'Rosters', [$this, 'load_rosters_page']);
+        $this->add_usctdp_submenu('clinic-rosters', 'Clinic Rosters', [$this, 'load_clinic_rosters_page']);
         $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
@@ -518,17 +523,16 @@ class Usctdp_Mgmt_Admin
         wp_localize_script($this->usctdp_script_id('classes'), 'usctdp_mgmt_admin', $js_data);
     }
 
-    public function load_rosters_page()
+    public function load_clinic_rosters_page()
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
-            'datatable_search',
             'select2_session_search',
-            'select2_search',
+            'select2_class_search',
             'gen_roster',
-            'datatable_registrations'
+            'registrations_datatable'
         ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
@@ -537,7 +541,7 @@ class Usctdp_Mgmt_Admin
         }
         $context = $this->load_page_context(['class_id']);
         $js_data['preload'] = $context;
-        wp_localize_script($this->usctdp_script_id('rosters'), 'usctdp_mgmt_admin', $js_data);
+        wp_localize_script($this->usctdp_script_id('clinic-rosters'), 'usctdp_mgmt_admin', $js_data);
     }
 
     public function load_register_page()
@@ -549,7 +553,7 @@ class Usctdp_Mgmt_Admin
             'select2_search',
             'class_qualification',
             'datatable_search',
-            'datatable_registrations',
+            'registrations_datatable',
             'select2_family_search',
             'select2_student_search',
             'select2_session_search',
@@ -819,47 +823,48 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $class_id = isset($_POST['class_id']) ? sanitize_text_field($_POST['class_id']) : '';
-        $clinic_id = isset($_POST['clinic_id']) ? sanitize_text_field($_POST['clinic_id']) : '';
-        $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
+        $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : '';
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : '';
 
         $target = null;
         if (!empty($class_id)) {
-            $target = get_post(intval($class_id));
-            if (!$target || $target->post_type !== 'usctdp-class') {
+            $class_query = new Usctdp_Mgmt_Clinic_Class_Query([
+                'id' => $class_id,
+                'number' => 1
+            ]);
+            if (empty($class_query->items)) {
                 wp_send_json_error('Class with ID "' . $class_id . '" not found.', 404);
             }
-        }
-
-        if (!empty($clinic_id)) {
-            $target = get_post(intval($clinic_id));
-            if (!$target || $target->post_type !== 'usctdp-clinic') {
-                wp_send_json_error('Clinic with ID "' . $clinic_id . '" not found.', 404);
-            }
-            $clinic_sessions = isset($_POST['clinic_sessions']) ? sanitize_text_field($_POST['clinic_sessions']) : '';
-        }
-
-        if (!empty($session_id)) {
-            $target = get_post(intval($session_id));
-            if (!$target || $target->post_type !== 'usctdp-session') {
+            $target = [
+                'type' => 'class',
+                'id' => $class_query->items[0]->ID
+            ];
+        } else if (!empty($session_id)) {
+            $session_query = new Usctdp_Mgmt_Session_Query([
+                'id' => $session_id,
+                'number' => 1
+            ]);
+            if (empty($session_query->items)) {
                 wp_send_json_error('Session with ID "' . $session_id . '" not found.', 404);
             }
+            $target = [
+                'type' => 'session',
+                'id' => $session_query->items[0]->ID
+            ];
         }
 
         if (!$target) {
-            wp_send_json_error('Class ID, Clinic ID, or Session ID is required.', 400);
+            wp_send_json_error('Class ID or Session ID is required.', 400);
         }
 
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
-            if ($target->post_type === 'usctdp-class') {
-                $document = $doc_gen->generate_class_roster($target->ID);
-            } elseif ($target->post_type === 'usctdp-clinic') {
-                $document = $doc_gen->generate_clinic_roster($target->ID, $clinic_sessions);
-            } elseif ($target->post_type === 'usctdp-session') {
-                $document = $doc_gen->generate_session_roster($target->ID);
+            if ($target['type'] === 'class') {
+                $document = $doc_gen->generate_class_roster($target['id']);
+            } elseif ($target['type'] === 'session') {
+                $document = $doc_gen->generate_session_roster($target['id']);
             }
-            $drive_file = $doc_gen->upload_to_google_drive($document, $target->ID);
+            $drive_file = $doc_gen->upload_to_google_drive($document, $target['id']);
             wp_send_json_success([
                 'message' => 'Roster generated successfully',
                 'doc_id' => $drive_file->id,
@@ -1300,6 +1305,41 @@ class Usctdp_Mgmt_Admin
         }
         wp_reset_postdata();
         wp_send_json(array('items' => $results, 'found_posts' => $found_posts));
+    }
+
+    public function ajax_registrations_datatable()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['registrations_datatable'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : null;
+        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+        ];
+        if ($class_id) {
+            $args['class_id'] = $class_id;
+        }
+        if ($student_id) {
+            $args['student_id'] = $student_id;
+        }
+
+        $reg_query = new Usctdp_Mgmt_Registration_Query([]);
+        $result = $reg_query->get_class_registration_data($args);
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $result['count'],
+            "recordsFiltered" => $result['count'],
+            "data" => $result['data'],
+        );
+        wp_send_json($response);
     }
 
     public function ajax_datatable_registrations()

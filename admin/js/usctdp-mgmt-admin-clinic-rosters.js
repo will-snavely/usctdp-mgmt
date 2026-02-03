@@ -44,11 +44,9 @@
                     return {
                         q: params.term,
                         post_type: 'usctdp-class',
-                        action: usctdp_mgmt_admin.select2_search_action,
-                        security: usctdp_mgmt_admin.select2_search_nonce,
-                        'filter[session][value]': $('#session-selector').val(),
-                        'filter[session][compare]': '=',
-                        'filter[session][type]': 'NUMERIC'
+                        action: usctdp_mgmt_admin.select2_class_search_action,
+                        security: usctdp_mgmt_admin.select2_class_search_nonce,
+                        session_id: $('#session-selector').val()
                     };
                 },
                 processResults: function (data) {
@@ -117,63 +115,16 @@
                 type: 'POST',
                 data: function (d) {
                     var classFilterValue = $('#class-selector').val();
-                    d.action = usctdp_mgmt_admin.datatable_registrations_action;
-                    d.security = usctdp_mgmt_admin.datatable_registrations_nonce;
+                    d.action = usctdp_mgmt_admin.registrations_datatable_action;
+                    d.security = usctdp_mgmt_admin.registrations_datatable_nonce;
                     d.class_id = classFilterValue;
                 }
             },
             columns: [
-                {
-                    data: 'student',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.first_name) {
-                            return data.first_name;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    data: 'student',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.last_name) {
-                            return data.last_name;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    data: 'student',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                            const birthdate = data.birth_date;
-                            const birthYear = parseInt(birthdate.substring(0, 4), 10);
-                            const birthMonth = parseInt(birthdate.substring(4, 6), 10) - 1; // Month is 0-indexed
-                            const birthDay = parseInt(birthdate.substring(6, 8), 10);
-
-                            const today = new Date();
-                            const currentYear = today.getFullYear();
-                            const currentMonth = today.getMonth();
-                            const currentDay = today.getDate();
-
-                            let age = currentYear - birthYear;
-                            if (currentMonth < birthMonth || (currentMonth === birthMonth && currentDay < birthDay)) {
-                                age--;
-                            }
-                            return age;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    data: 'starting_level',
-                    render: function (data, type, row) {
-                        if (type === 'display' && data && data.starting_level) {
-                            return data.starting_level;
-                        }
-                        return data;
-                    },
-                    defaultContent: '',
-                },
+                { data: 'student_first' },
+                { data: 'student_last' },
+                { data: 'student_age' },
+                { data: 'registration_starting_level' },
                 {
                     data: 'student',
                     render: function (data, type, row) {
@@ -210,27 +161,26 @@
         $('#roster-print-success').hide();
         $('#roster-print-error').hide();
 
-        if (usctdp_mgmt_admin.preloaded_session_name) {
-            const newOption = new Option(
-                usctdp_mgmt_admin.preloaded_session_name,
-                usctdp_mgmt_admin.preloaded_session_id,
+        if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.class_id) {
+            const preloadedClass = Object.values(usctdp_mgmt_admin.preload.class_id)[0]
+            const sessionOption = new Option(
+                preloadedClass.session_name,
+                preloadedClass.session_id,
                 true,
                 true
             );
-            $('#session-selector').append(newOption)
-            $('#session-selector').val(usctdp_mgmt_admin.preloaded_session_id);
+            $('#session-selector').append(sessionOption)
+            $('#session-selector').val(preloadedClass.session_id);
             $('#session-selector').trigger('change');
-        }
 
-        if (usctdp_mgmt_admin.preloaded_class_name) {
-            const newOption = new Option(
-                usctdp_mgmt_admin.preloaded_class_name,
-                usctdp_mgmt_admin.preloaded_class_id,
+            const classOption = new Option(
+                preloadedClass.class_name,
+                preloadedClass.class_id,
                 true,
                 true
             );
-            $('#class-selector').append(newOption);
-            $('#class-selector').val(usctdp_mgmt_admin.preloaded_class_id);
+            $('#class-selector').append(classOption);
+            $('#class-selector').val(preloadedClass.class_id);
             $('#class-selector').trigger('change');
         }
     });

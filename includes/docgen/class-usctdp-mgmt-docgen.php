@@ -209,7 +209,7 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("skipped_clinics#$block_id", '');
         $templateProcessor->setValue("session_short_code#$block_id", '');
 
-        $student_data = [];
+        $student_table_data = [];
         $idx = 1;
         foreach ($registrations as $registration) {
             $student_query = new Usctdp_Mgmt_Student_Query([
@@ -231,12 +231,12 @@ class Usctdp_Mgmt_Docgen
             $family_data = $family_query->items[0];
 
             $phone = implode('/', $family_data->phone_numbers);
-            $first_name = $student_data->first_name;
-            $last_name = $student_data->last_name;
+            $first_name = $student_data->first;
+            $last_name = $student_data->last;
             $level = $registration->starting_level;
             $student_age = $student_data->age;
 
-            $student_data[] = [
+            $student_table_data[] = [
                 'att#' . $block_id => "___" . $idx,
                 'last#' . $block_id => $last_name,
                 'first#' . $block_id => $first_name,
@@ -248,7 +248,7 @@ class Usctdp_Mgmt_Docgen
         }
 
         while ($idx < 27) {
-            $student_data[] = [
+            $student_table_data[] = [
                 'att#' . $block_id => '',
                 'last#' . $block_id => '',
                 'first#' . $block_id => '',
@@ -258,6 +258,6 @@ class Usctdp_Mgmt_Docgen
             ];
             $idx++;
         }
-        $templateProcessor->cloneRowAndSetValues("att#$block_id", $student_data);
+        $templateProcessor->cloneRowAndSetValues("att#$block_id", $student_table_data);
     }
 }
