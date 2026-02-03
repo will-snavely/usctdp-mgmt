@@ -9,8 +9,11 @@
             }
             var optionsHtml = '';
             for (const option of options) {
-                optionsHtml += `
-                    <option value='${option.id}'>${option.name}</option>`;
+                if ('id' in option && 'name' in option) {
+                    optionsHtml += `<option value='${option.id}'>${option.name}</option>`;
+                } else {
+                    optionsHtml += '<option></option>';
+                }
             }
             return `
                 <div id='${id}-section' class='${classes}'>
@@ -166,6 +169,7 @@
                     var disabled = false;
                     var hidden = true;
                     var options = [
+                        {},
                         { id: 'clinic', name: 'Clinic' },
                         { id: 'tournament', name: 'Tournament' },
                     ];
@@ -176,7 +180,6 @@
                         ];
                         disabled = true;
                         hidden = false;
-
                     } else {
                         hidden = preloadedData.student === null;
                     }
