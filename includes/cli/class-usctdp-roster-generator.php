@@ -14,15 +14,9 @@ class Usctdp_Roster_Generator
 
         foreach ($session_query->items as $session) {
             $session_id = $session->id;
-            //$start_date = new DateTime($session->start_date);
-            //$end_date = new DateTime($session->end_date);
-            //if ($start_date > $current_date || $end_date < $current_date) {
-            //    continue;
-            //}
-
             WP_CLI::log('Processing Session: ' . $session_id);
             $session_doc = $doc_gen->generate_session_roster($session_id);
-            $session_drive_file = $doc_gen->upload_to_google_drive($session_doc, $session);
+            $session_drive_file = $doc_gen->upload_to_google_drive($session_doc, $session_id, $session->title);
             WP_CLI::log('Session Roster: ' . $session_drive_file->webViewLink);
         }
     }

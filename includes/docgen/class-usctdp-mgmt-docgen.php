@@ -56,10 +56,10 @@ class Usctdp_Mgmt_Docgen
         return $reg_query->items;
     }
 
-    private function get_drive_id($post_id)
+    private function get_drive_id($entity_id)
     {
         $reg_query = new Usctdp_Mgmt_Roster_Link_Query([
-            'entity_id' => $post_id,
+            'entity_id' => $entity_id,
             'number' => 1
         ]);
         if (empty($reg_query->items)) {
@@ -109,19 +109,18 @@ class Usctdp_Mgmt_Docgen
         return $templateProcessor;
     }
 
-    public function upload_to_google_drive($templateProcessor, $session)
+    public function upload_to_google_drive($templateProcessor, $entity_id, $title)
     {
         $client = $this->create_google_client();
         $drive = new Drive($client);
 
-        $drive_id = $this->get_drive_id($session->id);
+        $drive_id = $this->get_drive_id($entity_id);
         $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
 
         ob_start();
         $templateProcessor->saveAs('php://output');
         $content = ob_get_clean();
 
-        $title = $session->title;
         $clean_title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
         $metadata_args = [
             'name' => 'Roster: ' . $clean_title,
@@ -150,7 +149,7 @@ class Usctdp_Mgmt_Docgen
 
             $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
             $link_query->add_item([
-                'entity_id' => $session_id,
+                'entity_id' => $entity_id,
                 'drive_id' => $file->id
             ]);
         }
@@ -229,7 +228,6 @@ class Usctdp_Mgmt_Docgen
                 throw new ErrorException('Family ' . $student_data->family_id . ' not found');
             }
             $family_data = $family_query->items[0];
-
             $phone = implode('/', $family_data->phone_numbers);
             $first_name = $student_data->first;
             $last_name = $student_data->last;

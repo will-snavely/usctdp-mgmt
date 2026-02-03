@@ -35,10 +35,6 @@
     height: auto;
 }
 
-.hidden {
-    display: none !important;
-}
-
 .roster-actions {
     display: flex;
     flex-wrap: wrap;

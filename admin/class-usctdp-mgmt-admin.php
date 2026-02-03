@@ -97,6 +97,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'session_rosters_nonce',
             'callback' => 'ajax_session_rosters'
         ],
+        'session_rosters_datatable' => [
+            'action' => 'session_rosters_datatable',
+            'nonce' => 'session_rosters_datatable_nonce',
+            'callback' => 'ajax_session_rosters_datatable'
+        ],
         'toggle_session_active' => [
             'action' => 'toggle_session_active',
             'nonce' => 'toggle_session_active_nonce',
@@ -410,6 +415,7 @@ class Usctdp_Mgmt_Admin
         // Override the slug on the first menu item
         $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
         $this->add_usctdp_submenu('clinic-rosters', 'Clinic Rosters', [$this, 'load_clinic_rosters_page']);
+        $this->add_usctdp_submenu('session-rosters', 'Session Rosters', [$this, 'load_session_rosters_page']);
         $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
@@ -542,6 +548,23 @@ class Usctdp_Mgmt_Admin
         $context = $this->load_page_context(['class_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('clinic-rosters'), 'usctdp_mgmt_admin', $js_data);
+    }
+
+    public function load_session_rosters_page()
+    {
+        $js_data = [
+            'ajax_url' => admin_url('admin-ajax.php'),
+        ];
+        $handlers = [
+            'gen_roster',
+            'session_rosters_datatable'
+        ];
+        foreach ($handlers as $key) {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
+            $js_data[$key . "_action"] = $handler['action'];
+            $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
+        }
+        wp_localize_script($this->usctdp_script_id('session-rosters'), 'usctdp_mgmt_admin', $js_data);
     }
 
     public function load_register_page()
@@ -837,7 +860,8 @@ class Usctdp_Mgmt_Admin
             }
             $target = [
                 'type' => 'class',
-                'id' => $class_query->items[0]->ID
+                'id' => $class_query->items[0]->id,
+                'title' => $class_query->items[0]->title
             ];
         } else if (!empty($session_id)) {
             $session_query = new Usctdp_Mgmt_Session_Query([
@@ -849,7 +873,7 @@ class Usctdp_Mgmt_Admin
             }
             $target = [
                 'type' => 'session',
-                'id' => $session_query->items[0]->ID
+                'id' => $session_query->items[0]->id
             ];
         }
 
@@ -864,7 +888,7 @@ class Usctdp_Mgmt_Admin
             } elseif ($target['type'] === 'session') {
                 $document = $doc_gen->generate_session_roster($target['id']);
             }
-            $drive_file = $doc_gen->upload_to_google_drive($document, $target['id']);
+            $drive_file = $doc_gen->upload_to_google_drive($document, $target['id'], $target['title']);
             wp_send_json_success([
                 'message' => 'Roster generated successfully',
                 'doc_id' => $drive_file->id,
@@ -1031,6 +1055,33 @@ class Usctdp_Mgmt_Admin
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
         }
         wp_send_json(array('data' => $query_results));
+    }
+
+    public function ajax_session_rosters_datatable()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['session_rosters_datatable'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+        $active = isset($_POST['active']) ? intval($_POST['active']) : null;
+        $search_val = isset($_POST['search']['value']) ? sanitize_text_field($_POST['search']['value']) : '';
+        $session_query = new Usctdp_Mgmt_Session_Query();
+        $result = $session_query->search_session_rosters([
+            "q" => $search_val,
+            "active" => $active,
+            "number" => $length,
+            "offset" => $start
+        ]);
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $result['count'],
+            "recordsFiltered" => $result['count'],
+            "data" => $result['data'],
+        );
+        wp_send_json($response);
     }
 
     function ajax_toggle_session_active()
