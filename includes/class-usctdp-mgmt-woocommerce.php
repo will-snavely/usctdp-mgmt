@@ -51,4 +51,3 @@ class Usctdp_Mgmt_Woocommerce
         echo "<div><p> After Variations Form</p></div>";
     } 
 }
-

@@ -364,7 +364,6 @@
                     $(`#${option}`).val(null);
                     $(`#${option}`).trigger('change');
                 }
-                console.log(contextData);
                 if (contextData['student-selector'] && contextData['clinic-class-selector']) {
                     load_class_registration(contextData['clinic-class-selector'], contextData['student-selector']);
                 } else {

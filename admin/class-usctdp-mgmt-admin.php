@@ -67,11 +67,6 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'datatable_search_nonce',
             'callback' => 'ajax_datatable_search'
         ],
-        'datatable_registrations' => [
-            'action' => 'datatable_registrations',
-            'nonce' => 'datatable_registrations_nonce',
-            'callback' => 'ajax_datatable_registrations'
-        ],
         'datatable_balances' => [
             'action' => 'datatable_balances',
             'nonce' => 'datatable_balances_nonce',
@@ -127,6 +122,12 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'registrations_datatable_nonce',
             'callback' => 'ajax_registrations_datatable'
         ],
+        'registration_history_datatable' => [
+            'action' => 'registration_history_datatable',
+            'nonce' => 'registration_history_datatable_nonce',
+            'callback' => 'ajax_registration_history_datatable'
+        ],
+
         'select2_family_search' => [
             'action' => 'select2_family_search',
             'nonce' => 'select2_family_search_nonce',
@@ -414,10 +415,11 @@ class Usctdp_Mgmt_Admin
 
         // Override the slug on the first menu item
         $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
-        $this->add_usctdp_submenu('clinic-rosters', 'Clinic Rosters', [$this, 'load_clinic_rosters_page']);
-        $this->add_usctdp_submenu('session-rosters', 'Session Rosters', [$this, 'load_session_rosters_page']);
-        $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
+        $this->add_usctdp_submenu('session-rosters', 'Session Rosters', [$this, 'load_session_rosters_page']);
+        $this->add_usctdp_submenu('clinic-rosters', 'Clinic Rosters', [$this, 'load_clinic_rosters_page']);
+        $this->add_usctdp_submenu('register', 'Registration', [$this, 'load_register_page']);
+        $this->add_usctdp_submenu('history', 'Registration History', [$this, 'load_history_page']);
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
@@ -590,6 +592,26 @@ class Usctdp_Mgmt_Admin
         $context = $this->load_page_context(['class_id', 'student_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', $js_data);
+    }
+
+    public function load_history_page()
+    {
+        $js_data = [
+            'ajax_url' => admin_url('admin-ajax.php'),
+        ];
+        $handlers = [
+            'select2_family_search',
+            'select2_student_search',
+            'registration_history_datatable'
+        ];
+        foreach ($handlers as $key) {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
+            $js_data[$key . "_action"] = $handler['action'];
+            $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
+        }
+        $context = $this->load_page_context(['class_id', 'student_id']);
+        $js_data['preload'] = $context;
+        wp_localize_script($this->usctdp_script_id('history'), 'usctdp_mgmt_admin', $js_data);
     }
 
     public function load_families_page()
@@ -1358,6 +1380,53 @@ class Usctdp_Mgmt_Admin
         wp_send_json(array('items' => $results, 'found_posts' => $found_posts));
     }
 
+    public function ajax_registration_history_datatable()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['registration_history_datatable'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+        ];
+        if ($student_id) {
+            $args['student_id'] = $student_id;
+        }
+
+        $reg_query = new Usctdp_Mgmt_Registration_Query([]);
+        $results = $reg_query->get_class_registration_data($args);
+        foreach($results['data'] as $row) {
+            $row->txns = $this->get_related_transactions($row->registration_id);
+        }
+
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $results['count'],
+            "recordsFiltered" => $results['count'],
+            "data" => $results['data']
+        );
+        wp_send_json($response);
+    }
+
+    public function get_related_transactions($reg_id) {
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT txn.*
+                FROM {$wpdb->prefix}usctdp_transaction_link AS tlink
+                JOIN {$wpdb->prefix}usctdp_transaction AS txn ON tlink.transaction_id = txn.id 
+                WHERE tlink.registration_id = %d",
+            $reg_id
+        );
+        return $wpdb->get_results($query);
+    }
+
     public function ajax_registrations_datatable()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['registrations_datatable'];
@@ -1389,75 +1458,6 @@ class Usctdp_Mgmt_Admin
             "recordsTotal" => $result['count'],
             "recordsFiltered" => $result['count'],
             "data" => $result['data'],
-        );
-        wp_send_json($response);
-    }
-
-    public function ajax_datatable_registrations()
-    {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_registrations'];
-        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Nonce check failed.', 403);
-        }
-
-        $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : null;
-        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
-
-        if (!$student_id && !$class_id) {
-            wp_send_json_error('Must provide student_id or class_id.', 400);
-        }
-
-        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
-        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
-        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
-
-        $args = [
-            'number' => $length,
-            'offset' => $start,
-            'orderby' => 'id',
-            'order' => 'DESC',
-        ];
-        if ($class_id) {
-            $args['activity_id'] = $class_id;
-        }
-        if ($student_id) {
-            $args['student_id'] = $student_id;
-        }
-
-        $reg_query = new Usctdp_Mgmt_Registration_Query($args);
-        $results = [];
-        foreach ($reg_query->items as $row) {
-            $student_id = $row->student_id;
-            $activity_id = $row->activity_id;
-
-            $result = [
-                "id" => $row->id,
-                "student_id" => $student_id,
-                "activity_id" => $activity_id,
-                "starting_level" => $row->starting_level,
-                "balance" => $row->balance,
-                "notes" => $row->notes,
-            ];
-
-            $result["student"] = [
-                "first_name" => get_field("first_name", $student_id),
-                "last_name" => get_field("last_name", $student_id),
-                "birth_date" => get_field("birth_date", $student_id)
-            ];
-
-            $session = get_field("session", $activity_id);
-            $result["activity"] = [
-                "name" => get_the_title($activity_id),
-                "session" => $session->post_title,
-            ];
-            $results[] = $result;
-        }
-
-        $response = array(
-            "draw" => $draw,
-            "recordsTotal" => count($results),
-            "recordsFiltered" => count($results),
-            "data" => $results,
         );
         wp_send_json($response);
     }

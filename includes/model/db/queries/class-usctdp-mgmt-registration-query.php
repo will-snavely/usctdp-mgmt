@@ -22,6 +22,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
         $where_clause = '';
         $where_args = [];
         $conditions = [];
+        $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
         if (isset($args["class_id"])) {
             $conditions[] = "reg.activity_id = %d";
             $where_args[] = $args['class_id'];
@@ -57,12 +58,14 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     stud.birth_date as student_birth_date,
                     TIMESTAMPDIFF(YEAR, stud.birth_date, CURDATE()) AS student_age,
                     cls.id as class_id,
-                    cls.title as class_name
+                    cls.title as class_name,
+                    REPLACE(sesh.title, '{$token_suffix}', '') as session_name
                 FROM {$wpdb->prefix}usctdp_registration AS reg
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_clinic_class AS cls ON reg.activity_id = cls.id
+                JOIN {$wpdb->prefix}usctdp_session AS sesh ON cls.session_id = sesh.id
                 {$where_clause}
-                ORDER BY stud.id DESC
+                ORDER BY reg.id DESC
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
