@@ -2,7 +2,7 @@
 
 class Usctdp_Import_Session_Data
 {
-    private $sessions;
+    private $session_data;
     private $sessions_by_category;
 
     public function __construct()
@@ -12,28 +12,24 @@ class Usctdp_Import_Session_Data
     }
 
     private function get_clinic_by_title($title)
-    {
-        $args = array(
-            'post_type'      => 'usctdp-clinic',
-            'title'          => $title,
-            'post_status'    => 'publish',
-            'numberposts'    => 1
-        );
-        $posts = get_posts($args);
-        if (!empty($posts)) {
-            return $posts[0];
-        } else {
-            return false;
+    {      
+	    $query = new Usctdp_Mgmt_Product_Query([
+            'title' => $title,
+            'number' => 1,
+        ]);
+        if(!empty($query->items)) {
+            return $query->items[0];
         }
+    	return false;
     }
 
     private function get_category_integer(string $cat)
     {
         $cats = [
-            'junior: beginner'    => 1,
-            'junior: advanced'   => 2,
+            'junior: beginner' => 1,
+            'junior: advanced' => 2,
             'adult' => 3,
-            'cardio tennis'  => 4,
+            'cardio tennis' => 4,
         ];
         $normalized_cat = strtolower(trim($cat));
         return $cats[$normalized_cat] ?? false;
@@ -60,37 +56,39 @@ class Usctdp_Import_Session_Data
             $start_date = new DateTime($session['start_date']);
             $end_date = new DateTime($session['end_date']);
             $name = $session['name'];
+            $title = Usctdp_Mgmt_Session_Table::create_title(
+                $session['name'],
+                $session['length_weeks'],
+                $start_date,
+                $end_date
+            );
+            $session_id = 0;
+            $category_int = $this->get_category_integer($session["category"]);
+	        $session_category = Usctdp_Session_Category::from($category_int);
             $query = new Usctdp_Mgmt_Session_Query([
-                "name" => $name,
+                "title" => $title,
                 "start_date" => $start_date->format("Y-m-d"),
                 "number" => 1
             ]);
-
-            $session_id = 0;
             if (!empty($query->items)) {
                 $session_id = $query->items[0]->id;
                 WP_CLI::log("Session '$name' already exists (id=$session_id)");
             } else {
-                $title = Usctdp_Mgmt_Session_Table::create_title(
-                    $session['name'],
-                    $session['length_weeks'],
-                    $start_date,
-                    $end_date
-                );
+                $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
                 $session_id = $query->add_item([
-                    "name" => $session['name'],
                     "title" => $title,
+                    "search_term" => $search_term,
                     "is_active" => 1,
                     "start_date" => $start_date->format("Y-m-d"),
                     "end_date" => $end_date->format("Y-m-d"),
                     "num_weeks" => $session['length_weeks'],
-                    "category" => $this->get_category_integer($session["category"]),
+                    "category" => $session_category->value,
                 ]);
             }
-            if (!isset($this->sessions_by_category[$session['category']])) {
-                $this->sessions_by_category[$session['category']] = [];
+            if (!isset($this->sessions_by_category[$session_category->value])) {
+                $this->sessions_by_category[$session_category->value] = [];
             }
-            $this->sessions_by_category[$session['category']][] = $session_id;
+            $this->sessions_by_category[$session_category->value][] = $session_id;
             $this->session_data[$session_id] = $session;
         }
     }
@@ -129,27 +127,21 @@ class Usctdp_Import_Session_Data
         foreach ($data["pricing"] as $pricing) {
             $clinic_title = $pricing['clinic'];
             if (!isset($clinics_by_title[$clinic_title])) {
+                $clinic = $this->get_clinic_by_title($clinic_title);
+                if(!$clinic) {
+                    WP_CLI::log("No clinic found with title $clinic_title");
+                }
                 $clinics_by_title[$clinic_title] = $this->get_clinic_by_title($clinic_title);
             }
             $clinic = $clinics_by_title[$clinic_title];
-            $clinic_id = $clinic->ID;
-            $query = new Usctdp_Mgmt_Product_Link_Query([
-                "activity_id" => $clinic_id,
-                "number" => 1,
-            ]);
-            if (!empty($query->items)) {
-                $result = $query->items[0];
-                $product_id = $result->product_id;
-                if (!isset($sessions_by_product[$product_id])) {
-                    $sessions_by_product[$product_id] = [];
-                }
-                $sessions_by_product[$product_id][$pricing['session']] = [
-                    "One" => $pricing['1_day_price'],
-                    "Two" => $pricing['2_day_price']
-                ];
-            } else {
-                WP_CLI::log("No product found for clinic $clinic_id");
+            $product_id = $clinic->woocommerce_id;
+            if (!isset($sessions_by_product[$product_id])) {
+                $sessions_by_product[$product_id] = [];
             }
+            $sessions_by_product[$product_id][$pricing['session']] = [
+                "One" => $pricing['1_day_price'],
+                "Two" => $pricing['2_day_price']
+            ];
         }
 
         foreach ($sessions_by_product as $product_id => $sessions) {
@@ -189,41 +181,50 @@ class Usctdp_Import_Session_Data
         foreach ($data["classes"] as $class) {
             $clinic_name = $class['clinic'];
             $clinic = $this->get_clinic_by_title($class['clinic']);
-            $clinic_id = $clinic->ID;
-            $clinic_category = get_field('field_usctdp_clinic_category', $clinic_id);
+            $clinic_id = $clinic->id;
+            $clinic_category = $clinic->session_category;
             $dow = $class['day'];
             $start_time = new DateTime($class['start_time']);
             $end_time = new DateTime($class['end_time']);
-            $sessions = $this->sessions_by_category[$clinic_category];
+            $sessions = $this->sessions_by_category[$clinic_category->value];
             foreach ($sessions as $session_id) {
                 $day_of_week = $this->get_day_integer($class['day']);
-                $query = new Usctdp_Mgmt_Clinic_Class_Query([
-                    "session_id" => $session_id,
-                    "clinic_id" => $clinic_id,
-                    "day_of_week" => $day_of_week,
-                    "start_time" => $start_time->format("H:i:s")
+                $title = Usctdp_Mgmt_Clinic_Table::create_title(
+                    $clinic_name,
+                    $dow,
+                    $start_time
+                );
+                $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+                $activity_query = new Usctdp_Mgmt_Activity_Query([
+                    "title" => $title,
                 ]);
-                if (!empty($query->items)) {
-                    $class_id = $query->items[0]->id;
-                    WP_CLI::log("Class already exists (id=$class_id)");
+                if (!empty($activity_query->items)) {
+                    $class_id = $activity_query->items[0]->id;
                 } else {
-                    $title = Usctdp_Mgmt_Clinic_Class_Table::create_title(
-                        $clinic_name,
-                        $dow,
-                        $start_time,
-                        $this->session_data[$session_id]['length_weeks']
-                    );
-                    $query->add_item([
+                    WP_CLI::log("Creating activity: $title");
+                    $activity_id = $activity_query->add_item([
                         "session_id" => $session_id,
-                        "clinic_id" => $clinic_id,
-                        "title" => $title,
-                        "day_of_week" => $day_of_week,
-                        "start_time" => $start_time->format("H:i:s"),
-                        "end_time" => $end_time->format("H:i:s"),
-                        "capacity" => $class['capacity'],
-                        "level" => (string) $class['level'],
-                        "notes" => '',
-                    ]);
+                        "product_id" => $clinic_id,
+			            "type" => Usctdp_Activity_Type::Clinic->value,
+			            "title" => $title,
+			            "search_term" => $search_term,
+		            ]);
+                    $clinic_query = new Usctdp_Mgmt_Clinic_Query([
+	                    "activity_id" => $activity_id
+       		        ]);
+		            if(!empty($clinic_query->items)) {
+                        WP_CLI::log("Unexpected: class already exists (id=$activity_id)");
+		            } else {
+	                    $clinic_query->add_item([
+		                    "activity_id" => $activity_id,
+                            "day_of_week" => $day_of_week,
+                            "start_time" => $start_time->format("H:i:s"),
+                            "end_time" => $end_time->format("H:i:s"),
+                            "capacity" => $class['capacity'],
+                            "level" => (string) $class['level'],
+                            "notes" => '',
+                        ]);
+                    }
                 }
             }
         }

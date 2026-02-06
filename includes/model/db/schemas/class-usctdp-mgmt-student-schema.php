@@ -15,7 +15,6 @@ class Usctdp_Mgmt_Student_Schema extends Schema
             'sortable' => true,
             'default' => 0
         ],
-
         'family_id' => [
             'name'       => 'family_id',
             'type'       => 'bigint',
@@ -24,28 +23,27 @@ class Usctdp_Mgmt_Student_Schema extends Schema
             'index'      => true,
             'default' => 0,
         ],
-
         'title' => [
             'name'       => 'title',
             'type'       => 'tinytext',
-            'index'      => true
         ],
-
+        'search_term' => [
+            'name'     => 'search_term',
+            'type'     => 'tinytext',
+            'index'    => true,
+        ],
         'first' => [
             'name'       => 'first',
             'type'       => 'tinytext',
         ],
-
         'last' => [
             'name'       => 'last',
             'type'       => 'tinytext',
         ],
-
         'birth_date' => [
             'name'       => 'birth_date',
             'type'       => 'date',
         ],
-
         'level' => [
             'name'       => 'level',
             'type'       => 'tinytext',

@@ -45,13 +45,6 @@ class Usctdp_Mgmt_Admin
      */
     private $version;
 
-    private $hidden_title_post_types = [
-        'usctdp-student',
-        'usctdp-family',
-        'usctdp-staff',
-        'usctdp-session',
-    ];
-
     public static $post_handlers = [
         'registration' => [
             'submit_hook' => 'usctdp_registration',
@@ -127,7 +120,6 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'registration_history_datatable_nonce',
             'callback' => 'ajax_registration_history_datatable'
         ],
-
         'select2_family_search' => [
             'action' => 'select2_family_search',
             'nonce' => 'select2_family_search_nonce',
@@ -182,16 +174,6 @@ class Usctdp_Mgmt_Admin
      */
     public function enqueue_styles()
     {
-        $screen = get_current_screen();
-        if (in_array($screen->post_type, $this->hidden_title_post_types)) {
-            wp_enqueue_style(
-                $this->plugin_name . 'hidden-title-css',
-                plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-custom-post-hidden-title.css',
-                [],
-                $this->version,
-                'all'
-            );
-        }
     }
 
     /**
@@ -467,8 +449,8 @@ class Usctdp_Mgmt_Admin
                 return $this->db_id_query('Usctdp_Mgmt_Session_Query', $id);
             },
             'class_id' => function ($id) {
-                $class_query = new Usctdp_Mgmt_Clinic_Class_Query([]);
-                $result = $class_query->get_class_data([
+                $class_query = new Usctdp_Mgmt_Clinic_Query([]);
+                $result = $class_query->get_clinic_data([
                     'id' => $id,
                     'number' => 1
                 ]);
@@ -831,8 +813,8 @@ class Usctdp_Mgmt_Admin
 
     private function get_class_capacity($class_id)
     {
-        $class_query = new Usctdp_Mgmt_Clinic_Class_Query([
-            'id' => $class_id,
+        $class_query = new Usctdp_Mgmt_Clinic_Query([
+            'activity_id' => $class_id,
             'number' => 1
         ]);
         if (empty($class_query->items)) {
@@ -873,7 +855,7 @@ class Usctdp_Mgmt_Admin
 
         $target = null;
         if (!empty($class_id)) {
-            $class_query = new Usctdp_Mgmt_Clinic_Class_Query([
+            $class_query = new Usctdp_Mgmt_Activity_Query([
                 'id' => $class_id,
                 'number' => 1
             ]);
@@ -902,7 +884,6 @@ class Usctdp_Mgmt_Admin
         if (!$target) {
             wp_send_json_error('Class ID or Session ID is required.', 400);
         }
-
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
             if ($target['type'] === 'class') {
@@ -1208,10 +1189,10 @@ class Usctdp_Mgmt_Admin
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
 
-            $query = new Usctdp_Mgmt_Clinic_Class_Query();
+            $query = new Usctdp_Mgmt_Clinic_Query();
             $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
             $session_id = isset($_GET['session_id']) ? intval($_GET['session_id']) : null;
-            $query_results = $query->search_classes($search, $session_id, 10);
+            $query_results = $query->search_clinics($search, $session_id, 10);
             if ($query_results) {
                 foreach ($query_results as $result) {
                     $results[] = array(
@@ -1302,8 +1283,8 @@ class Usctdp_Mgmt_Admin
             $args['clinic_id'] = $clinic_id;
         }
 
-        $class_query = new Usctdp_Mgmt_Clinic_Class_Query([]);
-        $result = $class_query->get_class_data($args);
+        $class_query = new Usctdp_Mgmt_Clinic_Query([]);
+        $result = $class_query->get_clinic_data($args);
         $response = array(
             "draw" => $draw,
             "recordsTotal" => $result['count'],
@@ -1540,7 +1521,7 @@ class Usctdp_Mgmt_Admin
             "   SELECT 
                     cls.title as activity_name,
                     stu.title as student_name,
-                    REPLACE(sesh.title, '{$token_suffix}', '') as session_name,
+                    sesh.title as session_name,
                     reg.balance as balance,
                     COUNT(*) OVER() as grand_total
                 FROM {$wpdb->prefix}usctdp_registration AS reg 

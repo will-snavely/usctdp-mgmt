@@ -26,26 +26,25 @@ class Usctdp_Mgmt_Session_Table extends Table
         if ($start != $end) {
             $year = $start . '/' . $end;
         }
-        $sanitized = sanitize_text_field($name . ' - ' . $year . ' - ' . $length_weeks . ' weeks');
-        return Usctdp_Mgmt_Model::append_token_suffix($sanitized);
+        return sanitize_text_field($name . ' - ' . $year);
     }
 
     public function set_schema()
     {
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            name tinytext,
             title tinytext,
+            search_term tinytext,
             is_active bool,
             start_date date,
             end_date date,
             num_weeks tinyint unsigned,
             category tinyint unsigned,
             PRIMARY KEY (id),
-            INDEX name_prefix (name(10)),
+            INDEX title_prefix (title(10)),
             INDEX idx_start_date (start_date),
             INDEX idx_active_items (is_active),
-            FULLTEXT idx_title (title)
+            FULLTEXT search (search_term)
         ";
     }
 }

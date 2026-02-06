@@ -26,13 +26,14 @@ class Usctdp_Mgmt_Student_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             family_id bigint(20) unsigned NOT NULL,
             title tinytext NOT NULL,
+            search_term tinytext,
             first tinytext NOT NULL,
             last tinytext NOT NULL,
             birth_date date,
             level tinytext,
             PRIMARY KEY (id),
             KEY family_id (family_id),
-            FULLTEXT idx_title (title)
+            FULLTEXT search (search_term)
         ";
     }
 }

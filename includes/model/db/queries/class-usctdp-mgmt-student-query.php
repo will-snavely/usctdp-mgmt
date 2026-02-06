@@ -27,7 +27,7 @@ class Usctdp_Mgmt_Student_Query extends Query
             foreach ($parts as $part) {
                 $query_terms[] = "+$part*";
             }
-            $conditions[] = "MATCH(title) AGAINST(%s IN BOOLEAN MODE)";
+            $conditions[] = "MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
             $args[] = implode(" ", $query_terms);
         }
         if ($family_id !== null) {

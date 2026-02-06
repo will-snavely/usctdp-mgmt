@@ -27,7 +27,7 @@ class Usctdp_Mgmt_Family_Query extends Query
             foreach ($parts as $part) {
                 $query_terms[] = "+$part*";
             }
-            $where_clause .= " WHERE MATCH(title) AGAINST(%s IN BOOLEAN MODE)";
+            $where_clause .= " WHERE MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
             $args[] = implode(" ", $query_terms);
         }
         $sql .= $where_clause;

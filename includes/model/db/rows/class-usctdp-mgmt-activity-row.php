@@ -6,14 +6,16 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-class Usctdp_Mgmt_Activity_Link_Row extends Row
+class Usctdp_Mgmt_Activity_Row extends Row
 {
     public function __construct($item)
     {
         parent::__construct($item);
         $this->id = (int) $this->id;
-        $this->activity_id = (int) $this->activity_id;
+        $this->title = $this->title;
+        $this->search_term = $this->search_term; 
         $this->session_id = (int) $this->session_id;
-        $this->clinic_id = (int) $this->clinic_id;
+        $this->product_id = (int) $this->product_id;
+        $this->type =  Usctdp_Activity_Type::from($this->type);
     }
 }

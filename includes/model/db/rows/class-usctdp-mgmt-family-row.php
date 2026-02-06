@@ -14,6 +14,7 @@ class Usctdp_Mgmt_Family_Row extends Row
         $this->id = (int) $this->id;
         $this->user_id = (int) $this->user_id;
         $this->title = (string) $this->title;
+        $this->search_term = (string) $this->search_term;
         $this->last = (string) $this->last;
         $this->address = (string) $this->address;
         $this->city = (string) $this->city;

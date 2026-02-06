@@ -14,42 +14,34 @@ class Usctdp_Mgmt_Session_Schema extends Schema
             'primary'  => true,
             'sortable' => true,
         ],
-
-        'name' => [
-            'name'       => 'name',
-            'type'       => 'tinytext',
-            'index'      => true
-        ],
-
         'title' => [
             'name'       => 'title',
             'type'       => 'tinytext',
-            'index'      => true
         ],
-
+        'search_term' => [
+            'name'     => 'search_term',
+            'type'     => 'tinytext',
+            'index'    => true,
+        ],
         'is_active' => [
             'name'       => 'is_active',
             'type'       => 'bool',
             'index'      => true
         ],
-
         'start_date' => [
             'name'       => 'start_date',
             'type'       => 'date',
             'index'      => true
         ],
-
         'end_date' => [
             'name'       => 'end_date',
             'type'       => 'date',
         ],
-
         'num_weeks' => [
             'name'       => 'num_weeks',
             'type'       => 'tinyint',
             'unsigned'   => true,
         ],
-
         'category' => [
             'name'       => 'category',
             'type'       => 'tinyint',

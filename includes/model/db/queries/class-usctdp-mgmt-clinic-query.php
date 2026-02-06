@@ -6,19 +6,22 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class Usctdp_Mgmt_Clinic_Class_Query extends Query
+class Usctdp_Mgmt_Clinic_Query extends Query
 {
-    protected $table_name = 'usctdp_clinic_class';
-    protected $table_alias = 'ucc';
-    protected $table_schema = 'Usctdp_Mgmt_Clinic_Class_Schema';
-    protected $item_name = 'clinic_class';
-    protected $item_name_plural = 'clinic_classes';
-    protected $item_shape = 'Usctdp_Mgmt_Clinic_Class_Row';
+    protected $table_name = 'usctdp_clinic';
+    protected $table_alias = 'uclin';
+    protected $table_schema = 'Usctdp_Mgmt_Clinic_Schema';
+    protected $item_name = 'clinic';
+    protected $item_name_plural = 'clinics';
+    protected $item_shape = 'Usctdp_Mgmt_Clinic_Row';
 
-    public function search_classes($query, $session_id, $limit = 10)
+    public function search_clinics($query, $session_id, $limit = 10)
     {
         global $wpdb;
-        $sql = "SELECT * FROM {$wpdb->prefix}{$this->table_name}";
+        $sql = "SELECT * FROM";
+        $sql .= " {$wpdb->prefix}usctdp_activity as act"; 
+        $sql .= " JOIN {$wpdb->prefix}{$this->table_name} as uclin";
+        $sql .= " ON act.id = uclin.activity_id";
         $args = [];
         $conditions = [];
         if ($query) {
@@ -27,7 +30,7 @@ class Usctdp_Mgmt_Clinic_Class_Query extends Query
             foreach ($parts as $part) {
                 $query_terms[] = "+$part*";
             }
-            $conditions[] = "MATCH(title) AGAINST(%s IN BOOLEAN MODE)";
+            $conditions[] = "MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
             $args[] = implode(" ", $query_terms);
         }
         if ($session_id !== null) {
@@ -44,7 +47,7 @@ class Usctdp_Mgmt_Clinic_Class_Query extends Query
         return $wpdb->get_results($query);
     }
 
-    public function get_class_data($args)
+    public function get_clinic_data($args)
     {
         global $wpdb;
 
@@ -52,16 +55,16 @@ class Usctdp_Mgmt_Clinic_Class_Query extends Query
         $where_args = [];
         $conditions = [];
         if (isset($args["id"])) {
-            $conditions[] = "cls.id = %d";
+            $conditions[] = "act.id = %d";
             $where_args[] = $args['id'];
         }
         if (isset($args["session_id"])) {
             $conditions[] = "sess.id = %d";
             $where_args[] = $args['session_id'];
         }
-        if (isset($args["clinic_id"])) {
-            $conditions[] = "post.ID = %d";
-            $where_args[] = $args['clinic_id'];
+        if (isset($args["product_id"])) {
+            $conditions[] = "prod.id = %d";
+            $where_args[] = $args['product_id'];
         }
         if ($conditions) {
             $where_clause = "WHERE " . implode(" AND ", $conditions);
@@ -80,28 +83,31 @@ class Usctdp_Mgmt_Clinic_Class_Query extends Query
         $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
         $query = $wpdb->prepare(
             "   SELECT
-                    cls.id as class_id, cls.title as class_name, cls.day_of_week as class_day_of_week,
+                    act.id as class_id, act.title as class_name, 
+                    cls.day_of_week as class_day_of_week,
                     cls.start_time as class_start_time, cls.end_time as class_end_time,
                     cls.capacity as class_capacity, cls.level as class_level,
                     cls.notes as class_notes,
-                    sess.id as session_id,
-                    REPLACE(sess.title, '{$token_suffix}', '') as session_name,
+                    sess.id as session_id, sess.title as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
-                    post.post_title as clinic_name, post.ID as clinic_id
-                FROM {$wpdb->prefix}usctdp_clinic_class AS cls
-                JOIN {$wpdb->prefix}usctdp_session AS sess ON cls.session_id = sess.id
-                JOIN {$wpdb->prefix}posts AS post ON cls.clinic_id = post.ID
+                    prod.title as clinic_name, prod.id as clinic_id
+                FROM {$wpdb->prefix}usctdp_activity AS act
+                JOIN {$wpdb->prefix}usctdp_clinic AS cls ON act.id = cls.activity_id
+                JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
+                JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}
-                ORDER BY cls.id DESC
+                ORDER BY act.id DESC
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
+        error_log($query);
         $window = $wpdb->get_results($query);
         $count_sql = "SELECT COUNT(*) as count
-                FROM {$wpdb->prefix}usctdp_clinic_class AS cls
-                JOIN {$wpdb->prefix}usctdp_session AS sess ON cls.session_id = sess.id
-                JOIN {$wpdb->prefix}posts AS post ON cls.clinic_id = post.ID
+                FROM {$wpdb->prefix}usctdp_activity AS act
+                JOIN {$wpdb->prefix}usctdp_clinic AS cls ON act.id = cls.activity_id
+                JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
+                JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}";
         $count_query = $count_sql;
         if (!empty($where_args)) {

@@ -14,7 +14,6 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'primary'  => true,
             'sortable' => true,
         ],
-
         'activity_id' => [
             'name'       => 'activity_id',
             'type'       => 'bigint',
@@ -22,7 +21,6 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned'   => true,
             'index'      => true,
         ],
-
         'student_id' => [
             'name'       => 'student_id',
             'type'       => 'bigint',
@@ -30,18 +28,20 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned'   => true,
             'index'      => true,
         ],
-
         'starting_level' => [
             'name'       => 'starting_level',
             'type'       => 'tinytext',
         ],
-
-        'balance' => [
+        'credit' => [
             'name'       => 'balance',
             'type'       => 'smallint',
             'unsigned'   => true,
         ],
-
+        'debit' => [
+            'name'       => 'balance',
+            'type'       => 'smallint',
+            'unsigned'   => true,
+        ],
         'notes' => [
             'name'       => 'notes',
             'type'       => 'text',

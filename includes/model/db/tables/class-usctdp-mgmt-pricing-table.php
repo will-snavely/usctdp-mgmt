@@ -6,11 +6,11 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-class Usctdp_Mgmt_Activity_Link_Table extends Table
+class Usctdp_Mgmt_Pricing_Table extends Table
 {
-    public $name = 'usctdp_activity_link';
-    protected $db_version_key = 'usctdp_activity_link_version';
-    public $description = 'USCTDP Activity Links';
+    public $name = 'usctdp_pricing';
+    protected $db_version_key = 'usctdp_pricing_version';
+    public $description = 'USCTDP Pricing';
     protected $version = '1.0.0';
     protected $upgrades = array();
 
@@ -18,13 +18,12 @@ class Usctdp_Mgmt_Activity_Link_Table extends Table
     {
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            activity_id bigint(20) unsigned NOT NULL,
             session_id bigint(20) unsigned NOT NULL,
-            clinic_id bigint(20) unsigned NOT NULL,
+            product_id bigint(20) unsigned NOT NULL,
+            pricing json,
             PRIMARY KEY (id),
-            KEY activity_id (activity_id),
             KEY session_id (session_id),
-            KEY clinic_id (clinic_id)
+            KEY product_id (product_id)
         ";
     }
 }

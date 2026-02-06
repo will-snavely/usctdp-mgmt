@@ -14,12 +14,6 @@ class Usctdp_Clean_Products
         foreach ($products as $product_id) {
             WP_CLI::log("Removing product with id $product_id");
             wp_delete_post($product_id, true);
-            $query = new Usctdp_Mgmt_Product_Link_Query([
-                "product_id" => $product_id
-            ]);
-            foreach($query->items as $item) {
-                $query->delete_item($item->id);
-            }
         }
     }
 }

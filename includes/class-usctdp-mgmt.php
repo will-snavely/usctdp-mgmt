@@ -157,47 +157,7 @@ class Usctdp_Mgmt
     private function define_model_hooks()
     {
         $model = new Usctdp_Mgmt_Model();
-
         $this->loader->add_action("init", $model, "register_berlindb_entities");
-        $this->loader->add_action("acf/init", $model, "register_model_types");
-
-        foreach ($model->model_types as $model_type) {
-            foreach ($model_type->get_update_value_hooks() as $field_key => $hook) {
-                $this->loader->add_filter(
-                    "acf/update_value/key={$field_key}",
-                    $model_type,
-                    $hook,
-                    10,
-                    4,
-                );
-            }
-
-            foreach ($model_type->get_prepare_field_hooks() as $field_key => $hook) {
-                $this->loader->add_filter(
-                    "acf/prepare_field/key={$field_key}",
-                    $model_type,
-                    $hook,
-                    10,
-                    4,
-                );
-            }
-        }
-
-        $this->loader->add_filter(
-            "wp_insert_post_data",
-            $model,
-            "generate_computed_post_fields",
-            99,
-            2,
-        );
-
-        $this->loader->add_action(
-            'delete_post',
-            $model,
-            'on_post_delete',
-            10,
-            2
-        );
     }
 
     private function define_woocommerce_hooks() {

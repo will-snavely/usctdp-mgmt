@@ -19,6 +19,7 @@ class Usctdp_Mgmt_Family_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             user_id bigint(20) unsigned,
             title tinytext NOT NULL,
+            search_term tinytext,
             last tinytext NOT NULL,
             address tinytext,
             city tinytext,
@@ -27,11 +28,9 @@ class Usctdp_Mgmt_Family_Table extends Table
             phone_numbers JSON,
             email tinytext,
             notes text,
-            last_modified datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            last_modified_by bigint(20) unsigned,
             PRIMARY KEY (id),
             KEY user_id (user_id),
-            FULLTEXT idx_title (title)
+            FULLTEXT search (search_term)
         ";
     }
 }

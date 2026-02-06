@@ -22,7 +22,7 @@ class Usctdp_Mgmt_Session_Query extends Query
         $session_roster_query = "   
             SELECT 
                 sesh.id as id,
-                REPLACE(sesh.title, '{$token_suffix}', '') as title,
+                sesh.title as title,
                 rst.drive_id as drive_id
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             LEFT JOIN {$wpdb->prefix}usctdp_roster_link as rst ON sesh.id = rst.entity_id
@@ -44,7 +44,7 @@ class Usctdp_Mgmt_Session_Query extends Query
             foreach ($parts as $part) {
                 $query_terms[] = "+$part*";
             }
-            $conditions[] = "MATCH(title) AGAINST(%s IN BOOLEAN MODE)";
+            $conditions[] = "MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
             $args[] = implode(" ", $query_terms);
         }
         if ($active !== null) {
@@ -79,7 +79,7 @@ class Usctdp_Mgmt_Session_Query extends Query
             foreach ($parts as $part) {
                 $query_terms[] = "+$part*";
             }
-            $conditions[] = "MATCH(title) AGAINST(%s IN BOOLEAN MODE)";
+            $conditions[] = "MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
             $where_args[] = implode(" ", $query_terms);
         }
 
@@ -101,7 +101,7 @@ class Usctdp_Mgmt_Session_Query extends Query
         $query = $wpdb->prepare("   
             SELECT 
                 sesh.id as id,
-                REPLACE(sesh.title, '{$token_suffix}', '') as title,
+                sesh.title as title,
                 rst.drive_id as drive_id
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             LEFT JOIN {$wpdb->prefix}usctdp_roster_link as rst ON sesh.id = rst.entity_id
@@ -115,7 +115,7 @@ class Usctdp_Mgmt_Session_Query extends Query
             SELECT COUNT(*) as count
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             {$where_clause}";
-	if(empty($where_args)) {
+        if(empty($where_args)) {
             $count_query = $count_sql;
         } else {
             $count_query = $wpdb->prepare($count_sql, $where_args);

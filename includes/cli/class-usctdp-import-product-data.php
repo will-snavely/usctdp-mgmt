@@ -1,6 +1,6 @@
 <?php
 
-class Usctdp_Import_Clinic_Data
+class Usctdp_Import_Product_Data
 {
     private $image_map;
 
@@ -10,6 +10,30 @@ class Usctdp_Import_Clinic_Data
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         require_once(ABSPATH . 'wp-admin/includes/media.php');
         $this->image_map = [];
+    }
+
+    private function get_category_int(string $cat)
+    {
+        $cats = [
+            'junior: beginner' => 1,
+            'junior: advanced'=> 2,
+            'adult' => 3,
+            'cardio tennis' => 4,
+            'junior tournaments' => 5,
+            'adult tournaments' => 6,
+        ];
+        $normalized_cat = strtolower(trim($cat));
+        return $cats[$normalized_cat] ?? false;
+    }
+
+    private function get_age_group_int(string $cat)
+    {
+        $cats = [
+            'junior' => 1,
+            'adult' => 2,
+        ];
+        $normalized_cat = strtolower(trim($cat));
+        return $cats[$normalized_cat] ?? false;
     }
 
     private function get_or_import_image($local_file, $external_id)
@@ -43,19 +67,10 @@ class Usctdp_Import_Clinic_Data
         return $id;
     }
 
-    private function link_product($product_id, $activity_id)
-    {
-        $query = new Usctdp_Mgmt_Product_Link_Query([]);
-        $query->add_item([
-            'activity_id' => $activity_id,
-            'product_id' => $product_id
-        ]);
-    }
-
-    private function create_clinic_product($clinic, $post_id, $menu_order)
+    private function create_clinic_woo_product($clinic, $menu_order)
     {
         $clinic_name = $clinic['name'];
-        $sku = 'clinic-' . $post_id;
+        $sku = 'clinic-' . sanitize_title($clinic_name);
         $existing_id = wc_get_product_id_by_sku($sku);
         if ($existing_id) {
             WP_CLI::log('Product already exists for clinic: ' . $clinic_name);
@@ -69,7 +84,6 @@ class Usctdp_Import_Clinic_Data
         $product->set_short_description($clinic['short_description']);
         $product->set_sku($sku);
         $product->set_image_id($this->image_map[$clinic['image_id']]);
-        $product->update_meta_data('_clinic_id', $post_id);
         $product->set_menu_order($menu_order);
         $product->set_status('publish');
 
@@ -88,10 +102,10 @@ class Usctdp_Import_Clinic_Data
         return $product->save();
     }
 
-    private function create_tournament_product($tournament, $post_id, $menu_order)
+    private function create_tournament_woo_product($tournament, $menu_order)
     {
         $tourney_name = $tournament['name'];
-        $sku = 'tournament-' . $post_id;
+        $sku = 'tournament-' . sanitize_title($tourney_name);
         $existing_id = wc_get_product_id_by_sku($sku);
         if ($existing_id) {
             WP_CLI::log('Product already exists for tournament: ' . $tourney_name);
@@ -105,7 +119,6 @@ class Usctdp_Import_Clinic_Data
         $product->set_short_description($tournament['short_description']);
         $product->set_sku($sku);
         $product->set_image_id($this->image_map[$tournament['image_id']]);
-        $product->update_meta_data('_tournament_id', $post_id);
         $product->set_menu_order($menu_order);
         $product->set_status('publish');
 
@@ -126,65 +139,52 @@ class Usctdp_Import_Clinic_Data
         return $product->save();
     }
 
-    private function create_tournament($clinic)
+    private function create_tournament($tournament, $product_id)
     {
-        $title = Usctdp_Mgmt_Tournament::create_title($clinic['name']);
-        $existing_post = get_posts([
-            'post_type'   => 'usctdp-tournament',
-            'title'       => $title,
-            'numberposts' => 1,
+        $title = $tournament['name'];
+        $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+        $query = new Usctdp_Mgmt_Product_Query([
+            'title' => $title,
+            'number' => 1,
         ]);
-
-        if (!empty($existing_post)) {
-            $found_post = $existing_post[0];
-            $post_id = $found_post->ID;
-            WP_CLI::log("Existing tournament named $title found with id $post_id");
-            return $post_id;
+        if(!empty($query->items)) {
+            $tourney_id = $query->items[0]->id;
+            WP_CLI::log("Existing tournament $title found with id $tourney_id");
+            return $tourney_id;
         }
-
         WP_CLI::log("Creating tournament $title");
-        $post_id = wp_insert_post([
-            'post_title'    => $title,
-            'post_status'   => 'publish',
-            'post_type'     => 'usctdp-tournament',
+        return $query->add_item([
+            "woocommerce_id" => $product_id,
+            "title" => $title,
+            "search_term" => $search_term,
+            "type" => Usctdp_Activity_Type::Tournament->value,
+            "session_category" => $this->get_category_int($tournament['session_category']),
+            "age_group" => $this->get_age_group_int($tournament['age_group']),
         ]);
-
-        update_field('field_usctdp_tournament_name', $clinic['name'], $post_id);
-        update_field('field_usctdp_tournament_age_group', $clinic['age_group'], $post_id);
-        update_field('field_usctdp_tournament_category', $clinic['session_category'], $post_id);
-        wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-        return $post_id;
     }
 
-    private function create_clinic($clinic)
+    private function create_clinic($clinic, $product_id)
     {
-        $title = Usctdp_Mgmt_Clinic::create_title($clinic['name']);
-        $existing_post = get_posts([
-            'post_type'   => 'usctdp-clinic',
-            'title'       => $title,
-            'numberposts' => 1,
+        $title = $clinic['name'];
+        $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+        $query = new Usctdp_Mgmt_Product_Query([
+            'title' => $title,
+            'number' => 1,
         ]);
-
-        if (!empty($existing_post)) {
-            $found_post = $existing_post[0];
-            $post_id = $found_post->ID;
-            WP_CLI::log("Existing clinic named $title found with id $post_id");
-            return $post_id;
+        if(!empty($query->items)) {
+            $clinic_id = $query->items[0]->id;
+            WP_CLI::log("Existing clinic $title found with id $clinic_id");
+            return $clinic_id;
         }
-
-        WP_CLI::log("Creating clinic $title");
-        $post_id = wp_insert_post([
-            'post_title'    => $title,
-            'post_status'   => 'publish',
-            'post_type'     => 'usctdp-clinic',
+        WP_CLI::log("Creating clinic $title for product $product_id");
+        return $query->add_item([
+            "woocommerce_id" => $product_id,
+            "title" => $title,
+            "search_term" => $search_term,
+            "type" => Usctdp_Activity_Type::Clinic->value,
+            "session_category" => $this->get_category_int($clinic['session_category']),
+            "age_group" => $this->get_age_group_int($clinic['age_group']),
         ]);
-
-        update_field('field_usctdp_clinic_name', $clinic['name'], $post_id);
-        update_field('field_usctdp_clinic_age_range', $clinic['age_range'], $post_id);
-        update_field('field_usctdp_clinic_age_group', $clinic['age_group'], $post_id);
-        update_field('field_usctdp_clinic_category', $clinic['session_category'], $post_id);
-        wp_set_post_terms($post_id, ["test-data"], 'post_tag', false);
-        return $post_id;
     }
 
     public function import($file_path, $skip_download = false)
@@ -238,10 +238,8 @@ class Usctdp_Import_Clinic_Data
 
         $menu_order = 0;
         foreach ($data["clinics"] as $clinic) {
-            $clinic_id = $this->create_clinic($clinic, $menu_order);
-            $product_id = $this->create_clinic_product($clinic, $clinic_id, $menu_order);
-            $this->link_product($product_id, $clinic_id);
-
+            $product_id = $this->create_clinic_woo_product($clinic, $menu_order);
+            $clinic_id = $this->create_clinic($clinic, $product_id);
             $age_group = sanitize_title($clinic["age_group"]);
             $level = sanitize_title($clinic["level"]);
             wp_set_object_terms($product_id, $age_group, 'age_group');
@@ -257,9 +255,8 @@ class Usctdp_Import_Clinic_Data
 
         $menu_order = 0;
         foreach ($data["tournaments"] as $tournament) {
-            $tournament_id = $this->create_tournament($tournament, $menu_order);
-            $product_id = $this->create_tournament_product($tournament, $tournament_id, $menu_order);
-
+            $product_id = $this->create_tournament_woo_product($tournament, $menu_order);
+            $tournament_id = $this->create_tournament($tournament, $product_id);
             $age_group = sanitize_title($tournament["age_group"]);
             wp_set_object_terms($product_id, $age_group, 'age_group');
             wp_set_object_terms($product_id, 'tournament', 'event_type');

@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Schema;
 
-class Usctdp_Mgmt_Product_Link_Schema extends Schema
+class Usctdp_Mgmt_Pricing_Schema extends Schema
 {
     public $columns = [
         'id' => [
@@ -13,23 +13,24 @@ class Usctdp_Mgmt_Product_Link_Schema extends Schema
             'extra'    => 'auto_increment',
             'primary'  => true,
             'sortable' => true,
-            'default'  => 0
         ],
-
-        'clinic_id' => [
-            'name'       => 'activity_id',
+        'session_id' => [
+            'name'       => 'session_id',
             'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
-            'default'    => 0,
         ],
-
         'product_id' => [
             'name'       => 'product_id',
             'type'       => 'bigint',
+            'length'     => '20',
             'unsigned'   => true,
             'index'      => true,
-            'default'    => 0,
         ],
+        'pricing' => [
+            'name'       => 'pricing',
+            'type'       => 'json',
+        ]
     ];
 }

@@ -27,7 +27,7 @@ class Usctdp_Mgmt_Transaction_Table extends Table
             check_number tinytext,
             check_status tinyint unsigned,
             check_date_received date,
-            check_cleared_date date,
+            ceck_cleared_date date,
             woocommerce_order_id bigint(20) unsigned,
             paypal_transaction_id tinytext,
             history json,
