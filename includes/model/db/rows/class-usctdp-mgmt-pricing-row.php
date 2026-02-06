@@ -14,6 +14,6 @@ class Usctdp_Mgmt_Pricing_Row extends Row
         $this->id = (int) $this->id;
         $this->session_id = (int) $this->session_id;
         $this->product_id = (int) $this->product_id;
-        $this->pricing = encode_json($this->drive_id);
+        $this->pricing = json_decode($this->pricing);
     }
 }

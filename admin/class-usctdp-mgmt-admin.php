@@ -162,20 +162,8 @@ class Usctdp_Mgmt_Admin
         $this->version = $version;
     }
 
-    /**
-     * Register the stylesheets for the admin area.
-     *
-     * @since    1.0.0
-     */
-    public function enqueue_styles()
-    {
-    }
+    public function enqueue_styles() {}
 
-    /**
-     * Register the JavaScript for the admin area.
-     *
-     * @since    1.0.0
-     */
     public function enqueue_scripts() {}
 
     private function usctdp_script_id($suffix)
@@ -429,11 +417,6 @@ class Usctdp_Mgmt_Admin
         return null;
     }
 
-    /**
-     * 
-     * @param array $args 
-     * @return array 
-     */
     private function load_page_context($expected_params = [])
     {
         $result = [];

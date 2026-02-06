@@ -4,11 +4,13 @@ class Usctdp_Import_Session_Data
 {
     private $session_data;
     private $sessions_by_category;
+    private $sessions_by_name;
 
     public function __construct()
     {
         $this->session_data = [];
         $this->sessions_by_category = [];
+        $this->sessions_by_name = [];
     }
 
     private function get_clinic_by_title($title)
@@ -90,6 +92,7 @@ class Usctdp_Import_Session_Data
             }
             $this->sessions_by_category[$session_category->value][] = $session_id;
             $this->session_data[$session_id] = $session;
+            $this->sessions_by_name[$session['name']] = $session_id;
         }
     }
 
@@ -134,19 +137,39 @@ class Usctdp_Import_Session_Data
                 $clinics_by_title[$clinic_title] = $this->get_clinic_by_title($clinic_title);
             }
             $clinic = $clinics_by_title[$clinic_title];
-            $product_id = $clinic->woocommerce_id;
-            if (!isset($sessions_by_product[$product_id])) {
-                $sessions_by_product[$product_id] = [];
+            $session_id = $this->sessions_by_name[$pricing['session']];
+            $woo_product_id = $clinic->woocommerce_id;
+            if (!isset($sessions_by_product[$woo_product_id])) {
+                $sessions_by_product[$woo_product_id] = [];
             }
-            $sessions_by_product[$product_id][$pricing['session']] = [
+            $prices = [
                 "One" => $pricing['1_day_price'],
                 "Two" => $pricing['2_day_price']
             ];
+            $sessions_by_product[$woo_product_id][$pricing['session']] = $prices;
+
+            $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+                "session_id" => $session_id,
+                "product_id" => $clinic->id,
+                "number" => 1,
+            ]);
+            if(!empty($pricing_query->items)) {
+                $target = $pricing_query->items[0]->id;
+                $pricing_query->update_item($target, [
+                    "pricing" => json_encode($prices), 
+                ]);
+            } else {
+                $pricing_query->add_item([
+                    "session_id" => $session_id,
+                    "product_id" => $clinic->id,
+                    "pricing" => json_encode($prices) 
+                ]);
+            }
         }
 
-        foreach ($sessions_by_product as $product_id => $sessions) {
-            $this->delete_all_product_variations($product_id);
-            $product = wc_get_product($product_id);
+        foreach ($sessions_by_product as $woo_product_id => $sessions) {
+            $this->delete_all_product_variations($woo_product_id);
+            $product = wc_get_product($woo_product_id);
             ksort($sessions);
             $session_attribute = new WC_Product_Attribute();
             $session_attribute->set_name('Session');
@@ -163,7 +186,7 @@ class Usctdp_Import_Session_Data
             foreach ($sessions as $session_name => $pricing) {
                 foreach ($pricing as $day => $amt) {
                     $variation = new WC_Product_Variation();
-                    $variation->set_parent_id($product_id);
+                    $variation->set_parent_id($woo_product_id);
                     $variation->set_attributes([
                         sanitize_title('Session') => $session_name,
                         sanitize_title('Days') => $day
