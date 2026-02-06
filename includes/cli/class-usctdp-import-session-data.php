@@ -126,7 +126,8 @@ class Usctdp_Import_Session_Data
     private function import_clinic_prices($data)
     {
         $clinics_by_title = [];
-        $sessions_by_product = [];
+        $product_data = [];
+        $woo_product_to_clinic = [];
         foreach ($data["pricing"] as $pricing) {
             $clinic_title = $pricing['clinic'];
             if (!isset($clinics_by_title[$clinic_title])) {
@@ -139,14 +140,17 @@ class Usctdp_Import_Session_Data
             $clinic = $clinics_by_title[$clinic_title];
             $session_id = $this->sessions_by_name[$pricing['session']];
             $woo_product_id = $clinic->woocommerce_id;
-            if (!isset($sessions_by_product[$woo_product_id])) {
-                $sessions_by_product[$woo_product_id] = [];
+            $woo_product_to_clinic[$woo_product_id] = $clinic->id;
+
+            if (!isset($product_data[$woo_product_id])) {
+                $product_data[$woo_product_id] = [];
             }
             $prices = [
                 "One" => $pricing['1_day_price'],
-                "Two" => $pricing['2_day_price']
+                "Two" => $pricing['2_day_price'],
             ];
-            $sessions_by_product[$woo_product_id][$pricing['session']] = $prices;
+
+            $product_data[$woo_product_id][$pricing['session']] = $prices;
 
             $pricing_query = new Usctdp_Mgmt_Pricing_Query([
                 "session_id" => $session_id,
@@ -167,7 +171,7 @@ class Usctdp_Import_Session_Data
             }
         }
 
-        foreach ($sessions_by_product as $woo_product_id => $sessions) {
+        foreach ($product_data as $woo_product_id => $sessions) {
             $this->delete_all_product_variations($woo_product_id);
             $product = wc_get_product($woo_product_id);
             ksort($sessions);
@@ -206,6 +210,7 @@ class Usctdp_Import_Session_Data
             $clinic = $this->get_clinic_by_title($class['clinic']);
             $clinic_id = $clinic->id;
             $clinic_category = $clinic->session_category;
+
             $dow = $class['day'];
             $start_time = new DateTime($class['start_time']);
             $end_time = new DateTime($class['end_time']);
@@ -221,7 +226,9 @@ class Usctdp_Import_Session_Data
                 $activity_query = new Usctdp_Mgmt_Activity_Query([
                     "title" => $title,
                 ]);
+
                 if (!empty($activity_query->items)) {
+                    WP_CLI::log("Creating activity: $title");
                     $class_id = $activity_query->items[0]->id;
                 } else {
                     WP_CLI::log("Creating activity: $title");
@@ -232,6 +239,7 @@ class Usctdp_Import_Session_Data
 			            "title" => $title,
 			            "search_term" => $search_term,
 		            ]);
+
                     $clinic_query = new Usctdp_Mgmt_Clinic_Query([
 	                    "activity_id" => $activity_id
        		        ]);
@@ -274,9 +282,9 @@ class Usctdp_Import_Session_Data
 
         WP_CLI::log('Importing sessions...');
         $this->import_sessions($data);
-        WP_CLI::log('Importing clinic pricing...');
-        $this->import_clinic_prices($data);
         WP_CLI::log('Importing classes...');
         $this->import_clinic_classes($data);
+        WP_CLI::log('Importing clinic pricing...');
+        $this->import_clinic_prices($data);
     }
 }

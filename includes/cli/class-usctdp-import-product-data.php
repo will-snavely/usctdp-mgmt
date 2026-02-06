@@ -94,11 +94,25 @@ class Usctdp_Import_Product_Data
         $session_attribute->set_visible(true);
         $session_attribute->set_variation(true);
         $num_days_attr = new WC_Product_Attribute();
-        $num_days_attr->set_name('Days');
+        $num_days_attr->set_name('Days Per Week');
         $num_days_attr->set_options(array('One', 'Two'));
         $num_days_attr->set_visible(true);
         $num_days_attr->set_variation(true);
-        $product->set_attributes(array($session_attribute, $num_days_attr));
+        $day1_attribute = new WC_Product_Attribute();
+        $day1_attribute->set_name('Day 1');
+        $day1_attribute->set_options([]);
+        $day1_attribute->set_visible(true);
+        $day1_attribute->set_variation(false);
+        $day2_attribute = new WC_Product_Attribute();
+        $day2_attribute->set_name('Day 2');
+        $day2_attribute->set_options([]);
+        $day2_attribute->set_visible(true);
+        $day2_attribute->set_variation(false);
+        $product->set_attributes([
+            $session_attribute,
+            $num_days_attr,
+            $day1_attribute,
+            $day2_attribute]);
         return $product->save();
     }
 

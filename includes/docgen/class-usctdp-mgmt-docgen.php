@@ -79,7 +79,7 @@ class Usctdp_Mgmt_Docgen
     public function generate_session_roster($session_id)
     {
         WP_CLI::log("Generating session roster for session " . $session_id);
-        $class_query = new Usctdp_Mgmt_Clinic_Class_Query([
+        $class_query = new Usctdp_Mgmt_Activity_Query([
             'session_id' => $session_id
         ]);
         $templateProcessor = new TemplateProcessor($this->template_file);
@@ -87,22 +87,6 @@ class Usctdp_Mgmt_Docgen
         $index = 1;
         foreach ($class_query->items as $item) {
             WP_CLI::log("Generating class roster for class " . $item->id);
-            $this->generate_class_roster_impl($templateProcessor, $item->id, $index);
-            $index++;
-        }
-        return $templateProcessor;
-    }
-
-    public function generate_clinic_roster($clinic_id, $session_id)
-    {
-        $activity_query = new Usctdp_Mgmt_Clinic_Class_Query([
-            'clinic_id' => $clinic_id,
-            'session_id' => $session_id
-        ]);
-        $templateProcessor = new TemplateProcessor($this->template_file);
-        $templateProcessor->cloneBlock('roster', count($activity_query->items), true, true);
-        $index = 1;
-        foreach ($activity_query->items as $item) {
             $this->generate_class_roster_impl($templateProcessor, $item->id, $index);
             $index++;
         }
@@ -172,8 +156,8 @@ class Usctdp_Mgmt_Docgen
 
     private function generate_class_roster_impl($templateProcessor, $class_id, $block_id)
     {
-        $class_query = new Usctdp_Mgmt_Clinic_Class_Query();
-        $class_data = $class_query->get_class_data([
+        $class_query = new Usctdp_Mgmt_Clinic_Query();
+        $class_data = $class_query->get_clinic_data([
             'id' => $class_id,
             'number' => 1
         ]);
