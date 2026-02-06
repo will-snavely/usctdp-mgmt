@@ -55,11 +55,6 @@ class Usctdp_Mgmt_Admin
     ];
 
     public static $ajax_handlers = [
-        'datatable_search' => [
-            'action' => 'datatable_search',
-            'nonce' => 'datatable_search_nonce',
-            'callback' => 'ajax_datatable_search'
-        ],
         'datatable_balances' => [
             'action' => 'datatable_balances',
             'nonce' => 'datatable_balances_nonce',
@@ -70,15 +65,15 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'datatable_balances_detail_nonce',
             'callback' => 'ajax_datatable_balances_detail'
         ],
-        'select2_search' => [
-            'action' => 'select2_search',
-            'nonce' => 'select2_search_nonce',
-            'callback' => 'ajax_select2_search'
-        ],
         'select2_session_search' => [
             'action' => 'select2_session_search',
             'nonce' => 'select2_session_search_nonce',
             'callback' => 'ajax_select2_session_search'
+        ],
+        'select2_clinic_search' => [
+            'action' => 'select2_clinic_search',
+            'nonce' => 'select2_clinic_search_nonce',
+            'callback' => 'ajax_select2_clinic_search'
         ],
         'session_rosters' => [
             'action' => 'session_rosters',
@@ -379,8 +374,6 @@ class Usctdp_Mgmt_Admin
                 'family_url' => admin_url('admin.php?page=usctdp-admin-families')
             ];
             $handlers = [
-                'select2_search',
-                'datatable_search',
                 'gen_roster',
                 'select2_session_search',
                 'select2_family_search',
@@ -504,7 +497,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['datatable_search', 'select2_search', 'class_datatable', 'select2_session_search'];
+        $handlers = ['class_datatable', 'select2_session_search', 'select2_clinic_search'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -557,9 +550,7 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
-            'select2_search',
             'class_qualification',
-            'datatable_search',
             'registrations_datatable',
             'select2_family_search',
             'select2_student_search',
@@ -1032,7 +1023,33 @@ class Usctdp_Mgmt_Admin
                 foreach ($query_results as $result) {
                     $results[] = array(
                         'id' => $result->id,
-                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title)
+                        'text' => $result->title
+                    );
+                }
+            }
+        } catch (Throwable $e) {
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+        }
+        wp_send_json(array('items' => $results));
+    }
+
+    function ajax_select2_clinic_search()
+    {
+        $results = [];
+        try {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_clinic_search'];
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+            }
+            $query = new Usctdp_Mgmt_Product_Query();
+            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
+            $query_results = $query->search_products($search, Usctdp_Activity_Type::Clinic, 10);
+            if ($query_results) {
+                foreach ($query_results as $result) {
+                    $results[] = array(
+                        'id' => $result->id,
+                        'text' => $result->title
                     );
                 }
             }
@@ -1134,7 +1151,7 @@ class Usctdp_Mgmt_Admin
                 foreach ($query_results as $result) {
                     $results[] = array(
                         'id' => $result->id,
-                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title),
+                        'text' => $result->title,
                         'address' => $result->address,
                         'city' => $result->city,
                         'state' => $result->state,
@@ -1169,7 +1186,7 @@ class Usctdp_Mgmt_Admin
                 foreach ($query_results as $result) {
                     $results[] = array(
                         'id' => $result->id,
-                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title),
+                        'text' => $result->title,
                     );
                 }
             }
@@ -1197,7 +1214,7 @@ class Usctdp_Mgmt_Admin
                 foreach ($query_results as $result) {
                     $results[] = array(
                         'id' => $result->id,
-                        'text' => Usctdp_Mgmt_Model::strip_token_suffix($result->title),
+                        'text' => $result->title,
                     );
                 }
             }
@@ -1267,7 +1284,7 @@ class Usctdp_Mgmt_Admin
         }
 
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
-        $clinic_id = isset($_POST['clinic_id']) ? intval($_POST['clinic_id']) : null;
+        $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : null;
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
@@ -1279,8 +1296,8 @@ class Usctdp_Mgmt_Admin
         if ($session_id) {
             $args['session_id'] = $session_id;
         }
-        if ($clinic_id) {
-            $args['clinic_id'] = $clinic_id;
+        if ($product_id) {
+            $args['product_id'] = $product_id;
         }
 
         $class_query = new Usctdp_Mgmt_Clinic_Query([]);
@@ -1292,73 +1309,6 @@ class Usctdp_Mgmt_Admin
             "data" => $result['data'],
         );
         wp_send_json($response);
-    }
-
-    function ajax_select2_search()
-    {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_search'];
-        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
-        }
-
-        $post_id = isset($_GET['post_id']) ? sanitize_text_field($_GET['post_id']) : '';
-        $search_term = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-        $post_type = isset($_GET['post_type']) ? sanitize_text_field($_GET['post_type']) : 'post';
-        $include_acf = isset($_GET['acf']) ? sanitize_text_field($_GET['acf'] === 'true') : false;
-        $tag = isset($_GET['tag']) ? sanitize_text_field($_GET['tag']) : '';
-        $results = array();
-        $args = [
-            'post_type' => $post_type,
-        ];
-
-        if ($post_id) {
-            $args['p'] = $post_id;
-            $args['posts_per_page'] = 1;
-        } else {
-            $args['s'] = $search_term;
-            $args['posts_per_page'] = 10;
-        }
-
-        if ($tag) {
-            $args['tag'] = $tag;
-        }
-
-        $meta_query = [];
-        if (isset($_GET["filter"])) {
-            $meta_query = [
-                'relation' => 'AND'
-            ];
-            foreach ($_GET["filter"] as $key => $filter) {
-                $meta_query[] = [
-                    'key' => $key,
-                    'value' => sanitize_text_field($filter['value']),
-                    'compare' => sanitize_text_field($filter['compare']),
-                    'type' => sanitize_text_field($filter['type'])
-                ];
-            }
-        }
-        $args['meta_query'] = $meta_query;
-        $args['orderby'] = 'title';
-        $args['order'] = 'ASC';
-        $query = new WP_Query($args);
-        $found_posts = 0;
-
-        if ($query->have_posts()) {
-            $found_posts = $query->found_posts;
-            while ($query->have_posts()) {
-                $query->the_post();
-                $result = array(
-                    'id' => get_the_ID(),
-                    'text' => html_entity_decode(get_the_title())
-                );
-                if ($include_acf) {
-                    $result['acf'] = get_fields(get_the_ID());
-                }
-                $results[] = $result;
-            }
-        }
-        wp_reset_postdata();
-        wp_send_json(array('items' => $results, 'found_posts' => $found_posts));
     }
 
     public function ajax_registration_history_datatable()
@@ -1557,102 +1507,6 @@ class Usctdp_Mgmt_Admin
             "recordsTotal" => $grand_total,
             "recordsFiltered" => $grand_total,
             "data" => $output_data,
-        );
-        wp_send_json($response);
-    }
-
-    public function ajax_datatable_search()
-    {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['datatable_search'];
-        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Nonce check failed.', 403);
-        }
-
-        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
-        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
-        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
-        $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'post';
-        $search_val = isset($_POST['search']['value']) ? sanitize_text_field($_POST['search']['value']) : '';
-        $tag = isset($_POST['tag']) ? sanitize_text_field($_POST['tag']) : '';
-        $expand = isset($_POST['expand']) ? $_POST['expand'] : [];
-        $paged = ($start / $length) + 1;
-
-        if (is_array($expand)) {
-            $expand = array_map('sanitize_text_field', $expand);
-        } else {
-            $expand = [sanitize_text_field($expand)];
-        }
-
-        $meta_query = [];
-        if (isset($_POST["filter"])) {
-            $meta_query = [
-                'relation' => 'AND'
-            ];
-            foreach ($_POST["filter"] as $key => $filter) {
-                $meta_query[] = [
-                    'key' => $key,
-                    'value' => sanitize_text_field($filter['value']),
-                    'compare' => sanitize_text_field($filter['compare']),
-                    'type' => sanitize_text_field($filter['type'])
-                ];
-            }
-        }
-
-        $args = array(
-            'post_type' => $post_type,
-            'posts_per_page' => $length,
-            'paged' => $paged,
-            'no_found_rows' => false,
-            'meta_query' => $meta_query,
-            'orderby' => 'title',
-            'order' => 'ASC',
-        );
-
-        if ($tag) {
-            $args['tag'] = $tag;
-        }
-
-        if (!empty($search_val)) {
-            $args['s'] = $search_val;
-        }
-
-        $query = new WP_Query($args);
-        $data_output = [];
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $acf_fields = get_fields(get_the_ID());
-                $output_fields = [
-                    'id' => get_the_ID(),
-                    'title' => get_the_title(),
-                    'edit' => get_edit_post_link(get_the_ID())
-                ];
-                foreach ($acf_fields as $field_name => $field_value) {
-                    if ($field_value instanceof WP_Post) {
-                        $output_fields[$field_name] = [
-                            'id' => $field_value->ID,
-                            'title' => $field_value->post_title
-                        ];
-                        if (in_array($field_value->post_type, $expand)) {
-                            $sub_fields = get_fields($field_value->ID);
-                            foreach ($sub_fields as $sub_name => $sub_value) {
-                                $output_fields[$field_name][$sub_name] = $sub_value;
-                            }
-                        }
-                    } else {
-                        $output_fields[$field_name] = $field_value;
-                    }
-                }
-                $data_output[] = $output_fields;
-            }
-            wp_reset_postdata();
-        }
-
-        $response = array(
-            "draw" => $draw,
-            "recordsTotal" => $query->found_posts,
-            "recordsFiltered" => $query->found_posts,
-            "data" => $data_output,
         );
         wp_send_json($response);
     }

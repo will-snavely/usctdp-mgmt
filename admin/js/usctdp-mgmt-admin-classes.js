@@ -27,7 +27,6 @@
             ordering: false,
             searching: false,
             paging: true,
-
             ajax: {
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
@@ -40,7 +39,7 @@
                     }
                     var clinicFilterValue = $('#clinic-filter').val();
                     if (clinicFilterValue) {
-                        d.clinic_id = clinicFilterValue;
+                        d.product_id = clinicFilterValue;
                     }
                 }
             },
@@ -126,9 +125,8 @@
                 data: function (params) {
                     return {
                         q: params.term,
-                        post_type: 'usctdp-clinic',
-                        action: usctdp_mgmt_admin.select2_search_action,
-                        security: usctdp_mgmt_admin.select2_search_nonce
+                        action: usctdp_mgmt_admin.select2_clinic_search_action,
+                        security: usctdp_mgmt_admin.select2_clinic_search_nonce
                     };
                 },
                 processResults: function (data) {
