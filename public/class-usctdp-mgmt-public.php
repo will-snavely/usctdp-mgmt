@@ -53,6 +53,18 @@ class Usctdp_Mgmt_Public
         $this->version = $version;
     }
 
+    public function usctdp_rest_api_init()
+    {
+        $rest_id = "usctdp-mgmt/v1";
+        register_rest_route($rest_id, '/students/', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_students'],
+            'permission_callback' => function () {
+                return is_user_logged_in();
+            },
+        ]);
+    }
+
     public function enqueue_styles()
     {
         /**
@@ -75,7 +87,7 @@ class Usctdp_Mgmt_Public
             "all",
         );
 
-        if(is_product()) {
+        if (is_product()) {
             wp_enqueue_style(
                 'usctdp-mgmt-product-style',
                 plugin_dir_url(__FILE__) . "css/usctdp-mgmt-product.css",
@@ -96,7 +108,7 @@ class Usctdp_Mgmt_Public
             false,
         );
 
-        if(is_product()) {
+        if (is_product()) {
             $product_script = 'usctdp-mgmt-product-script';
             wp_enqueue_script(
                 $product_script,
@@ -106,13 +118,14 @@ class Usctdp_Mgmt_Public
                 false
             );
             wp_localize_script($product_script, 'siteData', array(
-                'root'  => esc_url_raw(rest_url()),
+                'root' => esc_url_raw(rest_url()),
                 'nonce' => wp_create_nonce('wp_rest'),
             ));
         }
     }
 
-    public function get_students() {
-       return []; 
+    public function get_students()
+    {
+        return [];
     }
 }

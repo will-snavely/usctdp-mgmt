@@ -16,7 +16,7 @@ class Usctdp_Import_Product_Data
     {
         $cats = [
             'junior: beginner' => 1,
-            'junior: advanced'=> 2,
+            'junior: advanced' => 2,
             'adult' => 3,
             'cardio tennis' => 4,
             'junior tournaments' => 5,
@@ -53,7 +53,7 @@ class Usctdp_Import_Product_Data
         }
 
         $file_array = array(
-            'name'     => basename($local_file),
+            'name' => basename($local_file),
             'tmp_name' => $local_file
         );
         $id = media_handle_sideload($file_array, 0);
@@ -112,7 +112,8 @@ class Usctdp_Import_Product_Data
             $session_attribute,
             $num_days_attr,
             $day1_attribute,
-            $day2_attribute]);
+            $day2_attribute
+        ]);
         return $product->save();
     }
 
@@ -161,7 +162,7 @@ class Usctdp_Import_Product_Data
             'title' => $title,
             'number' => 1,
         ]);
-        if(!empty($query->items)) {
+        if (!empty($query->items)) {
             $tourney_id = $query->items[0]->id;
             WP_CLI::log("Existing tournament $title found with id $tourney_id");
             return $tourney_id;
@@ -185,7 +186,7 @@ class Usctdp_Import_Product_Data
             'title' => $title,
             'number' => 1,
         ]);
-        if(!empty($query->items)) {
+        if (!empty($query->items)) {
             $clinic_id = $query->items[0]->id;
             WP_CLI::log("Existing clinic $title found with id $clinic_id");
             return $clinic_id;

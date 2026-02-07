@@ -188,7 +188,7 @@
                     $(`#${option}`).val(null);
                     $(`#${option}`).trigger('change');
                 }
-                
+
                 const student = $('#student-selector').val()
                 if (student) {
                     load_registration_history(student)
@@ -205,7 +205,7 @@
             // 1. Safety check for transactions
             // We grab the first transaction if it exists; otherwise, we return null
             const firstTxn = data.txns && data.txns.length > 0 ? data.txns[0] : null;
-            
+
             // 2. Logic for Balance Display
             const balance = parseFloat(data.registration_balance || 0);
             const isPaid = balance <= 0;
@@ -269,7 +269,7 @@
                 setTimeout(() => {
                     btn.innerText = "Saved!";
                     btn.style.background = "#27ae60";
-                    
+
                     // Reset button after 2 seconds
                     setTimeout(() => {
                         btn.innerText = "Save Notes";
@@ -363,8 +363,8 @@
             historyTable.ajax.reload();
             $('#history-container').removeClass('hidden');
         }
-        
-        if(preloadedData.student) {
+
+        if (preloadedData.student) {
             load_registration_history(preloadedData.student);
         }
     });

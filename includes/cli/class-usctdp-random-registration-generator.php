@@ -48,7 +48,7 @@ class Usctdp_Random_Registration_Generator
             $enrolled[$class->id]["roster"][] = $student->id;
             $student_level = $student->level;
             $balance = 0;
-            $cost = rand(100,300);
+            $cost = rand(100, 300);
             $paid = true;
             if (rand(1, 100) <= $chance_unpaid) {
                 $balance = $cost;
@@ -56,23 +56,23 @@ class Usctdp_Random_Registration_Generator
             }
             $reg_query = new Usctdp_Mgmt_Registration_Query();
             $registration_id = $reg_query->add_item([
-                'activity_id'    => $class->id,
-                'student_id'     => $student->id,
+                'activity_id' => $class->id,
+                'student_id' => $student->id,
                 'starting_level' => $student_level,
-                'balance'        => $balance,
-                'notes'          => ''
+                'balance' => $balance,
+                'notes' => ''
             ]);
 
-            if($paid) {
+            if ($paid) {
                 $txn_query = new Usctdp_Mgmt_Transaction_Query();
                 $txn_id = $txn_query->add_item([
-                    'family_id'    => $student->family_id,
-                    'kind'     => 1, 
-                    'method'     => 4, 
-                    'amount'     => $cost, 
+                    'family_id' => $student->family_id,
+                    'kind' => 1,
+                    'method' => 4,
+                    'amount' => $cost,
                     'paypal_transaction_id' => 'fake_paypal_id',
                     'starting_level' => $student_level,
-                    'balance'        => $balance,
+                    'balance' => $balance,
                 ]);
                 $link_query = new Usctdp_Mgmt_Transaction_Link_Query();
                 $link_id = $link_query->add_item([

@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Row;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -23,7 +23,7 @@ class Usctdp_Mgmt_Student_Row extends Row
         $this->first = (string) $this->first;
         $this->last = (string) $this->last;
         $this->title = $this->title;
-        $this->search_term = $this->search_term; 
+        $this->search_term = $this->search_term;
         if ($this->birth_date == "0000-00-00") {
             $this->birth_date = null;
             $this->age = null;

@@ -6,31 +6,31 @@ class Usctdp_Mgmt_Pricing_Schema extends Schema
 {
     public $columns = [
         'id' => [
-            'name'     => 'id',
-            'type'     => 'bigint',
-            'length'   => '20',
+            'name' => 'id',
+            'type' => 'bigint',
+            'length' => '20',
             'unsigned' => true,
-            'extra'    => 'auto_increment',
-            'primary'  => true,
+            'extra' => 'auto_increment',
+            'primary' => true,
             'sortable' => true,
         ],
         'session_id' => [
-            'name'       => 'session_id',
-            'type'       => 'bigint',
-            'length'     => '20',
-            'unsigned'   => true,
-            'index'      => true,
+            'name' => 'session_id',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'index' => true,
         ],
         'product_id' => [
-            'name'       => 'product_id',
-            'type'       => 'bigint',
-            'length'     => '20',
-            'unsigned'   => true,
-            'index'      => true,
+            'name' => 'product_id',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'index' => true,
         ],
         'pricing' => [
-            'name'       => 'pricing',
-            'type'       => 'json',
+            'name' => 'pricing',
+            'type' => 'json',
         ]
     ];
 }

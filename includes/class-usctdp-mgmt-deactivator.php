@@ -22,12 +22,13 @@
  */
 class Usctdp_Mgmt_Deactivator
 {
-    public static function deactivate() {
+    public static function deactivate()
+    {
         $admin_caps = ["register_student"];
-        $role = get_role( 'administrator' );
-        if($role) {
-            foreach($admin_caps as $cap) {
-                if($role->has_cap($cap)) {
+        $role = get_role('administrator');
+        if ($role) {
+            foreach ($admin_caps as $cap) {
+                if ($role->has_cap($cap)) {
                     $role->remove_cap($cap);
                 }
             }

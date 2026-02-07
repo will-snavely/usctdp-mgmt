@@ -160,8 +160,9 @@ class Usctdp_Mgmt
         $this->loader->add_action("init", $model, "register_berlindb_entities");
     }
 
-    private function define_woocommerce_hooks() {
-        $commerce_handler = new Usctdp_Mgmt_Woocommerce(); 
+    private function define_woocommerce_hooks()
+    {
+        $commerce_handler = new Usctdp_Mgmt_Woocommerce();
         $this->loader->add_action(
             'woocommerce_before_variations_form',
             $commerce_handler,
@@ -286,17 +287,13 @@ class Usctdp_Mgmt
             "enqueue_scripts",
         );
 
-        $rest_id = "usctdp-mgmt/v1";
-        add_action('rest_api_init', function () {
-            register_rest_route($rest_id, '/students/', [
-                'methods'  => 'GET',
-                'callback' => [$plugin_public, 'get_students'],
-                'permission_callback' => function() {
-                    return is_user_logged_in();
-                },
-            ]);
-        });
+        $this->loader->add_action(
+            "rest_api_init",
+            $plugin_public,
+            "usctdp_rest_api_init",
+        );
     }
+
 
     /**
      * Run the loader to execute all of the hooks with WordPress.

@@ -175,8 +175,8 @@ class Usctdp_Random_People_Generator
         $num_families,
         $max_students_per_family
     ) {
-        WP_CLI::log('Generating staff...');
-        $staff = $this->generate_staff($num_staff);
+        //WP_CLI::log('Generating staff...');
+        //$staff = $this->generate_staff($num_staff);
         WP_CLI::log('Generating families and students...');
         $families = $this->generate_families($num_families, $max_students_per_family);
     }

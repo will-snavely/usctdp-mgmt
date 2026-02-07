@@ -23,7 +23,9 @@ use Google\Client;
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
-class Web_Request_Exception extends Exception {}
+class Web_Request_Exception extends Exception
+{
+}
 
 class Usctdp_Mgmt_Admin
 {
@@ -162,9 +164,13 @@ class Usctdp_Mgmt_Admin
         $this->version = $version;
     }
 
-    public function enqueue_styles() {}
+    public function enqueue_styles()
+    {
+    }
 
-    public function enqueue_scripts() {}
+    public function enqueue_scripts()
+    {
+    }
 
     private function usctdp_script_id($suffix)
     {
@@ -386,9 +392,13 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
-    public function settings_init() {}
+    public function settings_init()
+    {
+    }
 
-    public function usctdp_mgmt_sanitize_settings($input) {}
+    public function usctdp_mgmt_sanitize_settings($input)
+    {
+    }
 
     private function echo_admin_page($path)
     {
@@ -613,7 +623,7 @@ class Usctdp_Mgmt_Admin
         if (!preg_match('/^\d*(\.\d{1,2})?$/', $amount) || $amount === '.' || $amount === '') {
             return false;
         }
-        return (int) round((float)$amount * 100);
+        return (int) round((float) $amount * 100);
     }
 
     function registration_handler()
@@ -1316,7 +1326,7 @@ class Usctdp_Mgmt_Admin
 
         $reg_query = new Usctdp_Mgmt_Registration_Query([]);
         $results = $reg_query->get_class_registration_data($args);
-        foreach($results['data'] as $row) {
+        foreach ($results['data'] as $row) {
             $row->txns = $this->get_related_transactions($row->registration_id);
         }
 
@@ -1329,7 +1339,8 @@ class Usctdp_Mgmt_Admin
         wp_send_json($response);
     }
 
-    public function get_related_transactions($reg_id) {
+    public function get_related_transactions($reg_id)
+    {
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT txn.*

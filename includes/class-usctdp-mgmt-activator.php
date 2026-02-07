@@ -22,12 +22,13 @@
  */
 class Usctdp_Mgmt_Activator
 {
-    public static function activate() {
+    public static function activate()
+    {
         $admin_caps = ["register_student"];
         $role = get_role('administrator');
-        if($role) {
-            foreach($admin_caps as $cap) {
-                if(!$role->has_cap($cap)) {
+        if ($role) {
+            foreach ($admin_caps as $cap) {
+                if (!$role->has_cap($cap)) {
                     $role->add_cap($cap);
                 }
             }

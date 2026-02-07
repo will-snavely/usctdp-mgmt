@@ -14,15 +14,15 @@ class Usctdp_Import_Session_Data
     }
 
     private function get_clinic_by_title($title)
-    {      
-	    $query = new Usctdp_Mgmt_Product_Query([
+    {
+        $query = new Usctdp_Mgmt_Product_Query([
             'title' => $title,
             'number' => 1,
         ]);
-        if(!empty($query->items)) {
+        if (!empty($query->items)) {
             return $query->items[0];
         }
-    	return false;
+        return false;
     }
 
     private function get_category_integer(string $cat)
@@ -40,13 +40,13 @@ class Usctdp_Import_Session_Data
     private function get_day_integer(string $day)
     {
         $days = [
-            'monday'    => 1,
-            'tuesday'   => 2,
+            'monday' => 1,
+            'tuesday' => 2,
             'wednesday' => 3,
-            'thursday'  => 4,
-            'friday'    => 5,
-            'saturday'  => 6,
-            'sunday'    => 7
+            'thursday' => 4,
+            'friday' => 5,
+            'saturday' => 6,
+            'sunday' => 7
         ];
         $normalized_day = strtolower(trim($day));
         return $days[$normalized_day] ?? false;
@@ -66,7 +66,7 @@ class Usctdp_Import_Session_Data
             );
             $session_id = 0;
             $category_int = $this->get_category_integer($session["category"]);
-	        $session_category = Usctdp_Session_Category::from($category_int);
+            $session_category = Usctdp_Session_Category::from($category_int);
             $query = new Usctdp_Mgmt_Session_Query([
                 "title" => $title,
                 "start_date" => $start_date->format("Y-m-d"),
@@ -132,7 +132,7 @@ class Usctdp_Import_Session_Data
             $clinic_title = $pricing['clinic'];
             if (!isset($clinics_by_title[$clinic_title])) {
                 $clinic = $this->get_clinic_by_title($clinic_title);
-                if(!$clinic) {
+                if (!$clinic) {
                     WP_CLI::log("No clinic found with title $clinic_title");
                 }
                 $clinics_by_title[$clinic_title] = $this->get_clinic_by_title($clinic_title);
@@ -157,16 +157,16 @@ class Usctdp_Import_Session_Data
                 "product_id" => $clinic->id,
                 "number" => 1,
             ]);
-            if(!empty($pricing_query->items)) {
+            if (!empty($pricing_query->items)) {
                 $target = $pricing_query->items[0]->id;
                 $pricing_query->update_item($target, [
-                    "pricing" => json_encode($prices), 
+                    "pricing" => json_encode($prices),
                 ]);
             } else {
                 $pricing_query->add_item([
                     "session_id" => $session_id,
                     "product_id" => $clinic->id,
-                    "pricing" => json_encode($prices) 
+                    "pricing" => json_encode($prices)
                 ]);
             }
         }
@@ -235,19 +235,19 @@ class Usctdp_Import_Session_Data
                     $activity_id = $activity_query->add_item([
                         "session_id" => $session_id,
                         "product_id" => $clinic_id,
-			            "type" => Usctdp_Activity_Type::Clinic->value,
-			            "title" => $title,
-			            "search_term" => $search_term,
-		            ]);
+                        "type" => Usctdp_Activity_Type::Clinic->value,
+                        "title" => $title,
+                        "search_term" => $search_term,
+                    ]);
 
                     $clinic_query = new Usctdp_Mgmt_Clinic_Query([
-	                    "activity_id" => $activity_id
-       		        ]);
-		            if(!empty($clinic_query->items)) {
+                        "activity_id" => $activity_id
+                    ]);
+                    if (!empty($clinic_query->items)) {
                         WP_CLI::log("Unexpected: class already exists (id=$activity_id)");
-		            } else {
-	                    $clinic_query->add_item([
-		                    "activity_id" => $activity_id,
+                    } else {
+                        $clinic_query->add_item([
+                            "activity_id" => $activity_id,
                             "day_of_week" => $day_of_week,
                             "start_time" => $start_time->format("H:i:s"),
                             "end_time" => $end_time->format("H:i:s"),

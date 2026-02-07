@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Row;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
