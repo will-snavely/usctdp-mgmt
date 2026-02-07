@@ -53,11 +53,6 @@ class Usctdp_Mgmt_Public
         $this->version = $version;
     }
 
-    /**
-     * Register the stylesheets for the public-facing side of the site.
-     *
-     * @since    1.0.0
-     */
     public function enqueue_styles()
     {
         /**
@@ -79,27 +74,20 @@ class Usctdp_Mgmt_Public
             $this->version,
             "all",
         );
+
+        if(is_product()) {
+            wp_enqueue_style(
+                'usctdp-mgmt-product-style',
+                plugin_dir_url(__FILE__) . "css/usctdp-mgmt-product.css",
+                [],
+                $this->version,
+                "all"
+            );
+        }
     }
 
-    /**
-     * Register the JavaScript for the public-facing side of the site.
-     *
-     * @since    1.0.0
-     */
     public function enqueue_scripts()
     {
-        /**
-         * This function is provided for demonstration purposes only.
-         *
-         * An instance of this class should be passed to the run() function
-         * defined in Usctdp_Mgmt_Loader as all of the hooks are defined
-         * in that particular class.
-         *
-         * The Usctdp_Mgmt_Loader will then create the relationship
-         * between the defined hooks and the functions defined in this
-         * class.
-         */
-
         wp_enqueue_script(
             $this->plugin_name,
             plugin_dir_url(__FILE__) . "js/usctdp-mgmt-public.js",
@@ -107,5 +95,24 @@ class Usctdp_Mgmt_Public
             $this->version,
             false,
         );
+
+        if(is_product()) {
+            $product_script = 'usctdp-mgmt-product-script';
+            wp_enqueue_script(
+                $product_script,
+                plugin_dir_url(__FILE__) . "js/usctdp-mgmt-product.js",
+                array('jquery'),
+                $this->version,
+                false
+            );
+            wp_localize_script($product_script, 'siteData', array(
+                'root'  => esc_url_raw(rest_url()),
+                'nonce' => wp_create_nonce('wp_rest'),
+            ));
+        }
+    }
+
+    public function get_students() {
+       return []; 
     }
 }

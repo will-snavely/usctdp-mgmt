@@ -285,6 +285,17 @@ class Usctdp_Mgmt
             $plugin_public,
             "enqueue_scripts",
         );
+
+        $rest_id = "usctdp-mgmt/v1";
+        add_action('rest_api_init', function () {
+            register_rest_route($rest_id, '/students/', [
+                'methods'  => 'GET',
+                'callback' => [$plugin_public, 'get_students'],
+                'permission_callback' => function() {
+                    return is_user_logged_in();
+                },
+            ]);
+        });
     }
 
     /**

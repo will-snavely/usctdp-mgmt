@@ -64,7 +64,6 @@ register_deactivation_hook(__FILE__, "deactivate_usctdp_mgmt");
 
 if (file_exists(dirname(__DIR__, 3) . '/vendor/autoload.php')) {
     require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
-} else {
 }
 
 require plugin_dir_path(__FILE__) . "includes/class-usctdp-mgmt.php";

@@ -22,12 +22,15 @@
  */
 class Usctdp_Mgmt_Deactivator
 {
-    /**
-     * Short Description. (use period)
-     *
-     * Long Description.
-     *
-     * @since    1.0.0
-     */
-    public static function deactivate() {}
+    public static function deactivate() {
+        $admin_caps = ["register_student"];
+        $role = get_role( 'administrator' );
+        if($role) {
+            foreach($admin_caps as $cap) {
+                if($role->has_cap($cap)) {
+                    $role->remove_cap($cap);
+                }
+            }
+        }
+    }
 }

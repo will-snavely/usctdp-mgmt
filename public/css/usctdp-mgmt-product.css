@@ -1,0 +1,12 @@
+#usctdp-extra {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#usctdp-student-selector {
+    display: flex;
+    flex-direction: row;
+}
+
+
