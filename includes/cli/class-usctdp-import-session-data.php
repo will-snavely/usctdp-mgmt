@@ -127,7 +127,7 @@ class Usctdp_Import_Session_Data
     {
         $clinics_by_title = [];
         $product_data = [];
-        $woo_product_to_clinic = [];
+
         foreach ($data["pricing"] as $pricing) {
             $clinic_title = $pricing['clinic'];
             if (!isset($clinics_by_title[$clinic_title])) {
@@ -140,7 +140,6 @@ class Usctdp_Import_Session_Data
             $clinic = $clinics_by_title[$clinic_title];
             $session_id = $this->sessions_by_name[$pricing['session']];
             $woo_product_id = $clinic->woocommerce_id;
-            $woo_product_to_clinic[$woo_product_id] = $clinic->id;
 
             if (!isset($product_data[$woo_product_id])) {
                 $product_data[$woo_product_id] = [];
@@ -166,7 +165,7 @@ class Usctdp_Import_Session_Data
                 $pricing_query->add_item([
                     "session_id" => $session_id,
                     "product_id" => $clinic->id,
-                    "pricing" => json_encode($prices)
+                    "pricing" => json_encode($prices),
                 ]);
             }
         }
@@ -185,15 +184,22 @@ class Usctdp_Import_Session_Data
             $attributes = $product->get_attributes();
             $attributes['session'] = $session_attribute;
             $product->set_attributes($attributes);
+
+            $product_sessions = [];
+            foreach ($sessions as $session_name => $pricing) {
+                $product_sessions[$session_name] = $this->sessions_by_name[$session_name];
+            }
+            $product->update_meta_data('_session_post_ids', $product_sessions);
             $product->save();
 
             foreach ($sessions as $session_name => $pricing) {
+
                 foreach ($pricing as $day => $amt) {
                     $variation = new WC_Product_Variation();
                     $variation->set_parent_id($woo_product_id);
                     $variation->set_attributes([
                         sanitize_title('Session') => $session_name,
-                        sanitize_title('Days') => $day
+                        sanitize_title('Days Per Week') => $day
                     ]);
                     $variation->set_regular_price($amt);
                     $variation->set_manage_stock(false);
@@ -215,6 +221,7 @@ class Usctdp_Import_Session_Data
             $start_time = new DateTime($class['start_time']);
             $end_time = new DateTime($class['end_time']);
             $sessions = $this->sessions_by_category[$clinic_category->value];
+
             foreach ($sessions as $session_id) {
                 $day_of_week = $this->get_day_integer($class['day']);
                 $title = Usctdp_Mgmt_Clinic_Table::create_title(
@@ -224,12 +231,13 @@ class Usctdp_Import_Session_Data
                 );
                 $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
                 $activity_query = new Usctdp_Mgmt_Activity_Query([
+                    "session_id" => $session_id,
+                    "product_id" => $clinic_id,
                     "title" => $title,
                 ]);
 
                 if (!empty($activity_query->items)) {
-                    WP_CLI::log("Creating activity: $title");
-                    $class_id = $activity_query->items[0]->id;
+                    WP_CLI::log("Activity exists: $title");
                 } else {
                     WP_CLI::log("Creating activity: $title");
                     $activity_id = $activity_query->add_item([

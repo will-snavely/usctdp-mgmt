@@ -98,21 +98,9 @@ class Usctdp_Import_Product_Data
         $num_days_attr->set_options(array('One', 'Two'));
         $num_days_attr->set_visible(true);
         $num_days_attr->set_variation(true);
-        $day1_attribute = new WC_Product_Attribute();
-        $day1_attribute->set_name('Day 1');
-        $day1_attribute->set_options([]);
-        $day1_attribute->set_visible(true);
-        $day1_attribute->set_variation(false);
-        $day2_attribute = new WC_Product_Attribute();
-        $day2_attribute->set_name('Day 2');
-        $day2_attribute->set_options([]);
-        $day2_attribute->set_visible(true);
-        $day2_attribute->set_variation(false);
         $product->set_attributes([
             $session_attribute,
-            $num_days_attr,
-            $day1_attribute,
-            $day2_attribute
+            $num_days_attr
         ]);
         return $product->save();
     }
@@ -165,6 +153,9 @@ class Usctdp_Import_Product_Data
         if (!empty($query->items)) {
             $tourney_id = $query->items[0]->id;
             WP_CLI::log("Existing tournament $title found with id $tourney_id");
+            $query->update_item($tourney_id, [
+                "woocommerce_id" => $product_id,
+            ]);
             return $tourney_id;
         }
         WP_CLI::log("Creating tournament $title");
@@ -189,6 +180,9 @@ class Usctdp_Import_Product_Data
         if (!empty($query->items)) {
             $clinic_id = $query->items[0]->id;
             WP_CLI::log("Existing clinic $title found with id $clinic_id");
+            $query->update_item($clinic_id, [
+                "woocommerce_id" => $product_id,
+            ]);
             return $clinic_id;
         }
         WP_CLI::log("Creating clinic $title for product $product_id");

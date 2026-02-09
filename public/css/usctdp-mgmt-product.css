@@ -1,12 +1,83 @@
-#usctdp-extra {
+#usctdp-woocommerce-extra {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    height: auto;
 }
 
 #usctdp-student-selector {
     display: flex;
     flex-direction: row;
+    width: 100%;
+    gap: 5px;
+    align-items: center;
 }
 
+#select_name_or_new {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "lab sel"
+        ". add";
+    gap: 10px;
+    margin-bottom: 15px;
+    width: 100%;
+    align-items: center;
+    justify-items: end;
+}
 
+#student_label {
+    grid-area: lab;
+}
+
+#student_name_select {
+    grid-area: sel;
+    width: 100%;
+}
+
+#new-student-button {
+    grid-area: add;
+    max-width: 115px;
+}
+
+#usctdp-day-selectors {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.usctdp-day-selector {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+        "lab sel";
+    gap: 10px;
+    width: 100%;
+    align-items: center;
+    justify-items: end;
+}
+
+.usctdp-day-selector label {
+    grid-area: lab;
+}
+
+.usctdp-day-selector select {
+    grid-area: sel;
+    width: 100%;
+}
+
+/* Add space for the 'X' clear button */
+.select2-container--default .select2-selection--single .select2-selection__clear {
+    margin-right: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Ensure the container has enough padding on the right for both icons */
+.select2-container--default .select2-selection--single {
+    padding-right: 30px;
+}

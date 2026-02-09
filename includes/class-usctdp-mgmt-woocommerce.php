@@ -11,10 +11,6 @@
  */
 class Usctdp_Mgmt_Woocommerce
 {
-    private $clinic;
-    private $classes_by_day;
-    private $activity_type;
-
     public function __construct()
     {
     }
@@ -30,12 +26,10 @@ class Usctdp_Mgmt_Woocommerce
 
     public function display_before_variations_form()
     {
-        echo "<div><p> Before Variations Form</p></div>";
     }
 
     public function display_before_variations_table()
     {
-        echo "<div><p> Before Variations Table</p></div>";
     }
 
     public function display_after_variations_table()
@@ -56,33 +50,39 @@ class Usctdp_Mgmt_Woocommerce
 
     private function render_admin_shop_options()
     {
-        echo '<div id="usctdp-extra">';
-        echo '<div id="usctdp-person-selector">';
-        echo '<div id="usctdp-family-selector">';
-        echo '<label for="family-name">Select Family: </label>';
-        echo '<select name="family_name" id="family-name" required></select>';
-        echo '</div>';
-        echo '<div id="usctdp-student-selector">';
-        echo '<label for="student-name">Select Student: </label>';
-        echo '<select name="student_name" id="student-name" required></select>';
-        echo '<button id="new-student-button" class="button">Add New Student</button>';
-        echo '</div>';
-        echo '</div>';
-        echo '<div id="usctdp-day-selector">';
-        echo '</div>';
-        echo '</div>';
+
     }
 
-    private function render_user_shop_options()
+    private function render_user_shop_options($family)
     {
-        echo '<div id="usctdp-woocommerce-extra">';
-        echo '<div id="usctdp-person-selector">';
-        echo '<label for="student-name">Select Student: </label>';
-        echo '<select name="student_name" id="student-name" required></select>';
-        echo '<button id="new-student-button" class="button">Add New Student</button>';
-        echo '</div>';
-        echo '<div id="usctdp-day-selector"></div>';
-        echo '</div>';
+        $query = new Usctdp_Mgmt_Student_Query([
+            'family_id' => $family->id,
+        ]);
+        $students = [];
+        if (!empty($query->items)) {
+            $students = $query->items;
+        }
+        ?>
+        <div id="usctdp-woocommerce-extra" class="hidden">
+            <div id="usctdp-student-selector">
+                <div id="select_name_or_new">
+                    <div id="student_label">
+                        <label for="student_name_select">Student</label>
+                    </div>
+                    <select name="student_name" id="student_name_select" required>
+                        <option value=""></option>
+                        <?php foreach ($students as $student): ?>
+                            <option value="<?php echo $student->id; ?>">
+                                <?php echo $student->first . ' ' . $student->last; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button id="new-student-button" class="button">Add New...</button>
+                </div>
+            </div>
+            <div id="usctdp-day-selectors"></div>
+        </div>
+        <?php
     }
 
     public function display_before_cart_button()
@@ -91,11 +91,9 @@ class Usctdp_Mgmt_Woocommerce
 
     public function display_after_cart_button()
     {
-        echo "<div><p> After Cart Button</p></div>";
     }
 
     public function display_after_variations_form()
     {
-        echo "<div><p> After Variations Form</p></div>";
     }
 }

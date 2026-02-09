@@ -29,9 +29,6 @@ class Usctdp_Mgmt_Family_Row extends Row
             }
         }
         $this->phone_numbers = $phone_result;
-
         $this->notes = (string) $this->notes;
-        $this->last_modified = DateTime::createFromFormat('Y-m-d H:i:s', $this->last_modified);
-        $this->last_modified_by = (int) $this->last_modified_by;
     }
 }

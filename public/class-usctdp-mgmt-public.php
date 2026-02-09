@@ -56,9 +56,21 @@ class Usctdp_Mgmt_Public
     public function usctdp_rest_api_init()
     {
         $rest_id = "usctdp-mgmt/v1";
-        register_rest_route($rest_id, '/students/', [
+        register_rest_route($rest_id, '/clinics/(?P<session_id>\d+)/(?P<product_id>\d+)', [
             'methods' => 'GET',
-            'callback' => [$this, 'get_students'],
+            'callback' => [$this, 'get_clinics'],
+            'args' => [
+                'session_id' => [
+                    'validate_callback' => function ($param, $request, $key) {
+                        return is_numeric($param);
+                    },
+                ],
+                'product_id' => [
+                    'validate_callback' => function ($param, $request, $key) {
+                        return is_numeric($param);
+                    },
+                ],
+            ],
             'permission_callback' => function () {
                 return is_user_logged_in();
             },
@@ -67,18 +79,6 @@ class Usctdp_Mgmt_Public
 
     public function enqueue_styles()
     {
-        /**
-         * This function is provided for demonstration purposes only.
-         *
-         * An instance of this class should be passed to the run() function
-         * defined in Usctdp_Mgmt_Loader as all of the hooks are defined
-         * in that particular class.
-         *
-         * The Usctdp_Mgmt_Loader will then create the relationship
-         * between the defined hooks and the functions defined in this
-         * class.
-         */
-
         wp_enqueue_style(
             $this->plugin_name,
             plugin_dir_url(__FILE__) . "css/usctdp-mgmt-public.css",
@@ -91,7 +91,7 @@ class Usctdp_Mgmt_Public
             wp_enqueue_style(
                 'usctdp-mgmt-product-style',
                 plugin_dir_url(__FILE__) . "css/usctdp-mgmt-product.css",
-                [],
+                ["select2"],
                 $this->version,
                 "all"
             );
@@ -109,23 +109,53 @@ class Usctdp_Mgmt_Public
         );
 
         if (is_product()) {
+            global $product;
+
             $product_script = 'usctdp-mgmt-product-script';
             wp_enqueue_script(
                 $product_script,
                 plugin_dir_url(__FILE__) . "js/usctdp-mgmt-product.js",
-                array('jquery'),
+                ["jquery", "selectWoo"],
                 $this->version,
                 false
             );
+
+            $product_query = new Usctdp_Mgmt_Product_Query([
+                'woocommerce_id' => $product->get_id(),
+                'number' => 1,
+            ]);
+            $product_type = null;
+            $usctdp_id = null;
+            if (!empty($product_query->items)) {
+                $tennis_product = $product_query->items[0];
+                $product_type = $tennis_product->type->value;
+                $usctdp_id = $tennis_product->id;
+            }
+
+            $session_map = get_post_meta($product->get_id(), '_session_post_ids', true);
             wp_localize_script($product_script, 'siteData', array(
                 'root' => esc_url_raw(rest_url()),
                 'nonce' => wp_create_nonce('wp_rest'),
+                'product_type' => $product_type,
+                'usctdp_id' => $usctdp_id,
+                'session_map' => $session_map,
             ));
         }
     }
 
-    public function get_students()
+    public function get_clinics($request)
     {
-        return [];
+        global $wpdb;
+        $session_id = $request->get_param('session_id');
+        $product_id = $request->get_param('product_id');
+        $activity_table = $wpdb->prefix . 'usctdp_activity';
+        $clinic_table = $wpdb->prefix . 'usctdp_clinic';
+        $query_template = "
+            SELECT * FROM $activity_table as act
+            JOIN $clinic_table as clin ON act.id = clin.activity_id
+            WHERE act.session_id = %d AND act.product_id = %d";
+        $query = $wpdb->prepare($query_template, $session_id, $product_id);
+        $results = $wpdb->get_results($query);
+        return $results;
     }
 }
