@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Table;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -20,13 +20,19 @@ class Usctdp_Mgmt_Registration_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             activity_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned NOT NULL,
-            starting_level tinytext NOT NULL,
-            credit smallint unsigned NOT NULL,
-            debit smallint unsigned NOT NULL,
-            notes text NOT NULL,
+            order_id bigint(20) unsigned,
+            starting_level tinytext,
+            credit smallint unsigned,
+            debit smallint unsigned,
+            status tinyint unsigned NOT NULL,
+            created_at datetime NOT NULL,
+            last_modified_at datetime,
+            last_modified_by bigint(20) unsigned,
+            notes text,
             PRIMARY KEY (id),
             KEY activity_id (activity_id),
-            KEY student_id (student_id)
+            KEY student_id (student_id),
+            KEY order_id (order_id)
         ";
     }
 }

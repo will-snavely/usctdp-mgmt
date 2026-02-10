@@ -60,3 +60,10 @@ enum Usctdp_Session_Category: int
     case Junior_Tournament = 5;
     case Adult_Tournament = 6;
 }
+
+enum Usctdp_Registration_Status: int
+{
+    case Pending = 1;
+    case Confirmed = 2;
+    case Voided = 3;
+}

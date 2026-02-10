@@ -28,6 +28,13 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
+        'order_id' => [
+            'name' => 'order_id',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'index' => true,
+        ],
         'starting_level' => [
             'name' => 'starting_level',
             'type' => 'tinytext',
@@ -45,6 +52,25 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
         'notes' => [
             'name' => 'notes',
             'type' => 'text',
+        ],
+        'status' => [
+            'name' => 'status',
+            'type' => 'tinyint',
+            'unsigned' => true,
+        ],
+        'created_at' => [
+            'name' => 'created_at',
+            'type' => 'datetime',
+        ],
+        'last_modified_at' => [
+            'name' => 'last_modified_at',
+            'type' => 'datetime',
+        ],
+        'last_modified_by' => [
+            'name' => 'last_modified_by',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
         ],
     ];
 }

@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Query;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -15,6 +15,21 @@ class Usctdp_Mgmt_Student_Query extends Query
     protected $item_name_plural = 'students';
     protected $item_shape = 'Usctdp_Mgmt_Student_Row';
 
+    public function create_student($first, $last, $family_id, $birthdate, $level)
+    {
+        $title = Usctdp_Mgmt_Student_Table::create_title($first, $last);
+        $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+        $args = [
+            'first' => $first,
+            'last' => $last,
+            'title' => $title,
+            'search_term' => $search_term,
+            'family_id' => $family_id,
+            'birth_date' => $birthdate,
+            'level' => $level,
+        ];
+        return $this->add_item($args);
+    }
     public function search_students($query, $family_id, $limit = 10)
     {
         global $wpdb;

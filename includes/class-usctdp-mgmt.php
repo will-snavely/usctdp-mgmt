@@ -193,6 +193,60 @@ class Usctdp_Mgmt
             $commerce_handler,
             'display_after_variations_form',
         );
+        $this->loader->add_action(
+            'woocommerce_before_single_product',
+            $commerce_handler,
+            'display_before_single_product',
+        );
+        $this->loader->add_filter(
+            'woocommerce_add_cart_item_data',
+            $commerce_handler,
+            'add_cart_item_data',
+            10,
+            4
+        );
+        $this->loader->add_filter(
+            'woocommerce_get_item_data',
+            $commerce_handler,
+            'get_item_data',
+            10,
+            2
+        );
+        $this->loader->add_action(
+            'woocommerce_checkout_create_order_line_item',
+            $commerce_handler,
+            'checkout_create_order_line_item',
+            10,
+            4
+        );
+
+        $this->loader->add_action(
+            'woocommerce_after_checkout_validation',
+            $commerce_handler,
+            'validate_and_reserve_capacity',
+            10,
+            2
+        );
+
+        $this->loader->add_action(
+            'woocommerce_checkout_create_order_line_item',
+            $commerce_handler,
+            'create_pending_registration',
+            10,
+            4
+        );
+
+        $this->loader->add_action(
+            'woocommerce_order_status_processing',
+            $commerce_handler,
+            'confirm_registration'
+        );
+
+        $this->loader->add_action(
+            'woocommerce_payment_complete',
+            $commerce_handler,
+            'confirm_registration'
+        );
     }
 
     /**

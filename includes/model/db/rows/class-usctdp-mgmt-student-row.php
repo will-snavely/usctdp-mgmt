@@ -22,8 +22,8 @@ class Usctdp_Mgmt_Student_Row extends Row
         $this->family_id = (int) $this->family_id;
         $this->first = (string) $this->first;
         $this->last = (string) $this->last;
-        $this->title = $this->title;
-        $this->search_term = $this->search_term;
+        $this->title = (string) $this->title;
+        $this->search_term = (string) $this->search_term;
         if ($this->birth_date == "0000-00-00") {
             $this->birth_date = null;
             $this->age = null;
