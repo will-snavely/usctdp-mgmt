@@ -75,10 +75,10 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'select2_activity_search_nonce',
             'callback' => 'ajax_select2_activity_search'
         ],
-        'select2_clinic_search' => [
-            'action' => 'select2_clinic_search',
-            'nonce' => 'select2_clinic_search_nonce',
-            'callback' => 'ajax_select2_clinic_search'
+        'select2_product_search' => [
+            'action' => 'select2_product_search',
+            'nonce' => 'select2_product_search_nonce',
+            'callback' => 'ajax_select2_product_search'
         ],
         'session_rosters' => [
             'action' => 'session_rosters',
@@ -105,10 +105,10 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'student_datatable_nonce',
             'callback' => 'ajax_student_datatable'
         ],
-        'class_datatable' => [
-            'action' => 'class_datatable',
-            'nonce' => 'class_datatable_nonce',
-            'callback' => 'ajax_class_datatable'
+        'clinic_datatable' => [
+            'action' => 'clinic_datatable',
+            'nonce' => 'clinic_datatable_nonce',
+            'callback' => 'ajax_clinic_datatable'
         ],
         'registrations_datatable' => [
             'action' => 'registrations_datatable',
@@ -140,15 +140,15 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'gen_roster_nonce',
             'callback' => 'ajax_gen_roster'
         ],
-        'class_qualification' => [
-            'action' => 'get_class_qualification',
-            'nonce' => 'get_class_qualification_nonce',
-            'callback' => 'ajax_get_class_qualification'
+        'activity_qualification' => [
+            'action' => 'activity_qualification',
+            'nonce' => 'activity_qualification_nonce',
+            'callback' => 'ajax_activity_qualification'
         ],
-        'select2_class_search' => [
-            'action' => 'select2_class_search',
-            'nonce' => 'select2_class_search_nonce',
-            'callback' => 'ajax_select2_class_search'
+        'select2_clinic_search' => [
+            'action' => 'select2_clinic_search',
+            'nonce' => 'select2_clinic_search_nonce',
+            'callback' => 'ajax_select2_clinic_search'
         ],
     ];
 
@@ -398,7 +398,7 @@ class Usctdp_Mgmt_Admin
         });
 
         // Override the slug on the first menu item
-        $this->add_usctdp_submenu('classes', 'Classes', [$this, 'load_classes_page']);
+        $this->add_usctdp_submenu('clinics', 'Clinics', [$this, 'load_clinics_page']);
         $this->add_usctdp_submenu('families', 'Families', [$this, 'load_families_page']);
         $this->add_usctdp_submenu('session-rosters', 'Session Rosters', [$this, 'load_session_rosters_page']);
         $this->add_usctdp_submenu('clinic-rosters', 'Clinic Rosters', [$this, 'load_clinic_rosters_page']);
@@ -445,9 +445,20 @@ class Usctdp_Mgmt_Admin
             'session_id' => function ($id) {
                 return $this->db_id_query('Usctdp_Mgmt_Session_Query', $id);
             },
-            'class_id' => function ($id) {
-                $class_query = new Usctdp_Mgmt_Clinic_Query([]);
-                $result = $class_query->get_clinic_data([
+            'clinic_id' => function ($id) {
+                $clinic_query = new Usctdp_Mgmt_Clinic_Query([]);
+                $result = $clinic_query->get_clinic_data([
+                    'id' => $id,
+                    'number' => 1
+                ]);
+                if (!empty($result['data'])) {
+                    return $result['data'][0];
+                }
+                return null;
+            },
+            'activity_id' => function ($id) {
+                $activity_query = new Usctdp_Mgmt_Activity_Query([]);
+                $result = $activity_query->get_activity_data([
                     'id' => $id,
                     'number' => 1
                 ]);
@@ -496,18 +507,18 @@ class Usctdp_Mgmt_Admin
         wp_localize_script($this->usctdp_script_id('balances'), 'usctdp_mgmt_admin', $js_data);
     }
 
-    public function load_classes_page()
+    public function load_clinics_page()
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['class_datatable', 'select2_session_search', 'select2_clinic_search'];
+        $handlers = ['clinic_datatable', 'select2_session_search', 'select2_product_search'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        wp_localize_script($this->usctdp_script_id('classes'), 'usctdp_mgmt_admin', $js_data);
+        wp_localize_script($this->usctdp_script_id('clinics'), 'usctdp_mgmt_admin', $js_data);
     }
 
     public function load_clinic_rosters_page()
@@ -517,7 +528,8 @@ class Usctdp_Mgmt_Admin
         ];
         $handlers = [
             'select2_session_search',
-            'select2_class_search',
+            'select2_clinic_search',
+            'select2_activity_search',
             'gen_roster',
             'registrations_datatable'
         ];
@@ -526,7 +538,7 @@ class Usctdp_Mgmt_Admin
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        $context = $this->load_page_context(['class_id']);
+        $context = $this->load_page_context(['clinic_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('clinic-rosters'), 'usctdp_mgmt_admin', $js_data);
     }
@@ -554,19 +566,19 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
-            'class_qualification',
+            'activity_qualification',
             'registrations_datatable',
             'select2_family_search',
             'select2_student_search',
             'select2_session_search',
-            'select2_class_search'
+            'select2_clinic_search'
         ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        $context = $this->load_page_context(['class_id', 'student_id']);
+        $context = $this->load_page_context(['activity_id', 'student_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', $js_data);
     }
@@ -580,7 +592,7 @@ class Usctdp_Mgmt_Admin
             'select2_family_search',
             'select2_student_search',
             'select2_session_search',
-            'select2_activity_search',
+            'select2_clinic_search',
             'registration_history_datatable'
         ];
         foreach ($handlers as $key) {
@@ -588,7 +600,7 @@ class Usctdp_Mgmt_Admin
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        $context = $this->load_page_context(['class_id', 'student_id']);
+        $context = $this->load_page_context(['family_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('history'), 'usctdp_mgmt_admin', $js_data);
     }
@@ -649,7 +661,7 @@ class Usctdp_Mgmt_Admin
 
         $transient_data = null;
         $registration_id = null;
-        $class_id = null;
+        $activity_id = null;
         $transaction_started = false;
         $transaction_completed = false;
         global $wpdb;
@@ -664,17 +676,17 @@ class Usctdp_Mgmt_Admin
                 throw new Web_Request_Exception('Request verification failed.');
             }
 
-            if (!isset($_POST['class_id'])) {
-                throw new Web_Request_Exception('Class ID not provided.');
+            if (!isset($_POST['activity_id'])) {
+                throw new Web_Request_Exception('Activity ID not provided.');
             }
             if (!isset($_POST['student_id'])) {
                 throw new Web_Request_Exception('Student ID not provided.');
             }
 
-            $class_id = $_POST['class_id'];
+            $activity_id = $_POST['activity_id'];
             $student_id = $_POST['student_id'];
-            if (!is_numeric($class_id)) {
-                throw new Web_Request_Exception('Class ID is not a number.');
+            if (!is_numeric($activity_id)) {
+                throw new Web_Request_Exception('Activity ID is not a number.');
             }
             if (!is_numeric($student_id)) {
                 throw new Web_Request_Exception('Student ID is not a number.');
@@ -688,14 +700,6 @@ class Usctdp_Mgmt_Admin
                 $starting_level = (int) $_POST['starting_level'];
             }
 
-            $balance = 0;
-            if (isset($_POST['balance'])) {
-                $balance = $this->convertToCents($_POST['balance']);
-                if ($balance === false) {
-                    throw new Web_Request_Exception('Balance is not a valid currency amount.');
-                }
-            }
-
             $notes = '';
             if (isset($_POST['notes'])) {
                 $notes = sanitize_textarea_field(stripslashes($_POST['notes']));
@@ -703,14 +707,14 @@ class Usctdp_Mgmt_Admin
 
             $wpdb->query('START TRANSACTION');
             $transaction_started = true;
-            $class_row = $wpdb->get_row(
+            $activity_row = $wpdb->get_row(
                 $wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}usctdp_clinic_class WHERE id = %d FOR UPDATE",
-                    $class_id
+                    "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id = %d FOR UPDATE",
+                    $activity_id
                 )
             );
-            if (!$class_row) {
-                throw new Web_Request_Exception('Class with ID ' . $class_id . ' not found.');
+            if (!$activity_row) {
+                throw new Web_Request_Exception('Activity with ID ' . $activity_id . ' not found.');
             }
 
             $student_row = $wpdb->get_row(
@@ -723,12 +727,12 @@ class Usctdp_Mgmt_Admin
                 throw new Web_Request_Exception('Student with ID ' . $student_id . ' not found.');
             }
 
-            if ($this->is_student_enrolled($student_id, $class_id)) {
-                throw new Web_Request_Exception('Student is already enrolled in this class.');
+            if ($this->is_student_enrolled($student_id, $activity_id)) {
+                throw new Web_Request_Exception('Student is already enrolled in this activity.');
             }
 
-            $capacity = $this->get_class_capacity($class_id);
-            $registrations = $this->get_class_registration_count($class_id);
+            $capacity = $this->get_activity_capacity($activity_id);
+            $registrations = $this->get_activity_registration_count($activity_id);
             $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
             if (!$ignore_full && $registrations >= $capacity) {
                 throw new Web_Request_Exception('Class is full.');
@@ -736,10 +740,14 @@ class Usctdp_Mgmt_Admin
 
             $registration_query = new Usctdp_Mgmt_Registration_Query([]);
             $registration_id = $registration_query->add_item([
-                'activity_id' => $class_id,
+                'activity_id' => $activity_id,
                 'student_id' => $student_id,
                 'starting_level' => $starting_level,
-                'balance' => $balance,
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
+                'last_modified_by' => get_current_user_id(),
+                'credit' => 0,
+                'debit' => 0,
                 'notes' => $notes
             ]);
 
@@ -780,9 +788,9 @@ class Usctdp_Mgmt_Admin
                 ], $this->get_redirect_url('usctdp-admin-register'));
             } else {
                 $redirect_url = add_query_arg([
-                    'class_id' => $class_id,
+                    'activity_id' => $activity_id,
                     'usctdp_token' => $unique_token,
-                ], $this->get_redirect_url('usctdp-admin-rosters'));
+                ], $this->get_redirect_url('usctdp-admin-clinic-rosters'));
             }
             set_transient($transient_key, $transient_data, 10);
             wp_safe_redirect($redirect_url);
@@ -790,48 +798,48 @@ class Usctdp_Mgmt_Admin
         }
     }
 
-    function is_student_enrolled($student_id, $class_id)
+    function is_student_enrolled($student_id, $activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
             'student_id' => $student_id,
-            'activity_id' => $class_id
+            'activity_id' => $activity_id
         ]);
         return !empty($reg_query->items);
     }
 
-    private function get_class_registration_count($class_id)
+    private function get_activity_registration_count($activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
-            'activity_id' => $class_id,
+            'activity_id' => $activity_id,
             'count' => true
         ]);
         return $reg_query->found_items;
     }
 
-    private function get_class_capacity($class_id)
+    private function get_activity_capacity($activity_id)
     {
-        $class_query = new Usctdp_Mgmt_Clinic_Query([
-            'activity_id' => $class_id,
+        $activity_query = new Usctdp_Mgmt_Activity_Query([
+            'activity_id' => $activity_id,
             'number' => 1
         ]);
-        if (empty($class_query->items)) {
+        if (empty($activity_query->items)) {
             return null;
         }
-        return $class_query->items[0]->capacity;
+        return $activity_query->items[0]->capacity;
     }
 
-    function ajax_get_class_qualification()
+    function ajax_activity_qualification()
     {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['class_qualification'];
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['activity_qualification'];
         if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 400);
         }
 
-        $class_id = isset($_GET['class_id']) ? sanitize_text_field($_GET['class_id']) : '';
+        $activity_id = isset($_GET['activity_id']) ? sanitize_text_field($_GET['activity_id']) : '';
         $student_id = isset($_GET['student_id']) ? sanitize_text_field($_GET['student_id']) : '';
-        $capacity = $this->get_class_capacity($class_id);
-        $found_posts = $this->get_class_registration_count($class_id);
-        $student_registered = $this->is_student_enrolled($student_id, $class_id);
+        $capacity = $this->get_activity_capacity($activity_id);
+        $found_posts = $this->get_activity_registration_count($activity_id);
+        $student_registered = $this->is_student_enrolled($student_id, $activity_id);
 
         wp_send_json_success([
             'capacity' => $capacity,
@@ -847,22 +855,22 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : '';
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : '';
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : '';
 
         $target = null;
-        if (!empty($class_id)) {
-            $class_query = new Usctdp_Mgmt_Activity_Query([
-                'id' => $class_id,
+        if (!empty($activity_id)) {
+            $activity_query = new Usctdp_Mgmt_Activity_Query([
+                'id' => $activity_id,
                 'number' => 1
             ]);
-            if (empty($class_query->items)) {
-                wp_send_json_error('Class with ID "' . $class_id . '" not found.', 404);
+            if (empty($activity_query->items)) {
+                wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
             }
             $target = [
-                'type' => 'class',
-                'id' => $class_query->items[0]->id,
-                'title' => $class_query->items[0]->title
+                'type' => 'activity',
+                'id' => $activity_query->items[0]->id,
+                'title' => $activity_query->items[0]->title
             ];
         } else if (!empty($session_id)) {
             $session_query = new Usctdp_Mgmt_Session_Query([
@@ -879,12 +887,12 @@ class Usctdp_Mgmt_Admin
         }
 
         if (!$target) {
-            wp_send_json_error('Class ID or Session ID is required.', 400);
+            wp_send_json_error('Activity ID or Session ID is required.', 400);
         }
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
-            if ($target['type'] === 'class') {
-                $document = $doc_gen->generate_class_roster($target['id']);
+            if ($target['type'] === 'activity') {
+                $document = $doc_gen->generate_activity_roster($target['id']);
             } elseif ($target['type'] === 'session') {
                 $document = $doc_gen->generate_session_roster($target['id']);
             }
@@ -1067,17 +1075,26 @@ class Usctdp_Mgmt_Admin
         wp_send_json(array('items' => $results));
     }
 
-    function ajax_select2_clinic_search()
+    function ajax_select2_product_search()
     {
         $results = [];
         try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_clinic_search'];
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_product_search'];
             if (!check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
             $query = new Usctdp_Mgmt_Product_Query();
             $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-            $query_results = $query->search_products($search, Usctdp_Activity_Type::Clinic, 10);
+            $activity_string = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : "clinic";
+            $activity_type = null;
+            if ($activity_string == "clinic") {
+                $activity_type = Usctdp_Activity_Type::Clinic;
+            } else if ($activity_string == "tournament") {
+                $activity_type = Usctdp_Activity_Type::Tournament;
+            } else if ($activity_string == "camp") {
+                $activity_type = Usctdp_Activity_Type::Camp;
+            }
+            $query_results = $query->search_products($search, $activity_type, 10);
             if ($query_results) {
                 foreach ($query_results as $result) {
                     $results[] = array(
@@ -1232,11 +1249,11 @@ class Usctdp_Mgmt_Admin
         wp_send_json(array('items' => $results));
     }
 
-    function ajax_select2_class_search()
+    function ajax_select2_clinic_search()
     {
         $results = [];
         try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_class_search'];
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_clinic_search'];
             if (!check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
@@ -1311,9 +1328,9 @@ class Usctdp_Mgmt_Admin
         wp_send_json($response);
     }
 
-    public function ajax_class_datatable()
+    public function ajax_clinic_datatable()
     {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['class_datatable'];
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['clinic_datatable'];
         if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Nonce check failed.', 403);
         }
@@ -1335,8 +1352,8 @@ class Usctdp_Mgmt_Admin
             $args['product_id'] = $product_id;
         }
 
-        $class_query = new Usctdp_Mgmt_Clinic_Query([]);
-        $result = $class_query->get_clinic_data($args);
+        $clinic_query = new Usctdp_Mgmt_Clinic_Query([]);
+        $result = $clinic_query->get_clinic_data($args);
         $response = array(
             "draw" => $draw,
             "recordsTotal" => $result['count'],
@@ -1405,7 +1422,7 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Nonce check failed.', 403);
         }
 
-        $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : null;
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : null;
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
@@ -1415,8 +1432,8 @@ class Usctdp_Mgmt_Admin
             'number' => $length,
             'offset' => $start,
         ];
-        if ($class_id) {
-            $args['class_id'] = $class_id;
+        if ($activity_id) {
+            $args['activity_id'] = $activity_id;
         }
         if ($student_id) {
             $args['student_id'] = $student_id;

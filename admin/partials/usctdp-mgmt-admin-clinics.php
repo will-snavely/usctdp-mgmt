@@ -1,8 +1,8 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     <div class="usctdp-mgmt-section">
-        <section id="usctdp-classes-section">
-            <div id="usctdp-classes-container">
+        <section id="usctdp-clinics-section">
+            <div id="usctdp-clinics-container">
                 <div id="table-filters">
                     <div id="clinic-filter-section" class="dt-layout-cell dt-layout-start">
                         <label for="clinic-filter">Filter by Clinic:</label>
@@ -13,7 +13,7 @@
                         <select id="session-filter"></select>
                     </div>
                 </div>
-                <table id="usctdp-upcoming-classes-table" class="usctdp-custom-post-table hidden">
+                <table id="usctdp-clinics-table" class="usctdp-custom-post-table hidden">
                     <thead>
                         <tr>
                             <th>Clinic</th>
@@ -25,7 +25,7 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="usctdp-upcoming-classes-table-body">
+                    <tbody id="usctdp-clinics-table-body">
                     </tbody>
                 </table>
             </div>

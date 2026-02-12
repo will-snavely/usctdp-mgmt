@@ -22,10 +22,23 @@ class Usctdp_Mgmt_Activity_Schema extends Schema
             'name' => 'title',
             'type' => 'tinytext',
         ],
+        'level' => [
+            'name' => 'level',
+            'type' => 'tinytext',
+        ],
+        'capacity' => [
+            'name' => 'capacity',
+            'type' => 'smallint',
+            'unsigned' => true,
+        ],
         'search_term' => [
             'name' => 'search_term',
             'type' => 'tinytext',
             'index' => true,
+        ],
+        'notes' => [
+            'name' => 'notes',
+            'type' => 'text',
         ],
         'session_id' => [
             'name' => 'session_id',

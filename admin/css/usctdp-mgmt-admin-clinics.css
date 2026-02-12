@@ -22,7 +22,7 @@ ul {
     width: 200px;
 }
 
-#usctdp-classes-container {
+#usctdp-clinics-container {
     max-width: 1000px;
 }
 
@@ -36,7 +36,7 @@ div.dt-length select {
     gap: 5px;
 }
 
-.class-actions {
+.clinic-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;

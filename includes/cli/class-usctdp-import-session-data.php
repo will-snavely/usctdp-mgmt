@@ -227,7 +227,7 @@ class Usctdp_Import_Session_Data
                 $title = Usctdp_Mgmt_Clinic_Table::create_title(
                     $clinic_name,
                     $dow,
-                    $start_time, 
+                    $start_time,
                     $end_time
                 );
                 $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
@@ -247,6 +247,7 @@ class Usctdp_Import_Session_Data
                         "type" => Usctdp_Activity_Type::Clinic->value,
                         "title" => $title,
                         "search_term" => $search_term,
+                        "capacity" => $class['capacity'],
                     ]);
 
                     $clinic_query = new Usctdp_Mgmt_Clinic_Query([
@@ -260,7 +261,6 @@ class Usctdp_Import_Session_Data
                             "day_of_week" => $day_of_week,
                             "start_time" => $start_time->format("H:i:s"),
                             "end_time" => $end_time->format("H:i:s"),
-                            "capacity" => $class['capacity'],
                             "level" => (string) $class['level'],
                             "notes" => '',
                         ]);

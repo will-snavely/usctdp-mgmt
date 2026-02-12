@@ -62,6 +62,12 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'name' => 'created_at',
             'type' => 'datetime',
         ],
+        'created_by' => [
+            'name' => 'created_by',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+        ],
         'last_modified_at' => [
             'name' => 'last_modified_at',
             'type' => 'datetime',

@@ -82,7 +82,7 @@
                 nextSelector: {
                     options: [],
                     choose: function () {
-                        return null; 
+                        return null;
                     },
                 },
                 select2Options: function () {
@@ -161,7 +161,7 @@
         }
 
         function initSessionSelector($selectElem) {
-            $selectElem.select2({            
+            $selectElem.select2({
                 placeholder: "Search for a session...",
                 ajax: {
                     url: usctdp_mgmt_admin.ajax_url,
@@ -182,7 +182,7 @@
         }
 
         function initActivitySelector($selectElem, sessionSelectId) {
-            $selectElem.select2({            
+            $selectElem.select2({
                 placeholder: "Search for an activity...",
                 ajax: {
                     url: usctdp_mgmt_admin.ajax_url,
@@ -238,11 +238,11 @@
             container.querySelector(`#edit-activity-${idx}`).addEventListener('click', () => {
                 const $button = $(`#edit-activity-${idx}`);
                 const state = $button.data("state");
-                if(state == "edit") {
+                if (state == "edit") {
                     $button.text("Save");
                     $button.data("state", "save");
                     const $sessionSelect = $('#' + sessionSelectId);
-                    if(!$sessionSelect.hasClass("select2-hidden-accessible")) {
+                    if (!$sessionSelect.hasClass("select2-hidden-accessible")) {
                         initSessionSelector($sessionSelect);
                         const curSession = new Option(
                             data.session_name,
@@ -254,10 +254,10 @@
                             .append(curSession)
                             .val(data.session_id)
                             .trigger("change");
-                    } 
+                    }
 
                     const $activitySelect = $('#' + activitySelectId);
-                    if(!$activitySelect.hasClass("select2-hidden-accessible")) {
+                    if (!$activitySelect.hasClass("select2-hidden-accessible")) {
                         initActivitySelector($activitySelect, sessionSelectId);
                         const curActivity = new Option(
                             data.activity_name,
@@ -296,6 +296,7 @@
         function createBalanceDetails(data, idx) {
             const container = document.createElement('div');
             container.className = 'balance-details-wrap';
+            const total = data.registration_credit - data.registration_debit;
             container.innerHTML = `
                 <div class="credit-wrap balance-field">
                     <label>Credit:</label>
@@ -303,14 +304,13 @@
                     <input id="credit-amt-input-${idx}" class="hidden">
                 </div>
                 <div class="debit-wrap balance-field">
-                    <label for="debit-amt-${idx}">Debit:</label>
+                    <label>Debit:</label>
                     <span id="debit-amt-${idx}">${data.registration_debit}</span>
                     <input id="debit-amt-input-${idx}" class="hidden">
                 </div>
-                <div class="total-wrap">
-                    <span class="total-label">Total:
-                        <span id="total-amt-${idx}"></span>
-                    </span>
+                <div class="total-wrap balance-field">
+                    <label>Total:</label>
+                    <span id="total-amt-${idx}">${total}</span>
                 </div>
                 <div class="activity-actions">
                     <button id="edit-balance-${idx}" class="button" data-state="edit">Edit</button>
@@ -320,7 +320,7 @@
             container.querySelector(`#edit-balance-${idx}`).addEventListener('click', () => {
                 const $button = $(`#edit-balance-${idx}`);
                 const state = $button.data("state");
-                if(state == "edit") {
+                if (state == "edit") {
                     $button.text("Save");
                     $button.data("state", "save");
                     $(`#credit-amt-input-${idx}`).removeClass("hidden");

@@ -28,9 +28,6 @@ class Usctdp_Mgmt_Clinic_Table extends Table
             day_of_week tinyint unsigned,
             start_time time,
             end_time time,
-            capacity smallint unsigned,
-            level tinytext, 
-            notes text,
             PRIMARY KEY (activity_id)
         ";
     }

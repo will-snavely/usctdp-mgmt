@@ -5,7 +5,7 @@
         <div id="history-container" class="hidden">
             <h2>Registration History for <span id="family-name"></span></h2>
             <div id="history-table-wrap">
-                <table id="history-table" class="usctdp-custom-post-table">
+                <table id="history-table">
                     <thead>
                         <tr>
                             <th>Student</th>

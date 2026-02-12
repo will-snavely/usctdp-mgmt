@@ -25,19 +25,6 @@ class Usctdp_Mgmt_Clinic_Schema extends Schema
         'end_time' => [
             'name' => 'end_time',
             'type' => 'time',
-        ],
-        'capacity' => [
-            'name' => 'capacity',
-            'type' => 'smallint',
-            'unsigned' => true,
-        ],
-        'level' => [
-            'name' => 'level',
-            'type' => 'tinytext',
-        ],
-        'notes' => [
-            'name' => 'notes',
-            'type' => 'text',
-        ],
+        ]
     ];
 }

@@ -20,7 +20,6 @@ class Usctdp_Mgmt_Tournament_Table extends Table
             activity_id bigint(20) unsigned NOT NULL,
             start_date date NOT NULL,
             registration_deadline date NOT NULL,
-            capacity smallint unsigned,
             days json,
             PRIMARY KEY (activity_id)
         ";

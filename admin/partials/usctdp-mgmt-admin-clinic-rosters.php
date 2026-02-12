@@ -6,9 +6,9 @@
             <select id="session-selector" style="margin-left: 10px;">
             </select>
         </div>
-        <div id="class-selection-section">
-            <h2> Select a Class </h2>
-            <select id="class-selector" style="margin-left: 10px;">
+        <div id="activity-selection-section">
+            <h2> Select an Activity </h2>
+            <select id="activity-selector" style="margin-left: 10px;">
             </select>
         </div>
     </div>

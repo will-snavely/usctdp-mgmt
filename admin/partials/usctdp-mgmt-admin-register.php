@@ -25,7 +25,7 @@ $registration_fields = [
             <div id="registration-form-content">
                 <div id="context-selection-section">
                     <div id="context-selectors"></div>
-                    <div id="notifications"></div>
+                    <div id="notifications-section"></div>
                 </div>
 
                 <div id="registration-details-section" class="hidden">

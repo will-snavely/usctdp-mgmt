@@ -26,6 +26,7 @@ class Usctdp_Mgmt_Registration_Table extends Table
             debit smallint unsigned,
             status tinyint unsigned NOT NULL,
             created_at datetime NOT NULL,
+            created_by bigint(20) unsigned NOT NULL,
             last_modified_at datetime,
             last_modified_by bigint(20) unsigned,
             notes text,

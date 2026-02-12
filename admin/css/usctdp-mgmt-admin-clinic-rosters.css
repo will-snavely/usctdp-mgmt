@@ -1,4 +1,4 @@
-#class-selection-section {
+#activity-selection-section {
     display: none;
 }
 
@@ -10,7 +10,7 @@
     width: 350px;
 }
 
-#class-selector {
+#activity-selector {
     width: 350px;
 }
 
@@ -18,7 +18,7 @@
     max-width: 1000px;
 }
 
-#class-selection {
+#activity-selection {
     display: flex;
     flex-direction: column;
     gap: 10px;

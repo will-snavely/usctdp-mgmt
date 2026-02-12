@@ -1,7 +1,6 @@
 (function ($) {
     "use strict";
     $(document).ready(function () {
-        // DataTables Initialization
         var $daysOfWeek = {
             1: 'Monday',
             2: 'Tuesday',
@@ -21,7 +20,7 @@
             return new Intl.DateTimeFormat('en-US', options).format(dateObj);
         }
 
-        var table = $('#usctdp-upcoming-classes-table').DataTable({
+        var table = $('#usctdp-clinics-table').DataTable({
             processing: true,
             serverSide: true,
             ordering: false,
@@ -31,8 +30,8 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    d.action = usctdp_mgmt_admin.class_datatable_action;
-                    d.security = usctdp_mgmt_admin.class_datatable_nonce;
+                    d.action = usctdp_mgmt_admin.clinic_datatable_action;
+                    d.security = usctdp_mgmt_admin.clinic_datatable_nonce;
                     var sessionFilterValue = $('#session-filter').val();
                     if (sessionFilterValue) {
                         d.session_id = sessionFilterValue;
@@ -44,13 +43,14 @@
                 }
             },
             initComplete: function () {
-                $('#usctdp-upcoming-classes-table').removeClass('hidden');
+                $('#usctdp-clinics-table').removeClass('hidden');
             },
+
             columns: [
                 { data: 'clinic_name' },
                 { data: 'session_name' },
                 {
-                    data: 'class_day_of_week',
+                    data: 'clinic_day_of_week',
                     render: function (data, type, row) {
                         if (type === 'display') {
                             return $daysOfWeek[data];
@@ -59,7 +59,7 @@
                     }
                 },
                 {
-                    data: 'class_start_time',
+                    data: 'clinic_start_time',
                     render: function (data, type, row) {
                         if (type === 'display') {
                             const [hours, minutes, seconds] = data.split(':').map(Number);
@@ -70,18 +70,18 @@
                         return data;
                     }
                 },
-                { data: 'class_capacity' },
+                { data: 'clinic_capacity' },
                 {
                     data: 'instructors',
                     defaultContent: '',
                 },
                 {
-                    data: 'class_id',
+                    data: 'clinic_id',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            var rosterUrl = 'admin.php?page=usctdp-admin-clinic-rosters&class_id=' + data;
-                            var registerUrl = 'admin.php?page=usctdp-admin-register&class_id=' + data;
-                            var cell = '<div class="class-actions">'
+                            var rosterUrl = 'admin.php?page=usctdp-admin-clinic-rosters&activity_id=' + data;
+                            var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + data;
+                            var cell = '<div class="clinic-actions">'
                             cell += '<div class="action-item">'
                             cell += '<a href="' + rosterUrl + '" class="button button-small">Roster</a> ';
                             cell += '</div>';
@@ -125,8 +125,9 @@
                 data: function (params) {
                     return {
                         q: params.term,
-                        action: usctdp_mgmt_admin.select2_clinic_search_action,
-                        security: usctdp_mgmt_admin.select2_clinic_search_nonce
+                        action: usctdp_mgmt_admin.select2_product_search_action,
+                        security: usctdp_mgmt_admin.select2_product_search_nonce,
+                        type: 'clinic'
                     };
                 },
                 processResults: function (data) {
@@ -137,7 +138,7 @@
             }
         });
 
-        var $table_controls = $('#usctdp-upcoming-classes-table_wrapper');
+        var $table_controls = $('#usctdp-clinics-table_wrapper');
         var $first_row = $table_controls.find("div.dt-layout-row").first();
         var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>"
         $first_row.after(filter_row);

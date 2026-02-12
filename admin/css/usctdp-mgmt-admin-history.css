@@ -68,11 +68,12 @@
     letter-spacing: 0.025em;
 }
 
-table td { 
-  vertical-align: top !important;
+table td {
+    vertical-align: top !important;
 }
 
-.activity-field label, .balance-field label {
+.activity-field label,
+.balance-field label {
     display: block;
     font-size: 0.75rem;
     font-weight: 700;
@@ -94,7 +95,7 @@ table td {
 .activity-details-wrap {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 5px;
 }
 
 .activity-field {
@@ -120,20 +121,14 @@ table td {
     width: 50px;
 }
 
-.total-wrap {
-    display: flex;
-    justify-content: flex-end; 
-}
-
 .activity-actions {
     display: flex;
-    justify-content: flex-end; 
 }
 
 .balance-details-wrap {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 5px;
 }
 
 .balance-field {
@@ -145,11 +140,15 @@ table td {
 .balance-field label {
     width: 50px;
     text-align: right;
-};
+}
+
+;
 
 .balance-field input {
     width: 30px;
-};
+}
+
+;
 
 .class-label {
     display: block;
@@ -158,6 +157,7 @@ table td {
     color: #95a5a6;
     letter-spacing: 1px;
 }
+
 .class-label {
     display: block;
     font-size: 0.7rem;
