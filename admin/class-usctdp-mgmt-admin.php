@@ -570,7 +570,7 @@ class Usctdp_Mgmt_Admin
             'select2_family_search',
             'select2_student_search',
             'select2_session_search',
-            'select2_clinic_search'
+            'select2_activity_search'
         ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];

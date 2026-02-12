@@ -2,10 +2,10 @@
     "use strict";
 
     $(document).ready(function () {
-        const activityKinds = {
-            1: "Clinic",
-            2: "Tournament",
-            3: "Camp"
+        const activityTypes = {
+            1: { name: "Clinic", id: "clinic" },
+            2: { name: "Tournament", id: "tournament" },
+            3: { name: "Camp", id: "camp" }
         };
 
         function createSelector(id, name, label, hidden, disabled, options = []) {
@@ -62,10 +62,15 @@
                 contextData['student-selector'] = preloadedData.student.student_id;
             }
             if (usctdp_mgmt_admin.preload.activity_id) {
-                preloadedData.activity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
-                contextData['activity-selector'] = preloadedData.activity.activity_id;
                 console.log(preloadedData.activity);
-                contextData['activity-kind-selector'] = preloadedData.activity.activity_kind;
+                preloadedData.activity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
+                const activityTypeInt = preloadedData.activity.activity_type;
+                const activityType = activityTypes[activityTypeInt].id;
+                contextData['session-selector'] = preloadedData.activity.session_id;
+                contextData['activity-kind-selector'] = activityType;
+                if (activityType === 'clinic') {
+                    contextData['clinic-selector'] = preloadedData.activity.activity_id;
+                }
             }
         }
 
@@ -173,10 +178,10 @@
                     ];
 
                     if (preloadedData.activity) {
-                        const $kindId = preloadedData.activity.activity_kind;
-                        const $kind = activityKinds[$kindId];
+                        const typeInt = preloadedData.activity.activity_type;
+                        const type = activityTypes[typeInt];
                         options = [
-                            { id: $kindId, name: $kind }
+                            { id: type.id, name: type.name }
                         ];
                         disabled = true;
                         hidden = false;
@@ -194,13 +199,14 @@
                     ));
                 },
                 nextSelector: {
-                    options: ['session-selector', 'activity-selector'],
+                    options: ['session-selector'],
                     choose: function () {
                         var val = $('#activity-kind-selector').val();
                         if (val === 'clinic') {
-                            return 'session-selector'
+                            return 'session-selector';
                         } else if (val === 'tournament') {
-                            return 'activity-selector'
+                            // TODO: implement tournament selector
+                            return null;
                         }
                     }
                 },
@@ -223,9 +229,9 @@
                     ))
                 },
                 nextSelector: {
-                    options: ['activity-selector'],
+                    options: [],
                     choose: function () {
-                        return 'activity-selector'
+                        return null;
                     }
                 },
                 select2Options: function () {
@@ -259,9 +265,9 @@
                     ));
                 },
                 nextSelector: {
-                    options: ['clinic-class-selector', 'tournament-class-selector'],
+                    options: ['clinic-selector', 'tournament-selector'],
                     choose: function () {
-                        return 'clinic-class-selector'
+                        return 'clinic-selector'
                     }
                 },
                 select2Options: function () {
@@ -279,7 +285,7 @@
                     }
                 },
             },
-            'clinic-class-selector': {
+            'clinic-selector': {
                 selector: function () {
                     var options = [];
                     var hidden = true;
@@ -287,13 +293,13 @@
                     if (preloadedData.activity) {
                         options.push({
                             id: preloadedData.activity.activity_id,
-                            name: preloadedData.activity.title
+                            name: preloadedData.activity.activity_name
                         });
                         hidden = false;
                         disabled = true;
                     }
                     return $(createSelector(
-                        'clinic-class-selector',
+                        'clinic-selector',
                         'activity_id',
                         'Select a Clinic',
                         hidden,
@@ -363,10 +369,10 @@
                     $(`#${option}`).val(null);
                     $(`#${option}`).trigger('change');
                 }
-                if (contextData['student-selector'] && contextData['clinic-class-selector']) {
+                if (contextData['clinic-selector'] && contextData['student-selector']) {
                     toggle_registration_fields(false);
                     $('#notifications-section').children().remove();
-                    load_class_registration(contextData['clinic-class-selector'], contextData['student-selector']);
+                    load_class_registration(contextData['clinic-selector'], contextData['student-selector']);
                 } else {
                     $('#notifications-section').children().remove();
                     toggle_registration_fields(false);
