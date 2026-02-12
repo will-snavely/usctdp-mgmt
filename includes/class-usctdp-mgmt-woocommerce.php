@@ -196,13 +196,21 @@ class Usctdp_Mgmt_Woocommerce
     public function checkout_create_order_line_item($item, $cart_item_key, $values, $order)
     {
         if (isset($values['student_name'])) {
-            $item->add_meta_data('Student Name', $values['student_name']);
+            $student_query = new Usctdp_Mgmt_Student_Query([
+                'id' => $values['student_name'],
+                'number' => 1,
+            ]);
+            $student = $student_query->items[0];
+            $item->add_meta_data('student_id', $values['student_name']);
+            $item->add_meta_data('Student Name', $student->title);
         }
         if (isset($values['day_of_week_1'])) {
-            $item->add_meta_data('Day 1', $values['day_of_week_1']);
+            $item->add_meta_data('day_1_id', $values['day_of_week_1']);
+            $item->add_meta_data('Day 1', $this->get_clinic_display($values['day_of_week_1']));
         }
         if (isset($values['day_of_week_2'])) {
-            $item->add_meta_data('Day 2', $values['day_of_week_2']);
+            $item->add_meta_data('day_2_id', $values['day_of_week_2']);
+            $item->add_meta_data('Day 2', $this->get_clinic_display($values['day_of_week_2']));
         }
     }
 
@@ -226,18 +234,6 @@ class Usctdp_Mgmt_Woocommerce
             $student_id = null;
             $day_1_id = null;
             $day_2_id = null;
-
-            if (isset($cart_item['student_name'])) {
-                $student_id = $cart_item['student_name'];
-            }
-
-            if (isset($cart_item['day_of_week_1'])) {
-                $day_1_id = $cart_item['day_of_week_1'];
-            }
-
-            if (isset($cart_item['day_of_week_2'])) {
-                $day_2_id = $cart_item['day_of_week_2'];
-            }
 
             // START TRANSACTION
             $wpdb->query('START TRANSACTION');
@@ -274,50 +270,44 @@ class Usctdp_Mgmt_Woocommerce
         }
     }
 
+    public function transfer_item_meta( $item, $cart_item_key, $values, $order ) {
+    }
+
     /**
      * STEP 2: The Insertion (Happens after validation passes)
      */
-    public function create_pending_registration($item, $cart_item_key, $values, $order)
+    public function create_pending_registration($order) 
     {
-        global $wpdb;
-        $student_id = null;
-        $day_1_id = null;
-        $day_2_id = null;
+        error_log("Here");
+        foreach ($order->get_items() as $item_id => $item) {
+            $student_id = $item->get_meta('student_id');
+            $day_1_id = $item->get_meta('day_1_id');
+            $day_2_id = $item->get_meta('day_2_id');
 
-        if (isset($values['student_name'])) {
-            $student_id = $values['student_name'];
-        }
-
-        if (isset($values['day_of_week_1'])) {
-            $day_1_id = $values['day_of_week_1'];
-        }
-
-        if (isset($values['day_of_week_2'])) {
-            $day_2_id = $values['day_of_week_2'];
-        }
-
-        if ($student_id == null) {
-            return;
-        }
-
-        foreach ([$day_1_id, $day_2_id] as $day_id) {
-            if ($day_id == null) {
+            if (empty($student_id)) {
                 continue;
             }
-            $query = new Usctdp_Mgmt_Registration_Query();
-            $query->add_item([
-                'activity_id' => $day_id,
-                'student_id' => $student_id,
-                'order_id' => $order->get_id(),
-                'starting_level' => '',
-                'credit' => 0,
-                'debit' => 0,
-                'status' => Usctdp_Registration_Status::Pending->value,
-                'created_at' => current_time('mysql'),
-                'last_modified_at' => current_time('mysql'),
-                'last_modified_by' => get_current_user_id(),
-                'notes' => '',
-            ]);
+
+            foreach ([$day_1_id, $day_2_id] as $day_id) {
+                if (empty($day_id)) {
+                    continue;
+                }
+                $query = new Usctdp_Mgmt_Registration_Query();
+                $result = $query->add_item([
+                    'activity_id' => $day_id,
+                    'student_id' => $student_id,
+                    'order_id' => $order->get_id(),
+                    'starting_level' => '',
+                    'credit' => 0,
+                    'debit' => 0,
+                    'status' => Usctdp_Registration_Status::Pending->value,
+                    'created_at' => current_time('mysql'),
+                    'last_modified_at' => current_time('mysql'),
+                    'last_modified_by' => get_current_user_id(),
+                    'notes' => '',
+                ]);
+                error_log("query result: " . strval($result));
+            }
         }
     }
 
@@ -326,6 +316,7 @@ class Usctdp_Mgmt_Woocommerce
      */
     public function confirm_registration($order_id)
     {
+        error_log("confirming " . strval($order_id));
         $query = new Usctdp_Mgmt_Registration_Query([
             'order_id' => $order_id,
             'status' => Usctdp_Registration_Status::Pending->value,

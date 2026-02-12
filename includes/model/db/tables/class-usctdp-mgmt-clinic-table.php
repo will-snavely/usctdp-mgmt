@@ -14,10 +14,11 @@ class Usctdp_Mgmt_Clinic_Table extends Table
     protected $version = '1.0.0';
     protected $upgrades = array();
 
-    public static function create_title($clinic_name, $dow, $start_time)
+    public static function create_title($clinic_name, $dow, $start_time, $end_time)
     {
-        $time = $start_time->format('g:i A');
-        return sanitize_text_field("$clinic_name, $dow at $time");
+        $start = $start_time->format('g:i A');
+        $end = $end_time->format('g:i A');
+        return sanitize_text_field("$clinic_name, $dow, $start to $end");
     }
 
     public function set_schema()

@@ -231,9 +231,18 @@ class Usctdp_Mgmt
         $this->loader->add_action(
             'woocommerce_checkout_create_order_line_item',
             $commerce_handler,
-            'create_pending_registration',
+            'transfer_item_meta', // New function name for clarity
             10,
             4
+        );
+
+        // 2. Add this second hook to handle your custom database logic
+        $this->loader->add_action(
+            'woocommerce_store_api_checkout_order_processed',
+            $commerce_handler,
+            'create_pending_registration',
+            10,
+            1 
         );
 
         $this->loader->add_action(

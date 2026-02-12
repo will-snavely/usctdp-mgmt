@@ -72,6 +72,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'select2_session_search_nonce',
             'callback' => 'ajax_select2_session_search'
         ],
+        'select2_activity_search' => [
+            'action' => 'select2_activity_search',
+            'nonce' => 'select2_activity_search_nonce',
+            'callback' => 'ajax_select2_activity_search'
+        ],
         'select2_clinic_search' => [
             'action' => 'select2_clinic_search',
             'nonce' => 'select2_clinic_search_nonce',
@@ -568,6 +573,8 @@ class Usctdp_Mgmt_Admin
         $handlers = [
             'select2_family_search',
             'select2_student_search',
+            'select2_session_search',
+            'select2_activity_search',
             'registration_history_datatable'
         ];
         foreach ($handlers as $key) {
@@ -1027,6 +1034,33 @@ class Usctdp_Mgmt_Admin
         wp_send_json(array('items' => $results));
     }
 
+    function ajax_select2_activity_search()
+    {
+        $results = [];
+        try {
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_activity_search'];
+            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+            }
+            $query = new Usctdp_Mgmt_Activity_Query();
+            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
+            $session_id = isset($_GET['session_id']) ? sanitize_text_field($_GET['session_id']) : '';
+            $query_results = $query->search_activities($search, $session_id, null, 10);
+            if ($query_results) {
+                foreach ($query_results as $result) {
+                    $results[] = array(
+                        'id' => $result->id,
+                        'text' => $result->title
+                    );
+                }
+            }
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json(array('items' => $results));
+    }
+
     function ajax_select2_clinic_search()
     {
         $results = [];
@@ -1052,6 +1086,8 @@ class Usctdp_Mgmt_Admin
         }
         wp_send_json(array('items' => $results));
     }
+
+
 
     function ajax_session_rosters()
     {
@@ -1311,6 +1347,7 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Nonce check failed.', 403);
         }
 
+        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
@@ -1320,12 +1357,15 @@ class Usctdp_Mgmt_Admin
             'number' => $length,
             'offset' => $start,
         ];
+        if ($family_id) {
+            $args['family_id'] = $family_id;
+        }
         if ($student_id) {
             $args['student_id'] = $student_id;
         }
 
         $reg_query = new Usctdp_Mgmt_Registration_Query([]);
-        $results = $reg_query->get_class_registration_data($args);
+        $results = $reg_query->get_registration_data($args);
         foreach ($results['data'] as $row) {
             $row->txns = $this->get_related_transactions($row->registration_id);
         }
@@ -1377,7 +1417,7 @@ class Usctdp_Mgmt_Admin
         }
 
         $reg_query = new Usctdp_Mgmt_Registration_Query([]);
-        $result = $reg_query->get_class_registration_data($args);
+        $result = $reg_query->get_registration_data($args);
         $response = array(
             "draw" => $draw,
             "recordsTotal" => $result['count'],

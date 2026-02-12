@@ -227,7 +227,8 @@ class Usctdp_Import_Session_Data
                 $title = Usctdp_Mgmt_Clinic_Table::create_title(
                     $clinic_name,
                     $dow,
-                    $start_time
+                    $start_time, 
+                    $end_time
                 );
                 $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
                 $activity_query = new Usctdp_Mgmt_Activity_Query([

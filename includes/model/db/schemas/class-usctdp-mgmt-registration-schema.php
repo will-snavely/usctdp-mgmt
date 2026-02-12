@@ -40,12 +40,12 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'type' => 'tinytext',
         ],
         'credit' => [
-            'name' => 'balance',
+            'name' => 'credit',
             'type' => 'smallint',
             'unsigned' => true,
         ],
         'debit' => [
-            'name' => 'balance',
+            'name' => 'debit',
             'type' => 'smallint',
             'unsigned' => true,
         ],

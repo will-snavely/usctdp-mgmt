@@ -199,7 +199,6 @@
             var dataArray = $('#families-select2').select2('data');
             if (!dataArray || dataArray.length === 0) {
                 $('#manage-family-btn').prop('disabled', true);
-
             } else {
                 $('#manage-family-btn').prop('disabled', false);
             }

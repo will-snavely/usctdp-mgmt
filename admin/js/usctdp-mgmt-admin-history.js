@@ -48,13 +48,11 @@
         }
 
         var contextData = {};
-        var pageMode = 'none_preloaded';
-        var preloadedData = { student: null, class: null };
+        var preloadedData = { student: null, family: null };
         if (usctdp_mgmt_admin.preload) {
             if (usctdp_mgmt_admin.preload.student_id) {
-                preloadedData.student = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+                preloadedData.student = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
                 contextData['family-selector'] = preloadedData.student.family_id;
-                contextData['student-selector'] = preloadedData.student.student_id;
             }
         }
 
@@ -82,9 +80,9 @@
                     ));
                 },
                 nextSelector: {
-                    options: ['student-selector'],
+                    options: [],
                     choose: function () {
-                        return 'student-selector';
+                        return null; 
                     },
                 },
                 select2Options: function () {
@@ -102,55 +100,6 @@
                     }
                 },
             },
-            'student-selector': {
-                selector: function () {
-                    var options = [];
-                    var hidden = true;
-                    var disabled = false;
-                    if (preloadedData.student) {
-                        options.push({
-                            id: preloadedData.student.student_id,
-                            name: preloadedData.student.student_name
-                        });
-                        hidden = false;
-                        disabled = true;
-                    }
-
-                    return $(createSelector(
-                        'student-selector',
-                        'student_id',
-                        'Select a Student',
-                        hidden,
-                        disabled,
-                        options
-                    ));
-                },
-                nextSelector: {
-                    options: [],
-                    choose: function () {
-                        return null;
-                    },
-                },
-                select2Options: function () {
-                    if (preloadedData.student) {
-                        return {
-                            placeholder: "Select a student...",
-                            allowClear: true
-                        };
-                    } else {
-                        return defaultSelect2Options(
-                            "Search for a student...",
-                            usctdp_mgmt_admin.select2_student_search_action,
-                            usctdp_mgmt_admin.select2_student_search_nonce,
-                            function () {
-                                return {
-                                    family_id: $('#family-selector').val()
-                                };
-                            }
-                        );
-                    }
-                }
-            }
         }
 
         for (const [key, value] of Object.entries(contextSelectors)) {
@@ -189,57 +138,209 @@
                     $(`#${option}`).trigger('change');
                 }
 
-                const student = $('#student-selector').val()
-                if (student) {
-                    load_registration_history(student)
+                const family = $('#family-selector').val()
+                if (family) {
+                    load_registration_history();
                 } else {
                     $('#history-container').addClass("hidden");
                 }
             });
         }
 
-        function createRegistrationCard(data) {
+        function createStudentDetails(data) {
             const container = document.createElement('div');
-            container.className = 'registration-card';
-
-            // 1. Safety check for transactions
-            // We grab the first transaction if it exists; otherwise, we return null
-            const firstTxn = data.txns && data.txns.length > 0 ? data.txns[0] : null;
-
-            // 2. Logic for Balance Display
-            const balance = parseFloat(data.registration_balance || 0);
-            const isPaid = balance <= 0;
-            const statusText = isPaid ? 'Fully Paid' : `Balance: $${balance}`;
-
-            // 3. Logic for Transaction ID Display
-            // If firstTxn is null, display "N/A"
-            const txnIdDisplay = firstTxn?.paypal_transaction_id || "No Payment Record";
-
+            container.className = 'student-details-wrap';
             container.innerHTML = `
-                <div class="card-header">
-                    <span class="student-name">${data.student_first} ${data.student_last}</span>
-                    <span class="student-meta"> Age: ${data.student_age} | Level ${data.registration_starting_level}</span>
-                </div>
-                
-                <div class="class-info">
-                    <span class="class-label">Enrolled Class</span>
-                    <span class="class-name"><strong>${data.class_name}</strong></span>
-                    <span class="session-name"><strong>${data.session_name}</strong></span>
-                </div>
-
-                <div class="payment-status">
-                    <div style="display: flex; flex-direction: column;">
-                        <span style="font-size: 0.7rem; color: #95a5a6; text-transform: uppercase;">Transactions</span>
-                        <small style="color:#7f8c8d">${txnIdDisplay}</small>
-                    </div>
-                    <span class="${isPaid ? 'status-paid' : 'status-unpaid'}">${statusText}</span>
+                <span class="student-name">${data.student_first} ${data.student_last}</span>
+                <div class="student-meta">
+                    <span class="student-age"> Age: ${data.student_age}</span>
                 </div>
             `;
 
             return container;
         }
 
-        function createNotesEditor(data) {
+        function initSessionSelector($selectElem) {
+            $selectElem.select2({            
+                placeholder: "Search for a session...",
+                ajax: {
+                    url: usctdp_mgmt_admin.ajax_url,
+                    data: function (params) {
+                        return {
+                            q: params.term,
+                            action: usctdp_mgmt_admin.select2_session_search_action,
+                            security: usctdp_mgmt_admin.select2_session_search_nonce
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.items
+                        };
+                    }
+                }
+            });
+        }
+
+        function initActivitySelector($selectElem, sessionSelectId) {
+            $selectElem.select2({            
+                placeholder: "Search for an activity...",
+                ajax: {
+                    url: usctdp_mgmt_admin.ajax_url,
+                    data: function (params) {
+                        var selectedSession = $('#' + sessionSelectId).val();
+                        return {
+                            q: params.term,
+                            session_id: selectedSession,
+                            action: usctdp_mgmt_admin.select2_activity_search_action,
+                            security: usctdp_mgmt_admin.select2_activity_search_nonce
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.items
+                        };
+                    }
+                }
+            });
+        }
+
+        function createActivityDetails(data, idx) {
+            const container = document.createElement('div');
+            const sessionSelectId = `session-selector-${idx}`;
+            const activitySelectId = `activity-selector-${idx}`;
+            container.className = 'activity-details-wrap';
+            container.innerHTML = `
+                <div class="session-selector-wrap activity-field">
+                    <label>Session:</label>
+                    <span id="session-name-${idx}">${data.session_name}</span>
+                    <div id="session-selector-wrap-${idx}" class="hidden">
+                        <select id="${sessionSelectId}"></select> 
+                    </div>
+                </div>
+                <div class="activity-selector-wrap activity-field">
+                    <label>Activity:</label>
+                    <span id="activity-name-${idx}" class="activty-name">${data.activity_name}</span>
+                    <div id="activity-selector-wrap-${idx}" class="hidden">
+                        <select id="${activitySelectId}"></select>
+                    </div>
+                </div>
+                <div class="activity-student-level-wrap activity-field">
+                    <label>Stu. Level:</label>
+                    <span id="student-level-${idx}">${data.registration_starting_level}</span>
+                    <input id="student-level-input-${idx}" class="hidden">
+                    </input>
+                </div> 
+                <div class="activity-actions">
+                    <button id="edit-activity-${idx}" class="button" data-state="edit">Edit</button>
+                </div>
+            `;
+
+            container.querySelector(`#edit-activity-${idx}`).addEventListener('click', () => {
+                const $button = $(`#edit-activity-${idx}`);
+                const state = $button.data("state");
+                if(state == "edit") {
+                    $button.text("Save");
+                    $button.data("state", "save");
+                    const $sessionSelect = $('#' + sessionSelectId);
+                    if(!$sessionSelect.hasClass("select2-hidden-accessible")) {
+                        initSessionSelector($sessionSelect);
+                        const curSession = new Option(
+                            data.session_name,
+                            data.session_id,
+                            true,
+                            true
+                        );
+                        $('#' + sessionSelectId)
+                            .append(curSession)
+                            .val(data.session_id)
+                            .trigger("change");
+                    } 
+
+                    const $activitySelect = $('#' + activitySelectId);
+                    if(!$activitySelect.hasClass("select2-hidden-accessible")) {
+                        initActivitySelector($activitySelect, sessionSelectId);
+                        const curActivity = new Option(
+                            data.activity_name,
+                            data.activity_id,
+                            true,
+                            true
+                        );
+                        $('#' + activitySelectId)
+                            .append(curActivity)
+                            .val(data.activity_id)
+                            .trigger("change");
+
+                    }
+                    $(`#session-selector-wrap-${idx}`).removeClass("hidden");
+                    $(`#activity-selector-wrap-${idx}`).removeClass("hidden");
+                    $(`#student-level-input-${idx}`).removeClass("hidden");
+                    $(`#activity-student-level-input-${idx}`).removeClass("hidden");
+                    $(`#student-level-${idx}`).addClass("hidden");
+                    $(`#activity-name-${idx}`).addClass("hidden");
+                    $(`#session-name-${idx}`).addClass("hidden");
+                } else {
+                    $button.text("Edit");
+                    $button.data("state", "edit");
+                    $(`#session-selector-wrap-${idx}`).addClass("hidden");
+                    $(`#activity-selector-wrap-${idx}`).addClass("hidden");
+                    $(`#student-level-input-${idx}`).addClass("hidden");
+                    $(`#activity-student-level-input-${idx}`).addClass("hidden");
+                    $(`#student-level-${idx}`).removeClass("hidden");
+                    $(`#activity-name-${idx}`).removeClass("hidden");
+                    $(`#session-name-${idx}`).removeClass("hidden");
+                }
+            });
+            return container;
+        }
+
+        function createBalanceDetails(data, idx) {
+            const container = document.createElement('div');
+            container.className = 'balance-details-wrap';
+            container.innerHTML = `
+                <div class="credit-wrap balance-field">
+                    <label>Credit:</label>
+                    <span id="credit-amt-${idx}">${data.registration_credit}</span>
+                    <input id="credit-amt-input-${idx}" class="hidden">
+                </div>
+                <div class="debit-wrap balance-field">
+                    <label for="debit-amt-${idx}">Debit:</label>
+                    <span id="debit-amt-${idx}">${data.registration_debit}</span>
+                    <input id="debit-amt-input-${idx}" class="hidden">
+                </div>
+                <div class="total-wrap">
+                    <span class="total-label">Total:
+                        <span id="total-amt-${idx}"></span>
+                    </span>
+                </div>
+                <div class="activity-actions">
+                    <button id="edit-balance-${idx}" class="button" data-state="edit">Edit</button>
+                </div>
+            `;
+
+            container.querySelector(`#edit-balance-${idx}`).addEventListener('click', () => {
+                const $button = $(`#edit-balance-${idx}`);
+                const state = $button.data("state");
+                if(state == "edit") {
+                    $button.text("Save");
+                    $button.data("state", "save");
+                    $(`#credit-amt-input-${idx}`).removeClass("hidden");
+                    $(`#debit-amt-input-${idx}`).removeClass("hidden");
+                    $(`#credit-amt-${idx}`).addClass("hidden");
+                    $(`#debit-amt-${idx}`).addClass("hidden");
+                } else {
+                    $button.text("Edit");
+                    $button.data("state", "edit");
+                    $(`#credit-amt-input-${idx}`).addClass("hidden");
+                    $(`#debit-amt-input-${idx}`).addClass("hidden");
+                    $(`#credit-amt-${idx}`).removeClass("hidden");
+                    $(`#debit-amt-${idx}`).removeClass("hidden");
+                }
+            });
+
+            return container;
+        }
+
+        function createNotesEditor(data, idx) {
             const container = document.createElement('div');
             container.className = 'notes-container';
 
@@ -248,36 +349,14 @@
 
             container.innerHTML = `
                 <textarea 
-                    rows=10,
-                    id="note-field-${data.registration_id}" 
+                    rows=6,
+                    id="note-field-${idx}" 
                     class="notes-textarea" 
                 >${existingNotes}</textarea>
-                <button class="button save-btn" id="save-btn-${data.registration_id}">
+                <button class="button save-btn" id="save-btn-${idx}">
                     Save Notes
                 </button>
             `;
-
-            // Event Listener for the Save Button
-            const btn = container.querySelector(`#save-btn-${data.registration_id}`);
-            const textarea = container.querySelector(`#note-field-${data.registration_id}`);
-
-            btn.addEventListener('click', () => {
-                const updatedText = textarea.value;
-                btn.innerText = "Saving...";
-                btn.disabled = true;
-                console.log(`Saving notes for ID ${data.registration_id}:`, updatedText);
-                setTimeout(() => {
-                    btn.innerText = "Saved!";
-                    btn.style.background = "#27ae60";
-
-                    // Reset button after 2 seconds
-                    setTimeout(() => {
-                        btn.innerText = "Save Notes";
-                        btn.style.background = "#3498db";
-                        btn.disabled = false;
-                    }, 2000);
-                }, 800);
-            });
 
             return container;
         }
@@ -322,10 +401,10 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    var studentId = $('#student-selector').val();
+                    var familyId = $('#family-selector').val();
                     d.action = usctdp_mgmt_admin.registration_history_datatable_action;
                     d.security = usctdp_mgmt_admin.registration_history_datatable_nonce;
-                    d.student_id = studentId;
+                    d.family_id = familyId;
                 }
             },
             columns: [
@@ -333,7 +412,25 @@
                     data: 'id',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            return createRegistrationCard(row);
+                            return createStudentDetails(row);
+                        }
+                        return '';
+                    }
+                },
+                {
+                    data: 'id',
+                    render: function (data, type, row, meta) {
+                        if (type === 'display') {
+                            return createActivityDetails(row, meta.row);
+                        }
+                        return '';
+                    }
+                },
+                {
+                    data: 'id',
+                    render: function (data, type, row, meta) {
+                        if (type === 'display') {
+                            return createBalanceDetails(row, meta.row);
                         }
                         return '';
                     }
@@ -351,7 +448,6 @@
                     data: 'id',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            return createActionPanel(row);
                         }
                         return '';
                     }
@@ -359,7 +455,7 @@
             ],
         });
 
-        function load_registration_history(student_id) {
+        function load_registration_history() {
             historyTable.ajax.reload();
             $('#history-container').removeClass('hidden');
         }
