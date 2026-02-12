@@ -140,8 +140,12 @@
 
                 const family = $('#family-selector').val()
                 if (family) {
+                    $('#session-filter').val(null).trigger('change');
+                    $('#student-filter').val(null).trigger('change');
                     load_registration_history();
                 } else {
+                    $('#session-filter').val(null).trigger('change');
+                    $('#student-filter').val(null).trigger('change');
                     $('#history-container').addClass("hidden");
                 }
             });
@@ -357,34 +361,6 @@
                     Save Notes
                 </button>
             `;
-
-            return container;
-        }
-
-        function createActionPanel(data) {
-            const container = document.createElement('div');
-            container.className = 'action-panel';
-
-            container.innerHTML = `
-                <button class="action-btn btn-credit" id="btn-credit-${data.registration_id}">
-                    Add Credit
-                </button>
-                <button class="action-btn btn-txn" id="btn-txn-${data.registration_id}">
-                    Add Payment
-                </button>
-            `;
-
-            // Add Credit Logic
-            container.querySelector(`#btn-credit-${data.registration_id}`).addEventListener('click', () => {
-                console.log(`Opening Credit Modal for Reg ID: ${data.registration_id}`);
-                // Your logic here, e.g., openCreditModal(data.registration_id);
-            });
-
-            // Add Transaction Logic
-            container.querySelector(`#btn-txn-${data.registration_id}`).addEventListener('click', () => {
-                console.log(`Opening Transaction Modal for Reg ID: ${data.registration_id}`);
-                // Your logic here, e.g., openTxnModal(data.registration_id);
-            });
 
             return container;
         }
