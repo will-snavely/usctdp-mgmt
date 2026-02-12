@@ -1,32 +1,5 @@
 <?php
 
-abstract class Usctdp_Mgmt_Model_Type
-{
-    abstract public string $post_type { get; }
-    abstract public array $wp_post_settings { get; }
-    abstract public array $acf_settings { get; }
-
-    public function get_computed_post_fields($data, $postarr)
-    {
-        return [];
-    }
-
-    public function get_update_value_hooks()
-    {
-        return [];
-    }
-
-    public function get_prepare_field_hooks()
-    {
-        return [];
-    }
-
-    public function on_post_delete($post_id, $post)
-    {
-        return;
-    }
-}
-
 class Usctdp_Mgmt_Model
 {
     public $model_types;
@@ -37,7 +10,7 @@ class Usctdp_Mgmt_Model
         $this->load_model_dependencies();
     }
 
-    public static function append_token_suffix($str, $threshold=2)
+    public static function append_token_suffix($str, $threshold = 2)
     {
         $parts = preg_split('/\s+/', $str, -1, PREG_SPLIT_NO_EMPTY);
         $result = [];
@@ -59,7 +32,7 @@ class Usctdp_Mgmt_Model
 
     public function load_model_dependencies()
     {
-        $base_prefix= plugin_dir_path(dirname(__FILE__)) . "includes/model/";
+        $base_prefix = plugin_dir_path(dirname(__FILE__)) . "includes/model/";
         require_once $base_prefix . "usctdp-mgmt-model-enums.php";
 
         $berlindb_entities = [
@@ -113,7 +86,7 @@ class Usctdp_Mgmt_Model
     {
         $tables = $this->get_db_tables();
         foreach ($tables as $table) {
-            if (! $table->exists()) {
+            if (!$table->exists()) {
                 $table->install();
             }
         }

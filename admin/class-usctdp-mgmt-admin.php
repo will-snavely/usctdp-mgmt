@@ -23,9 +23,7 @@ use Google\Client;
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
-class Web_Request_Exception extends Exception
-{
-}
+class Web_Request_Exception extends Exception {}
 
 class Usctdp_Mgmt_Admin
 {
@@ -169,13 +167,9 @@ class Usctdp_Mgmt_Admin
         $this->version = $version;
     }
 
-    public function enqueue_styles()
-    {
-    }
+    public function enqueue_styles() {}
 
-    public function enqueue_scripts()
-    {
-    }
+    public function enqueue_scripts() {}
 
     private function usctdp_script_id($suffix)
     {
@@ -192,7 +186,7 @@ class Usctdp_Mgmt_Admin
         wp_enqueue_script(
             $this->plugin_name . 'primary-js',
             plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin.js',
-            ['jquery', 'acf-input'],
+            ['jquery'],
             $this->version,
             true
         );
@@ -204,11 +198,20 @@ class Usctdp_Mgmt_Admin
             true
         );
 
+        error_log(USCTDP_DIR_PATH . 'assets/js/select2.min.js');
+        wp_enqueue_script(
+            'usctdp-select2-js',
+            USCTDP_DIR_PATH . 'assets/js/select2.min.js',
+            array('jquery'),
+            '4.1.0',
+            true
+        );
+
         $deps = $dependencies ? $dependencies : [
             'jquery',
-            'acf-input',
             $this->plugin_name . 'external-datatables-js',
-            $this->plugin_name . 'primary-js'
+            $this->plugin_name . 'primary-js',
+            'usctdp-select2-js',
         ];
         wp_enqueue_script(
             $this->usctdp_script_id($suffix),
@@ -236,7 +239,16 @@ class Usctdp_Mgmt_Admin
             'all'
         );
 
-        $deps = $dependencies ? $dependencies : [];
+        wp_enqueue_style(
+            'usctdp-select2-css',
+            USCTDP_DIR_PATH . 'assets/css/select2.min.css'
+        );
+
+        $deps = $dependencies ? $dependencies : [
+            'usctdp-select2-css',
+            $this->plugin_name . 'external-datatables-css',
+            $this->plugin_name . 'primary-css'
+        ];
         wp_enqueue_style(
             $this->usctdp_style_id($suffix),
             plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-' . $suffix . '.css',
@@ -268,7 +280,6 @@ class Usctdp_Mgmt_Admin
             }
         );
         add_action('load-' . $hook, function () use ($page_slug) {
-            acf_form_head();
             $this->enqueue_usctdp_page_script($page_slug);
             $this->enqueue_usctdp_page_style($page_slug);
         });
@@ -365,7 +376,6 @@ class Usctdp_Mgmt_Admin
             }
         );
         add_action('load-' . $main_menu_page, function () {
-            acf_form_head();
             $this->enqueue_usctdp_page_script('main');
             $this->enqueue_usctdp_page_style('main');
             $js_data = [
@@ -397,13 +407,9 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
-    public function settings_init()
-    {
-    }
+    public function settings_init() {}
 
-    public function usctdp_mgmt_sanitize_settings($input)
-    {
-    }
+    public function usctdp_mgmt_sanitize_settings($input) {}
 
     private function echo_admin_page($path)
     {

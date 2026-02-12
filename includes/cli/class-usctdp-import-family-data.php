@@ -2,9 +2,7 @@
 
 class Usctdp_Import_Family_Data
 {
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     private function import_student($student, $family_id, $family)
     {
