@@ -68,6 +68,20 @@
     letter-spacing: 0.025em;
 }
 
+#table-filters {
+    display: flex;
+    justify-content: flex-start;
+    gap: 15px;
+}
+
+#student-filter {
+    width: 200px;
+}
+
+#session-filter {
+    width: 200px;
+}
+
 table td {
     vertical-align: top !important;
 }
@@ -93,62 +107,78 @@ table td {
 }
 
 .activity-details-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 5px 10px;
+    align-items: top;
+    grid-auto-rows: minmax(30px, auto);
 }
 
 .activity-field {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
+    display: contents;
 }
 
 .activity-field label {
-    width: 100px;
     text-align: right;
 }
 
 .activity-field span {
     width: 300px;
+    height: 100%;
+    margin: 0;
 }
 
 .activity-field select {
     width: 300px;
+    box-sizing: border-box;
+    margin: 0;
 }
 
 .activity-field input {
     width: 50px;
+    height: 26px;
+    box-sizing: border-box;
+    margin: 0;
 }
 
 .activity-actions {
+    grid-column: 1;
     display: flex;
+    justify-content: flex-end;
+}
+
+.activity-actions .button {
+    min-width: 50px;
 }
 
 .balance-details-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 5px 10px;
+    align-items: top;
+    grid-auto-rows: minmax(30px, auto);
 }
 
 .balance-field {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
+    display: contents;
+}
+
+.balance-field span {
+    width: 50px;
+    height: 100%;
+    margin: 0;
 }
 
 .balance-field label {
-    width: 50px;
     text-align: right;
 }
 
-;
-
 .balance-field input {
-    width: 30px;
+    width: 50px;
+    height: 26px;
+    box-sizing: border-box;
+    margin: 0;
 }
-
-;
 
 .class-label {
     display: block;

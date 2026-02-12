@@ -28,7 +28,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
             $where_args[] = $args['activity_id'];
         }
         if (isset($args["session_id"])) {
-            $conditions[] = "reg.session_id = %d";
+            $conditions[] = "sesh.id = %d";
             $where_args[] = $args['session_id'];
         }
         if (isset($args["product_id"])) {

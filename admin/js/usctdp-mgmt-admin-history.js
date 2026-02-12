@@ -225,7 +225,7 @@
                     </div>
                 </div>
                 <div class="activity-student-level-wrap activity-field">
-                    <label>Stu. Level:</label>
+                    <label>Level:</label>
                     <span id="student-level-${idx}">${data.registration_starting_level}</span>
                     <input id="student-level-input-${idx}" class="hidden">
                     </input>
@@ -405,6 +405,14 @@
                     d.action = usctdp_mgmt_admin.registration_history_datatable_action;
                     d.security = usctdp_mgmt_admin.registration_history_datatable_nonce;
                     d.family_id = familyId;
+                    var studentFilterValue = $('#student-filter').val();
+                    if (studentFilterValue) {
+                        d.student_id = studentFilterValue;
+                    }
+                    var sessionFilterValue = $('#session-filter').val();
+                    if (sessionFilterValue) {
+                        d.session_id = sessionFilterValue;
+                    }
                 }
             },
             columns: [
@@ -453,10 +461,64 @@
                     }
                 }
             ],
+            initComplete: function () {
+                if ($("#table-filter-row").length === 0) {
+                    var $table_controls = $('#history-table_wrapper');
+                    var $first_row = $table_controls.find("div.dt-layout-row").first();
+                    var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>"
+                    $first_row.after(filter_row);
+                    $('#table-filters').appendTo('#table-filter-row');
+                    $('#session-filter, #student-filter').on('change', function () {
+                        historyTable.ajax.reload();
+                    });
+                }
+            }
+        });
+
+        $('#student-filter').select2({
+            placeholder: "Search for a student...",
+            allowClear: true,
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                        action: usctdp_mgmt_admin.select2_student_search_action,
+                        security: usctdp_mgmt_admin.select2_student_search_nonce,
+                        family_id: $('#family-selector').val()
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.items
+                    };
+                }
+            }
+        });
+
+        $('#session-filter').select2({
+            placeholder: "Search for a session...",
+            allowClear: true,
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                        action: usctdp_mgmt_admin.select2_session_search_action,
+                        security: usctdp_mgmt_admin.select2_session_search_nonce
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.items
+                    };
+                }
+            }
         });
 
         function load_registration_history() {
             historyTable.ajax.reload();
+            $('#family-name').text($('#family-selector').text());
             $('#history-container').removeClass('hidden');
         }
 

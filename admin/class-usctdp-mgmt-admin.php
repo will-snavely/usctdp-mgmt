@@ -1371,6 +1371,7 @@ class Usctdp_Mgmt_Admin
 
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
@@ -1384,6 +1385,9 @@ class Usctdp_Mgmt_Admin
         }
         if ($student_id) {
             $args['student_id'] = $student_id;
+        }
+        if ($session_id) {
+            $args['session_id'] = $session_id;
         }
 
         $reg_query = new Usctdp_Mgmt_Registration_Query([]);
