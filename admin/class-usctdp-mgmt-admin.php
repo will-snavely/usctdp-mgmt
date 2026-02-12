@@ -528,7 +528,6 @@ class Usctdp_Mgmt_Admin
         ];
         $handlers = [
             'select2_session_search',
-            'select2_clinic_search',
             'select2_activity_search',
             'gen_roster',
             'registrations_datatable'
@@ -538,7 +537,7 @@ class Usctdp_Mgmt_Admin
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        $context = $this->load_page_context(['clinic_id']);
+        $context = $this->load_page_context(['activity_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('clinic-rosters'), 'usctdp_mgmt_admin', $js_data);
     }
