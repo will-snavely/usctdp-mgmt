@@ -36,6 +36,10 @@ class Usctdp_Mgmt_Student_Query extends Query
         $sql = "SELECT * FROM {$wpdb->prefix}{$this->table_name}";
         $args = [];
         $conditions = [];
+        if ($family_id !== null) {
+            $conditions[] = "family_id = %d";
+            $args[] = $family_id;
+        }
         if ($query) {
             $parts = preg_split("/\s+/", trim($query));
             $query_terms = [];
@@ -45,11 +49,6 @@ class Usctdp_Mgmt_Student_Query extends Query
             $conditions[] = "MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
             $args[] = implode(" ", $query_terms);
         }
-        if ($family_id !== null) {
-            $conditions[] = "family_id = %d";
-            $args[] = $family_id;
-        }
-
         if (!empty($conditions)) {
             $sql .= " WHERE " . implode(" AND ", $conditions);
         }
@@ -57,6 +56,7 @@ class Usctdp_Mgmt_Student_Query extends Query
         $args[] = $limit;
 
         $query = $wpdb->prepare($sql, $args);
+        error_log($query);
         return $wpdb->get_results($query);
     }
 

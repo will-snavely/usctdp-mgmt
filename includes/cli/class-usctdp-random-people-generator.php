@@ -113,6 +113,7 @@ class Usctdp_Random_People_Generator
             $query = new Usctdp_Mgmt_Family_Query([]);
             $family_id = $query->add_item([
                 "title" => $family_title,
+                "search_term" => Usctdp_Mgmt_Model::append_token_suffix($family_title),
                 "last" => $last_name,
                 "address" => $street_numbers . " " . $random_street_name . " " . $random_street_type,
                 "city" => "Pittsburgh",
@@ -154,6 +155,7 @@ class Usctdp_Random_People_Generator
             $random_birth_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
             $student_id = $query->add_item([
                 "title" => $first_name . ' ' . $last_name,
+                "search_term" => Usctdp_Mgmt_Model::append_token_suffix($first_name . ' ' . $last_name),
                 "family_id" => $family_id,
                 "first" => $first_name,
                 "last" => $last_name,
@@ -162,6 +164,7 @@ class Usctdp_Random_People_Generator
             ]);
 
             $i++;
+            $seen[$first_name] = true;
             $result[] = [
                 "id" => $student_id,
                 "name" => $name

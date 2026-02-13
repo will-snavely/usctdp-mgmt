@@ -125,12 +125,14 @@
                 { data: 'student_age' },
                 { data: 'registration_student_level' },
                 {
-                    data: 'student',
+                    data: 'student_family_id',
                     render: function (data, type, row) {
                         if (type === 'display') {
+                            var familyId = data;
+                            var familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + familyId;
                             var cell = '<div class="roster-actions">'
                             cell += '<div class="action-item">'
-                            cell += '<a href="#" class="button button-small">Remove Student</a> ';
+                            cell += '<a href="' + familyUrl + '" class="button button-small">View Family</a> ';
                             cell += '</div>';
                             cell += '</div>';
                             return cell;
