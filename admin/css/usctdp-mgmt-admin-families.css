@@ -17,25 +17,29 @@
 #family-container {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-    grid-template-rows: auto 1fr 1fr;
-    gap: 20px;
+    gap: 10px;
     grid-auto-flow: row;
     grid-template-areas:
-        "family-details family-notes family-notes family-notes family-notes family-notes"
-        "family-members family-members family-members family-members family-members family-members"
-        ". . . . . .";
+        "fd fn fn fn fn fn"
+        "fd fn fn fn fn fn"
+        "fr fr fr fr fr fr"
+        "fm fm fm fm fm fm";
 }
 
 .family-details {
-    grid-area: family-details;
+    grid-area: fd;
 }
 
 .family-notes {
-    grid-area: family-notes;
+    grid-area: fn;
+}
+
+.family-registrations {
+    grid-area: fr;
 }
 
 .family-members {
-    grid-area: family-members;
+    grid-area: fm;
 }
 
 div.dt-length select {

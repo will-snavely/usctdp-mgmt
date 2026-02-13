@@ -48,11 +48,24 @@
         }
 
         var contextData = {};
-        var preloadedData = { student: null, family: null };
+        var preloadedData = { family: null, student: null };
         if (usctdp_mgmt_admin.preload) {
+            if (usctdp_mgmt_admin.preload.family_id) {
+                preloadedData.family = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
+                contextData['family-selector'] = preloadedData.family.id;
+            }
+
             if (usctdp_mgmt_admin.preload.student_id) {
-                preloadedData.student = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
+                preloadedData.student = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+                preloadedData.family = {
+                    id: preloadedData.student.family_id,
+                    title: preloadedData.student.family_name
+                }
                 contextData['family-selector'] = preloadedData.student.family_id;
+
+                $('#student-filter').prop('disabled', true);
+                $('#student-filter-section').addClass('hidden');
+
             }
         }
 
@@ -62,10 +75,10 @@
                     var options = [];
                     var hidden = false;
                     var disabled = false;
-                    if (preloadedData.student) {
+                    if (preloadedData.family) {
                         options.push({
-                            id: preloadedData.student.family_id,
-                            name: preloadedData.student.family_name
+                            id: preloadedData.family.id,
+                            name: preloadedData.family.title
                         });
                         disabled = true;
                     }
@@ -86,7 +99,7 @@
                     },
                 },
                 select2Options: function () {
-                    if (preloadedData.student) {
+                    if (preloadedData.family) {
                         return {
                             placeholder: "Select a family...",
                             allowClear: true
@@ -138,7 +151,7 @@
                     $(`#${option}`).trigger('change');
                 }
 
-                const family = $('#family-selector').val()
+                const family = $('#family-selector').val();
                 if (family) {
                     $('#session-filter').val(null).trigger('change');
                     $('#student-filter').val(null).trigger('change');
@@ -208,6 +221,41 @@
             });
         }
 
+        function saveRegistrationFields(id, fields) {
+            const changedData = {};
+            Object.entries(fields).forEach(([elemId, fieldName]) => {
+                const curValue = $('#' + elemId).val().trim();
+                const origValue = $('#' + elemId).data('orig-value').trim();
+                if (curValue !== origValue) {
+                    changedData[fieldName] = curValue;
+                }
+            });
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.save_registration_fields_action,
+                    security: usctdp_mgmt_admin.save_registration_fields_nonce,
+                    id: id,
+                    ...changedData
+                },
+                success: function (responseData) {
+                    Object.entries(fields).forEach(([divId, fieldName]) => {
+                        if (fieldName in changedData) {
+
+                        }
+                    });
+                },
+                error: function (xhr, status, error) {
+                    alert("Update failed!");
+                },
+                complete: function () {
+
+                }
+            });
+        }
+
         function createActivityDetails(data, idx) {
             const container = document.createElement('div');
             const sessionSelectId = `session-selector-${idx}`;
@@ -216,24 +264,33 @@
             container.innerHTML = `
                 <div class="session-selector-wrap activity-field">
                     <label>Session:</label>
-                    <span id="session-name-${idx}">${data.session_name}</span>
-                    <div id="session-selector-wrap-${idx}" class="hidden">
-                        <select id="${sessionSelectId}"></select> 
+                    <span id="session-name-${idx}" class="view-mode">
+                        ${data.session_name}
+                    </span>
+                    <div id="session-selector-wrap-${idx}" class="hidden edit-mode">
+                        <select id="${sessionSelectId}" data-orig-value="${data.session_id}"></select>
                     </div>
                 </div>
                 <div class="activity-selector-wrap activity-field">
                     <label>Activity:</label>
-                    <span id="activity-name-${idx}" class="activty-name">${data.activity_name}</span>
-                    <div id="activity-selector-wrap-${idx}" class="hidden">
-                        <select id="${activitySelectId}"></select>
+                    <span id="activity-name-${idx}" class="view-mode">
+                        ${data.activity_name}
+                    </span>
+                    <div id="activity-selector-wrap-${idx}" class="hidden edit-mode">
+                        <select id="${activitySelectId}" data-orig-value="${data.activity_id}"></select>
                     </div>
                 </div>
-                <div class="activity-student-level-wrap activity-field">
+                <div class="student-level-wrap activity-field">
                     <label>Level:</label>
-                    <span id="student-level-${idx}">${data.registration_starting_level}</span>
-                    <input id="student-level-input-${idx}" class="hidden">
-                    </input>
-                </div> 
+                    <span id="student-level-${idx}" class="view-mode">
+                        ${data.registration_student_level}
+                    </span>
+                    <input 
+                        id="student-level-input-${idx}" 
+                        class="hidden edit-mode" 
+                        data-orig-value="${data.registration_student_level}" 
+                        value="${data.registration_student_level}">
+                </div>
                 <div class="activity-actions">
                     <button id="edit-activity-${idx}" class="button" data-state="edit">Edit</button>
                 </div>
@@ -258,6 +315,9 @@
                             .append(curSession)
                             .val(data.session_id)
                             .trigger("change");
+                        $('#' + sessionSelectId).on('change', function () {
+                            $('#' + activitySelectId).val(null).trigger("change");
+                        });
                     }
 
                     const $activitySelect = $('#' + activitySelectId);
@@ -273,25 +333,19 @@
                             .append(curActivity)
                             .val(data.activity_id)
                             .trigger("change");
-
                     }
-                    $(`#session-selector-wrap-${idx}`).removeClass("hidden");
-                    $(`#activity-selector-wrap-${idx}`).removeClass("hidden");
-                    $(`#student-level-input-${idx}`).removeClass("hidden");
-                    $(`#activity-student-level-input-${idx}`).removeClass("hidden");
-                    $(`#student-level-${idx}`).addClass("hidden");
-                    $(`#activity-name-${idx}`).addClass("hidden");
-                    $(`#session-name-${idx}`).addClass("hidden");
+                    $(this).find('.view-mode').addClass('hidden');
+                    $(this).find('.edit-mode').removeClass('hidden');
                 } else {
+                    saveRegistrationFields(data.registration_id, {
+                        [`student-level-input-${idx}`]: 'student_level',
+                        [activitySelectId]: 'activity_id',
+                        [sessionSelectId]: 'session_id'
+                    });
                     $button.text("Edit");
                     $button.data("state", "edit");
-                    $(`#session-selector-wrap-${idx}`).addClass("hidden");
-                    $(`#activity-selector-wrap-${idx}`).addClass("hidden");
-                    $(`#student-level-input-${idx}`).addClass("hidden");
-                    $(`#activity-student-level-input-${idx}`).addClass("hidden");
-                    $(`#student-level-${idx}`).removeClass("hidden");
-                    $(`#activity-name-${idx}`).removeClass("hidden");
-                    $(`#session-name-${idx}`).removeClass("hidden");
+                    $(this).find('.view-mode').removeClass('hidden');
+                    $(this).find('.edit-mode').addClass('hidden');
                 }
             });
             return container;
@@ -381,10 +435,16 @@
                     d.action = usctdp_mgmt_admin.registration_history_datatable_action;
                     d.security = usctdp_mgmt_admin.registration_history_datatable_nonce;
                     d.family_id = familyId;
-                    var studentFilterValue = $('#student-filter').val();
-                    if (studentFilterValue) {
-                        d.student_id = studentFilterValue;
+
+                    if (preloadedData.student) {
+                        d.student_id = preloadedData.student.id;
+                    } else {
+                        var studentFilterValue = $('#student-filter').val();
+                        if (studentFilterValue) {
+                            d.student_id = studentFilterValue;
+                        }
                     }
+
                     var sessionFilterValue = $('#session-filter').val();
                     if (sessionFilterValue) {
                         d.session_id = sessionFilterValue;
@@ -492,14 +552,18 @@
             }
         });
 
-        function load_registration_history() {
+        function load_registration_history(title) {
             historyTable.ajax.reload();
-            $('#family-name').text($('#family-selector').text());
+            $('#family-name').text(title);
             $('#history-container').removeClass('hidden');
         }
 
         if (preloadedData.student) {
-            load_registration_history(preloadedData.student);
+            $('#context-selectors').addClass('hidden');
+            load_registration_history(preloadedData.student.student_name);
+        } else if (preloadedData.family) {
+            $('#context-selectors').addClass('hidden');
+            load_registration_history(preloadedData.family.title);
         }
     });
 })(jQuery);

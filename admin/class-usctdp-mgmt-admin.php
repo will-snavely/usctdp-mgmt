@@ -130,10 +130,10 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'save_family_fields_nonce',
             'callback' => 'ajax_save_family_fields'
         ],
-        'save_family_notes' => [
-            'action' => 'save_family_notes',
-            'nonce' => 'save_family_notes_nonce',
-            'callback' => 'ajax_save_family_notes'
+        'save_registration_fields' => [
+            'action' => 'save_registration_fields',
+            'nonce' => 'save_registration_fields_nonce',
+            'callback' => 'ajax_save_registration_fields'
         ],
         'gen_roster' => [
             'action' => 'gen_roster',
@@ -197,8 +197,6 @@ class Usctdp_Mgmt_Admin
             $this->version,
             true
         );
-
-        error_log(USCTDP_DIR_PATH . 'assets/js/select2.min.js');
         wp_enqueue_script(
             'usctdp-select2-js',
             USCTDP_DIR_PATH . 'assets/js/select2.min.js',
@@ -297,7 +295,7 @@ class Usctdp_Mgmt_Admin
         }
 
         if (isset($_GET['usctdp_google_auth']) && $_GET['usctdp_google_auth'] === '1') {
-            error_log('USCTDP: Google OAuth Initiated');
+            Usctdp_Mgmt_Logger::getLogger()->log_info('USCTDP: Google OAuth Initiated');
             $scopes = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/documents'];
             $client = new Client();
             $client->setClientId(env('GOOGLE_DOCS_CLIENT_ID'));
@@ -311,7 +309,7 @@ class Usctdp_Mgmt_Admin
             wp_redirect(filter_var($authUrl, FILTER_SANITIZE_URL));
             exit;
         } else if (isset($_GET['code'])) {
-            error_log('USCTDP: Google OAuth Code Received');
+            Usctdp_Mgmt_Logger::getLogger()->log_info('USCTDP: Google OAuth Code Received');
             $unique_token = bin2hex(random_bytes(8));
             $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
             $transient_data = null;
@@ -334,12 +332,12 @@ class Usctdp_Mgmt_Admin
             try {
                 $token = $client->fetchAccessTokenWithAuthCode($code);
                 if (isset($token['refresh_token'])) {
-                    error_log('USCTDP: Google OAuth Refresh Token Received');
+                    Usctdp_Mgmt_Logger::getLogger()->log_info('USCTDP: Google OAuth Refresh Token Received');
                     update_option('usctdp_google_refresh_token', $token['refresh_token']);
                     update_option('usctdp_google_refresh_token_timestamp', date('Y-m-d H:i:s'));
                     $message = 'Authorization successful! Refresh Token stored.';
                 } else {
-                    error_log('USCTDP: Google OAuth Refresh Token Not Received');
+                    Usctdp_Mgmt_Logger::getLogger()->log_info('USCTDP: Google OAuth Refresh Token Not Received');
                     $message = 'Authorization successful, but Refresh Token was not returned (user may have authorized previously).';
                 }
                 $transient_data = [
@@ -350,7 +348,7 @@ class Usctdp_Mgmt_Admin
                 wp_redirect(add_query_arg(['usctdp_auth_status' => 'success', 'code' => false], $redirect_url));
                 exit;
             } catch (\Exception $e) {
-                error_log("Google OAuth Error: " . $e->getMessage());
+                Usctdp_Mgmt_Logger::getLogger()->log_error("Google OAuth Error: " . $e->getMessage());
                 $transient_data = [
                     'type' => 'error',
                     'message' => 'An unknown error occurred.'
@@ -592,14 +590,16 @@ class Usctdp_Mgmt_Admin
             'select2_student_search',
             'select2_session_search',
             'select2_clinic_search',
-            'registration_history_datatable'
+            'select2_activity_search',
+            'registration_history_datatable',
+            'save_registration_fields',
         ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
-        $context = $this->load_page_context(['family_id']);
+        $context = $this->load_page_context(['family_id', 'student_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('history'), 'usctdp_mgmt_admin', $js_data);
     }
@@ -610,7 +610,6 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
-            'save_family_notes',
             'save_family_fields',
             'student_datatable',
             'select2_family_search'
@@ -666,7 +665,6 @@ class Usctdp_Mgmt_Admin
         global $wpdb;
 
         try {
-            error_log(print_r($_POST, true));
             if (!current_user_can('manage_options')) {
                 throw new Web_Request_Exception('You do not have permission to perform this action.');
             }
@@ -691,12 +689,12 @@ class Usctdp_Mgmt_Admin
                 throw new Web_Request_Exception('Student ID is not a number.');
             }
 
-            $starting_level = 0;
-            if (isset($_POST['starting_level'])) {
-                if (!is_numeric($_POST['starting_level'])) {
-                    throw new Web_Request_Exception('Starting level is not a number.');
+            $student_level = 0;
+            if (isset($_POST['student_level'])) {
+                if (!is_numeric($_POST['student_level'])) {
+                    throw new Web_Request_Exception('Student level is not a number.');
                 }
-                $starting_level = (int) $_POST['starting_level'];
+                $student_level = (int) $_POST['student_level'];
             }
 
             $notes = '';
@@ -741,9 +739,10 @@ class Usctdp_Mgmt_Admin
             $registration_id = $registration_query->add_item([
                 'activity_id' => $activity_id,
                 'student_id' => $student_id,
-                'starting_level' => $starting_level,
+                'student_level' => $student_level,
                 'created_at' => current_time('mysql'),
-                'updated_at' => current_time('mysql'),
+                'created_by' => get_current_user_id(),
+                'last_modified_at' => current_time('mysql'),
                 'last_modified_by' => get_current_user_id(),
                 'credit' => 0,
                 'debit' => 0,
@@ -912,6 +911,57 @@ class Usctdp_Mgmt_Admin
         }
     }
 
+    private function save_entity_fields_from_post($entity_name, $query_object, $post_fields_sanitizers)
+    {
+        $entity_id = isset($_POST['id']) ? intval($_POST['id']) : '';
+        if (!$entity_id) {
+            wp_send_json_error('No id provided.', 400);
+        }
+        try {
+            $query = new $query_object([
+                'id' => $entity_id,
+                'number' => 1
+            ]);
+            if (empty($query->items)) {
+                wp_send_json_error($entity_name . ' with ID ' . $entity_id . ' not found.', 400);
+            }
+            $entity = $query->items[0];
+
+            $args = [];
+            foreach ($post_fields_sanitizers as $field => $sanitizer) {
+                if (isset($_POST[$field])) {
+                    $sanitized = $sanitizer($_POST[$field]);
+                    if ($sanitized !== $entity->$field) {
+                        $args[$field] = $sanitized;
+                    }
+                }
+            }
+
+            if (empty($args)) {
+                wp_send_json_success([
+                    'message' => 'No fields have changed.'
+                ]);
+            }
+
+            $result = $query->update_item($entity_id, $args);
+            if ($result) {
+                wp_send_json_success([
+                    'message' => $entity_name . ' updated successfully'
+                ]);
+            } else {
+                wp_send_json_error('Failed to update ' . $entity_name . '.', 500);
+            }
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                'Error updating ' . $entity_name . ': ' . $e->getMessage()
+            );
+            Usctdp_Mgmt_Logger::getLogger()->log_critical(
+                'Trace: ' . $e->getTraceAsString()
+            );
+            wp_send_json_error('An unexpected server error occurred during ' . $entity_name . ' update.', 500);
+        }
+    }
+
     function ajax_save_family_fields()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_family_fields'];
@@ -919,104 +969,57 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $default_sanitizer = function ($value) {
+        $string_sanitizer = function ($value) {
             return sanitize_text_field($value);
         };
+
         $post_fields_sanitizers = [
-            'email' => $default_sanitizer,
-            'address' => $default_sanitizer,
-            'city' => $default_sanitizer,
-            'state' => $default_sanitizer,
-            'zip' => $default_sanitizer,
+            'email' => $string_sanitizer,
+            'address' => $string_sanitizer,
+            'city' => $string_sanitizer,
+            'state' => $string_sanitizer,
+            'zip' => $string_sanitizer,
+            'notes' => function ($value) {
+                return sanitize_textarea_field(stripslashes($value));
+            },
             'phone' => function ($value) {
                 $parts = explode('|', sanitize_text_field($value));
                 return json_encode($parts);
             }
         ];
 
-        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
-        if (!$family_id) {
-            wp_send_json_error('No family ID provided.', 400);
-        }
-        try {
-            $args = [];
-            foreach ($post_fields_sanitizers as $field => $handler) {
-                if (isset($_POST[$field])) {
-                    $args[$field] = $handler($_POST[$field]);
-                }
-            }
-            if (empty($args)) {
-                wp_send_json_success([
-                    'message' => 'No work to do.'
-                ]);
-            }
-            $query = new Usctdp_Mgmt_Family_Query([
-                'id' => $family_id,
-                'number' => 1
-            ]);
-            if (empty($query->items)) {
-                wp_send_json_error('Family with ID ' . $family_id . ' not found.', 400);
-            }
-            $result = $query->update_item($family_id, $args);
-            if ($result) {
-                wp_send_json_success([
-                    'message' => 'Family updated successfully'
-                ]);
-            } else {
-                wp_send_json_error('Failed to update family.', 500);
-            }
-        } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                'Error updating family: ' . $e->getMessage()
-            );
-            Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                'Trace: ' . $e->getTraceAsString()
-            );
-            wp_send_json_error('An unexpected server error occurred during family update.', 500);
-        }
+        $this->save_entity_fields_from_post('Family', 'Usctdp_Mgmt_Family_Query', $post_fields_sanitizers);
     }
 
-    function ajax_save_family_notes()
+    function ajax_save_registration_fields()
     {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_family_notes'];
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_registration_fields'];
         if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $family_id = isset($_POST['family_id']) ? sanitize_text_field($_POST['family_id']) : '';
-        $notes = isset($_POST['notes']) ? $_POST['notes'] : '';
+        $string_sanitizer = function ($value) {
+            return sanitize_text_field($value);
+        };
 
-        if (!$family_id) {
-            wp_send_json_error('No family ID provided.', 400);
-        }
+        $int_sanitizer = function ($value) {
+            return intval($value);
+        };
 
-        if (!is_numeric($family_id)) {
-            wp_send_json_error('Invalid family ID provided.', 400);
-        }
+        $textarea_sanitizer = function ($value) {
+            return sanitize_textarea_field(stripslashes($value));
+        };
 
-        $query = new Usctdp_Mgmt_Family_Query([
-            'id' => $family_id,
-            'number' => 1
-        ]);
-        if (empty($query->items)) {
-            wp_send_json_error('Family with ID ' . $family_id . ' not found.', 400);
-        }
+        $post_fields_sanitizers = [
+            'student_level' => $string_sanitizer,
+            'activity_id' => $int_sanitizer,
+            'session_id' => $int_sanitizer,
+            'credit' => $int_sanitizer,
+            'debit' => $int_sanitizer,
+            'notes' => $textarea_sanitizer,
+        ];
 
-        $notes = sanitize_textarea_field(stripslashes($notes));
-        if ($notes === $query->items[0]->notes) {
-            wp_send_json_success([
-                'message' => 'No work to do.'
-            ]);
-        }
-        $result = $query->update_item($family_id, [
-            'notes' => $notes
-        ]);
-        if (!$result) {
-            wp_send_json_error('Failed to update family notes due to an unexpected server error.', 500);
-        }
-        wp_send_json_success([
-            'message' => 'Notes saved successfully'
-        ]);
+        $this->save_entity_fields_from_post('Registration', 'Usctdp_Mgmt_Registration_Query', $post_fields_sanitizers);
     }
 
     function ajax_select2_session_search()
@@ -1041,8 +1044,8 @@ class Usctdp_Mgmt_Admin
                 }
             }
         } catch (Throwable $e) {
-            wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('items' => $results));
     }
@@ -1103,13 +1106,11 @@ class Usctdp_Mgmt_Admin
                 }
             }
         } catch (Throwable $e) {
-            wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('items' => $results));
     }
-
-
 
     function ajax_session_rosters()
     {
@@ -1122,8 +1123,8 @@ class Usctdp_Mgmt_Admin
             $query = new Usctdp_Mgmt_Session_Query();
             $query_results = $query->get_active_session_rosters();
         } catch (Throwable $e) {
-            wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('data' => $query_results));
     }
@@ -1178,8 +1179,8 @@ class Usctdp_Mgmt_Admin
                 wp_send_json_error('Failed to update session active status due to an unexpected server error.', 500);
             }
         } catch (Throwable $e) {
-            wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json_success([
             'message' => 'Session active status updated successfully'
@@ -1203,6 +1204,7 @@ class Usctdp_Mgmt_Admin
                     $results[] = array(
                         'id' => $result->id,
                         'text' => $result->title,
+                        'title' => $result->title,
                         'address' => $result->address,
                         'city' => $result->city,
                         'state' => $result->state,
@@ -1214,8 +1216,8 @@ class Usctdp_Mgmt_Admin
                 }
             }
         } catch (Throwable $e) {
-            wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('items' => $results));
     }
@@ -1242,8 +1244,8 @@ class Usctdp_Mgmt_Admin
                 }
             }
         } catch (Throwable $e) {
-            wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('items' => $results));
     }
@@ -1270,8 +1272,8 @@ class Usctdp_Mgmt_Admin
                 }
             }
         } catch (Throwable $e) {
-            wp_send_json_error('A system error occurred. Please try again.', 500);
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('items' => $results));
     }
@@ -1545,7 +1547,6 @@ class Usctdp_Mgmt_Admin
             $length,
             $start
         );
-        error_log($query);
 
         $query_results = $wpdb->get_results($query);
         $output_data = [];

@@ -37,20 +37,12 @@ $registration_fields = [
                     </div>
                     <div id="registration-fields-section">
                         <div id="student-level-field" class="form-field">
-                            <label for="student-level">Student Level</label>
-                            <input type="number" name="student-level" id="student-level">
-                        </div>
-                        <div id="payment-amount-outstanding-field" class="form-field">
-                            <label for="payment-amount-outstanding">Outstanding Balance</label>
-                            <input type="number" name="amount-outstanding" id="payment-amount-outstanding">
-                        </div>
-                        <div id="payment-amount-paid-field" class="form-field">
-                            <label for="payment-amount-paid">Amount Paid</label>
-                            <input type="number" name="amount-paid" id="payment-amount-paid">
+                            <label for="student_level">Student Level</label>
+                            <input type="number" name="student_level" id="student_level">
                         </div>
                         <div id="payment-method-field" class="form-field">
-                            <label for="payment-method">Payment Method</label>
-                            <select name="payment-method" id="payment-method">
+                            <label for="payment_method">Payment Method</label>
+                            <select name="payment_method" id="payment_method">
                                 <option value="">Select...</option>
                                 <option value="cash">Cash</option>
                                 <option value="check">Check</option>
@@ -59,26 +51,22 @@ $registration_fields = [
                         </div>
                         <div id="check-fields" class="hidden">
                             <div id="check-number-field" class="form-field">
-                                <label for="check-number">Check Number</label>
-                                <input type="text" name="check-number" id="check-number">
+                                <label for="check_number">Check Number</label>
+                                <input type="text" name="check_number" id="check_number">
                             </div>
                             <div id="check-received-date-field" class="form-field">
-                                <label for="check-received-date">Date Received</label>
-                                <input type="date" name="check-received-date" id="check-received-date">
-                            </div>
-                            <div id="check-cleared-date-field" class="form-field">
-                                <label for="check-cleared-date">Date Cleared</label>
-                                <input type="date" name="check-cleared-date" id="check-cleared-date">
+                                <label for="check_received_date">Date Received</label>
+                                <input type="date" name="check_received_date" id="check_received_date">
                             </div>
                         </div>
                         <div id="card-fields" class="hidden">
                             <div id="card-transaction-id-field" class="form-field">
-                                <label for="card-transaction-id">PayPal Transaction ID</label>
-                                <input type="text" name="card-transaction-id" id="card-transaction-id">
+                                <label for="card_transaction_id">PayPal Transaction ID</label>
+                                <input type="text" name="card_transaction_id" id="card_transaction_id">
                             </div>
                             <div id="card-charged-date-field" class="form-field">
-                                <label for="card-charged-date">Date Charged</label>
-                                <input type="date" name="card-charged-date" id="card-charged-date">
+                                <label for="card_charged_date">Date Charged</label>
+                                <input type="date" name="card_charged_date" id="card_charged_date">
                             </div>
                         </div>
                         <div id="notes-section">

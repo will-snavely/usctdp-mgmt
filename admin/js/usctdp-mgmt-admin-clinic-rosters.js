@@ -123,7 +123,7 @@
                 { data: 'student_first' },
                 { data: 'student_last' },
                 { data: 'student_age' },
-                { data: 'registration_starting_level' },
+                { data: 'registration_student_level' },
                 {
                     data: 'student',
                     render: function (data, type, row) {

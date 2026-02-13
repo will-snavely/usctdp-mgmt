@@ -58,7 +58,7 @@ class Usctdp_Random_Registration_Generator
             $registration_id = $reg_query->add_item([
                 'activity_id' => $class->id,
                 'student_id' => $student->id,
-                'starting_level' => $student_level,
+                'student_level' => $student_level,
                 'balance' => $balance,
                 'notes' => ''
             ]);
@@ -71,7 +71,7 @@ class Usctdp_Random_Registration_Generator
                     'method' => 4,
                     'amount' => $cost,
                     'paypal_transaction_id' => 'fake_paypal_id',
-                    'starting_level' => $student_level,
+                    'student_level' => $student_level,
                     'balance' => $balance,
                 ]);
                 $link_query = new Usctdp_Mgmt_Transaction_Link_Query();
@@ -79,7 +79,6 @@ class Usctdp_Random_Registration_Generator
                     'transaction_id' => $txn_id,
                     'registration_id' => $registration_id
                 ]);
-
             }
             $i++;
             $result[] = [

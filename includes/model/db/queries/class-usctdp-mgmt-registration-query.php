@@ -61,7 +61,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
         $query = $wpdb->prepare(
             "   SELECT
                     reg.id as registration_id,
-                    reg.starting_level as registration_starting_level,
+                    reg.student_level as registration_student_level,
                     reg.credit as registration_credit,
                     reg.debit as registration_debit,
                     reg.notes as registration_notes,

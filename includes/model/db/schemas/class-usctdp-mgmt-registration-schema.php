@@ -35,8 +35,8 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
-        'starting_level' => [
-            'name' => 'starting_level',
+        'student_level' => [
+            'name' => 'student_level',
             'type' => 'tinytext',
         ],
         'credit' => [

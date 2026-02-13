@@ -215,7 +215,7 @@ class Usctdp_Mgmt_Docgen
             $phone = implode('/', $family_data->phone_numbers);
             $first_name = $student_data->first;
             $last_name = $student_data->last;
-            $level = $registration->starting_level;
+            $level = $registration->student_level;
             $student_age = $student_data->age;
 
             $student_table_data[] = [

@@ -1,7 +1,7 @@
 (function ($) {
     "use strict";
     $(document).ready(function () {
-        var preloaded_data = null;
+        var preloadedData = null;
         var edit_mode = false;
 
         $('#family-selector').select2({
@@ -12,7 +12,6 @@
                 data: function (params) {
                     return {
                         q: params.term,
-                        post_type: 'usctdp-family',
                         action: usctdp_mgmt_admin.select2_family_search_action,
                         security: usctdp_mgmt_admin.select2_family_search_nonce,
                     };
@@ -80,12 +79,14 @@
             $("#save-notes-success").addClass("hidden");
             $('#save-notes-text').text('Save Notes');
             $('#save-notes-button').removeClass('is-loading');
-            $('#family-container').addClass('hidden');
+            $('#family-section').addClass('hidden');
 
             const selectedValue = this.value;
-            var data = preloaded_data ? preloaded_data : $(this).select2('data')[0];
+            var data = preloadedData ? preloadedData : $(this).select2('data')[0];
             if (selectedValue && selectedValue !== '') {
-                $('#family-container').removeClass('hidden');
+                $('#family-section').removeClass('hidden');
+                $('#family-title').text(data.title);
+                console.log(data);
                 updateFamilyField('family-email', data.email);
                 updateFamilyField('family-address', data.address);
                 updateFamilyField('family-city', data.city);
@@ -97,6 +98,8 @@
                     updateFamilyField('family-phone', 'Not available');
                 }
                 $('#family-notes').val(data.notes);
+                const historyHref = 'admin.php?page=usctdp-admin-history&family_id=' + selectedValue;
+                $('#family-registration-history-link').attr('href', historyHref);
                 membersTable.ajax.reload();
             }
         });
@@ -125,7 +128,7 @@
                 data: {
                     action: usctdp_mgmt_admin.save_family_fields_action,
                     security: usctdp_mgmt_admin.save_family_fields_nonce,
-                    family_id: $('#family-selector').val(),
+                    id: $('#family-selector').val(),
                     ...changedData
                 },
                 success: function (responseData) {
@@ -180,17 +183,17 @@
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.save_family_notes_action,
-                    family_id: $('#family-selector').val(),
+                    action: usctdp_mgmt_admin.save_family_fields_action,
+                    id: $('#family-selector').val(),
                     notes: $('#family-notes').val(),
-                    security: usctdp_mgmt_admin.save_family_notes_nonce,
+                    security: usctdp_mgmt_admin.save_family_fields_nonce,
                 },
                 success: function (responseData) {
                     $("#save-notes-error").addClass("hidden");
                     $("#save-notes-success").removeClass("hidden");
 
                     // Update the local cache of the notes
-                    var data = preloaded_data ? preloaded_data : $('#family-selector').select2('data')[0];
+                    var data = preloadedData ? preloadedData : $('#family-selector').select2('data')[0];
                     data.notes = $('#family-notes').val();
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
@@ -206,17 +209,18 @@
         });
 
         if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.family_id) {
-            preloaded_data = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
+            preloadedData = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
             const newOption = new Option(
-                preloaded_data.title,
-                preloaded_data.id,
+                preloadedData.title,
+                preloadedData.id,
                 true,
                 true
             );
             $('#family-selector').append(newOption);
-            $('#family-selector').val(preloaded_data.id);
+            $('#family-selector').val(preloadedData.id);
             $('#family-selector').trigger('change');
             $('#family-selector').prop('disabled', true);
+            $('#selection-section').addClass('hidden');
         }
     });
 })(jQuery);
