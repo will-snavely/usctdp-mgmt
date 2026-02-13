@@ -866,9 +866,9 @@ class Usctdp_Mgmt_Admin
                 wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
             }
             $target = [
-                'type' => 'activity',
                 'id' => $activity_query->items[0]->id,
-                'title' => $activity_query->items[0]->title
+                'title' => $activity_query->items[0]->title,
+                'type' => $activity_query->items[0]->type,
             ];
         } else if (!empty($session_id)) {
             $session_query = new Usctdp_Mgmt_Session_Query([
@@ -879,8 +879,9 @@ class Usctdp_Mgmt_Admin
                 wp_send_json_error('Session with ID "' . $session_id . '" not found.', 404);
             }
             $target = [
-                'type' => 'session',
-                'id' => $session_query->items[0]->id
+                'id' => $session_query->items[0]->id,
+                'title' => $session_query->items[0]->title,
+                'type' => "session",
             ];
         }
 
@@ -889,10 +890,14 @@ class Usctdp_Mgmt_Admin
         }
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
-            if ($target['type'] === 'activity') {
-                $document = $doc_gen->generate_activity_roster($target['id']);
+            $document = null;
+            if ($target['type'] === Usctdp_Activity_Type::Clinic) {
+                $document = $doc_gen->generate_clinic_roster($target['id']);
             } elseif ($target['type'] === 'session') {
                 $document = $doc_gen->generate_session_roster($target['id']);
+            }
+            if (!$document) {
+                wp_send_json_error('Document not generated.', 400);
             }
             $drive_file = $doc_gen->upload_to_google_drive($document, $target['id'], $target['title']);
             wp_send_json_success([

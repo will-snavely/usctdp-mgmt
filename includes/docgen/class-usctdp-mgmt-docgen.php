@@ -48,10 +48,22 @@ class Usctdp_Mgmt_Docgen
         }
     }
 
-    private function get_class_registrations($class_id)
+    private function int_to_age_group($age_group)
+    {
+        switch ($age_group) {
+            case 1:
+                return 'Junior';
+            case 2:
+                return 'Adult';
+            default:
+                return 'Unknown';
+        }
+    }
+
+    private function get_clinic_registrations($clinic_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
-            'activity_id' => $class_id
+            'activity_id' => $clinic_id
         ]);
         return $reg_query->items;
     }
@@ -68,26 +80,28 @@ class Usctdp_Mgmt_Docgen
         return $reg_query->items[0]->drive_id;
     }
 
-    public function generate_class_roster($class_id)
+    public function generate_clinic_roster($clinic_id)
     {
         $templateProcessor = new TemplateProcessor($this->template_file);
         $templateProcessor->cloneBlock('roster', 1, true, true);
-        $this->generate_class_roster_impl($templateProcessor, $class_id, '1');
+        $this->generate_clinic_roster_impl($templateProcessor, $clinic_id, '1');
         return $templateProcessor;
     }
 
     public function generate_session_roster($session_id)
     {
         WP_CLI::log("Generating session roster for session " . $session_id);
-        $class_query = new Usctdp_Mgmt_Activity_Query([
+        $activity_query = new Usctdp_Mgmt_Activity_Query([
             'session_id' => $session_id
         ]);
         $templateProcessor = new TemplateProcessor($this->template_file);
-        $templateProcessor->cloneBlock('roster', count($class_query->items), true, true);
+        $templateProcessor->cloneBlock('roster', count($activity_query->items), true, true);
         $index = 1;
-        foreach ($class_query->items as $item) {
-            WP_CLI::log("Generating class roster for class " . $item->id);
-            $this->generate_class_roster_impl($templateProcessor, $item->id, $index);
+        foreach ($activity_query->items as $item) {
+            if ($item->type == Usctdp_Activity_Type::Clinic) {
+                WP_CLI::log("Generating roster for clinic " . $item->id);
+                $this->generate_clinic_roster_impl($templateProcessor, $item->id, $index);
+            }
             $index++;
         }
         return $templateProcessor;
@@ -154,36 +168,38 @@ class Usctdp_Mgmt_Docgen
         return $client;
     }
 
-    private function generate_class_roster_impl($templateProcessor, $class_id, $block_id)
+    private function generate_clinic_roster_impl($templateProcessor, $clinic_id, $block_id)
     {
-        $class_query = new Usctdp_Mgmt_Clinic_Query();
-        $class_data = $class_query->get_clinic_data([
-            'id' => $class_id,
+        $clinic_query = new Usctdp_Mgmt_Clinic_Query();
+        $clinic_data = $clinic_query->get_clinic_data([
+            'id' => $clinic_id,
             'number' => 1
         ]);
-        if (empty($class_data['data'])) {
-            throw new ErrorException('Class not found');
+        if (empty($clinic_data['data'])) {
+            throw new ErrorException('Clinic not found');
         }
-        $class_fields = $class_data['data'][0];
-        $registrations = $this->get_class_registrations($class_id);
-        $session_name = $class_fields->session_name;
-        $age_group = get_field('usctdp_clinic_age_group', $class_fields->clinic_id);
-        $start_date_raw = $class_fields->session_start_date;
+        $clinic_fields = $clinic_data['data'][0];
+        $registrations = $this->get_clinic_registrations($clinic_id);
+        $session_name = $clinic_fields->session_name;
+        $age_group = $clinic_fields->product_age_group;
+
+        $start_date_raw = $clinic_fields->session_start_date;
         $start_date = $start_date_raw ? DateTime::createFromFormat('Y-m-d', $start_date_raw)->format('m/d/Y') : '';
-        $end_date_raw = $class_fields->session_end_date;
+        $end_date_raw = $clinic_fields->session_end_date;
         $end_date = $end_date_raw ? DateTime::createFromFormat('Y-m-d', $end_date_raw)->format('m/d/Y') : '';
-        $start_time_raw = $class_fields->class_start_time;
+
+        $start_time_raw = $clinic_fields->clinic_start_time;
         $start_time = $start_time_raw ? DateTime::createFromFormat('H:i:s', $start_time_raw)->format('g:i A') : '';
-        $end_time_raw = $class_fields->class_end_time;
+        $end_time_raw = $clinic_fields->clinic_end_time;
         $end_time = $end_time_raw ? DateTime::createFromFormat('H:i:s', $end_time_raw)->format('g:i A') : '';
 
         $templateProcessor->setValue("session_title#$block_id", $session_name);
-        $templateProcessor->setValue("dow#$block_id", $this->int_to_day($class_fields->class_day_of_week));
+        $templateProcessor->setValue("dow#$block_id", $this->int_to_day($clinic_fields->clinic_day_of_week));
         $templateProcessor->setValue("stime#$block_id", $start_time);
         $templateProcessor->setValue("etime#$block_id", $end_time);
-        $templateProcessor->setValue("clinic_level#$block_id", $class_fields->class_level);
-        $templateProcessor->setValue("cap#$block_id", $class_fields->class_capacity);
-        $templateProcessor->setValue("age_group#$block_id", $age_group);
+        $templateProcessor->setValue("clinic_level#$block_id", $clinic_fields->clinic_level);
+        $templateProcessor->setValue("cap#$block_id", $clinic_fields->clinic_capacity);
+        $templateProcessor->setValue("age_group#$block_id", $this->int_to_age_group($age_group));
         $templateProcessor->setValue("sdate#$block_id", $start_date);
         $templateProcessor->setValue("edate#$block_id", $end_date);
 

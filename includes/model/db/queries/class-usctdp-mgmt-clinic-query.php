@@ -89,7 +89,7 @@ class Usctdp_Mgmt_Clinic_Query extends Query
                     sess.id as session_id, sess.title as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
-                    prod.title as product_name, prod.id as product_id
+                    prod.title as product_name, prod.id as product_id, prod.age_group as product_age_group 
                 FROM {$wpdb->prefix}usctdp_activity AS act
                 JOIN {$wpdb->prefix}usctdp_clinic AS clin ON act.id = clin.activity_id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
