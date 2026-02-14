@@ -2,9 +2,7 @@
 
 class Usctdp_Roster_Generator
 {
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     public function create_rosters()
     {

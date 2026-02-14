@@ -221,16 +221,46 @@
             });
         }
 
-        function saveRegistrationFields(id, fields) {
-            const changedData = {};
-            Object.entries(fields).forEach(([elemId, fieldName]) => {
-                const curValue = $('#' + elemId).val().trim();
-                const origValue = $('#' + elemId).data('orig-value').trim();
-                if (curValue !== origValue) {
-                    changedData[fieldName] = curValue;
+        function getElementContent(el) {
+            var $el = $(el);
+            if ($el.is('select')) {
+                return $el.find('option:selected').text();
+            }
+            return $el.val();
+        }
+
+        function resetElementVal($el) {
+            const origVal = $el.attr('data-orig-value');
+            const origText = $el.attr('data-orig-text');
+            if ($el.is('select')) {
+                const $option = $el.find('option[value="' + origVal + '"]');
+                if ($option.length > 0) {
+                    $el.val(origVal).trigger('change', [true]);
+                } else {
+                    const newVal = new Option(origText, origVal, true, true);
+                    $el.append(newVal).val(origVal).trigger('change', [true]);
                 }
-            });
-            $.ajax({
+            } else {
+                $el.val(origVal);
+            }
+        }
+
+        async function saveRegistrationFields(id, fields) {
+            const changedData = {};
+            const changedText = {};
+            for (const field of fields) {
+                const curValue = $('#' + field.input).val().trim();
+                const origValue = $('#' + field.input).attr('data-orig-value').trim();
+                if (curValue !== origValue) {
+                    changedData[field.field] = curValue;
+                    changedText[field.field] = getElementContent($('#' + field.input)).trim();
+                }
+            }
+
+            console.log(changedData);
+            console.log(changedText);
+
+            const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'POST',
                 dataType: 'json',
@@ -239,21 +269,18 @@
                     security: usctdp_mgmt_admin.save_registration_fields_nonce,
                     id: id,
                     ...changedData
-                },
-                success: function (responseData) {
-                    Object.entries(fields).forEach(([divId, fieldName]) => {
-                        if (fieldName in changedData) {
-
-                        }
-                    });
-                },
-                error: function (xhr, status, error) {
-                    alert("Update failed!");
-                },
-                complete: function () {
-
                 }
             });
+
+            for (const field of fields) {
+                if (field.field in changedText) {
+                    $('#' + field.display).text(changedText[field.field]);
+                    $('#' + field.input).attr('data-orig-text', changedText[field.field]);
+                }
+                if (field.field in changedData) {
+                    $('#' + field.input).attr('data-orig-value', changedData[field.field]);
+                }
+            }
         }
 
         function createActivityDetails(data, idx) {
@@ -261,6 +288,7 @@
             const sessionSelectId = `session-selector-${idx}`;
             const activitySelectId = `activity-selector-${idx}`;
             container.className = 'activity-details-wrap';
+            container.id = `activity-details-wrap-${idx}`;
             container.innerHTML = `
                 <div class="session-selector-wrap activity-field">
                     <label>Session:</label>
@@ -268,7 +296,10 @@
                         ${data.session_name}
                     </span>
                     <div id="session-selector-wrap-${idx}" class="hidden edit-mode">
-                        <select id="${sessionSelectId}" data-orig-value="${data.session_id}"></select>
+                        <select id="${sessionSelectId}" 
+                            data-orig-value="${data.session_id}" 
+                            data-orig-text="${data.session_name}">
+                        </select>
                     </div>
                 </div>
                 <div class="activity-selector-wrap activity-field">
@@ -277,7 +308,10 @@
                         ${data.activity_name}
                     </span>
                     <div id="activity-selector-wrap-${idx}" class="hidden edit-mode">
-                        <select id="${activitySelectId}" data-orig-value="${data.activity_id}"></select>
+                        <select id="${activitySelectId}" 
+                            data-orig-value="${data.activity_id}" 
+                            data-orig-text="${data.activity_name}">
+                        </select>
                     </div>
                 </div>
                 <div class="student-level-wrap activity-field">
@@ -286,15 +320,34 @@
                         ${data.registration_student_level}
                     </span>
                     <input 
-                        id="student-level-input-${idx}" 
-                        class="hidden edit-mode" 
-                        data-orig-value="${data.registration_student_level}" 
+                        id="student-level-input-${idx}"
+                        class="hidden edit-mode"
+                        data-orig-value="${data.registration_student_level}"
+                        data-orig-text="${data.registration_student_level}"
                         value="${data.registration_student_level}">
                 </div>
                 <div class="activity-actions">
                     <button id="edit-activity-${idx}" class="button" data-state="edit">Edit</button>
                 </div>
             `;
+
+            const fields = [
+                {
+                    input: `student-level-input-${idx}`,
+                    field: 'student_level',
+                    display: `student-level-${idx}`
+                },
+                {
+                    input: activitySelectId,
+                    field: 'activity_id',
+                    display: `activity-name-${idx}`
+                },
+                {
+                    input: sessionSelectId,
+                    field: 'session_id',
+                    display: `session-name-${idx}`
+                }
+            ];
 
             container.querySelector(`#edit-activity-${idx}`).addEventListener('click', () => {
                 const $button = $(`#edit-activity-${idx}`);
@@ -315,8 +368,10 @@
                             .append(curSession)
                             .val(data.session_id)
                             .trigger("change");
-                        $('#' + sessionSelectId).on('change', function () {
-                            $('#' + activitySelectId).val(null).trigger("change");
+                        $('#' + sessionSelectId).on('change', function (e, restrict) {
+                            if (!restrict) {
+                                $('#' + activitySelectId).val(null).trigger("change");
+                            }
                         });
                     }
 
@@ -334,18 +389,25 @@
                             .val(data.activity_id)
                             .trigger("change");
                     }
-                    $(this).find('.view-mode').addClass('hidden');
-                    $(this).find('.edit-mode').removeClass('hidden');
+
+                    $('#activity-details-wrap-' + idx + ' .view-mode').addClass('hidden');
+                    $('#activity-details-wrap-' + idx + ' .edit-mode').removeClass('hidden');
                 } else {
-                    saveRegistrationFields(data.registration_id, {
-                        [`student-level-input-${idx}`]: 'student_level',
-                        [activitySelectId]: 'activity_id',
-                        [sessionSelectId]: 'session_id'
-                    });
-                    $button.text("Edit");
-                    $button.data("state", "edit");
-                    $(this).find('.view-mode').removeClass('hidden');
-                    $(this).find('.edit-mode').addClass('hidden');
+                    $button.prop('disabled', true);
+                    saveRegistrationFields(data.registration_id, fields)
+                        .catch((error) => {
+                            alert("Update failed!");
+                            for (const field of fields) {
+                                resetElementVal($('#' + field.input));
+                            }
+                        })
+                        .finally(() => {
+                            $button.text("Edit");
+                            $button.data("state", "edit");
+                            $button.prop('disabled', false);
+                            $('#activity-details-wrap-' + idx + ' .view-mode').removeClass('hidden');
+                            $('#activity-details-wrap-' + idx + ' .edit-mode').addClass('hidden');
+                        });
                 }
             });
             return container;
@@ -354,17 +416,28 @@
         function createBalanceDetails(data, idx) {
             const container = document.createElement('div');
             container.className = 'balance-details-wrap';
+            container.id = `balance-details-wrap-${idx}`;
             const total = data.registration_credit - data.registration_debit;
             container.innerHTML = `
                 <div class="credit-wrap balance-field">
                     <label>Credit:</label>
-                    <span id="credit-amt-${idx}">${data.registration_credit}</span>
-                    <input id="credit-amt-input-${idx}" class="hidden">
+                    <span id="credit-amt-${idx}" class="view-mode">${data.registration_credit}</span>
+                    <input 
+                        id="credit-amt-input-${idx}" 
+                        class="edit-mode hidden"
+                        data-orig-value="${data.registration_credit}"
+                        data-orig-text="${data.registration_credit}"
+                        value="${data.registration_credit}">
                 </div>
                 <div class="debit-wrap balance-field">
                     <label>Debit:</label>
-                    <span id="debit-amt-${idx}">${data.registration_debit}</span>
-                    <input id="debit-amt-input-${idx}" class="hidden">
+                    <span id="debit-amt-${idx}" class="view-mode">${data.registration_debit}</span>
+                    <input 
+                        id="debit-amt-input-${idx}" 
+                        class="edit-mode hidden"
+                        data-orig-value="${data.registration_debit}"
+                        data-orig-text="${data.registration_debit}"
+                        value="${data.registration_debit}">
                 </div>
                 <div class="total-wrap balance-field">
                     <label>Total:</label>
@@ -375,23 +448,47 @@
                 </div>
             `;
 
+            const fields = [
+                {
+                    input: `credit-amt-input-${idx}`,
+                    field: 'credit',
+                    display: `credit-amt-${idx}`
+                },
+                {
+                    input: `debit-amt-input-${idx}`,
+                    field: 'debit',
+                    display: `debit-amt-${idx}`
+                }
+            ];
+
             container.querySelector(`#edit-balance-${idx}`).addEventListener('click', () => {
                 const $button = $(`#edit-balance-${idx}`);
                 const state = $button.data("state");
                 if (state == "edit") {
                     $button.text("Save");
                     $button.data("state", "save");
-                    $(`#credit-amt-input-${idx}`).removeClass("hidden");
-                    $(`#debit-amt-input-${idx}`).removeClass("hidden");
-                    $(`#credit-amt-${idx}`).addClass("hidden");
-                    $(`#debit-amt-${idx}`).addClass("hidden");
+                    $('#balance-details-wrap-' + idx + ' .view-mode').addClass('hidden');
+                    $('#balance-details-wrap-' + idx + ' .edit-mode').removeClass('hidden');
                 } else {
-                    $button.text("Edit");
-                    $button.data("state", "edit");
-                    $(`#credit-amt-input-${idx}`).addClass("hidden");
-                    $(`#debit-amt-input-${idx}`).addClass("hidden");
-                    $(`#credit-amt-${idx}`).removeClass("hidden");
-                    $(`#debit-amt-${idx}`).removeClass("hidden");
+                    $button.prop('disabled', true);
+                    saveRegistrationFields(data.registration_id, fields)
+                        .catch((error) => {
+                            alert("Update failed!");
+                            for (const field of fields) {
+                                resetElementVal($('#' + field.input));
+                            }
+                        })
+                        .finally(() => {
+                            $button.text("Edit");
+                            $button.data("state", "edit");
+                            $button.prop('disabled', false);
+                            const debit = $('#debit-amt-input-' + idx).val();
+                            const credit = $('#credit-amt-input-' + idx).val();
+                            const total = credit - debit;
+                            $('#total-amt-' + idx).text(total);
+                            $('#balance-details-wrap-' + idx + ' .view-mode').removeClass('hidden');
+                            $('#balance-details-wrap-' + idx + ' .edit-mode').addClass('hidden');
+                        });
                 }
             });
 
@@ -465,7 +562,12 @@
                     data: 'id',
                     render: function (data, type, row, meta) {
                         if (type === 'display') {
-                            return createActivityDetails(row, meta.row);
+                            try {
+                                return createActivityDetails(row, meta.row);
+                            } catch (error) {
+                                console.error(error);
+                                return '';
+                            }
                         }
                         return '';
                     }
