@@ -89,7 +89,7 @@ class Usctdp_Mgmt_Activity_Query extends Query
                     sess.id as session_id, sess.title as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
-                    prod.title as product_name, prod.id as product_id
+                    prod.title as product_name, prod.id as product_id, prod.woocommerce_id as product_woocommerce_id
                 FROM {$wpdb->prefix}usctdp_activity AS act
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id

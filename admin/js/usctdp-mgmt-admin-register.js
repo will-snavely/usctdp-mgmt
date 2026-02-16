@@ -8,23 +8,25 @@
             3: { name: "Camp", id: "camp" }
         };
 
+        var pendingRegistrations = [];
+
         function createSelector(id, name, label, hidden, disabled, options = []) {
             var classes = 'context-selector-section';
             if (hidden) {
-                classes = 'hidden';
+                classes += ' hidden';
             }
             var optionsHtml = '';
             for (const option of options) {
                 if ('id' in option && 'name' in option) {
-                    optionsHtml += `<option value='${option.id}'>${option.name}</option>`;
+                    optionsHtml += `<option value="${option.id}">${option.name}</option>`;
                 } else {
                     optionsHtml += '<option></option>';
                 }
             }
             return `
-                <div id='${id}-section' class='${classes}'>
-                    <h2 id='${id}-label'> ${label} </h2>
-                    <select id='${id}' name='${name}' class='context-selector' ${disabled ? 'disabled' : ''}>
+                <div id="${id}-section" class="${classes}">
+                    <span id="${id}-label" class="context-selector-label"> ${label} </span>
+                    <select id="${id}" name="${name}" class="context-selector" ${disabled ? 'disabled' : ''}>
                         ${optionsHtml}
                     </select>
                 </div>`;
@@ -67,7 +69,6 @@
                 const activityTypeInt = preloadedData.activity.activity_type;
                 const activityType = activityTypes[activityTypeInt].id;
                 contextData['session-selector'] = preloadedData.activity.session_id;
-                contextData['activity-kind-selector'] = activityType;
                 if (activityType === 'clinic') {
                     contextData['clinic-selector'] = preloadedData.activity.activity_id;
                 }
@@ -91,7 +92,7 @@
                     return $(createSelector(
                         'family-selector',
                         'family_id',
-                        'Select a Family',
+                        'Family',
                         hidden,
                         disabled,
                         options
@@ -135,16 +136,16 @@
                     return $(createSelector(
                         'student-selector',
                         'student_id',
-                        'Select a Student',
+                        'Student',
                         hidden,
                         disabled,
                         options
                     ));
                 },
                 nextSelector: {
-                    options: ['activity-kind-selector'],
+                    options: ['session-selector'],
                     choose: function () {
-                        return 'activity-kind-selector';
+                        return 'session-selector';
                     },
                 },
                 select2Options: function () {
@@ -167,81 +168,6 @@
                     }
                 }
             },
-            'activity-kind-selector': {
-                selector: function () {
-                    var disabled = false;
-                    var hidden = true;
-                    var options = [
-                        {},
-                        { id: 'clinic', name: 'Clinic' },
-                        { id: 'tournament', name: 'Tournament' },
-                    ];
-
-                    if (preloadedData.activity) {
-                        const typeInt = preloadedData.activity.activity_type;
-                        const type = activityTypes[typeInt];
-                        options = [
-                            { id: type.id, name: type.name }
-                        ];
-                        disabled = true;
-                        hidden = false;
-                    } else {
-                        hidden = preloadedData.student === null;
-                    }
-
-                    return $(createSelector(
-                        'activity-kind-selector',
-                        'activity_kind',
-                        'Select an Activity Kind',
-                        hidden,
-                        disabled,
-                        options
-                    ));
-                },
-                nextSelector: {
-                    options: ['session-selector'],
-                    choose: function () {
-                        var val = $('#activity-kind-selector').val();
-                        if (val === 'clinic') {
-                            return 'session-selector';
-                        } else if (val === 'tournament') {
-                            // TODO: implement tournament selector
-                            return null;
-                        }
-                    }
-                },
-                select2Options: function () {
-                    return {
-                        placeholder: "Select the type of activity...",
-                        allowClear: true
-                    };
-                }
-            },
-            'tournament-selector': {
-                selector: function () {
-                    return $(createSelector(
-                        'tournament-selector',
-                        'tournament_id',
-                        'Select a Tournament',
-                        true,
-                        false,
-                        []
-                    ))
-                },
-                nextSelector: {
-                    options: [],
-                    choose: function () {
-                        return null;
-                    }
-                },
-                select2Options: function () {
-                    return defaultSelect2Options(
-                        "Search for a tournament...",
-                        usctdp_mgmt_admin.select2_tournament_search_action,
-                        usctdp_mgmt_admin.select2_tournament_search_nonce
-                    );
-                },
-            },
             'session-selector': {
                 selector: function () {
                     var options = [];
@@ -258,7 +184,7 @@
                     return $(createSelector(
                         'session-selector',
                         'session_id',
-                        'Select a Session',
+                        'Session',
                         hidden,
                         disabled,
                         options
@@ -301,7 +227,7 @@
                     return $(createSelector(
                         'clinic-selector',
                         'activity_id',
-                        'Select a Clinic',
+                        'Clinic',
                         hidden,
                         disabled,
                         options
@@ -369,10 +295,11 @@
                     $(`#${option}`).val(null);
                     $(`#${option}`).trigger('change');
                 }
+
                 if (contextData['clinic-selector'] && contextData['student-selector']) {
                     toggle_registration_fields(false);
                     $('#notifications-section').children().remove();
-                    load_class_registration(contextData['clinic-selector'], contextData['student-selector']);
+                    load_clinic_registration(contextData['clinic-selector'], contextData['student-selector']);
                 } else {
                     $('#notifications-section').children().remove();
                     toggle_registration_fields(false);
@@ -382,16 +309,15 @@
 
         function toggle_registration_fields(visible) {
             if (visible) {
-                $('#registration-details-section').removeClass('hidden');
+                $('#additional-details').removeClass('hidden');
             } else {
-                $('#registration-details-section').addClass('hidden');
+                $('#additional-details').addClass('hidden');
             }
         }
 
         function reset_registration_fields() {
-            $('.form-field input').val('');
-            $('.form-field select').val(null);
-            $('#check-fields').addClass('hidden');
+            $('.registration-field input').val('');
+            $('.registration-field select').val(null);
             $('#notes').val('');
             $('#notifications-section').children().remove();
         }
@@ -424,22 +350,31 @@
             $('#notifications-section').append($notification);
         }
 
-        function load_class_registration(activity_id, student_id) {
+        function formatUsd(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        }
+
+        function load_clinic_registration(clinic_id, student_id) {
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'GET',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.activity_qualification_action,
-                    activity_id: activity_id,
+                    action: usctdp_mgmt_admin.activity_preregistration_action,
+                    activity_id: clinic_id,
                     student_id: student_id,
-                    security: usctdp_mgmt_admin.activity_qualification_nonce,
+                    security: usctdp_mgmt_admin.activity_preregistration_nonce,
                 },
                 success: function (response) {
                     var current_size = response.data.registered;
                     var max_size = response.data.capacity;
-                    $('#class-current-size').text(current_size);
-                    $('#class-max-size').text(max_size);
+                    var student_level = response.data.student_level;
+                    var pricing = response.data.pricing;
+                    var session_id = response.data.session_id;
+                    var product_id = response.data.product_id;
 
                     if (response.data.student_registered) {
                         set_notification(
@@ -455,6 +390,18 @@
                         );
                     } else {
                         reset_registration_fields();
+                        $('#student-level').val(student_level);
+                        $('#clinic-current-size').text(current_size);
+                        $('#clinic-max-size').text(max_size);
+                        $('#clinic-info-capacity .clinic-info-value').removeClass('full available');
+                        $('#clinic-info-capacity .clinic-info-value').addClass(current_size >= max_size ? 'full' : 'available');
+                        $('#clinic-one-day-price').text(formatUsd(pricing['One']));
+                        $('#clinic-two-day-price').text(formatUsd(pricing['Two']));
+                        $("#clinic-info").removeData();
+                        $("#clinic-info").data('session_id', session_id);
+                        $("#clinic-info").data('product_id', product_id);
+                        $("#clinic-info").data('student_level', student_level);
+                        $("#clinic-info").data('pricing', pricing);
                         toggle_registration_fields(true);
                     }
                 },
@@ -472,8 +419,184 @@
             }
         });
 
-        $('form').on('submit', function () {
-            $('.context-selector').prop('disabled', false);
+        function clinicPriceEstimate(reg, one_day_price, two_day_price) {
+            const $rows = $('#registration-order-table tbody tr');
+            const match = $rows.filter(function () {
+                const $row = $(this);
+                return $row.data('product_id') === reg.product_id &&
+                    $row.data('session_id') === reg.session_id &&
+                    $row.data('student_id') === reg.student_id;
+            });
+            return match.length > 0 ? two_day_price : one_day_price;
+        }
+
+        function addPendingRegistration(registration, priceEstimate) {
+            var $row = $('<tr></tr>');
+            $row.data('student_id', registration.student_id)
+                .data('session_id', registration.session_id)
+                .data('activity_id', registration.activity_id)
+                .data('product_id', registration.product_id)
+                .data('student_level', registration.student_level)
+                .data('family_id', registration.family_id)
+                .data('notes', registration.notes);
+
+            $row.append($('<td></td>')
+                .addClass('registration-student-name')
+                .append($('<span></span>')
+                    .text(registration.student_name)));
+            $row.append($('<td></td>')
+                .addClass('registration-session-name')
+                .append($('<span></span>')
+                    .text(registration.session_name)));
+            $row.append($('<td></td>')
+                .addClass('registration-activity-name')
+                .append($('<span></span>')
+                    .text(registration.activity_name)));
+            $row.append($('<td></td>')
+                .append($('<input></input>')
+                    .addClass('price-input')
+                    .attr('name', 'price-input')
+                    .on('change', function () {
+                        updateRegistrationTotal();
+                    })
+                    .val(priceEstimate)));
+
+            $row.append($('<td></td>')
+                .append($('<button></button>')
+                    .text('Remove')
+                    .addClass('button')
+                    .on('click', function () {
+                        $row.remove();
+                        if ($('#registration-order-table tbody tr').length === 0) {
+                            $('#registration-order-section').addClass('hidden');
+                        }
+                    })));
+            $('#registration-order-table tbody').append($row);
+            $('#registration-order-section').removeClass('hidden');
+            updateRegistrationTotal();
+        }
+
+        function updateRegistrationTotal() {
+            const $rows = $('#registration-order-table tbody tr');
+            let total = 0;
+            $rows.each(function () {
+                const $row = $(this);
+                const price = parseFloat($row.find('.price-input').val());
+                total += price;
+            });
+            $('#registration-order-total-value').text(formatUsd(total));
+        }
+
+        function getOrderData() {
+            const $rows = $('#registration-order-table tbody tr');
+            const orderData = [];
+            $rows.each(function () {
+                const $row = $(this);
+                const registration = {
+                    student_id: $row.data('student_id'),
+                    session_id: $row.data('session_id'),
+                    activity_id: $row.data('activity_id'),
+                    product_id: $row.data('product_id'),
+                    student_level: $row.data('student_level'),
+                    family_id: $row.data('family_id'),
+                    notes: $row.data('notes'),
+                    price: parseFloat($row.find('.price-input').val())
+                };
+                orderData.push(registration);
+            });
+            return orderData;
+        }
+
+        async function createWooCommerceOrder() {
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.create_woocommerce_order_action,
+                        security: usctdp_mgmt_admin.create_woocommerce_order_nonce,
+                        order_data: getOrderData(),
+                    }
+                });
+
+                if (response.success) {
+                    return response.data;
+                } else {
+                    throw new Error(response.data || 'PHP logic error');
+                }
+
+            } catch (error) {
+                console.error('Order Creation Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
+        $('#add-registration').on('click', function () {
+            const newRegistration = {
+                activity_id: $('#clinic-selector').val(),
+                activity_name: $('#clinic-selector option:selected').text(),
+                family_id: $('#family-selector').val(),
+                student_id: $('#student-selector').val(),
+                student_name: $('#student-selector option:selected').text(),
+                session_id: $('#clinic-info').data('session_id'),
+                session_name: $('#session-selector option:selected').text(),
+                product_id: $('#clinic-info').data('product_id'),
+                student_level: $('#clinic-info').data('student_level'),
+                notes: $('#notes').val()
+            };
+            const one_day_price = parseInt($('#clinic-info').data('pricing')['One']);
+            const two_day_price = parseInt($('#clinic-info').data('pricing')['Two']);
+            const diff = two_day_price - one_day_price;
+            const priceEstimate = clinicPriceEstimate(
+                newRegistration,
+                one_day_price,
+                diff
+            );
+            addPendingRegistration(newRegistration, priceEstimate);
+            reset_registration_fields();
+            toggle_registration_fields(false);
+            $('#clinic-selector').val(null).trigger('change');
+        });
+
+        $('#registration-checkout').on('click', function () {
+            $('#registration-checkout-section').removeClass('hidden');
+            $('#registration-order-info input').prop('disabled', true);
+            $('#registration-order-info button').prop('disabled', true);
+            $('#context-selection').addClass('hidden');
+        });
+
+        $('#payment_method').on('change', function () {
+            $(".payment-option").addClass('hidden');
+            if (this.value !== "") {
+                $('#submit-registration-button').removeClass('hidden');
+            } else {
+                $('#submit-registration-button').addClass('hidden');
+            }
+            if (this.value === 'check') {
+                $('#check-fields').removeClass('hidden');
+            } else if (this.value === 'card') {
+                $('#card-fields').removeClass('hidden');
+            }
+        });
+
+        $('#submit-registration-form').on('submit', function (event) {
+            event.preventDefault();
+            const form = this;
+            const $btn = $('#submit-registration-btn');
+            $btn.prop('disabled', true).text('Processing...');
+            createWooCommerceOrder()
+                .then(function (response) {
+                    console.log(response);
+                    $('#submit_user_id').val(response.user_id);
+                    $('#submit_payment_url').val(response.payment_url);
+                    form.submit();
+                })
+                .catch(function (error) {
+                    // 4. Re-enable the button if something goes wrong
+                    console.error("Order creation failed:", error);
+                    $btn.prop('disabled', false).text('Submit Registration');
+                    alert('There was an error. Please try again.');
+                });
         });
     });
 })(jQuery);

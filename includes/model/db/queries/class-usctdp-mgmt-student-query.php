@@ -56,7 +56,6 @@ class Usctdp_Mgmt_Student_Query extends Query
         $args[] = $limit;
 
         $query = $wpdb->prepare($sql, $args);
-        error_log($query);
         return $wpdb->get_results($query);
     }
 

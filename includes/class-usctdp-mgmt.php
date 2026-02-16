@@ -242,7 +242,7 @@ class Usctdp_Mgmt
             $commerce_handler,
             'create_pending_registration',
             10,
-            1 
+            1
         );
 
         $this->loader->add_action(

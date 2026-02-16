@@ -27,22 +27,7 @@ class Web_Request_Exception extends Exception {}
 
 class Usctdp_Mgmt_Admin
 {
-    /**
-     * The ID of this plugin.
-     *
-     * @since    1.0.0
-     * @access   private
-     * @var      string    $plugin_name    The ID of this plugin.
-     */
     private $plugin_name;
-
-    /**
-     * The version of this plugin.
-     *
-     * @since    1.0.0
-     * @access   private
-     * @var      string    $version    The current version of this plugin.
-     */
     private $version;
 
     public static $post_handlers = [
@@ -51,7 +36,13 @@ class Usctdp_Mgmt_Admin
             'nonce_name' => 'usctdp_registration_nonce',
             'nonce_action' => 'usctdp_registration_nonce_action',
             'callback' => 'registration_handler'
-        ]
+        ],
+        'registration_checkout' => [
+            'submit_hook' => 'usctdp_registration_checkout',
+            'nonce_name' => 'usctdp_registration_checkout_nonce',
+            'nonce_action' => 'usctdp_registration_checkout_nonce_action',
+            'callback' => 'registration_checkout_handler'
+        ],
     ];
 
     public static $ajax_handlers = [
@@ -140,15 +131,20 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'gen_roster_nonce',
             'callback' => 'ajax_gen_roster'
         ],
-        'activity_qualification' => [
-            'action' => 'activity_qualification',
-            'nonce' => 'activity_qualification_nonce',
-            'callback' => 'ajax_activity_qualification'
+        'activity_preregistration' => [
+            'action' => 'activity_preregistration',
+            'nonce' => 'activity_preregistration_nonce',
+            'callback' => 'ajax_activity_preregistration'
         ],
         'select2_clinic_search' => [
             'action' => 'select2_clinic_search',
             'nonce' => 'select2_clinic_search_nonce',
             'callback' => 'ajax_select2_clinic_search'
+        ],
+        'create_woocommerce_order' => [
+            'action' => 'create_woocommerce_order',
+            'nonce' => 'create_woocommerce_order_nonce',
+            'callback' => 'ajax_create_woocommerce_order'
         ],
     ];
 
@@ -168,9 +164,7 @@ class Usctdp_Mgmt_Admin
     }
 
     public function enqueue_styles() {}
-
     public function enqueue_scripts() {}
-
     private function usctdp_script_id($suffix)
     {
         return $this->plugin_name . '-admin-' . $suffix . '-js';
@@ -261,32 +255,6 @@ class Usctdp_Mgmt_Admin
         return admin_url('admin.php?page=' . $page_slug);
     }
 
-    private function add_usctdp_submenu($page_slug, $title, $load_callback = null)
-    {
-        $capability = 'manage_options';
-        $menu_slug = 'usctdp-admin-' . $page_slug;
-        $hook = add_submenu_page(
-            'usctdp-admin-main',
-            $title,
-            $title,
-            $capability,
-            $menu_slug,
-            function () use ($page_slug) {
-                $admin_dir = plugin_dir_path(__FILE__);
-                $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-' . $page_slug . '.php';
-                $this->echo_admin_page($main_display);
-            }
-        );
-        add_action('load-' . $hook, function () use ($page_slug) {
-            $this->enqueue_usctdp_page_script($page_slug);
-            $this->enqueue_usctdp_page_style($page_slug);
-        });
-        if ($load_callback) {
-            add_action('load-' . $hook, $load_callback);
-        }
-        return $hook;
-    }
-
     public function usctdp_google_oauth_handler()
     {
         $redirect_url = admin_url('admin.php?page=usctdp-admin-main');
@@ -358,6 +326,32 @@ class Usctdp_Mgmt_Admin
                 exit;
             }
         }
+    }
+
+    private function add_usctdp_submenu($page_slug, $title, $load_callback = null)
+    {
+        $capability = 'manage_options';
+        $menu_slug = 'usctdp-admin-' . $page_slug;
+        $hook = add_submenu_page(
+            'usctdp-admin-main',
+            $title,
+            $title,
+            $capability,
+            $menu_slug,
+            function () use ($page_slug) {
+                $admin_dir = plugin_dir_path(__FILE__);
+                $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-' . $page_slug . '.php';
+                $this->echo_admin_page($main_display);
+            }
+        );
+        add_action('load-' . $hook, function () use ($page_slug) {
+            $this->enqueue_usctdp_page_script($page_slug);
+            $this->enqueue_usctdp_page_style($page_slug);
+        });
+        if ($load_callback) {
+            add_action('load-' . $hook, $load_callback);
+        }
+        return $hook;
     }
 
     public function add_admin_menu()
@@ -563,12 +557,13 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
-            'activity_qualification',
+            'activity_preregistration',
             'registrations_datatable',
             'select2_family_search',
             'select2_student_search',
             'select2_session_search',
-            'select2_activity_search'
+            'select2_activity_search',
+            'create_woocommerce_order',
         ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
@@ -649,153 +644,6 @@ class Usctdp_Mgmt_Admin
         return (int) round((float) $amount * 100);
     }
 
-    function registration_handler()
-    {
-        $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration'];
-        $nonce_name = $post_handler['nonce_name'];
-        $nonce_action = $post_handler['nonce_action'];
-        $unique_token = bin2hex(random_bytes(8));
-        $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
-
-        $transient_data = null;
-        $registration_id = null;
-        $activity_id = null;
-        $transaction_started = false;
-        $transaction_completed = false;
-        global $wpdb;
-
-        try {
-            if (!current_user_can('manage_options')) {
-                throw new Web_Request_Exception('You do not have permission to perform this action.');
-            }
-
-            if (!isset($_POST[$nonce_name]) || !wp_verify_nonce($_POST[$nonce_name], $nonce_action)) {
-                throw new Web_Request_Exception('Request verification failed.');
-            }
-
-            if (!isset($_POST['activity_id'])) {
-                throw new Web_Request_Exception('Activity ID not provided.');
-            }
-            if (!isset($_POST['student_id'])) {
-                throw new Web_Request_Exception('Student ID not provided.');
-            }
-
-            $activity_id = $_POST['activity_id'];
-            $student_id = $_POST['student_id'];
-            if (!is_numeric($activity_id)) {
-                throw new Web_Request_Exception('Activity ID is not a number.');
-            }
-            if (!is_numeric($student_id)) {
-                throw new Web_Request_Exception('Student ID is not a number.');
-            }
-
-            $student_level = 0;
-            if (isset($_POST['student_level'])) {
-                if (!is_numeric($_POST['student_level'])) {
-                    throw new Web_Request_Exception('Student level is not a number.');
-                }
-                $student_level = (int) $_POST['student_level'];
-            }
-
-            $notes = '';
-            if (isset($_POST['notes'])) {
-                $notes = sanitize_textarea_field(stripslashes($_POST['notes']));
-            }
-
-            $wpdb->query('START TRANSACTION');
-            $transaction_started = true;
-            $activity_row = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id = %d FOR UPDATE",
-                    $activity_id
-                )
-            );
-            if (!$activity_row) {
-                throw new Web_Request_Exception('Activity with ID ' . $activity_id . ' not found.');
-            }
-
-            $student_row = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}usctdp_student WHERE id = %d",
-                    $student_id
-                )
-            );
-            if (!$student_row) {
-                throw new Web_Request_Exception('Student with ID ' . $student_id . ' not found.');
-            }
-
-            if ($this->is_student_enrolled($student_id, $activity_id)) {
-                throw new Web_Request_Exception('Student is already enrolled in this activity.');
-            }
-
-            $capacity = $this->get_activity_capacity($activity_id);
-            $registrations = $this->get_activity_registration_count($activity_id);
-            $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
-            if (!$ignore_full && $registrations >= $capacity) {
-                throw new Web_Request_Exception('Class is full.');
-            }
-
-            $registration_query = new Usctdp_Mgmt_Registration_Query([]);
-            $registration_id = $registration_query->add_item([
-                'activity_id' => $activity_id,
-                'student_id' => $student_id,
-                'student_level' => $student_level,
-                'created_at' => current_time('mysql'),
-                'created_by' => get_current_user_id(),
-                'last_modified_at' => current_time('mysql'),
-                'last_modified_by' => get_current_user_id(),
-                'credit' => 0,
-                'debit' => 0,
-                'notes' => $notes
-            ]);
-
-            if (!$registration_id) {
-                throw new Web_Request_Exception('Failed to create registration.');
-            }
-
-            $wpdb->query('COMMIT');
-            $transaction_completed = true;
-            $message = "Registration created successfully!";
-            $transient_data = [
-                'type' => 'success',
-                'message' => $message
-            ];
-        } catch (Throwable $e) {
-            $user_message = $e->getMessage();
-            if (!($e instanceof Web_Request_Exception)) {
-                $user_message = 'A system error occurred. Please try again.';
-            }
-            $transient_data = [
-                'type' => 'error',
-                'message' => $user_message
-            ];
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
-        } finally {
-            if (!$transaction_completed) {
-                if ($transaction_started) {
-                    $wpdb->query('ROLLBACK');
-                }
-                if (!$transient_data) {
-                    $transient_data = [
-                        'type' => 'error',
-                        'message' => 'An unknown error occurred.'
-                    ];
-                }
-                $redirect_url = add_query_arg([
-                    'usctdp_token' => $unique_token,
-                ], $this->get_redirect_url('usctdp-admin-register'));
-            } else {
-                $redirect_url = add_query_arg([
-                    'activity_id' => $activity_id,
-                    'usctdp_token' => $unique_token,
-                ], $this->get_redirect_url('usctdp-admin-clinic-rosters'));
-            }
-            set_transient($transient_key, $transient_data, 10);
-            wp_safe_redirect($redirect_url);
-            exit;
-        }
-    }
-
     function is_student_enrolled($student_id, $activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
@@ -826,23 +674,57 @@ class Usctdp_Mgmt_Admin
         return $activity_query->items[0]->capacity;
     }
 
-    function ajax_activity_qualification()
+    function ajax_activity_preregistration()
     {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['activity_qualification'];
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['activity_preregistration'];
         if (!check_ajax_referer($handler['nonce'], 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 400);
         }
 
         $activity_id = isset($_GET['activity_id']) ? sanitize_text_field($_GET['activity_id']) : '';
         $student_id = isset($_GET['student_id']) ? sanitize_text_field($_GET['student_id']) : '';
+
+        $student_query = new Usctdp_Mgmt_Student_Query([
+            'student_id' => $student_id,
+            'number' => 1
+        ]);
+        if (empty($student_query->items)) {
+            wp_send_json_error('Student with ID "' . $student_id . '" not found.', 404);
+        }
+        $student = $student_query->items[0];
+
+        $activity_query = new Usctdp_Mgmt_Activity_Query([]);
+        $result = $activity_query->get_activity_data([
+            'id' => $activity_id,
+            'number' => 1
+        ]);
+        if (empty($result['data'])) {
+            wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
+        }
+        $activity = $result['data'][0];
+
+        $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+            'session_id' => $activity->session_id,
+            'product_id' => $activity->product_id,
+            'number' => 1
+        ]);
+        if (empty($pricing_query->items)) {
+            wp_send_json_error('Pricing for activity "' . $activity_id . '" not found.', 404);
+        }
+        $pricing = $pricing_query->items[0];
         $capacity = $this->get_activity_capacity($activity_id);
         $found_posts = $this->get_activity_registration_count($activity_id);
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
 
         wp_send_json_success([
             'capacity' => $capacity,
+            'session_id' => $activity->session_id,
+            'product_id' => $activity->product_id,
+            'woocommerce_id' => $activity->product_woocommerce_id,
             'registered' => $found_posts,
             'student_registered' => $student_registered,
+            'student_level' => $student->level,
+            'pricing' => $pricing->pricing
         ]);
     }
 
@@ -1242,9 +1124,11 @@ class Usctdp_Mgmt_Admin
             $query_results = $query->search_students($search, $family_id, 10);
             if ($query_results) {
                 foreach ($query_results as $result) {
+                    $birth_date = new DateTime($result->birth_date);
                     $results[] = array(
                         'id' => $result->id,
                         'text' => $result->title,
+                        'level' => $result->level,
                     );
                 }
             }
@@ -1575,5 +1459,366 @@ class Usctdp_Mgmt_Admin
             "data" => $output_data,
         );
         wp_send_json($response);
+    }
+
+    function find_variations($product, $match_criteria)
+    {
+        if (!$product || !$product->is_type('variable')) {
+            return null;
+        }
+
+        $results = [];
+        error_log("product: " . print_r($product->get_available_variations(), true));
+        foreach ($product->get_available_variations() as $variation_data) {
+            $variation_attributes = $variation_data['attributes'];
+            $is_match = true;
+            foreach ($match_criteria as $key => $value) {
+                $search_key = 'attribute_' . sanitize_title($key);
+                if (isset($variation_attributes[$search_key])) {
+                    if ($variation_attributes[$search_key] !== '' && $variation_attributes[$search_key] !== $value) {
+                        $is_match = false;
+                        break;
+                    }
+                } else {
+                    $is_match = false;
+                    break;
+                }
+            }
+
+            if ($is_match) {
+                $results[] = $variation_data['variation_id'];
+            }
+        }
+
+        return $results;
+    }
+
+    private function find_variations_for_session($product_id, $session_id)
+    {
+        $product_query = new Usctdp_Mgmt_Product_Query([
+            'id' => $product_id,
+            'number' => 1
+        ]);
+        if (empty($product_query->items)) {
+            wp_send_json_error('Product with ID "' . $product_id . '" not found.', 404);
+        }
+        $product = $product_query->items[0];
+        $woo_product = wc_get_product($product->woocommerce_id);
+
+        $session_name = null;
+        $session_meta = $woo_product->get_meta('_session_post_ids');
+        foreach ($session_meta as $name => $session_id) {
+            if ($session_id == $session_id) {
+                $session_name = $name;
+                break;
+            }
+        }
+        if ($product->type == Usctdp_Activity_Type::Clinic) {
+            return $this->find_variations($woo_product, [
+                'session' => $session_name,
+                'days-per-week' => "One",
+            ]);
+        } else {
+            return $this->find_variations($woo_product, [
+                'session' => $session_name,
+            ]);
+        }
+    }
+
+    public function ajax_create_woocommerce_order()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['create_woocommerce_order'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+        error_log(print_r($_POST, true));
+
+        $order_data = $_POST['order_data'];
+        if (empty($order_data)) {
+            wp_send_json_error('No order data provided.', 400);
+        }
+
+        // Ensure family_id is consistent across all items
+        $family_id = null;
+        foreach ($order_data as $order_item) {
+            if ($family_id == null) {
+                $family_id = $order_item["family_id"];
+            } else {
+                if ($family_id != $order_item["family_id"]) {
+                    wp_send_json_error('All items must belong to the same family.', 400);
+                }
+            }
+        }
+
+        // Lookup the family_id
+        $family_query = new Usctdp_Mgmt_Family_Query([
+            'id' => $family_id,
+            'number' => 1
+        ]);
+        if (empty($family_query->items)) {
+            wp_send_json_error('Family with ID "' . $family_id . '" not found.', 404);
+        }
+        $family = $family_query->items[0];
+        $user_id = $family->user_id;
+
+        $order = wc_create_order(['customer_id' => $user_id]);
+        if (is_wp_error($order)) {
+            wp_send_json_error('Failed to create woocommerce order.', 500);
+        }
+
+        $total = 0;
+        foreach ($order_data as $order_item) {
+            $session_id = $order_item["session_id"];
+            $product_id = $order_item["product_id"];
+            $variation_ids = $this->find_variations_for_session($product_id, $session_id);
+            error_log("variation_ids: " . print_r($variation_ids, true));
+            if (empty($variation_ids)) {
+                wp_send_json_error(
+                    'No variations found for product "' . $product_id . '" and session "' . $session_id . '".',
+                    404
+                );
+            }
+            $variation_id = $variation_ids[0];
+            $product = wc_get_product($variation_id);
+            $item_id = $order->add_product($product, 1);
+
+            $custom_price = floatval($order_item["price"]);
+            $total += $custom_price;
+            $item = $order->get_item($item_id);
+            $item->set_props(array(
+                'subtotal' => $custom_price,
+                'total'    => $custom_price,
+            ));
+            $item->save();
+        }
+
+        $order->set_total($total);
+        $order->save();
+        $order->update_status('pending', 'Order created by admin.');
+        wp_send_json_success([
+            "order_id" => $order->get_id(),
+            "user_id" => $user_id,
+            "payment_url" => $order->get_checkout_payment_url(),
+        ]);
+    }
+
+    function registration_checkout_handler()
+    {
+        $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration_checkout'];
+        $nonce_name = $post_handler['nonce_name'];
+        $nonce_action = $post_handler['nonce_action'];
+
+        try {
+            if (!current_user_can('manage_options')) {
+                throw new Web_Request_Exception('You do not have permission to perform this action.');
+            }
+            if (!isset($_POST[$nonce_name]) || !wp_verify_nonce($_POST[$nonce_name], $nonce_action)) {
+                throw new Web_Request_Exception('Request verification failed.');
+            }
+            $user_id = $_POST['user_id'];
+            $payment_url = $_POST['payment_url'];
+
+            if ($user_id === 0) {
+                throw new Web_Request_Exception('User ID is not set or invalid.');
+            }
+            if (empty($payment_url)) {
+                throw new Web_Request_Exception('Payment URL is not set or invalid.');
+            }
+
+            if (function_exists('WC') && WC()->session === null) {
+                $session_class = apply_filters('woocommerce_session_handler', 'WC_Session_Handler');
+                WC()->session  = new $session_class();
+                WC()->session->init();
+            }
+
+            if (function_exists('switch_to_user')) {
+                Usctdp_Mgmt_Logger::getLogger()->log_info("Switching to user: " . $user_id);
+                if (ob_get_length()) ob_clean();
+                switch_to_user($user_id);
+            } else {
+                throw new Web_Request_Exception('User switching not enabled.');
+            }
+            Usctdp_Mgmt_Logger::getLogger()->log_info("Redirecting to payment URL: " . $payment_url);
+            wp_redirect($payment_url);
+            exit;
+        } catch (Throwable $e) {
+            $trace = $e->getTraceAsString();
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
+            $user_message = $e->getMessage();
+            if (!($e instanceof Web_Request_Exception)) {
+                $user_message = 'A system error occurred. Please try again.';
+            }
+            $unique_token = bin2hex(random_bytes(8));
+            $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
+            $redirect_url = add_query_arg([
+                'usctdp_token' => $unique_token,
+            ], $this->get_redirect_url('usctdp-admin-register'));
+            $transient_data = [
+                'type' => 'error',
+                'message' => $user_message
+            ];
+
+            if (function_exists('WC') && isset(WC()->session)) {
+                WC()->session->destroy_session();
+            }
+
+            if (function_exists('restore_current_user')) {
+                restore_current_user();
+            }
+
+            set_transient($transient_key, $transient_data, 10);
+            wp_safe_redirect($redirect_url);
+            exit;
+        }
+    }
+
+    function registration_handler()
+    {
+        $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration'];
+        $nonce_name = $post_handler['nonce_name'];
+        $nonce_action = $post_handler['nonce_action'];
+        $unique_token = bin2hex(random_bytes(8));
+        $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
+
+        $transient_data = null;
+        $registration_id = null;
+        $activity_id = null;
+        $transaction_started = false;
+        $transaction_completed = false;
+        global $wpdb;
+
+        try {
+            if (!current_user_can('manage_options')) {
+                throw new Web_Request_Exception('You do not have permission to perform this action.');
+            }
+
+            if (!isset($_POST[$nonce_name]) || !wp_verify_nonce($_POST[$nonce_name], $nonce_action)) {
+                throw new Web_Request_Exception('Request verification failed.');
+            }
+
+            if (!isset($_POST['activity_id'])) {
+                throw new Web_Request_Exception('Activity ID not provided.');
+            }
+            if (!isset($_POST['student_id'])) {
+                throw new Web_Request_Exception('Student ID not provided.');
+            }
+
+            $activity_id = $_POST['activity_id'];
+            $student_id = $_POST['student_id'];
+            if (!is_numeric($activity_id)) {
+                throw new Web_Request_Exception('Activity ID is not a number.');
+            }
+            if (!is_numeric($student_id)) {
+                throw new Web_Request_Exception('Student ID is not a number.');
+            }
+
+            $student_level = null;
+            if (isset($_POST['student_level'])) {
+                if (!is_numeric($_POST['student_level'])) {
+                    throw new Web_Request_Exception('Student level is not a number.');
+                }
+                $student_level = (int) $_POST['student_level'];
+            }
+
+            $notes = '';
+            if (isset($_POST['notes'])) {
+                $notes = sanitize_textarea_field(stripslashes($_POST['notes']));
+            }
+
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+            $activity_row = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id = %d FOR UPDATE",
+                    $activity_id
+                )
+            );
+            if (!$activity_row) {
+                throw new Web_Request_Exception('Activity with ID ' . $activity_id . ' not found.');
+            }
+
+            $student_query = new Usctdp_Mgmt_Student_Query([
+                'id' => $student_id,
+                'number' => 1
+            ]);
+            if (empty($student_query->items)) {
+                throw new Web_Request_Exception('Student with ID ' . $student_id . ' not found.');
+            }
+            $student = $student_query->items[0];
+
+            if (empty($student_level)) {
+                $student_level = $student->level;
+            }
+
+            if ($this->is_student_enrolled($student->id, $activity_id)) {
+                throw new Web_Request_Exception('Student is already enrolled in this activity.');
+            }
+
+            $capacity = $this->get_activity_capacity($activity_id);
+            $registrations = $this->get_activity_registration_count($activity_id);
+            $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
+            if (!$ignore_full && $registrations >= $capacity) {
+                throw new Web_Request_Exception('Class is full.');
+            }
+
+            $registration_query = new Usctdp_Mgmt_Registration_Query([]);
+            $registration_id = $registration_query->add_item([
+                'activity_id' => $activity_id,
+                'student_id' => $student_id,
+                'student_level' => $student_level,
+                'created_at' => current_time('mysql'),
+                'created_by' => get_current_user_id(),
+                'last_modified_at' => current_time('mysql'),
+                'last_modified_by' => get_current_user_id(),
+                'credit' => 0,
+                'debit' => 0,
+                'notes' => $notes
+            ]);
+
+            if (!$registration_id) {
+                throw new Web_Request_Exception('Failed to create registration.');
+            }
+
+            $wpdb->query('COMMIT');
+            $transaction_completed = true;
+            $message = "Registration created successfully!";
+            $transient_data = [
+                'type' => 'success',
+                'message' => $message
+            ];
+        } catch (Throwable $e) {
+            $user_message = $e->getMessage();
+            if (!($e instanceof Web_Request_Exception)) {
+                $user_message = 'A system error occurred. Please try again.';
+            }
+            $transient_data = [
+                'type' => 'error',
+                'message' => $user_message
+            ];
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+        } finally {
+            if (!$transaction_completed) {
+                if ($transaction_started) {
+                    $wpdb->query('ROLLBACK');
+                }
+                if (!$transient_data) {
+                    $transient_data = [
+                        'type' => 'error',
+                        'message' => 'An unknown error occurred.'
+                    ];
+                }
+                $redirect_url = add_query_arg([
+                    'usctdp_token' => $unique_token,
+                ], $this->get_redirect_url('usctdp-admin-register'));
+            } else {
+                $redirect_url = add_query_arg([
+                    'activity_id' => $activity_id,
+                    'usctdp_token' => $unique_token,
+                ], $this->get_redirect_url('usctdp-admin-clinic-rosters'));
+            }
+            set_transient($transient_key, $transient_data, 10);
+            wp_safe_redirect($redirect_url);
+            exit;
+        }
     }
 }

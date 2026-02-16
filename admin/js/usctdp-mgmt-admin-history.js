@@ -506,7 +506,7 @@
                 <textarea 
                     rows=6,
                     id="note-field-${idx}" 
-                    class="notes-textarea" 
+                    class="notes-textarea"
                 >${existingNotes}</textarea>
                 <button class="button save-btn" id="save-btn-${idx}">
                     Save Notes
