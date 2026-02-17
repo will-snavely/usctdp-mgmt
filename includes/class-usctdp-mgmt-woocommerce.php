@@ -12,7 +12,9 @@
 class Usctdp_Mgmt_Woocommerce
 {
     private $hold_minutes = 10;
-    public function __construct() {}
+    public function __construct()
+    {
+    }
 
     private function load_context()
     {
@@ -25,7 +27,7 @@ class Usctdp_Mgmt_Woocommerce
 
     public function display_before_single_product()
     {
-?>
+        ?>
         <dialog id="new-student-modal">
             <form id="new-student-form" method="dialog">
                 <h2>Add New Student</h2>
@@ -50,12 +52,16 @@ class Usctdp_Mgmt_Woocommerce
                 </div>
             </form>
         </dialog>
-    <?php
+        <?php
     }
 
-    public function display_before_variations_form() {}
+    public function display_before_variations_form()
+    {
+    }
 
-    public function display_before_variations_table() {}
+    public function display_before_variations_table()
+    {
+    }
 
     public function display_after_variations_table()
     {
@@ -73,11 +79,13 @@ class Usctdp_Mgmt_Woocommerce
         }
     }
 
-    private function render_admin_shop_options() {}
+    private function render_admin_shop_options()
+    {
+    }
 
     private function render_user_shop_options($family)
     {
-    ?>
+        ?>
         <div id="usctdp-woocommerce-extra" class="force-hidden">
             <div id="usctdp-student-selector">
                 <div id="select_name_or_new">
@@ -94,14 +102,20 @@ class Usctdp_Mgmt_Woocommerce
             </div>
             <div id="usctdp-day-selectors"></div>
         </div>
-<?php
+        <?php
     }
 
-    public function display_before_cart_button() {}
+    public function display_before_cart_button()
+    {
+    }
 
-    public function display_after_cart_button() {}
+    public function display_after_cart_button()
+    {
+    }
 
-    public function display_after_variations_form() {}
+    public function display_after_variations_form()
+    {
+    }
 
     public function add_cart_item_data($cart_item_data, $product_id, $variation_id, $quantity)
     {
@@ -251,7 +265,9 @@ class Usctdp_Mgmt_Woocommerce
         }
     }
 
-    public function transfer_item_meta($item, $cart_item_key, $values, $order) {}
+    public function transfer_item_meta($item, $cart_item_key, $values, $order)
+    {
+    }
 
     /**
      * STEP 2: The Insertion (Happens after validation passes)

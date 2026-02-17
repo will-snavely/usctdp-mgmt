@@ -193,8 +193,11 @@ class Usctdp_Import_Session_Data
             $product->save();
 
             foreach ($sessions as $session_name => $pricing) {
-
                 foreach ($pricing as $day => $amt) {
+                    if (empty($amt)) {
+                        WP_CLI::log("No price for $session_name $day");
+                        continue;
+                    }
                     $variation = new WC_Product_Variation();
                     $variation->set_parent_id($woo_product_id);
                     $variation->set_attributes([
@@ -222,7 +225,17 @@ class Usctdp_Import_Session_Data
             $end_time = new DateTime($class['end_time']);
             $sessions = $this->sessions_by_category[$clinic_category->value];
 
+            $session_filter = null;
+            if (!empty($class["sessions"])) {
+                foreach (explode(",", $class["sessions"]) as $name) {
+                    $session_filter[] = $this->sessions_by_name[trim($name)];
+                }
+            }
+
             foreach ($sessions as $session_id) {
+                if (!empty($session_filter) && !in_array($session_id, $session_filter)) {
+                    continue;
+                }
                 $day_of_week = $this->get_day_integer($class['day']);
                 $title = Usctdp_Mgmt_Clinic_Table::create_title(
                     $clinic_name,
