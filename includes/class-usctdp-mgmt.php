@@ -198,6 +198,7 @@ class Usctdp_Mgmt
             $commerce_handler,
             'display_before_single_product',
         );
+
         $this->loader->add_filter(
             'woocommerce_add_cart_item_data',
             $commerce_handler,
@@ -219,7 +220,6 @@ class Usctdp_Mgmt
             10,
             4
         );
-
         $this->loader->add_action(
             'woocommerce_after_checkout_validation',
             $commerce_handler,
@@ -227,16 +227,6 @@ class Usctdp_Mgmt
             10,
             2
         );
-
-        $this->loader->add_action(
-            'woocommerce_checkout_create_order_line_item',
-            $commerce_handler,
-            'transfer_item_meta', // New function name for clarity
-            10,
-            4
-        );
-
-        // 2. Add this second hook to handle your custom database logic
         $this->loader->add_action(
             'woocommerce_store_api_checkout_order_processed',
             $commerce_handler,
@@ -244,13 +234,11 @@ class Usctdp_Mgmt
             10,
             1
         );
-
         $this->loader->add_action(
             'woocommerce_order_status_processing',
             $commerce_handler,
             'confirm_registration'
         );
-
         $this->loader->add_action(
             'woocommerce_payment_complete',
             $commerce_handler,

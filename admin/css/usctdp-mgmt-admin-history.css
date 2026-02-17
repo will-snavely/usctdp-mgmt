@@ -63,7 +63,7 @@
 
 .student-meta {
     font-size: 0.85rem;
-    color: #64748b;
+    color: #black;
     text-transform: uppercase;
     letter-spacing: 0.025em;
 }
@@ -86,12 +86,20 @@ table td {
     vertical-align: top !important;
 }
 
+.reg-history-table tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+.reg-history-table tbody tr:nth-child(even) {
+    background-color: #dae0e6 !important;
+}
+
 .activity-field label,
 .balance-field label {
     display: block;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: black;
     text-transform: uppercase;
     margin-bottom: 4px;
 }
@@ -99,7 +107,7 @@ table td {
 .activity-name {
     display: inline-block;
     background: #eff6ff;
-    color: #2563eb;
+    color: #black;
     padding: 4px 10px;
     border-radius: 6px;
     font-size: 0.9rem;
@@ -184,7 +192,7 @@ table td {
     display: block;
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #95a5a6;
+    color: #black;
     letter-spacing: 1px;
 }
 
@@ -192,7 +200,7 @@ table td {
     display: block;
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #95a5a6;
+    color: #black;
     letter-spacing: 1px;
 }
 

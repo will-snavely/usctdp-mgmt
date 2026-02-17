@@ -15,7 +15,7 @@
                         <select id="session-filter"></select>
                     </div>
                 </div>
-                <table id="history-table">
+                <table id="history-table" class="reg-history-table">
                     <thead>
                         <tr>
                             <th>Student</th>

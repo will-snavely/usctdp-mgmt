@@ -119,6 +119,7 @@ class Usctdp_Mgmt_Woocommerce
 
     public function add_cart_item_data($cart_item_data, $product_id, $variation_id, $quantity)
     {
+        error_log("Adding cart item data");
         if (isset($_POST['student_name'])) {
             $cart_item_data['student_name'] = $_POST['student_name'];
         }
@@ -190,6 +191,7 @@ class Usctdp_Mgmt_Woocommerce
 
     public function checkout_create_order_line_item($item, $cart_item_key, $values, $order)
     {
+        error_log("checkout_create_order_line_item");
         if (isset($values['student_name'])) {
             $student_query = new Usctdp_Mgmt_Student_Query([
                 'id' => $values['student_name'],
@@ -224,11 +226,16 @@ class Usctdp_Mgmt_Woocommerce
         global $wpdb;
         $registration_table = $wpdb->prefix . 'usctdp_registrations';
 
+        error_log("in validate_and_reserve_capacity");
         // Loop through cart to find class products
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            $student_id = null;
-            $day_1_id = null;
-            $day_2_id = null;
+        foreach (WC()->cart->get_cart() as $item) {
+            $student_id = $item->get_meta('student_id');
+            $day_1_id = $item->get_meta('day_1_id');
+            $day_2_id = $item->get_meta('day_2_id');
+
+            error_log("student id: " . $student_id);
+            error_log("day 1 id: " . $day_1_id);
+            error_log("day 2 id: " . $day_2_id);
 
             // START TRANSACTION
             $wpdb->query('START TRANSACTION');
@@ -265,20 +272,20 @@ class Usctdp_Mgmt_Woocommerce
         }
     }
 
-    public function transfer_item_meta($item, $cart_item_key, $values, $order)
-    {
-    }
-
     /**
      * STEP 2: The Insertion (Happens after validation passes)
      */
     public function create_pending_registration($order)
     {
-        error_log("Here");
+        error_log("creating registration");
         foreach ($order->get_items() as $item_id => $item) {
             $student_id = $item->get_meta('student_id');
             $day_1_id = $item->get_meta('day_1_id');
             $day_2_id = $item->get_meta('day_2_id');
+
+            error_log("student id: " . $student_id);
+            error_log("day 1 id: " . $day_1_id);
+            error_log("day 2 id: " . $day_2_id);
 
             if (empty($student_id)) {
                 continue;
