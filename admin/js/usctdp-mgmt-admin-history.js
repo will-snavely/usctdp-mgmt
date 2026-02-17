@@ -417,18 +417,9 @@
             const container = document.createElement('div');
             container.className = 'balance-details-wrap';
             container.id = `balance-details-wrap-${idx}`;
-            const total = data.registration_credit - data.registration_debit;
+            const total = data.registration_debit - data.registration_credit;
             container.innerHTML = `
-                <div class="credit-wrap balance-field">
-                    <label>Credit:</label>
-                    <span id="credit-amt-${idx}" class="view-mode">${data.registration_credit}</span>
-                    <input 
-                        id="credit-amt-input-${idx}" 
-                        class="edit-mode hidden"
-                        data-orig-value="${data.registration_credit}"
-                        data-orig-text="${data.registration_credit}"
-                        value="${data.registration_credit}">
-                </div>
+
                 <div class="debit-wrap balance-field">
                     <label>Debit:</label>
                     <span id="debit-amt-${idx}" class="view-mode">${data.registration_debit}</span>
@@ -438,6 +429,16 @@
                         data-orig-value="${data.registration_debit}"
                         data-orig-text="${data.registration_debit}"
                         value="${data.registration_debit}">
+                </div>
+                <div class="credit-wrap balance-field">
+                    <label>Credit:</label>
+                    <span id="credit-amt-${idx}" class="view-mode">${data.registration_credit}</span>
+                    <input 
+                        id="credit-amt-input-${idx}" 
+                        class="edit-mode hidden"
+                        data-orig-value="${data.registration_credit}"
+                        data-orig-text="${data.registration_credit}"
+                        value="${data.registration_credit}">
                 </div>
                 <div class="total-wrap balance-field">
                     <label>Total:</label>
@@ -484,7 +485,7 @@
                             $button.prop('disabled', false);
                             const debit = $('#debit-amt-input-' + idx).val();
                             const credit = $('#credit-amt-input-' + idx).val();
-                            const total = credit - debit;
+                            const total = debit - credit;
                             $('#total-amt-' + idx).text(total);
                             $('#balance-details-wrap-' + idx + ' .view-mode').removeClass('hidden');
                             $('#balance-details-wrap-' + idx + ' .edit-mode').addClass('hidden');

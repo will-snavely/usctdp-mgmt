@@ -86,7 +86,7 @@ $nonce_action = $post_handler["nonce_action"];
                 <input type="hidden" name="user_id" value="">
                 <div id="payment-method-field" class="checkout-field">
                     <label for="payment_method">Payment Method</label>
-                    <select name="payment_method" id="payment_method">
+                    <select name="payment_method" id="payment_method" autocomplete="off">
                         <option value="">Select...</option>
                         <option value="card">Card</option>
                         <option value="check">Check</option>
@@ -107,13 +107,14 @@ $nonce_action = $post_handler["nonce_action"];
                 </div>
 
                 <div id="submit-registration-button" class="hidden">
-                    <form
-                        action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
-                        method="post"
+                    <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post"
                         id="submit-registration-form">
                         <input type="hidden" name="action" value="<?php echo esc_attr($submit_hook); ?>">
                         <input type="hidden" id="submit_user_id" name="user_id" value="">
+                        <input type="hidden" id="submit_family_id" name="family_id" value="">
                         <input type="hidden" id="submit_payment_url" name="payment_url" value="">
+                        <input type="hidden" id="submit_order_url" name="order_url" value="">
+                        <input type="hidden" id="submit_pay_now" name="pay_now" value="">
                         <?php wp_nonce_field($nonce_action, $nonce_name); ?>
                         <div id="registration-submit-button-wrap">
                             <?php submit_button(

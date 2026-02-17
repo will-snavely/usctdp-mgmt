@@ -500,14 +500,38 @@
                     student_level: $row.data('student_level'),
                     family_id: $row.data('family_id'),
                     notes: $row.data('notes'),
-                    price: parseFloat($row.find('.price-input').val())
+                    credit: 0,
+                    debit: parseFloat($row.find('.price-input').val())
                 };
                 orderData.push(registration);
             });
             return orderData;
         }
 
-        async function createWooCommerceOrder() {
+        async function createRegistrations(orderData) {
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.commit_registrations_action,
+                        security: usctdp_mgmt_admin.commit_registrations_nonce,
+                        registration_data: orderData,
+                    }
+                });
+                if (response.success) {
+                    return response.data;
+                } else {
+                    throw new Error(response.data || 'PHP logic error');
+                }
+
+            } catch (error) {
+                console.error('Registration Commit Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
+        async function createWooCommerceOrder(orderData) {
             try {
                 const response = await $.ajax({
                     url: usctdp_mgmt_admin.ajax_url,
@@ -515,7 +539,7 @@
                     data: {
                         action: usctdp_mgmt_admin.create_woocommerce_order_action,
                         security: usctdp_mgmt_admin.create_woocommerce_order_nonce,
-                        order_data: getOrderData(),
+                        order_data: orderData,
                     }
                 });
 
@@ -527,6 +551,16 @@
 
             } catch (error) {
                 console.error('Order Creation Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
+        async function submitRegistrations(orderData) {
+            try {
+                await createRegistrations(orderData);
+                return await createWooCommerceOrder(orderData);
+            } catch (error) {
+                console.error('Sequence failed:', error);
                 throw error;
             }
         }
@@ -584,15 +618,22 @@
             const form = this;
             const $btn = $('#submit-registration-btn');
             $btn.prop('disabled', true).text('Processing...');
-            createWooCommerceOrder()
+
+            const orderData = getOrderData();
+            submitRegistrations(orderData)
                 .then(function (response) {
-                    console.log(response);
+                    const payment_method = $('#payment_method').val();
+                    $('#submit_pay_now').val("false");
+                    if (payment_method === 'card') {
+                        $('#submit_pay_now').val("true");
+                    }
                     $('#submit_user_id').val(response.user_id);
+                    $('#submit_family_id').val(response.family_id);
                     $('#submit_payment_url').val(response.payment_url);
+                    $('#submit_order_url').val(response.order_url);
                     form.submit();
                 })
                 .catch(function (error) {
-                    // 4. Re-enable the button if something goes wrong
                     console.error("Order creation failed:", error);
                     $btn.prop('disabled', false).text('Submit Registration');
                     alert('There was an error. Please try again.');
