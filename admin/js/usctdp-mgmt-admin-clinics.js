@@ -45,7 +45,15 @@
             initComplete: function () {
                 $('#usctdp-clinics-table').removeClass('hidden');
             },
-
+            autoWidth: false,
+            columnDefs: [
+                { width: "30%", targets: 0 }, // Clinic
+                { width: "20%", targets: 1 }, // Session
+                { width: "10%", targets: 2 }, // Day
+                { width: "10%", targets: 3 }, // Time
+                { width: "5%",  targets: 4 }, // Capacity
+                { width: "15%", targets: 6 }  // Actions
+            ],
             columns: [
                 { data: 'clinic_name' },
                 { data: 'session_name' },

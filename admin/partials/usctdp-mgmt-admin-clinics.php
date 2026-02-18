@@ -20,7 +20,7 @@
                             <th>Session</th>
                             <th>Day</th>
                             <th>Time</th>
-                            <th>Capacity</th>
+                            <th>Cap</th>
                             <th>Staff</th>
                             <th>Actions</th>
                         </tr>

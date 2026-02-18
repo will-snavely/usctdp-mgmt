@@ -62,10 +62,8 @@
                     title: preloadedData.student.family_name
                 }
                 contextData['family-selector'] = preloadedData.student.family_id;
-
                 $('#student-filter').prop('disabled', true);
                 $('#student-filter-section').addClass('hidden');
-
             }
         }
 
@@ -256,9 +254,6 @@
                     changedText[field.field] = getElementContent($('#' + field.input)).trim();
                 }
             }
-
-            console.log(changedData);
-            console.log(changedText);
 
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -535,7 +530,7 @@
                     d.family_id = familyId;
 
                     if (preloadedData.student) {
-                        d.student_id = preloadedData.student.id;
+                        d.student_id = preloadedData.student.student_id;
                     } else {
                         var studentFilterValue = $('#student-filter').val();
                         if (studentFilterValue) {
