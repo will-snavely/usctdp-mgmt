@@ -160,9 +160,8 @@ class Usctdp_Mgmt
         $this->loader->add_action("init", $model, "register_berlindb_entities");
     }
 
-    private function define_woocommerce_hooks()
+    private function define_product_page_display_hooks($commerce_handler)
     {
-        $commerce_handler = new Usctdp_Mgmt_Woocommerce();
         $this->loader->add_action(
             'woocommerce_before_variations_form',
             $commerce_handler,
@@ -198,6 +197,11 @@ class Usctdp_Mgmt
             $commerce_handler,
             'display_before_single_product',
         );
+    }
+    private function define_woocommerce_hooks()
+    {
+        $commerce_handler = new Usctdp_Mgmt_Woocommerce();
+        $this->define_product_page_display_hooks($commerce_handler);
 
         $this->loader->add_filter(
             'woocommerce_add_cart_item_data',
@@ -207,8 +211,16 @@ class Usctdp_Mgmt
             4
         );
         $this->loader->add_filter(
+            'woocommerce_get_item_data',
             $commerce_handler,
             'get_item_data',
+            10,
+            2
+        );
+        $this->loader->add_action(
+            'woocommerce_after_checkout_validation',
+            $commerce_handler,
+            'after_checkout_validation',
             10,
             2
         );
@@ -220,18 +232,11 @@ class Usctdp_Mgmt
             4
         );
         $this->loader->add_action(
-            'woocommerce_after_checkout_validation',
+            'woocommerce_checkout_order_processed',
             $commerce_handler,
-            'validate_and_reserve_capacity',
+            'checkout_order_processed',
             10,
-            2
-        );
-        $this->loader->add_action(
-            'woocommerce_checkout_create_order_line_item',
-            $commerce_handler,
-            'create_pending_registration',
-            10,
-            4
+            3
         );
         $this->loader->add_action(
             'woocommerce_order_status_processing',

@@ -104,7 +104,7 @@
     }
 
     function refreshStudentDropDown(initial_value = null) {
-      const $select = $('#student_name_select');
+      const $select = $('#student_select');
       $select.prop('disabled', true);
       fetch(siteData.root + 'usctdp-mgmt/v1/students/', {
         method: 'GET',
