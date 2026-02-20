@@ -207,7 +207,6 @@ class Usctdp_Mgmt
             4
         );
         $this->loader->add_filter(
-            'woocommerce_get_item_data',
             $commerce_handler,
             'get_item_data',
             10,
@@ -228,11 +227,11 @@ class Usctdp_Mgmt
             2
         );
         $this->loader->add_action(
-            'woocommerce_store_api_checkout_order_processed',
+            'woocommerce_checkout_create_order_line_item',
             $commerce_handler,
             'create_pending_registration',
             10,
-            1
+            4
         );
         $this->loader->add_action(
             'woocommerce_order_status_processing',

@@ -213,94 +213,136 @@ class Usctdp_Mgmt_Woocommerce
 
     private function get_class_capacity($activity_id)
     {
-        $activity_query = new Usctdp_Mgmt_Activity_Query([
-            'id' => $activity_id,
-            'number' => 1,
-        ]);
-        $activity = $activity_query->items[0];
         return $activity->capacity;
+    }
+
+
+    private function parse_cart_data($errors) {
+        $registrations = [];
+        $activities = [];
+        $students = [];
+        $cart_data_valid = true;
+
+        foreach (WC()->cart->get_cart() as $item) {
+            $student_id = $item->get_meta('student_id');
+            if(!isset($students[$student_id])) {
+                $student_query = new Usctdp_Mgmt_Student_Query([
+                    'id' => $student_id,
+                    'number' => 1,
+                ]);
+                if(empty($student_query->items)) {
+                    $errors->add('invalid_student', "$student_id is not a valid student id.");
+                    $cart_data_valid = false;
+                    continue;
+                }
+                $students[$student_id] = $student_query->items[0];
+            }
+ 
+            foreach([$day_1_id, $day_2_id] as $day) {
+                if(empty($day)) { 
+                    continue;
+                }
+                if(!isset($activities[$day])) {
+                    $activity_query = new Usctdp_Mgmt_Activity_Query([
+                        'id' => $activity_id,
+                        'number' => 1,
+                    ]);
+                    if(empty($activity_query->items)) {
+                        $errors->add('invalid_class', "$activity_id is not a valid activity id.");
+                        $cart_data_valid = false;
+                        continue;
+                    }
+                    $activities[$day] = $activity_query->items[0];
+                }
+
+                $registrations[] = [
+                    "student_id" => $student_id,
+                    "activity_id" => $day,
+                    "cart_item" => $item
+                ];
+            }
+        }
+
+        return [
+            "result": $cart_data_valid,
+            "registrations": $registrations,
+            "students": $students,
+            "activities": $activities
+        ];
     }
 
     public function validate_and_reserve_capacity($data, $errors)
     {
         global $wpdb;
-        $registration_table = $wpdb->prefix . 'usctdp_registrations';
-
         error_log("in validate_and_reserve_capacity");
-        // Loop through cart to find class products
-        foreach (WC()->cart->get_cart() as $item) {
-            $student_id = $item->get_meta('student_id');
-            $day_1_id = $item->get_meta('day_1_id');
-            $day_2_id = $item->get_meta('day_2_id');
+            
+        $registration_table = $wpdb->prefix . 'usctdp_registration';
+        $activity_table = $wpdb->prefix . 'usctdp_activity';
+        $cart_data_valid = true;
 
-            error_log("student id: " . $student_id);
-            error_log("day 1 id: " . $day_1_id);
-            error_log("day 2 id: " . $day_2_id);
+        $parsed_cart = $this->parse_cart_data($errors);
+        if(!$parsed_card["valid"]) {
+            return;
+        }
 
-            // START TRANSACTION
+        $registrations = $parsed_cart["registrations"];
+        $activities = $parsed_cart["activities"];
+        $students = $parsed_cart["students"];
+
+        $count_query_template = "
+            SELECT COUNT(*) FROM $registration_table 
+            WHERE activity_id = %d
+            AND (status = %d 
+            OR (status = %d AND created_at > NOW() - INTERVAL %d MINUTE))";
+
+        $activity_lock_template = "SELECT * FROM $activity_table WHERE id=%d FOR UPDATE";
+        $txn_started = false;
+        $txn_commited = false;
+        ksort($activities);
+
+        try {
             $wpdb->query('START TRANSACTION');
-            $count_query = "
-                SELECT COUNT(*) FROM $registration_table 
-                WHERE activity_id = %d
-                AND (status = 'confirmed' OR (status = 'pending' AND created_at > NOW() - INTERVAL %d MINUTE))
-                FOR UPDATE";
+            $txn_started = true;
 
-            foreach ([$day_1_id, $day_2_id] as $day_id) {
-                if ($day_id == null) {
-                    continue;
-                }
-                $activity_query = new Usctdp_Mgmt_Activity_Query([
-                    'id' => $day_id,
-                    'number' => 1,
-                ]);
-                $activity = $activity_query->items[0];
+            foreach($activities as $activity_id => $activity) {
+                $activity_lock = $wpdb->prepare($activity_lock_template, $activity_id);
+                $wpdb->get_row($activity_lock);
+            }
+
+            foreach($registrations as $reg) {
+                $student = $students[$reg["student_id"]];
+                $activity = $activities[$reg["activity_id"]];
                 $max_capacity = $activity->capacity;
-
-                // PESSIMISTIC LOCK: Count Confirmed + Recent Pendings
-                $current_count = $wpdb->get_var($wpdb->prepare($count_query, $day_id, $this->hold_minutes));
+                $count_query = $wpdb->prepare(
+                    $count_template,
+                    $item["activity_id"],
+                    Usctdp_Registration_Status::Confirmed->value,
+                    Usctdp_Registration_Status::Pending->value,
+                    $this->hold_minutes);
+                $current_count = $wpdb->get_var($count_query);
                 if ($current_count >= $max_capacity) {
                     $errors->add('out_of_stock', 'Sorry, "' . $activity->title . '" is currently full.');
-                    $wpdb->query('ROLLBACK');
-                    return;
+                    break;
                 }
-            }
 
-            // If we reach here, a spot is available. 
-            // We don't insert the row yet because we don't have the Order ID.
-            // But the lock is held until the end of this validation script.
-            $wpdb->query('COMMIT');
-        }
-    }
-
-    /**
-     * STEP 2: The Insertion (Happens after validation passes)
-     */
-    public function create_pending_registration($order)
-    {
-        error_log("creating registration");
-        foreach ($order->get_items() as $item_id => $item) {
-            $student_id = $item->get_meta('student_id');
-            $day_1_id = $item->get_meta('day_1_id');
-            $day_2_id = $item->get_meta('day_2_id');
-
-            error_log("student id: " . $student_id);
-            error_log("day 1 id: " . $day_1_id);
-            error_log("day 2 id: " . $day_2_id);
-
-            if (empty($student_id)) {
-                continue;
-            }
-
-            foreach ([$day_1_id, $day_2_id] as $day_id) {
-                if (empty($day_id)) {
-                    continue;
-                }
-                $query = new Usctdp_Mgmt_Registration_Query();
-                $result = $query->add_item([
-                    'activity_id' => $day_id,
+                $reg_query = new Usctdp_Mgmt_Registration_Query([
                     'student_id' => $student_id,
-                    'order_id' => $order->get_id(),
-                    'student_level' => '1',
+                    'activity_id' => $activity_id
+                ]);
+                if(!empty($reg_query->items)) {
+                    $name = $student->title;
+                    $class = $activity->title;
+                    $errors->add('already_enrolled', "$name is already enrolled in '$class'.");
+                    break;
+                }
+
+                $reg_query = new Usctdp_Mgmt_Registration_Query();
+                $result = $reg_query->add_item([
+                    $item["activity_id"],
+                    'activity_id' => $item["activity_id"],
+                    'student_id' => $item["student_id"],
+                    'order_id' => null,
+                    'student_level' => $student->level,
                     'credit' => 0,
                     'debit' => 0,
                     'status' => Usctdp_Registration_Status::Pending->value,
@@ -309,14 +351,36 @@ class Usctdp_Mgmt_Woocommerce
                     'last_modified_by' => get_current_user_id(),
                     'notes' => '',
                 ]);
-                error_log("query result: " . strval($result));
+                
+            }
+
+            $wpdb->query('COMMIT');
+            $txn_commited = true;
+        } catch(Throwable e) {
+            $errors->add("An unexpected error occurred during checkout.");
+        } finally {
+            if(!$txn_commited) {
+                $wpdb->query('ROLLBACK');
             }
         }
     }
 
-    /**
-     * STEP 3: The Confirmation (Payment received)
-     */
+    public function attach_order_to_registration($order)
+    {
+        error_log("creating registration");
+        foreach ($order->get_items() as $item_id => $item) {
+            $student_id = $item->get_meta('student_id');
+            $day_1_id = $item->get_meta('day_1_id');
+            $day_2_id = $item->get_meta('day_2_id');
+            foreach ([$day_1_id, $day_2_id] as $day_id) {
+                if (empty($day_id)) {
+                    continue;
+                }
+                $query = new Usctdp_Mgmt_Registration_Query();
+            }
+        }
+    }
+
     public function confirm_registration($order_id)
     {
         error_log("confirming " . strval($order_id));
