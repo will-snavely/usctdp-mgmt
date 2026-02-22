@@ -35,10 +35,9 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
-        'checkout_reference_id' => [
-            'name' => 'checkout_reference_id',
-            'type' => 'varchar',
-            'length' => '64',
+        'tracking_id' => [
+            'name' => 'tracking_id',
+            'type' => 'tinytext',
         ],
         'student_level' => [
             'name' => 'student_level',

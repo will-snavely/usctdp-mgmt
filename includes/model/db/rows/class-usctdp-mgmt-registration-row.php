@@ -15,7 +15,7 @@ class Usctdp_Mgmt_Registration_Row extends Row
         $this->activity_id = (int) $this->activity_id;
         $this->student_id = (int) $this->student_id;
         $this->order_id = (int) $this->order_id;
-        $this->checkout_reference_id = (string) $this->checkout_reference_id;
+        $this->tracking_id = (string) $this->tracking_id;
         $this->student_level = (string) $this->student_level;
         $this->credit = (int) $this->credit;
         $this->debit = (int) $this->debit;

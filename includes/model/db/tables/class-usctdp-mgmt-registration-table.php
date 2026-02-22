@@ -21,7 +21,7 @@ class Usctdp_Mgmt_Registration_Table extends Table
             activity_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned NOT NULL,
             order_id bigint(20) unsigned,
-            checkout_reference_id VARCHAR(64),
+            tracking_id tinytext,
             student_level tinytext,
             credit smallint unsigned,
             debit smallint unsigned,

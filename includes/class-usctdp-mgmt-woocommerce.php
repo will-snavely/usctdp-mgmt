@@ -1,5 +1,18 @@
 <?php
 
+class CheckoutException extends Exception {
+    private string $slug;
+
+    public function __construct($message, $slug, $code = 0, ?Throwable $previous = null) {
+        $this->slug = $slug;
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function getSlug(): string {
+        return $this->slug;
+    }
+}
+
 /**
  * The commerce-specific functionality of the plugin.
  *
@@ -121,9 +134,6 @@ class Usctdp_Mgmt_Woocommerce
 
     public function add_cart_item_data($cart_item_data, $product_id, $variation_id, $quantity)
     {
-        error_log("add_cart_item_data");
-        error_log("product_id: " . strval($product_id));
-        error_log("variation_id: " . strval($variation_id));
         $activities = [];
         if (isset($_POST['student_id'])) {
             $cart_item_data['student_id'] = $_POST['student_id'];
@@ -137,12 +147,12 @@ class Usctdp_Mgmt_Woocommerce
             $cart_item_data['day_of_week_2'] = $_POST['day_of_week_2'];
         }
         $cart_item_data['activities'] = $activities;
+        $cart_item_data['tracking_id'] = uniqid("usctdp_", true);
         return $cart_item_data;
     }
 
     public function get_item_data($item_data, $cart_item)
     {
-        error_log("get_item_data");
         if (isset($cart_item['student_id'])) {
             $student_query = new Usctdp_Mgmt_Student_Query([
                 'id' => $cart_item['student_id'],
@@ -177,14 +187,16 @@ class Usctdp_Mgmt_Woocommerce
     private function parse_cart_data($errors)
     {
         $registrations = [];
-        $activities = [];
-        $students = [];
+        $all_activities = [];
+        $all_students = [];
         $cart_data_valid = true;
 
         foreach (WC()->cart->get_cart() as $item) {
-            $student_id = $item->get_meta('student_id');
-            $activities = $item->get_meta('activities');
-            if (!isset($students[$student_id])) {
+            $tracking_id = $item['tracking_id'];
+            $student_id = $item['student_id'];
+            $item_activities = $item['activities'];
+
+            if (!isset($all_students[$student_id])) {
                 $student_query = new Usctdp_Mgmt_Student_Query([
                     'id' => $student_id,
                     'number' => 1,
@@ -194,14 +206,14 @@ class Usctdp_Mgmt_Woocommerce
                     $cart_data_valid = false;
                     continue;
                 }
-                $students[$student_id] = $student_query->items[0];
+                $all_students[$student_id] = $student_query->items[0];
             }
 
-            foreach ($activities as $activity_id) {
+            foreach ($item_activities as $activity_id) {
                 if (empty($activity_id)) {
                     continue;
                 }
-                if (!isset($activities[$activity_id])) {
+                if (!isset($all_activities[$activity_id])) {
                     $activity_query = new Usctdp_Mgmt_Activity_Query([
                         'id' => $activity_id,
                         'number' => 1,
@@ -211,12 +223,13 @@ class Usctdp_Mgmt_Woocommerce
                         $cart_data_valid = false;
                         continue;
                     }
-                    $activities[$activity_id] = $activity_query->items[0];
+                    $all_activities[$activity_id] = $activity_query->items[0];
                 }
 
                 $registrations[] = [
                     "student_id" => $student_id,
                     "activity_id" => $activity_id,
+                    "tracking_id" => $tracking_id,
                     "cart_item" => $item
                 ];
             }
@@ -225,8 +238,8 @@ class Usctdp_Mgmt_Woocommerce
         return [
             "result" => $cart_data_valid,
             "registrations" => $registrations,
-            "students" => $students,
-            "activities" => $activities
+            "students" => $all_students,
+            "activities" => $all_activities
         ];
     }
 
@@ -234,33 +247,31 @@ class Usctdp_Mgmt_Woocommerce
     {
         global $wpdb;
         error_log("after_checkout_validation");
-
-        $parsed_cart = $this->parse_cart_data($errors);
-        if (!$parsed_cart["result"]) {
-            return;
-        }
-
-        $registrations = $parsed_cart["registrations"];
-        $activities = $parsed_cart["activities"];
-        $students = $parsed_cart["students"];
-
+        
         $registration_table = $wpdb->prefix . 'usctdp_registration';
         $activity_table = $wpdb->prefix . 'usctdp_activity';
-        $txn_started = false;
-        $txn_commited = false;
-
         $count_query_template = "
             SELECT COUNT(*) FROM $registration_table 
             WHERE activity_id = %d
             AND (status = %d 
             OR (status = %d AND created_at > NOW() - INTERVAL %d MINUTE))";
-
         $activity_lock_template = "SELECT * FROM $activity_table WHERE id=%d FOR UPDATE";
-
-        // We need to lock the activities in order to prevent race conditions
-        ksort($activities);
+        $txn_started = false;
+        $txn_commited = false;
 
         try {
+            $parsed_cart = $this->parse_cart_data($errors);
+            if (!$parsed_cart["result"]) {
+                return;
+            }
+
+            $registrations = $parsed_cart["registrations"];
+            $activities = $parsed_cart["activities"];
+            $students = $parsed_cart["students"];
+
+            // We need to lock the activities in order to prevent race conditions
+            ksort($activities);
+
             $wpdb->query('START TRANSACTION');
             $txn_started = true;
 
@@ -273,6 +284,28 @@ class Usctdp_Mgmt_Woocommerce
                 $cart_item = $reg["cart_item"];
                 $student = $students[$reg["student_id"]];
                 $activity = $activities[$reg["activity_id"]];
+                $already_reserved = false;
+
+                $reg_query = new Usctdp_Mgmt_Registration_Query([
+                    'student_id' => $reg["student_id"],
+                    'activity_id' => $reg["activity_id"],
+                    'number' => 1
+                ]);
+                if (!empty($reg_query->items)) {
+                    $existing_reg = $reg_query->items[0];
+                    if($existing_reg->tracking_id !== $reg["tracking_id"]) {
+                        $name = $student->title;
+                        $class = $activity->title;
+                        $msg = "$name is already enrolled in '$class'.";
+                        throw new CheckoutException($msg, 'already_enrolled');
+                    } else {
+                        $already_reserved = true;
+                    }
+                } 
+            
+                if($already_reserved) {
+                    continue;
+                }
 
                 $max_capacity = $activity->capacity;
                 $count_query = $wpdb->prepare(
@@ -284,47 +317,45 @@ class Usctdp_Mgmt_Woocommerce
                 );
                 $current_count = $wpdb->get_var($count_query);
                 if ($current_count >= $max_capacity) {
-                    $errors->add('out_of_stock', 'Sorry, "' . $activity->title . '" is currently full.');
-                    throw new Exception('out_of_stock');
+                    $msg = $activity->title . " is currently full.";
+                    throw new CheckoutException($msg, 'out_of_stock');
                 }
 
-                $reg_query = new Usctdp_Mgmt_Registration_Query([
-                    'student_id' => $reg["student_id"],
-                    'activity_id' => $reg["activity_id"]
-                ]);
-                if (!empty($reg_query->items)) {
-                    $name = $student->title;
-                    $class = $activity->title;
-                    $errors->add('already_enrolled', "$name is already enrolled in '$class'.");
-                    throw new Exception('already_enrolled');
-                }
-
+                $current_time = current_time('mysql');
                 $reg_query = new Usctdp_Mgmt_Registration_Query();
                 $result = $reg_query->add_item([
                     'activity_id' => $reg["activity_id"],
                     'student_id' => $reg["student_id"],
-                    'order_id' => null, // No order exists yet
-                    'checkout_reference_id' => WC()->session->get_customer_id(),
+                    'tracking_id' => $reg["tracking_id"],
                     'student_level' => $student->level,
                     'credit' => 0,
                     'debit' => 0,
                     'status' => Usctdp_Registration_Status::Pending->value,
-                    'created_at' => current_time('mysql'),
-                    'last_modified_at' => current_time('mysql'),
+                    'created_at' => $current_time,
+                    'created_by' => get_current_user_id(),
+                    'last_modified_at' => $current_time,
                     'last_modified_by' => get_current_user_id(),
                     'notes' => '',
                 ]);
                 if (!$result) {
-                    $errors->add('registration_failed', 'Sorry, an error occurred while enrolling you in the class.');
-                    throw new Exception('registration_failed');
+                    $msg = "An error occurred while creating the reservation ";
+                    $msg .= " for " . $activity->title . ".";
+                    $msg .= " Try again or contact the office.";
+                    throw new CheckoutException($msg, 'reservation_failed');
                 }
             }
             $wpdb->query('COMMIT');
             $txn_commited = true;
-        } catch (Throwable $e) {
+        } catch (CheckoutException $ce) {
+            $errors->add($ce->getSlug(), $ce->getMessage()); 
             Usctdp_Mgmt_Logger::getLogger()->log_error(
-                'USCTDP: Error validating and reserving capacity: ' . $e->getMessage()
+                'USCTDP: Error validating and reserving capacity: ' . $ce->getMessage()
             );
+        } catch (Throwable $e) {
+            $msg = 'A system error occurred while checking out. Please contact the office.';
+            $errors->add('system-error', $msg); 
+            $trace = $e->getTraceAsString();
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
         } finally {
             if ($txn_started && !$txn_commited) {
                 $wpdb->query('ROLLBACK');
@@ -334,46 +365,42 @@ class Usctdp_Mgmt_Woocommerce
 
     public function checkout_create_order_line_item($item, $cart_item_key, $values, $order)
     {
-        error_log("checkout_create_order_line_item");
         if (isset($values['student_id'])) {
             $student_query = new Usctdp_Mgmt_Student_Query([
                 'id' => $values['student_id'],
                 'number' => 1,
             ]);
             $student = $student_query->items[0];
-            $item->add_meta_data('student_id', $values['student_id']);
+            $item->add_meta_data('_student_id', $values['student_id']);
             $item->add_meta_data('Student Name', $student->title);
         }
         if (isset($values['day_of_week_1'])) {
-            $item->add_meta_data('day_1_id', $values['day_of_week_1']);
+            $item->add_meta_data('_day_1_id', $values['day_of_week_1']);
             $item->add_meta_data('Day 1', $this->get_clinic_display($values['day_of_week_1']));
         }
         if (isset($values['day_of_week_2'])) {
-            $item->add_meta_data('day_2_id', $values['day_of_week_2']);
+            $item->add_meta_data('_day_2_id', $values['day_of_week_2']);
             $item->add_meta_data('Day 2', $this->get_clinic_display($values['day_of_week_2']));
         }
-        $item->add_meta_data('activities', $values['activities']);
+        $item->add_meta_data('_activities', $values['activities']);
     }
 
     public function checkout_order_processed($order_id, $data, $order)
     {
-        error_log("checkout_order_processed");
-        error_log("order_id: " . strval($order_id));
         foreach ($order->get_items() as $item_id => $item) {
-            $student_id = $item->get_meta('student_id');
-            $activities = $item->get_meta('activities');
+            $student_id = $item->get_meta('_student_id');
+            $activities = $item->get_meta('_activities');
             foreach ($activities as $activity_id) {
                 $query = new Usctdp_Mgmt_Registration_Query([
                     'student_id' => $student_id,
                     'activity_id' => $activity_id,
-                    'checkout_reference_id' => WC()->session->get_customer_id(),
                 ]);
-                if (empty($query->items)) {
-                    error_log("No registration found for student " . strval($student_id) . " and activity " . strval($activity_id));
-                } else {
+                if (!empty($query->items)) {
                     $query->update_item($query->items[0]->id, [
                         'order_id' => $order_id,
                     ]);
+                } else {
+
                 }
             }
         }
@@ -381,7 +408,6 @@ class Usctdp_Mgmt_Woocommerce
 
     public function confirm_registration($order_id)
     {
-        error_log("confirming " . strval($order_id));
         $query = new Usctdp_Mgmt_Registration_Query([
             'order_id' => $order_id,
             'status' => Usctdp_Registration_Status::Pending->value,
