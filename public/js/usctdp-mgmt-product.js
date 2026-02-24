@@ -71,6 +71,7 @@
       var selector = $('<select></select>');
       selector.attr('name', 'day_of_week_' + day_index);
       selector.attr('id', 'day_of_week_' + day_index);
+      selector.prop('required', true);
       selector.append('<option value=""></option>');
       clinics.forEach(function (clinic) {
         var dowStr = int_to_day[clinic.day_of_week];
@@ -104,7 +105,7 @@
     }
 
     function refreshStudentDropDown(initial_value = null) {
-      const $select = $('#student_name_select');
+      const $select = $('#student_select');
       $select.prop('disabled', true);
       fetch(siteData.root + 'usctdp-mgmt/v1/students/', {
         method: 'GET',
