@@ -331,3 +331,13 @@ table td {
 .balance-green {
     background: #aff39c;
 }
+
+.save-notes-btn {
+    width: 100px;
+}
+
+.notes-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}

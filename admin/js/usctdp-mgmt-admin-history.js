@@ -540,21 +540,53 @@
         function createNotesEditor(data, idx) {
             const container = document.createElement('div');
             container.className = 'notes-container';
-
-            // Extract existing notes or provide an empty string
             const existingNotes = data.registration_notes || "";
-
             container.innerHTML = `
                 <textarea 
-                    rows=6,
+                    rows=6
                     id="note-field-${idx}" 
-                    class="notes-textarea"
-                >${existingNotes}</textarea>
-                <button class="button save-btn" id="save-btn-${idx}">
-                    Save Notes
-                </button>
+                    class="notes-textarea">${existingNotes}</textarea>
+                <div class="notes-actions">
+                    <button class="button save-btn save-notes-btn" id="save-notes-btn-${idx}">
+                        Save Notes
+                    </button>
+                    <div id="save-notes-status-${idx}" class="notes-status">
+                        <span id="save-notes-success-${idx}" class="hidden success">
+                            Notes Saved!
+                        </span>
+                    </div>
+                </div>
             `;
 
+            container.querySelector(`#save-notes-btn-${idx}`).addEventListener('click', () => {
+                const $button = $(`#save-notes-btn-${idx}`);
+                $button.prop('disabled', true);
+                $button.text("Saving...");
+                $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: usctdp_mgmt_admin.save_registration_fields_action,
+                        security: usctdp_mgmt_admin.save_registration_fields_nonce,
+                        id: data.registration_id,
+                        notes: $('#note-field-' + idx).val()
+                    },
+                    success: function (response) {
+                        $(`#save-notes-success-${idx}`).removeClass('hidden');
+                        setTimeout(() => {
+                            $(`#save-notes-success-${idx}`).addClass('hidden');
+                        }, 3000);
+                    },
+                    error: function (error) {
+                        alert("Update failed!");
+                    },
+                    complete: function () {
+                        $button.prop('disabled', false);
+                        $button.text("Save Notes");
+                    }
+                });
+            });
             return container;
         }
 
@@ -588,6 +620,12 @@
                     var sessionFilterValue = $('#session-filter').val();
                     if (sessionFilterValue) {
                         d.session_id = sessionFilterValue;
+                    }
+
+                    if ($('#owes-filter').is(':checked')) {
+                        d.owes = 1;
+                    } else {
+                        d.owes = 0;
                     }
                 }
             },
@@ -650,6 +688,9 @@
                     $first_row.after(filter_row);
                     $('#table-filters').appendTo('#table-filter-row');
                     $('#session-filter, #student-filter').on('change', function () {
+                        historyTable.ajax.reload();
+                    });
+                    $("#owes-filter").on('change', function () {
                         historyTable.ajax.reload();
                     });
                 }

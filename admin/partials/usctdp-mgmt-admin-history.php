@@ -22,6 +22,10 @@
                         <label for="session-filter">Filter by Session:</label>
                         <select id="session-filter"></select>
                     </div>
+                    <div id="owes-filter-section" class="dt-layout-cell dt-layout-start">
+                        <label for="owes-filter">Owes Money:</label>
+                        <input type="checkbox" id="owes-filter" name="owes-filter" value="1">
+                    </div>
                 </div>
                 <table id="history-table" class="reg-history-table">
                     <thead>

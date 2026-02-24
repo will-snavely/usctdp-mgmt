@@ -43,6 +43,9 @@ class Usctdp_Mgmt_Registration_Query extends Query
             $conditions[] = "reg.student_id = %d";
             $where_args[] = $args['student_id'];
         }
+        if (isset($args["owes"])) {
+            $conditions[] = "reg.debit > reg.credit";
+        }
         if ($conditions) {
             $where_clause = "WHERE " . implode(" AND ", $conditions);
         }
