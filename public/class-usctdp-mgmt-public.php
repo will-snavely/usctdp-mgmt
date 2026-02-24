@@ -192,7 +192,8 @@ class Usctdp_Mgmt_Public
         );
 
         $registration_query = $wpdb->prepare(
-            "SELECT act.id, COUNT(reg.id) as enrolled_count FROM $activity_table as act
+            "SELECT act.id, COUNT(reg.id) as enrolled_count 
+            FROM $activity_table as act
             JOIN $clinic_table as clin ON act.id = clin.activity_id
             LEFT JOIN $registration_table as reg ON act.id = reg.activity_id
             WHERE act.session_id = %d AND act.product_id = %d
@@ -207,11 +208,14 @@ class Usctdp_Mgmt_Public
         foreach ($registration_results as $registration) {
             $registration_map[$registration->id] = $registration->enrolled_count;
         }
-        foreach ($clinic_results as $clinic) {
+
+        foreach ($clinic_results as &$clinic) {
             $clinic->enrolled_count = 0;
             if (isset($registration_map[$clinic->id])) {
-                $clinic->enrolled_count = $registration_map[$clinic->id];
+                $clinic->enrolled_count = (int) $registration_map[$clinic->id];
             }
+            $clinic->capacity = (int) $clinic->capacity;
+            $clinic->type = (int) $clinic->type;
         }
         return $clinic_results;
     }
