@@ -270,3 +270,64 @@ table td {
 .action-btn .icon {
     font-size: 1.1rem;
 }
+
+#family-balance {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    /* Space between the label/value pairs */
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    font-family: sans-serif;
+    border: 1px solid #eee;
+    width: fit-content;
+}
+
+/* Style the labels to be slightly smaller and muted */
+#family-balance label {
+    font-weight: 600;
+    color: #666;
+    margin-right: 8px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+/* Style the spans (the dollar amounts) */
+#family-balance span {
+    font-weight: 700;
+    color: #333;
+    font-size: 1.1rem;
+}
+
+#family-total-credit {
+    color: #000000;
+    padding: 4px 8px;
+    background: #aff39c;
+    border-radius: 4px;
+}
+
+
+#family-total-debit {
+    color: #000000;
+    padding: 4px 8px;
+    background: #f7adad;
+    border-radius: 4px;
+}
+
+
+/* Optional: Color coding the balance */
+#family-total-balance {
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #000000;
+}
+
+.balance-red {
+    background: #f7adad;
+}
+
+.balance-green {
+    background: #aff39c;
+}

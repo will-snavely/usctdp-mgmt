@@ -24,6 +24,41 @@
                 </div>`;
         }
 
+        function formatUsd(amount) {
+            if (amount === null) {
+                amount = 0;
+            }
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        }
+
+        function refreshFamilyBalance(family_id, student_id) {
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.get_family_balance_action,
+                    security: usctdp_mgmt_admin.get_family_balance_nonce,
+                    family_id: family_id,
+                    student_id: student_id
+                },
+                success: function (response) {
+                    $('#family-total-debit').text(formatUsd(response.data.total_debits));
+                    $('#family-total-credit').text(formatUsd(response.data.total_credits));
+                    $('#family-total-balance').text(formatUsd(response.data.balance));
+                    if (response.data.balance >= 0) {
+                        $('#family-total-balance').addClass('balance-red');
+                        $('#family-total-balance').removeClass('balance-green');
+                    } else {
+                        $('#family-total-balance').addClass('balance-green');
+                        $('#family-total-balance').removeClass('balance-red');
+                    }
+                }
+            });
+        }
+
         function defaultSelect2Options(placeholder, action, nonce, filter = function () { return {} }) {
             return {
                 placeholder: placeholder,
@@ -153,7 +188,11 @@
                 if (family) {
                     $('#session-filter').val(null).trigger('change');
                     $('#student-filter').val(null).trigger('change');
-                    load_registration_history();
+                    load_registration_history(
+                        $('#family-selector').find('option:selected').text(),
+                        $('#family-selector').val(),
+                        $('#student-filter').val()
+                    );
                 } else {
                     $('#session-filter').val(null).trigger('change');
                     $('#student-filter').val(null).trigger('change');
@@ -481,6 +520,13 @@
                             const debit = $('#debit-amt-input-' + idx).val();
                             const credit = $('#credit-amt-input-' + idx).val();
                             const total = debit - credit;
+
+                            const family_id = $('#family-selector').val();
+                            var student_id = null;
+                            if (preloadedData.student) {
+                                student_id = preloadedData.student.student_id;
+                            }
+                            refreshFamilyBalance(family_id, student_id);
                             $('#total-amt-' + idx).text(total);
                             $('#balance-details-wrap-' + idx + ' .view-mode').removeClass('hidden');
                             $('#balance-details-wrap-' + idx + ' .edit-mode').addClass('hidden');
@@ -517,6 +563,7 @@
             serverSide: true,
             ordering: false,
             paging: true,
+            searching: false,
             info: true,
             deferLoading: 0,
 
@@ -650,18 +697,29 @@
             }
         });
 
-        function load_registration_history(title) {
+        function load_registration_history(title, family_id, student_id) {
             historyTable.ajax.reload();
+            refreshFamilyBalance(family_id, student_id);
             $('#family-name').text(title);
             $('#history-container').removeClass('hidden');
         }
 
         if (preloadedData.student) {
             $('#context-selectors').addClass('hidden');
-            load_registration_history(preloadedData.student.student_name);
+            console.log(preloadedData.student);
+            load_registration_history(
+                preloadedData.student.student_name,
+                preloadedData.student.family_id,
+                preloadedData.student.student_id
+            );
         } else if (preloadedData.family) {
             $('#context-selectors').addClass('hidden');
-            load_registration_history(preloadedData.family.title);
+            console.log(preloadedData.family);
+            load_registration_history(
+                preloadedData.family.title,
+                preloadedData.family.id,
+                null
+            );
         }
     });
 })(jQuery);

@@ -121,6 +121,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'save_family_fields_nonce',
             'callback' => 'ajax_save_family_fields'
         ],
+        'get_family_balance' => [
+            'action' => 'get_family_balance',
+            'nonce' => 'get_family_balance_nonce',
+            'callback' => 'ajax_get_family_balance'
+        ],
         'create_family' => [
             'action' => 'create_family',
             'nonce' => 'create_family_nonce',
@@ -604,6 +609,7 @@ class Usctdp_Mgmt_Admin
             'select2_activity_search',
             'registration_history_datatable',
             'save_registration_fields',
+            'get_family_balance',
         ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
@@ -912,6 +918,52 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('An unexpected server error occurred during Family update.', 500);
         }
         $this->save_entity_fields_from_post('Family', 'Usctdp_Mgmt_Family_Query', $post_fields_sanitizers);
+    }
+
+    function ajax_get_family_balance()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['get_family_balance'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        try {
+            $family_id = $this->get_sanitized_post_field_int('family_id');
+            $conditions = [];
+            $args = [];
+            if ($family_id === null || $family_id === 0) {
+                wp_send_json_error('Family ID is required.', 400);
+            }
+            $conditions[] = "stu.family_id = %d";
+            $args[] = $family_id;
+
+            $student_id = $this->get_sanitized_post_field_int('student_id');
+            if ($student_id !== null && $student_id !== 0) {
+                $conditions[] = "reg.student_id = %d";
+                $args[] = $student_id;
+            }
+
+            global $wpdb;
+            $query = $wpdb->prepare(
+                "   SELECT
+                    SUM(credit) as total_credits,
+                    SUM(debit) as total_debits
+                FROM {$wpdb->prefix}usctdp_registration AS reg
+                JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id
+                WHERE " . implode(' AND ', $conditions),
+                $args
+            );
+            $results = $wpdb->get_row($query);
+            wp_send_json_success([
+                'total_credits' => $results->total_credits,
+                'total_debits' => $results->total_debits,
+                'balance' => $results->total_debits - $results->total_credits
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error getting family balance: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            wp_send_json_error('An unexpected server error occurred during family balance retrieval.', 500);
+        }
     }
 
     function get_sanitized_post_field_text($field)

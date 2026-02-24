@@ -4,6 +4,14 @@
         <div id="context-selectors"></div>
         <div id="history-container" class="hidden">
             <h2>Registration History for <span id="family-name"></span></h2>
+            <div id="family-balance">
+                <label for="family-total-debit">Debit:</label>
+                <span id="family-total-debit"></span>
+                <label for="family-total-credit">Credit:</label>
+                <span id="family-total-credit"></span>
+                <label for="family-total-balance">Balance:</label>
+                <span id="family-total-balance"></span>
+            </div>
             <div id="history-table-wrap">
                 <div id="table-filters">
                     <div id="student-filter-section" class="dt-layout-cell dt-layout-start">
