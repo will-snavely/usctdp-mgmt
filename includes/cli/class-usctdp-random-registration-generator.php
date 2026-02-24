@@ -8,7 +8,7 @@ class Usctdp_Random_Registration_Generator
     {
         global $wpdb;
         $this->student_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}usctdp_student");
-        $this->class_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}usctdp_clinic_class");
+        $this->class_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}usctdp_activity");
     }
 
     private function random_student()
@@ -22,7 +22,7 @@ class Usctdp_Random_Registration_Generator
     {
         global $wpdb;
         $offset = rand(0, $this->class_count - 1);
-        return $wpdb->get_row("SELECT * FROM {$wpdb->prefix}usctdp_clinic_class LIMIT 1 OFFSET $offset");
+        return $wpdb->get_row("SELECT * FROM {$wpdb->prefix}usctdp_activity LIMIT 1 OFFSET $offset");
     }
 
     private function generate_registrations($count, $chance_unpaid)
@@ -49,37 +49,27 @@ class Usctdp_Random_Registration_Generator
             $student_level = $student->level;
             $balance = 0;
             $cost = rand(100, 300);
-            $paid = true;
+            $credit = $cost;
             if (rand(1, 100) <= $chance_unpaid) {
                 $balance = $cost;
-                $paid = false;
+                $credit -= rand(0, $cost - 1);
             }
             $reg_query = new Usctdp_Mgmt_Registration_Query();
             $registration_id = $reg_query->add_item([
                 'activity_id' => $class->id,
                 'student_id' => $student->id,
                 'student_level' => $student_level,
+                'debit' => $cost,
+                'credit' => $credit,
                 'balance' => $balance,
-                'notes' => ''
+                'notes' => '',
+                'status' => Usctdp_Registration_Status::Confirmed->value,
+                'created_at' => current_time('mysql'),
+                'created_by' => get_current_user_id(),
+                'last_modified_at' => current_time('mysql'),
+                'last_modified_by' => get_current_user_id()
             ]);
 
-            if ($paid) {
-                $txn_query = new Usctdp_Mgmt_Transaction_Query();
-                $txn_id = $txn_query->add_item([
-                    'family_id' => $student->family_id,
-                    'kind' => 1,
-                    'method' => 4,
-                    'amount' => $cost,
-                    'paypal_transaction_id' => 'fake_paypal_id',
-                    'student_level' => $student_level,
-                    'balance' => $balance,
-                ]);
-                $link_query = new Usctdp_Mgmt_Transaction_Link_Query();
-                $link_id = $link_query->add_item([
-                    'transaction_id' => $txn_id,
-                    'registration_id' => $registration_id
-                ]);
-            }
             $i++;
             $result[] = [
                 "id" => $registration_id
