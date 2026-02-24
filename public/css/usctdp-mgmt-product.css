@@ -31,12 +31,12 @@
     grid-area: lab;
 }
 
-#student_select_wrapper {
+#student_name_select_wrapper {
     grid-area: sel;
     width: 100%;
 }
 
-#student_select {
+#student_name_select {
     width: 100%;
 }
 

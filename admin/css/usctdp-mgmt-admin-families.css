@@ -4,42 +4,50 @@
     gap: 20px;
 }
 
-#family-selector {
-    width: 250px;
-}
-
-.family-details {
+#selection-section {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-#family-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+#family-selector {
+    width: 250px;
+}
+
+#family-details {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
-    grid-auto-flow: row;
-    grid-template-areas:
-        "fd fn fn fn fn fn"
-        "fd fn fn fn fn fn"
-        "fr fr fr fr fr fr"
-        "fm fm fm fm fm fm";
 }
 
-.family-details {
-    grid-area: fd;
+.view-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
-.family-notes {
-    grid-area: fn;
+#family-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.family-registrations {
-    grid-area: fr;
+#family-properties {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
 }
 
-.family-members {
-    grid-area: fm;
+#family-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#family-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 div.dt-length select {
@@ -79,7 +87,6 @@ label {
     font-size: 1rem;
     color: #333;
     min-height: 1.2em;
-    /* Prevents collapse if empty */
 }
 
 #family-notes-wrap {
@@ -88,17 +95,20 @@ label {
     align-items: flex-start;
     margin-top: 5px;
     gap: 10px;
-    width: 100%;
-    max-width: 500px;
 }
 
-#family-notes-wrap textarea {
-    width: 100%;
+#family-notes {
+    width: 400px;
 }
 
-.family-actions {
+#family-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+}
+
+#family-actions-list {
+    display: flex;
+    flex-direction: column;
     gap: 5px;
 }
 
@@ -106,6 +116,10 @@ label {
     display: flex;
     gap: 10px;
     align-items: center;
+}
+
+#edit-family-button {
+    width: 80px;
 }
 
 @keyframes loading-pulse {
@@ -133,4 +147,83 @@ label {
 .is-loading {
     cursor: wait;
     pointer-events: none;
+}
+
+/* The Modal Container */
+dialog {
+    border: none;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    background-color: #ffffff;
+    margin: auto;
+    position: fixed;
+    inset: 0;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* Heading Styling */
+dialog h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    color: #333;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+/* Label Styling */
+dialog label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+dialog input {
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+dialog form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+dialog .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+dialog .modal_field {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+        "lab sel";
+    gap: 5px;
+}
+
+dialog .modal_field label {
+    grid-area: lab;
+    justify-self: end;
+    align-self: center;
+    text-align: right;
+    margin-right: 5px;
+}
+
+dialog .modal_field input {
+    grid-area: sel;
+    width: 100%;
 }

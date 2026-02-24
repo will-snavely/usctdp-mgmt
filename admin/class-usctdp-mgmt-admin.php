@@ -23,9 +23,7 @@ use Google\Client;
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
-class Web_Request_Exception extends Exception
-{
-}
+class Web_Request_Exception extends Exception {}
 
 class Usctdp_Mgmt_Admin
 {
@@ -123,6 +121,16 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'save_family_fields_nonce',
             'callback' => 'ajax_save_family_fields'
         ],
+        'create_family' => [
+            'action' => 'create_family',
+            'nonce' => 'create_family_nonce',
+            'callback' => 'ajax_create_family'
+        ],
+        'create_student' => [
+            'action' => 'create_student',
+            'nonce' => 'create_student_nonce',
+            'callback' => 'ajax_create_student'
+        ],
         'save_registration_fields' => [
             'action' => 'save_registration_fields',
             'nonce' => 'save_registration_fields_nonce',
@@ -170,12 +178,8 @@ class Usctdp_Mgmt_Admin
         $this->version = $version;
     }
 
-    public function enqueue_styles()
-    {
-    }
-    public function enqueue_scripts()
-    {
-    }
+    public function enqueue_styles() {}
+    public function enqueue_scripts() {}
     private function usctdp_script_id($suffix)
     {
         return $this->plugin_name . '-admin-' . $suffix . '-js';
@@ -410,13 +414,9 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
-    public function settings_init()
-    {
-    }
+    public function settings_init() {}
 
-    public function usctdp_mgmt_sanitize_settings($input)
-    {
-    }
+    public function usctdp_mgmt_sanitize_settings($input) {}
 
     private function echo_admin_page($path)
     {
@@ -623,7 +623,9 @@ class Usctdp_Mgmt_Admin
         $handlers = [
             'save_family_fields',
             'student_datatable',
-            'select2_family_search'
+            'select2_family_search',
+            'create_family',
+            'create_student',
         ];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
@@ -814,6 +816,21 @@ class Usctdp_Mgmt_Admin
         }
     }
 
+    private function create_entity_from_post($entity_name, $query_object, $fields)
+    {
+        $args = [];
+        foreach ($fields as $field => $getter) {
+            try {
+                $args[$field] = $getter();
+            } catch (Throwable $e) {
+                throw new Web_Request_Exception('Field ' . $field . ' is invalid.', 400);
+            }
+        }
+        error_log('Creating ' . $entity_name . ' with args: ' . json_encode($args));
+        $query = new $query_object([]);
+        return $query->add_item($args);
+    }
+
     private function save_entity_fields_from_post($entity_name, $query_object, $post_fields_sanitizers)
     {
         $entity_id = isset($_POST['id']) ? intval($_POST['id']) : '';
@@ -829,10 +846,9 @@ class Usctdp_Mgmt_Admin
                 wp_send_json_error($entity_name . ' with ID ' . $entity_id . ' not found.', 400);
             }
             $entity = $query->items[0];
-
             $args = [];
             foreach ($post_fields_sanitizers as $field => $sanitizer) {
-                if (isset($_POST[$field])) {
+                if (array_key_exists($field, $_POST)) {
                     $sanitized = $sanitizer($_POST[$field]);
                     if ($sanitized !== $entity->$field) {
                         $args[$field] = $sanitized;
@@ -876,22 +892,197 @@ class Usctdp_Mgmt_Admin
             return sanitize_text_field($value);
         };
 
-        $post_fields_sanitizers = [
-            'email' => $string_sanitizer,
-            'address' => $string_sanitizer,
-            'city' => $string_sanitizer,
-            'state' => $string_sanitizer,
-            'zip' => $string_sanitizer,
-            'notes' => function ($value) {
-                return sanitize_textarea_field(stripslashes($value));
-            },
-            'phone' => function ($value) {
-                $parts = explode('|', sanitize_text_field($value));
-                return json_encode($parts);
-            }
-        ];
-
+        try {
+            $post_fields_sanitizers = [
+                'email' => $string_sanitizer,
+                'address' => $string_sanitizer,
+                'city' => $string_sanitizer,
+                'state' => $string_sanitizer,
+                'zip' => $string_sanitizer,
+                'notes' => function ($value) {
+                    return sanitize_textarea_field(stripslashes($value));
+                },
+                'phone_numbers' => function ($value) {
+                    return json_encode($value);
+                }
+            ];
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error updating Family: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            wp_send_json_error('An unexpected server error occurred during Family update.', 500);
+        }
         $this->save_entity_fields_from_post('Family', 'Usctdp_Mgmt_Family_Query', $post_fields_sanitizers);
+    }
+
+    function get_sanitized_post_field_text($field)
+    {
+        if (array_key_exists($field, $_POST)) {
+            return sanitize_text_field($_POST[$field]);
+        }
+        return null;
+    }
+
+    function get_sanitized_post_field_int($field)
+    {
+        if (array_key_exists($field, $_POST)) {
+            return intval($_POST[$field]);
+        }
+        return null;
+    }
+
+    function ajax_create_family()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['create_family'];
+        $family_id = null;
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        try {
+            $fields = [
+                'email' => function () {
+                    return $this->get_sanitized_post_field_text('email');
+                },
+                'title' => function () {
+                    $phone = trim($this->get_sanitized_post_field_text('phone'));
+                    $last_name = $this->get_sanitized_post_field_text('last');
+                    $last_four = substr($phone, -4);
+                    return $last_name . ' ' . $last_four;
+                },
+                'search_term' => function () {
+                    $phone = trim($this->get_sanitized_post_field_text('phone'));
+                    $last_name = $this->get_sanitized_post_field_text('last');
+                    $last_four = substr($phone, -4);
+                    return Usctdp_Mgmt_Model::append_token_suffix($last_name . ' ' . $last_four);
+                },
+                'last' => function () {
+                    return $this->get_sanitized_post_field_text('last');
+                },
+                'address' => function () {
+                    return $this->get_sanitized_post_field_text('address');
+                },
+                'city' => function () {
+                    return $this->get_sanitized_post_field_text('city');
+                },
+                'state' => function () {
+                    return $this->get_sanitized_post_field_text('state');
+                },
+                'zip' => function () {
+                    return $this->get_sanitized_post_field_text('zip');
+                },
+                'phone_numbers' => function () {
+                    return json_encode([$_POST['phone']]);
+                }
+            ];
+            $family_id = $this->create_entity_from_post('Family', 'Usctdp_Mgmt_Family_Query', $fields);
+            if (!$family_id) {
+                wp_send_json_error('Failed to create family.', 500);
+            }
+
+            $family_query = new Usctdp_Mgmt_Family_Query([
+                'id' => $family_id,
+                'number' => 1
+            ]);
+            if (empty($family_query->items)) {
+                wp_send_json_error('Failed to create family.', 500);
+            }
+            $family = $family_query->items[0];
+            $last_name = $family->last;
+            $phone = trim($family->phone_numbers[0]);
+            $last_four = substr($phone, -4);
+            $userdata = array(
+                'user_login' => $last_name . $last_four,
+                'user_pass' => bin2hex(random_bytes(24)),
+                'user_email' => $family->email,
+                'first_name' => 'Family Account',
+                'last_name' => $last_name,
+                'display_name' => $last_name . ' ' . $last_four,
+                'role' => 'subscriber'
+            );
+            $user_id = wp_insert_user($userdata);
+            if (is_wp_error($user_id)) {
+                $family_query->delete_item($family_id);
+                throw new Web_Request_Exception(
+                    $user_id->get_error_message(),
+                    500
+                );
+            }
+            wp_send_json_success([
+                'user_id' => $user_id,
+                'family_id' => $family_id
+            ], 200);
+        } catch (Web_Request_Exception $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating family: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            if ($family_id) {
+                $family_query = new Usctdp_Mgmt_Family_Query([]);
+                $family_query->delete_item($family_id);
+            }
+            wp_send_json_error($e->getMessage(), $e->getCode());
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating family: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            if ($family_id) {
+                $family_query = new Usctdp_Mgmt_Family_Query([]);
+                $family_query->delete_item($family_id);
+            }
+            wp_send_json_error('An unexpected server error occurred during family creation.', 500);
+        }
+    }
+
+    function ajax_create_student()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['create_student'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+        try {
+            $fields = [
+                'family_id' => function () {
+                    return $this->get_sanitized_post_field_int('family_id');
+                },
+                'title' => function () {
+                    $first_name = $this->get_sanitized_post_field_text('first');
+                    $last_name = $this->get_sanitized_post_field_text('last');
+                    return $first_name . ' ' . $last_name;
+                },
+                'search_term' => function () {
+                    $first_name = $this->get_sanitized_post_field_text('first');
+                    $last_name = $this->get_sanitized_post_field_text('last');
+                    return Usctdp_Mgmt_Model::append_token_suffix($first_name . ' ' . $last_name);
+                },
+                'first' => function () {
+                    return $this->get_sanitized_post_field_text('first');
+                },
+                'last' => function () {
+                    return $this->get_sanitized_post_field_text('last');
+                },
+                'birth_date' => function () {
+                    $birth_date = $this->get_sanitized_post_field_text('birth_date');
+                    error_log("Birth date: " . $birth_date);
+                    if (empty($birth_date)) {
+                        return null;
+                    }
+                    $date = new DateTime($birth_date);
+                    return $date->format('Y-m-d');
+                },
+                'level' => function () {
+                    return $this->get_sanitized_post_field_text('level');
+                }
+            ];
+            $student_id = $this->create_entity_from_post('Student', 'Usctdp_Mgmt_Student_Query', $fields);
+            if (!$student_id) {
+                wp_send_json_error('Failed to create student.', 500);
+            } else {
+                wp_send_json_success([
+                    'student_id' => $student_id
+                ], 200);
+            }
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating student: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            wp_send_json_error('An unexpected server error occurred during student creation.', 500);
+        }
     }
 
     function ajax_save_registration_fields()
@@ -921,7 +1112,6 @@ class Usctdp_Mgmt_Admin
             'debit' => $int_sanitizer,
             'notes' => $textarea_sanitizer,
         ];
-
         $this->save_entity_fields_from_post('Registration', 'Usctdp_Mgmt_Registration_Query', $post_fields_sanitizers);
     }
 

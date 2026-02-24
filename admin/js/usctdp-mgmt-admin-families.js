@@ -3,6 +3,56 @@
     $(document).ready(function () {
         var preloadedData = null;
         var edit_mode = false;
+        const newStudentModal = document.querySelector('#new-student-modal');
+        const newFamilyModal = document.querySelector('#new-family-modal');
+
+        const fields = {
+            'family-email': {
+                column: 'email',
+                transform: function (value) { return value.trim(); },
+                compare: function (newVal, oldVal) { return newVal === oldVal; },
+                update: updateFamilyTextField
+            },
+            'family-address': {
+                column: 'address',
+                transform: function (value) { return value.trim(); },
+                compare: function (newVal, oldVal) { return newVal === oldVal; },
+                update: updateFamilyTextField
+            },
+            'family-city': {
+                column: 'city',
+                transform: function (value) { return value.trim(); },
+                compare: function (newVal, oldVal) { return newVal === oldVal; },
+                update: updateFamilyTextField
+            },
+            'family-state': {
+                column: 'state',
+                transform: function (value) { return value.trim(); },
+                compare: function (newVal, oldVal) { return newVal === oldVal; },
+                update: updateFamilyTextField
+            },
+            'family-zip': {
+                column: 'zip',
+                transform: function (value) { return value.trim(); },
+                compare: function (newVal, oldVal) { return newVal === oldVal; },
+                update: updateFamilyTextField
+            },
+            'family-phone': {
+                column: 'phone_numbers',
+                transform: function (value) {
+                    return value.split("\n")
+                        .map(function (item) { return item.trim(); })
+                        .filter(function (item) { return item !== ''; });
+                },
+                compare: function (newVal, oldVal) {
+                    if (newVal.length !== oldVal.length) {
+                        return false;
+                    }
+                    return newVal.every((value, index) => value === oldVal[index]);
+                },
+                update: updateFamilyPhoneField
+            }
+        };
 
         $('#family-selector').select2({
             placeholder: "Search for a family...",
@@ -68,10 +118,24 @@
             ]
         });
 
-        function updateFamilyField(id, value) {
-            $('#' + id + ' .view-mode').text(value);
-            $('#' + id + ' .edit-mode').val(value);
+        function updateFamilyTextField(id, value) {
+            $('#' + id + ' .view-mode-text').text(value);
+            $('#' + id + ' .editor').val(value);
             $('#' + id).data('orig-value', value);
+        }
+
+        function updateFamilyPhoneField(id, values) {
+            $('#' + id + ' .view-mode').children().remove();
+            if (values && values.length > 0) {
+                values.forEach(function (value) {
+                    $('#' + id + ' .view-mode').append('<span>' + value + '</span>');
+                });
+                $('#' + id + ' .editor').val(values.join('\n'));
+            } else {
+                $('#' + id + ' .view-mode').append('<span>Not available</span>');
+                $('#' + id + ' .editor').val('');
+            }
+            $('#' + id).data('orig-value', values);
         }
 
         $('#family-selector').on('change', function () {
@@ -86,17 +150,12 @@
             if (selectedValue && selectedValue !== '') {
                 $('#family-section').removeClass('hidden');
                 $('#family-title').text(data.title);
-                console.log(data);
-                updateFamilyField('family-email', data.email);
-                updateFamilyField('family-address', data.address);
-                updateFamilyField('family-city', data.city);
-                updateFamilyField('family-state', data.state);
-                updateFamilyField('family-zip', data.zip);
-                if (data.phone_numbers && data.phone_numbers.length > 0) {
-                    updateFamilyField('family-phone', data.phone_numbers.join(" | "));
-                } else {
-                    updateFamilyField('family-phone', 'Not available');
-                }
+                updateFamilyTextField('family-email', data.email);
+                updateFamilyTextField('family-address', data.address);
+                updateFamilyTextField('family-city', data.city);
+                updateFamilyTextField('family-state', data.state);
+                updateFamilyTextField('family-zip', data.zip);
+                updateFamilyPhoneField('family-phone', data.phone_numbers);
                 $('#family-notes').val(data.notes);
                 const historyHref = 'admin.php?page=usctdp-admin-history&family_id=' + selectedValue;
                 $('#family-registration-history-link').attr('href', historyHref);
@@ -105,20 +164,16 @@
         });
 
         function saveFamilyFields() {
-            const fields = {
-                'family-email': 'email',
-                'family-address': 'address',
-                'family-city': 'city',
-                'family-state': 'state',
-                'family-zip': 'zip',
-                'family-phone': 'phone'
-            };
             const changedData = {};
-            Object.entries(fields).forEach(([divId, fieldName]) => {
-                const curValue = $('#' + divId + ' .edit-mode').val().trim();
-                const origValue = $('#' + divId).data('orig-value').trim();
-                if (curValue !== origValue) {
-                    changedData[fieldName] = curValue;
+            Object.entries(fields).forEach(([divId, field]) => {
+                const curValue = field.transform($('#' + divId + ' .editor').val());
+                const origValue = $('#' + divId).data('orig-value');
+                if (!field.compare(curValue, origValue)) {
+                    if (curValue.length === 0) {
+                        changedData[field.column] = null;
+                    } else {
+                        changedData[field.column] = curValue;
+                    }
                 }
             });
             $.ajax({
@@ -132,9 +187,16 @@
                     ...changedData
                 },
                 success: function (responseData) {
-                    Object.entries(fields).forEach(([divId, fieldName]) => {
-                        if (fieldName in changedData) {
-                            updateFamilyField(divId, changedData[fieldName]);
+                    Object.entries(fields).forEach(([divId, field]) => {
+                        if (field.column in changedData) {
+                            field.update(divId, changedData[field.column]);
+                            if (preloadedData) {
+                                preloadedData[field.column] = changedData[field.column];
+                            } else {
+                                var data = $('#family-selector').select2('data')[0];
+                                data[field.column] = changedData[field.column];
+                                $('#family-selector').select2('data', data);
+                            }
                         }
                     });
                 },
@@ -195,15 +257,117 @@
                     // Update the local cache of the notes
                     var data = preloadedData ? preloadedData : $('#family-selector').select2('data')[0];
                     data.notes = $('#family-notes').val();
+                    const message = document.getElementById('save-notes-success');
+                    setTimeout(() => {
+                        message.classList.add('hidden');
+                    }, 3000);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     $("#save-notes-error").removeClass("hidden");
                     $("#save-notes-success").addClass("hidden");
+                    const message = document.getElementById('save-notes-error');
+                    setTimeout(() => {
+                        message.classList.add('hidden');
+                    }, 3000);
                 },
                 complete: function () {
                     $('#save-notes-text').text('Save Notes');
                     $('#save-notes-button').removeClass('is-loading');
                     $('#family-selector').attr('disabled', false);
+                }
+            });
+        });
+
+        $('#new-student-button').on('click', (e) => {
+            e.preventDefault();
+            newStudentModal.showModal();
+        });
+
+        $('#close-student-modal').on('click', () => {
+            newStudentModal.close();
+        });
+
+        $('#save-student-modal').on('click', (e) => {
+            const form = $('#new-student-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'create_student',
+                    security: usctdp_mgmt_admin.create_student_nonce,
+                    family_id: $('#family-selector').val(),
+                    first: $('#student_modal_first_name').val(),
+                    last: $('#student_modal_last_name').val(),
+                    birth_date: $('#student_modal_birthdate').val(),
+                    level: $('#student_modal_level').val(),
+                },
+                success: function (response) {
+                    if (response.success) {
+                        newStudentModal.close();
+                        membersTable.ajax.reload();
+                        alert("Student created successfully!");
+                    }
+                },
+                error: function (response) {
+                    const responseMessage = response.responseJSON.data;
+                    var userMessage = "Failed to create student.\n\n" + responseMessage;
+                    userMessage += "\n\nTry again or inform a developer.";
+                    alert(userMessage);
+                }
+            });
+        });
+
+        $('#new-family-button').on('click', (e) => {
+            e.preventDefault();
+            newFamilyModal.showModal();
+        });
+
+        $('#close-family-modal').on('click', () => {
+            newFamilyModal.close();
+        });
+
+        $('#save-family-modal').on('click', (e) => {
+            const form = $('#new-family-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'create_family',
+                    security: usctdp_mgmt_admin.create_family_nonce,
+                    last: $('#family_modal_last_name').val(),
+                    address: $('#family_modal_address').val(),
+                    city: $('#family_modal_city').val(),
+                    state: $('#family_modal_state').val(),
+                    zip: $('#family_modal_zip').val(),
+                    email: $('#family_modal_email').val(),
+                    phone: $('#family_modal_phone').val(),
+                },
+                success: function (response) {
+                    if (response.success) {
+                        newFamilyModal.close();
+                        alert("Family created successfully!");
+                        const familyId = response.data.family_id;
+                        const familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + familyId;
+                        window.location.href = familyUrl;
+                    }
+                },
+                error: function (response) {
+                    const responseMessage = response.responseJSON.data;
+                    var userMessage = "Failed to create family.\n\n" + responseMessage;
+                    userMessage += "\n\nTry again or inform a developer.";
+                    alert(userMessage);
                 }
             });
         });

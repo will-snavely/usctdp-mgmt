@@ -1,14 +1,17 @@
 <?php
 
-class CheckoutException extends Exception {
+class CheckoutException extends Exception
+{
     private string $slug;
 
-    public function __construct($message, $slug, $code = 0, ?Throwable $previous = null) {
+    public function __construct($message, $slug, $code = 0, ?Throwable $previous = null)
+    {
         $this->slug = $slug;
         parent::__construct($message, $code, $previous);
     }
 
-    public function getSlug(): string {
+    public function getSlug(): string
+    {
         return $this->slug;
     }
 }
@@ -247,7 +250,7 @@ class Usctdp_Mgmt_Woocommerce
     {
         global $wpdb;
         error_log("after_checkout_validation");
-        
+
         $registration_table = $wpdb->prefix . 'usctdp_registration';
         $activity_table = $wpdb->prefix . 'usctdp_activity';
         $count_query_template = "
@@ -293,7 +296,7 @@ class Usctdp_Mgmt_Woocommerce
                 ]);
                 if (!empty($reg_query->items)) {
                     $existing_reg = $reg_query->items[0];
-                    if($existing_reg->tracking_id !== $reg["tracking_id"]) {
+                    if ($existing_reg->tracking_id !== $reg["tracking_id"]) {
                         $name = $student->title;
                         $class = $activity->title;
                         $msg = "$name is already enrolled in '$class'.";
@@ -301,9 +304,9 @@ class Usctdp_Mgmt_Woocommerce
                     } else {
                         $already_reserved = true;
                     }
-                } 
-            
-                if($already_reserved) {
+                }
+
+                if ($already_reserved) {
                     continue;
                 }
 
@@ -347,13 +350,13 @@ class Usctdp_Mgmt_Woocommerce
             $wpdb->query('COMMIT');
             $txn_commited = true;
         } catch (CheckoutException $ce) {
-            $errors->add($ce->getSlug(), $ce->getMessage()); 
+            $errors->add($ce->getSlug(), $ce->getMessage());
             Usctdp_Mgmt_Logger::getLogger()->log_error(
                 'USCTDP: Error validating and reserving capacity: ' . $ce->getMessage()
             );
         } catch (Throwable $e) {
             $msg = 'A system error occurred while checking out. Please contact the office.';
-            $errors->add('system-error', $msg); 
+            $errors->add('system-error', $msg);
             $trace = $e->getTraceAsString();
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
         } finally {
@@ -400,7 +403,6 @@ class Usctdp_Mgmt_Woocommerce
                         'order_id' => $order_id,
                     ]);
                 } else {
-
                 }
             }
         }
