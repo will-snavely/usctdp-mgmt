@@ -376,6 +376,19 @@
                     var session_id = response.data.session_id;
                     var product_id = response.data.product_id;
 
+                    $('#student-level').val(student_level);
+                    $('#clinic-current-size').text(current_size);
+                    $('#clinic-max-size').text(max_size);
+                    $('#clinic-info-capacity .clinic-info-value').removeClass('full available');
+                    $('#clinic-info-capacity .clinic-info-value').addClass(current_size >= max_size ? 'full' : 'available');
+                    $('#clinic-one-day-price').text(formatUsd(pricing['One']));
+                    $('#clinic-two-day-price').text(formatUsd(pricing['Two']));
+                    $("#clinic-info").removeData();
+                    $("#clinic-info").data('session_id', session_id);
+                    $("#clinic-info").data('product_id', product_id);
+                    $("#clinic-info").data('student_level', student_level);
+                    $("#clinic-info").data('pricing', pricing);
+
                     if (response.data.student_registered) {
                         set_notification(
                             'student-registered',
@@ -390,18 +403,6 @@
                         );
                     } else {
                         reset_registration_fields();
-                        $('#student-level').val(student_level);
-                        $('#clinic-current-size').text(current_size);
-                        $('#clinic-max-size').text(max_size);
-                        $('#clinic-info-capacity .clinic-info-value').removeClass('full available');
-                        $('#clinic-info-capacity .clinic-info-value').addClass(current_size >= max_size ? 'full' : 'available');
-                        $('#clinic-one-day-price').text(formatUsd(pricing['One']));
-                        $('#clinic-two-day-price').text(formatUsd(pricing['Two']));
-                        $("#clinic-info").removeData();
-                        $("#clinic-info").data('session_id', session_id);
-                        $("#clinic-info").data('product_id', product_id);
-                        $("#clinic-info").data('student_level', student_level);
-                        $("#clinic-info").data('pricing', pricing);
                         toggle_registration_fields(true);
                     }
                 },

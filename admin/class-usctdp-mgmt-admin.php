@@ -689,7 +689,7 @@ class Usctdp_Mgmt_Admin
     private function get_activity_capacity($activity_id)
     {
         $activity_query = new Usctdp_Mgmt_Activity_Query([
-            'activity_id' => $activity_id,
+            'id' => $activity_id,
             'number' => 1
         ]);
         if (empty($activity_query->items)) {
@@ -736,9 +736,11 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Pricing for activity "' . $activity_id . '" not found.', 404);
         }
         $pricing = $pricing_query->items[0];
-        $capacity = $this->get_activity_capacity($activity_id);
-        $found_posts = $this->get_activity_registration_count($activity_id);
+        $capacity = (int) $activity->activity_capacity;
+        $found_posts = (int) $this->get_activity_registration_count($activity_id);
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
+        error_log("capacity: $capacity");
+        error_log("found_posts: $found_posts");
 
         wp_send_json_success([
             'capacity' => $capacity,
