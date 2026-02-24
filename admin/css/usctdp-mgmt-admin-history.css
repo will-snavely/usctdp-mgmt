@@ -87,7 +87,7 @@ table td {
 }
 
 .reg-history-table tbody tr:nth-child(odd) {
-    background-color: #ffffff !important;
+    background-color: #d1efff !important;
 }
 
 .reg-history-table tbody tr:nth-child(even) {

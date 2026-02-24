@@ -32,8 +32,17 @@
                     data: 'family_id',
                     defaultContent: '',
                     render: function (data, type, row) {
-                        var $button = $('<button class="button" data-family-name="' + row.family_name + '" data-family-id="' + data + '">Select</button>');
-                        return $button.get(0);
+                        var familyId = data;
+                        var historyUrl = 'admin.php?page=usctdp-admin-history&family_id=' + familyId;
+                        var cell = '<div class="family-actions">'
+                        cell += '<div class="action-item">'
+                        cell += '<button class="button button-small" data-family-name="' + row.family_name + '" data-family-id="' + data + '">Select</button>';
+                        cell += '</div>';
+                        cell += '<div class="action-item">'
+                        cell += '<a href="' + historyUrl + '" class="button button-small">History</a> ';
+                        cell += '</div>';
+                        cell += '</div>';
+                        return cell;
                     }
                 }
             ],

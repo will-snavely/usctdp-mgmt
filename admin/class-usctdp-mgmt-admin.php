@@ -1625,12 +1625,12 @@ class Usctdp_Mgmt_Admin
             "   SELECT 
                     fam.title as family_name,
                     fam.id as family_id,
-                    SUM(reg.balance) AS total_family_balance,
+                    SUM(reg.debit - reg.credit) AS total_family_balance,
                     COUNT(*) OVER() AS grand_total
                 FROM {$wpdb->prefix}usctdp_registration AS reg 
                 JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id 
                 JOIN {$wpdb->prefix}usctdp_family AS fam ON fam.id = stu.family_id
-                WHERE reg.balance > %d
+                WHERE (reg.debit > reg.credit) AND (reg.debit - reg.credit) > %d
                 GROUP BY fam.id, fam.title
                 ORDER BY total_family_balance DESC
                 LIMIT %d OFFSET %d",
@@ -1675,6 +1675,7 @@ class Usctdp_Mgmt_Admin
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
         $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
         $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
+        $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
 
         if (!$family_id) {
             wp_send_json_error('No family ID provided.', 400);
@@ -1683,16 +1684,18 @@ class Usctdp_Mgmt_Admin
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT 
-                    cls.title as activity_name,
+                    act.title as activity_name,
                     stu.title as student_name,
                     sesh.title as session_name,
-                    reg.balance as balance,
+                    reg.credit as credit,
+                    reg.debit as debit,
+                    (reg.debit - reg.credit) as balance,
                     COUNT(*) OVER() as grand_total
                 FROM {$wpdb->prefix}usctdp_registration AS reg 
                 JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id
-                JOIN {$wpdb->prefix}usctdp_clinic_class AS cls ON reg.activity_id = cls.id
-                JOIN {$wpdb->prefix}usctdp_session AS sesh ON cls.session_id = sesh.id
-                WHERE stu.family_id = %d AND balance > 0
+                JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
+                JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
+                WHERE stu.family_id = %d AND reg.debit > reg.credit
                 ORDER BY balance DESC
                 LIMIT %d OFFSET %d",
             $family_id,
@@ -1710,7 +1713,9 @@ class Usctdp_Mgmt_Admin
                     "activity_name" => $result->activity_name,
                     "student_name" => $result->student_name,
                     "session_name" => $result->session_name,
-                    "balance" => $amount_fmt->format($result->balance),
+                    "credit" => $amount_fmt->format($result->credit),
+                    "debit" => $amount_fmt->format($result->debit),
+                    "balance" => $amount_fmt->format($result->debit - $result->credit)
                 ];
             }
         }

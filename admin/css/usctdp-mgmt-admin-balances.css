@@ -25,6 +25,12 @@
     padding: 15px;
 }
 
+.family-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+}
+
 #balances-table tbody tr.selected-account {
     background-color: #dcc849 !important;
     /* Light blue */

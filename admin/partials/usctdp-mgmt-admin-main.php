@@ -2,9 +2,9 @@
 global $wpdb;
 
 $balance_query = "
-    SELECT COUNT(id) as total_count, SUM(balance) as total_balance 
+    SELECT COUNT(id) as total_count, SUM(debit - credit) as total_balance 
     FROM {$wpdb->prefix}usctdp_registration 
-    WHERE balance > 0
+    WHERE debit > credit
 ";
 
 $balance_results = $wpdb->get_row($balance_query);
