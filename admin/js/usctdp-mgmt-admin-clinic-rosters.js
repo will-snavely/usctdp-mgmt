@@ -2,72 +2,48 @@
     "use strict";
 
     $(document).ready(function () {
-        $('#session-selector').select2({
-            placeholder: "Search for a session...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_session_search_action,
-                        security: usctdp_mgmt_admin.select2_session_search_nonce
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
+        $('#session-selector').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Search for a session...",
+                allowClear: true,
+                action: usctdp_mgmt_admin.select2_session_search_action,
+                nonce: usctdp_mgmt_admin.select2_session_search_nonce,
+            }));
 
         $('#session-selector').on('change', function () {
             const selectedValue = this.value;
             if (selectedValue === '') {
-                $('#activity-selection-section').hide();
+                $('#activity-selection-section').addClass('hidden');
             } else {
-                $('#activity-selection-section').show();
+                $('#activity-selection-section').removeClass('hidden');
             }
             $('#activity-selector').val(null);
             $('#activity-selector').trigger('change');
-            $('#roster-print-success').hide();
-            $('#roster-print-error').hide();
+            $('.print-status').addClass('hidden');
         });
 
-        $('#activity-selector').select2({
+        $('#activity-selector').select2(USCTDP_Admin.select2Options({
             placeholder: "Search for an activity...",
             allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_activity_search_action,
-                        security: usctdp_mgmt_admin.select2_activity_search_nonce,
-                        session_id: $('#session-selector').val()
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
+            action: usctdp_mgmt_admin.select2_activity_search_action,
+            nonce: usctdp_mgmt_admin.select2_activity_search_nonce,
+            filter: function () {
+                return {
+                    session_id: $('#session-selector').val()
+                };
             }
-        });
+        }));
 
         function toggleLoading(isLoading) {
             if (isLoading) {
                 $('#print-roster-button .button-text').text('Working...');
                 $('#print-roster-button').addClass('is-loading');
-                $('#session-selector').attr('disabled', true);
-                $('#activity-selector').attr('disabled', true);
+                $('.selector').attr('disabled', true);
 
             } else {
                 $('#print-roster-button .button-text').text('Print Roster');
                 $('#print-roster-button').removeClass('is-loading');
-                $('#session-selector').attr('disabled', false);
-                $('#activity-selector').attr('disabled', false);
+                $('.selector').attr('disabled', false);
             }
         }
 
@@ -76,8 +52,7 @@
             if (selectedActivityId === '') {
                 return;
             }
-            $('#roster-print-success').hide();
-            $('#roster-print-error').hide();
+            $('.print-status').addClass('hidden');
             toggleLoading(true);
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -90,10 +65,10 @@
                 },
                 success: function (response) {
                     $('#roster-link').attr('href', response.data.doc_url);
-                    $('#roster-print-success').show();
+                    $('#roster-print-success').removeClass('hidden');
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
-                    $('#roster-print-error').show();
+                    $('#roster-print-error').removeClass('hidden');
                 },
                 complete: function () {
                     toggleLoading(false);
@@ -128,14 +103,13 @@
                     data: 'student_family_id',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            var familyId = data;
-                            var familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + familyId;
-                            var cell = '<div class="roster-actions">'
-                            cell += '<div class="action-item">'
-                            cell += '<a href="' + familyUrl + '" class="button button-small">View Family</a> ';
-                            cell += '</div>';
-                            cell += '</div>';
-                            return cell;
+                            var familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + data;
+                            return `
+                            <div class="roster-actions">
+                                <div class="action-item">
+                                    <a href="${familyUrl}" class="button button-small">View Family</a>
+                                </div>
+                            </div>`;
                         }
                         return '';
                     }
@@ -146,21 +120,15 @@
         $('#activity-selector').on('change', function () {
             const selectedValue = this.value;
             if (selectedValue === '') {
-                $('#roster-section').hide();
+                $('#roster-section').addClass('hidden');
             } else {
                 var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + selectedValue;
-                $('#roster-section').show();
+                $('#roster-section').removeClass('hidden');
                 $('#register-student-button').attr('href', registerUrl);
                 table.ajax.reload();
             }
-
-            $('#roster-print-success').hide();
-            $('#roster-print-error').hide();
+            $('.print-status').addClass('hidden');
         });
-
-        $('#roster-print-loading').hide();
-        $('#roster-print-success').hide();
-        $('#roster-print-error').hide();
 
         if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.activity_id) {
             const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0]

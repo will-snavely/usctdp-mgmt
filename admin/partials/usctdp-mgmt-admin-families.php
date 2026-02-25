@@ -169,7 +169,7 @@ $family_fields = [
                 <div class="family-members">
                     <h2> Family Members</h2>
                     <div id="family-table-wrap">
-                        <table id="family-members-table" class="usctdp-custom-post-table">
+                        <table id="family-members-table" class="usctdp-datatable">
                             <thead>
                                 <tr>
                                     <th>First Name</th>

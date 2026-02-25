@@ -33,7 +33,5 @@
 
 #balances-table tbody tr.selected-account {
     background-color: #dcc849 !important;
-    /* Light blue */
     border-left: 4px solid #0073aa;
-    /* WordPress blue accent */
 }

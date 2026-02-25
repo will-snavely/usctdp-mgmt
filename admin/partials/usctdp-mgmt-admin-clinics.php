@@ -1,19 +1,19 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     <div class="usctdp-mgmt-section">
-        <section id="usctdp-clinics-section">
-            <div id="usctdp-clinics-container">
+        <section id="clinics-section">
+            <div id="clinics-table-wrap">
                 <div id="table-filters">
                     <div id="clinic-filter-section" class="dt-layout-cell dt-layout-start">
                         <label for="clinic-filter">Filter by Clinic:</label>
-                        <select id="clinic-filter"></select>
+                        <select id="clinic-filter" class="table-filter"></select>
                     </div>
                     <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
                         <label for="session-filter">Filter by Session:</label>
-                        <select id="session-filter"></select>
+                        <select id="session-filter" class="table-filter"></select>
                     </div>
                 </div>
-                <table id="usctdp-clinics-table" class="usctdp-custom-post-table hidden">
+                <table id="clinics-table" class="usctdp-datatable hidden">
                     <thead>
                         <tr>
                             <th>Clinic</th>
@@ -25,7 +25,7 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="usctdp-clinics-table-body">
+                    <tbody id="clinics-table-body">
                     </tbody>
                 </table>
             </div>

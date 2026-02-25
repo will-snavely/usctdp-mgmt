@@ -11,16 +11,7 @@
             7: 'Sunday'
         };
 
-        function displayTime(dateObj) {
-            const options = {
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            };
-            return new Intl.DateTimeFormat('en-US', options).format(dateObj);
-        }
-
-        var table = $('#usctdp-clinics-table').DataTable({
+        var table = $('#clinics-table').DataTable({
             processing: true,
             serverSide: true,
             ordering: false,
@@ -43,7 +34,7 @@
                 }
             },
             initComplete: function () {
-                $('#usctdp-clinics-table').removeClass('hidden');
+                $('#clinics-table').removeClass('hidden');
             },
             autoWidth: false,
             columnDefs: [
@@ -51,7 +42,7 @@
                 { width: "20%", targets: 1 }, // Session
                 { width: "10%", targets: 2 }, // Day
                 { width: "10%", targets: 3 }, // Time
-                { width: "5%",  targets: 4 }, // Capacity
+                { width: "5%", targets: 4 }, // Capacity
                 { width: "15%", targets: 6 }  // Actions
             ],
             columns: [
@@ -73,7 +64,7 @@
                             const [hours, minutes, seconds] = data.split(':').map(Number);
                             const dateObj = new Date();
                             dateObj.setHours(hours, minutes, seconds);
-                            return displayTime(dateObj);
+                            return USCTDP_Admin.displayTime(dateObj);
                         }
                         return data;
                     }
@@ -89,15 +80,15 @@
                         if (type === 'display') {
                             var rosterUrl = 'admin.php?page=usctdp-admin-clinic-rosters&activity_id=' + data;
                             var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + data;
-                            var cell = '<div class="clinic-actions">'
-                            cell += '<div class="action-item">'
-                            cell += '<a href="' + rosterUrl + '" class="button button-small">Roster</a> ';
-                            cell += '</div>';
-                            cell += '<div class="action-item">'
-                            cell += '<a href="' + registerUrl + '" class="button button-small">Register</a> ';
-                            cell += '</div>';
-                            cell += '</div>';
-                            return cell;
+                            return `
+                            <div class="clinic-actions">
+                                <div class="action-item">
+                                    <a href="${rosterUrl}" class="button button-small">Roster</a>
+                                </div>
+                                <div class="action-item">
+                                    <a href="${registerUrl}" class="button button-small">Register</a>
+                                </div>
+                            </div>`
                         }
                         return '';
                     }
@@ -105,48 +96,24 @@
             ]
         });
 
-        $('#session-filter').select2({
-            placeholder: "Search for a session...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_session_search_action,
-                        security: usctdp_mgmt_admin.select2_session_search_nonce
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
+        $('#session-filter').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Search for a session...",
+                allowClear: true,
+                action: usctdp_mgmt_admin.select2_session_search_action,
+                nonce: usctdp_mgmt_admin.select2_session_search_nonce,
+            }));
 
-        $('#clinic-filter').select2({
-            placeholder: "Search for a clinic...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_product_search_action,
-                        security: usctdp_mgmt_admin.select2_product_search_nonce,
-                        type: 'clinic'
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
+        $('#clinic-filter').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Search for a clinic...",
+                allowClear: true,
+                action: usctdp_mgmt_admin.select2_product_search_action,
+                nonce: usctdp_mgmt_admin.select2_product_search_nonce,
+                type: 'clinic'
+            }));
 
-        var $table_controls = $('#usctdp-clinics-table_wrapper');
+        var $table_controls = $('#clinics-table_wrapper');
         var $first_row = $table_controls.find("div.dt-layout-row").first();
         var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>"
         $first_row.after(filter_row);
@@ -155,6 +122,4 @@
             table.ajax.reload();
         });
     });
-
 })(jQuery);
-

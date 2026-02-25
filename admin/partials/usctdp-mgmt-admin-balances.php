@@ -6,7 +6,7 @@
                 <h2>
                     <span id="master-title">Balances by Family</span>
                 </h2>
-                <table id="balances-table" class="usctdp-custom-post-table hidden">
+                <table id="balances-table" class="usctdp-datatable hidden">
                     <thead>
                         <tr>
                             <th>Family</th>
@@ -26,7 +26,7 @@
                     <span id="detail-title">Select an account from the left</span>
                 </h2>
                 <div id="balances-table-detail-container" class="hidden">
-                    <table id="balances-table-detail" class="usctdp-custom-post-table">
+                    <table id="balances-table-detail" class="usctdp-datatable">
                         <thead>
                             <tr>
                                 <th>Student</th>

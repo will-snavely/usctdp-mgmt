@@ -104,13 +104,12 @@
                         if (type === 'display') {
                             var registerUrl = 'admin.php?page=usctdp-admin-register&student_id=' + data;
                             var historyUrl = 'admin.php?page=usctdp-admin-history&student_id=' + data;
-                            var cell = '<div class="family-actions">'
-                            cell += '<div class="action-item">'
-                            cell += '<a href="' + registerUrl + '" class="button button-small">Register</a> ';
-                            cell += '<a href="' + historyUrl + '" class="button button-small">History</a> ';
-                            cell += '</div>';
-                            cell += '</div>';
-                            return cell;
+                            return `<div class="family-actions">
+                                <div class="action-item">
+                                    <a href="${registerUrl}" class="button button-small">Register</a> 
+                                    <a href="${historyUrl}" class="button button-small">History</a> 
+                                </div>
+                            </div>`;
                         }
                         return '';
                     }

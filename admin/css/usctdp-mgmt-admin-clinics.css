@@ -1,39 +1,15 @@
-ul {
-    list-style-type: disc;
-    padding-left: 2.5em;
-}
-
-#usctdp-upcoming-sessions-table {
-    table-layout: fixed;
-    width: auto;
-}
-
 #table-filters {
     display: flex;
     justify-content: flex-start;
     gap: 15px;
 }
 
-#session-filter {
+.table-filter {
     width: 200px;
 }
 
-#clinic-filter {
-    width: 200px;
-}
-
-#usctdp-clinics-container {
+#clinics-table-wrap {
     max-width: 1200px;
-}
-
-div.dt-length select {
-    width: 50px;
-}
-
-.instructors-wrapper {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
 }
 
 .clinic-actions {
