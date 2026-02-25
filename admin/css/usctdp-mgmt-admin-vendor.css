@@ -1,0 +1,5 @@
+/* 1. Import DataTables Default Styling */
+@import 'datatables.net-dt/css/dataTables.dataTables.css';
+
+/* 2. Import Select2 Styling */
+@import 'select2/dist/css/select2.min.css';

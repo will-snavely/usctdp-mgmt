@@ -185,6 +185,7 @@ class Usctdp_Mgmt_Admin
 
     public function enqueue_styles() {}
     public function enqueue_scripts() {}
+
     private function usctdp_script_id($suffix)
     {
         return $this->plugin_name . '-admin-' . $suffix . '-js';
@@ -198,22 +199,15 @@ class Usctdp_Mgmt_Admin
     private function enqueue_usctdp_page_script($suffix, $dependencies = [])
     {
         wp_enqueue_script(
-            $this->plugin_name . 'primary-js',
+            'usctdp-primary-js',
             plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin.js',
             ['jquery'],
             $this->version,
             true
         );
         wp_enqueue_script(
-            $this->plugin_name . 'external-datatables-js',
-            'https://cdn.datatables.net/2.3.5/js/dataTables.min.js',
-            ['jquery'],
-            $this->version,
-            true
-        );
-        wp_enqueue_script(
-            'usctdp-select2-js',
-            USCTDP_DIR_PATH . 'assets/js/select2.min.js',
+            'usctdp-vendor-js',
+            USCTDP_DIR_PATH . 'dist/js/usctdp-mgmt-admin-vendor.js',
             array('jquery'),
             '4.1.0',
             true
@@ -221,9 +215,8 @@ class Usctdp_Mgmt_Admin
 
         $deps = $dependencies ? $dependencies : [
             'jquery',
-            $this->plugin_name . 'external-datatables-js',
-            $this->plugin_name . 'primary-js',
-            'usctdp-select2-js',
+            'usctdp-vendor-js',
+            'usctdp-primary-js',
         ];
         wp_enqueue_script(
             $this->usctdp_script_id($suffix),
@@ -237,29 +230,20 @@ class Usctdp_Mgmt_Admin
     private function enqueue_usctdp_page_style($suffix, $dependencies = [])
     {
         wp_enqueue_style(
-            $this->plugin_name . 'primary-css',
+            'usctdp-primary-css',
             plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin.css',
             [],
             $this->version,
             'all'
         );
         wp_enqueue_style(
-            $this->plugin_name . 'external-datatables-css',
-            'https://cdn.datatables.net/2.3.5/css/dataTables.dataTables.min.css',
-            [],
-            $this->version,
-            'all'
-        );
-
-        wp_enqueue_style(
-            'usctdp-select2-css',
-            USCTDP_DIR_PATH . 'assets/css/select2.min.css'
+            'usctdp-vendor-css',
+            USCTDP_DIR_PATH . 'dist/css/usctdp-mgmt-admin-vendor.css'
         );
 
         $deps = $dependencies ? $dependencies : [
-            'usctdp-select2-css',
-            $this->plugin_name . 'external-datatables-css',
-            $this->plugin_name . 'primary-css'
+            'usctdp-vendor-css',
+            'usctdp-primary-css',
         ];
         wp_enqueue_style(
             $this->usctdp_style_id($suffix),

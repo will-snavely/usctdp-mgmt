@@ -13,7 +13,10 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "laravel-mix": "^6.0.49",
+    "laravel-mix": "^6.0.49"
+  },
+  "dependencies": {
+    "datatables.net-dt": "^2.3.7",
     "select2": "^4.1.0-rc.0"
   }
 }

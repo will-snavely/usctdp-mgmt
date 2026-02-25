@@ -1,4 +1,4 @@
 {
-    "/assets/js/select2.min.js": "/assets/js/select2.min.js",
-    "/assets/css/select2.min.css": "/assets/css/select2.min.css"
+    "/dist/js/usctdp-mgmt-admin-vendor.js": "/dist/js/usctdp-mgmt-admin-vendor.js",
+    "/dist/css/usctdp-mgmt-admin-vendor.css": "/dist/css/usctdp-mgmt-admin-vendor.css"
 }
