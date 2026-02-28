@@ -525,7 +525,6 @@
                 } else {
                     throw new Error(response.data || 'PHP logic error');
                 }
-
             } catch (error) {
                 console.error('Registration Commit Failed:', error.statusText || error.message);
                 throw error;

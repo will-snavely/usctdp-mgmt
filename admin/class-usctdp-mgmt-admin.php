@@ -29,6 +29,7 @@ class Usctdp_Mgmt_Admin
 {
     private $plugin_name;
     private $version;
+    private $select2_search_targets;
 
     public static $post_handlers = [
         'registration' => [
@@ -56,20 +57,10 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'datatable_balances_detail_nonce',
             'callback' => 'ajax_datatable_balances_detail'
         ],
-        'select2_session_search' => [
-            'action' => 'select2_session_search',
-            'nonce' => 'select2_session_search_nonce',
-            'callback' => 'ajax_select2_session_search'
-        ],
-        'select2_activity_search' => [
-            'action' => 'select2_activity_search',
-            'nonce' => 'select2_activity_search_nonce',
-            'callback' => 'ajax_select2_activity_search'
-        ],
-        'select2_product_search' => [
-            'action' => 'select2_product_search',
-            'nonce' => 'select2_product_search_nonce',
-            'callback' => 'ajax_select2_product_search'
+        'select2_search' => [
+            'action' => 'select2_search',
+            'nonce' => 'select2_search_nonce',
+            'callback' => 'ajax_select2_search'
         ],
         'session_rosters' => [
             'action' => 'session_rosters',
@@ -85,11 +76,6 @@ class Usctdp_Mgmt_Admin
             'action' => 'toggle_session_active',
             'nonce' => 'toggle_session_active_nonce',
             'callback' => 'ajax_toggle_session_active'
-        ],
-        'select2_student_search' => [
-            'action' => 'select2_student_search',
-            'nonce' => 'select2_student_search_nonce',
-            'callback' => 'ajax_select2_student_search'
         ],
         'student_datatable' => [
             'action' => 'student_datatable',
@@ -111,10 +97,10 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'registration_history_datatable_nonce',
             'callback' => 'ajax_registration_history_datatable'
         ],
-        'select2_family_search' => [
-            'action' => 'select2_family_search',
-            'nonce' => 'select2_family_search_nonce',
-            'callback' => 'ajax_select2_family_search'
+        'get_family_fields' => [
+            'action' => 'get_family_fields',
+            'nonce' => 'get_family_fields_nonce',
+            'callback' => 'ajax_get_family_fields'
         ],
         'save_family_fields' => [
             'action' => 'save_family_fields',
@@ -151,11 +137,6 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'activity_preregistration_nonce',
             'callback' => 'ajax_activity_preregistration'
         ],
-        'select2_clinic_search' => [
-            'action' => 'select2_clinic_search',
-            'nonce' => 'select2_clinic_search_nonce',
-            'callback' => 'ajax_select2_clinic_search'
-        ],
         'create_woocommerce_order' => [
             'action' => 'create_woocommerce_order',
             'nonce' => 'create_woocommerce_order_nonce',
@@ -181,6 +162,38 @@ class Usctdp_Mgmt_Admin
     {
         $this->plugin_name = $plugin_name;
         $this->version = $version;
+
+        $this->select2_search_targets = [
+            'session' => [
+                'callback' => $this->select2_session_search(...),
+                'filters' => [
+                    'active' => intval(...),
+                    'category' => intval(...)
+                ]
+            ],
+            'activity' => [
+                'callback' => $this->select2_activity_search(...),
+                'filters' => [
+                    'session_id' => intval(...)
+                ]
+            ],
+            'product' => [
+                'callback' => $this->select2_product_search(...),
+                'filters' => [
+                    'type' => intval(...) 
+                ]
+            ],
+            'family' => [
+                'callback' => $this->select2_family_search(...),
+                'filters' => []
+            ],
+            'student' => [
+                'callback' => $this->select2_student_search(...),
+                'filters' => [
+                    'family_id' => intval(...)
+                ]
+            ],
+        ];
     }
 
     public function enqueue_styles() {}
@@ -380,8 +393,7 @@ class Usctdp_Mgmt_Admin
             ];
             $handlers = [
                 'gen_roster',
-                'select2_session_search',
-                'select2_family_search',
+                'select2_search',
                 'session_rosters',
                 'toggle_session_active'
             ];
@@ -508,7 +520,7 @@ class Usctdp_Mgmt_Admin
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
-        $handlers = ['clinic_datatable', 'select2_session_search', 'select2_product_search'];
+        $handlers = ['clinic_datatable', 'select2_search'];
         foreach ($handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
@@ -523,8 +535,7 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
-            'select2_session_search',
-            'select2_activity_search',
+            'select2_search',
             'gen_roster',
             'registrations_datatable'
         ];
@@ -563,10 +574,7 @@ class Usctdp_Mgmt_Admin
         $handlers = [
             'activity_preregistration',
             'registrations_datatable',
-            'select2_family_search',
-            'select2_student_search',
-            'select2_session_search',
-            'select2_activity_search',
+            'select2_search',
             'create_woocommerce_order',
             'commit_registrations',
         ];
@@ -586,11 +594,7 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
-            'select2_family_search',
-            'select2_student_search',
-            'select2_session_search',
-            'select2_clinic_search',
-            'select2_activity_search',
+            'select2_search',
             'registration_history_datatable',
             'save_registration_fields',
             'get_family_balance',
@@ -611,9 +615,10 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
+            'get_family_fields',
             'save_family_fields',
             'student_datatable',
-            'select2_family_search',
+            'select2_search',
             'create_family',
             'create_student',
         ];
@@ -818,58 +823,67 @@ class Usctdp_Mgmt_Admin
                 throw new Web_Request_Exception('Field ' . $field . ' is invalid.', 400);
             }
         }
-        error_log('Creating ' . $entity_name . ' with args: ' . json_encode($args));
         $query = new $query_object([]);
         return $query->add_item($args);
     }
 
-    private function save_entity_fields_from_post($entity_name, $query_object, $post_fields_sanitizers)
+    private function save_entity_fields_from_post($entity_id, $query_object, $fields)
     {
-        $entity_id = isset($_POST['id']) ? intval($_POST['id']) : '';
-        if (!$entity_id) {
-            wp_send_json_error('No id provided.', 400);
+        $query = new $query_object(['id' => $entity_id, 'number' => 1]);
+        if (empty($query->items)) {
+            throw new Web_Request_Exception("Entity with id $entity_id not found.");
         }
-        try {
-            $query = new $query_object([
-                'id' => $entity_id,
-                'number' => 1
-            ]);
-            if (empty($query->items)) {
-                wp_send_json_error($entity_name . ' with ID ' . $entity_id . ' not found.', 400);
-            }
-            $entity = $query->items[0];
-            $args = [];
-            foreach ($post_fields_sanitizers as $field => $sanitizer) {
-                if (array_key_exists($field, $_POST)) {
-                    $sanitized = $sanitizer($_POST[$field]);
-                    if ($sanitized !== $entity->$field) {
-                        $args[$field] = $sanitized;
-                    }
+        $entity = $query->items[0];
+
+        $args = [];
+        foreach ($fields as $field => $transform) {
+            if (array_key_exists($field, $_POST)) {
+                $data = $transform($_POST[$field]);
+                if ($data !== $entity->$field) {
+                    $args[$field] = $data;
                 }
             }
+        }
 
-            if (empty($args)) {
-                wp_send_json_success([
-                    'message' => 'No fields have changed.'
-                ]);
+        if (empty($args)) {
+            return $entity;
+        }
+
+        $result = $query->update_item($entity_id, $args);
+        if ($result) {
+            $query = new $query_object(['id' => $entity_id, 'number' => 1]);
+            return $query->items[0];
+        } else {
+            throw new Web_Request_Exception("Updating entity $entity_id failed.");
+        }
+    }
+
+    function ajax_get_family_fields()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['get_family_fields'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        try {
+            $family_id = isset($_GET['family_id']) ? intval($_GET['family_id']) : null;
+            if(!$family_id) {
+                wp_send_json_error('Missing required parameter family_id', 400);
             }
 
-            $result = $query->update_item($entity_id, $args);
-            if ($result) {
-                wp_send_json_success([
-                    'message' => $entity_name . ' updated successfully'
-                ]);
-            } else {
-                wp_send_json_error('Failed to update ' . $entity_name . '.', 500);
+            $query = new Usctdp_Mgmt_Family_Query([
+                'id' => $family_id,
+                'number' => 1
+            ]);
+            if(empty($query->items)) {
+                wp_send_json_error("No family found with id: $family_id", 400);
             }
+            wp_send_json_success($query->items[0]);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                'Error updating ' . $entity_name . ': ' . $e->getMessage()
-            );
-            Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                'Trace: ' . $e->getTraceAsString()
-            );
-            wp_send_json_error('An unexpected server error occurred during ' . $entity_name . ' update.', 500);
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error fetching family fields: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Request: ' . print_r($_POST, true));
+            wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
 
@@ -880,30 +894,36 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Security check failed. Invalid Nonce.', 403);
         }
 
-        $string_sanitizer = function ($value) {
-            return sanitize_text_field($value);
-        };
+        $entity_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
+        if(empty($entity_id)) {
+            wp_send_json_error('Missing required parameter family_id', 400);
+        }
+
+        $post_fields = [
+           'email' => sanitize_text_field(...),
+            'address' => sanitize_text_field(...),
+            'city' => sanitize_text_field(...),
+            'state' => sanitize_text_field(...),
+            'zip' => sanitize_text_field(...),
+            'notes' => function ($value) {
+                return sanitize_textarea_field(stripslashes($value));
+            },
+            'phone_numbers' => json_encode(...)
+        ];
 
         try {
-            $post_fields_sanitizers = [
-                'email' => $string_sanitizer,
-                'address' => $string_sanitizer,
-                'city' => $string_sanitizer,
-                'state' => $string_sanitizer,
-                'zip' => $string_sanitizer,
-                'notes' => function ($value) {
-                    return sanitize_textarea_field(stripslashes($value));
-                },
-                'phone_numbers' => function ($value) {
-                    return json_encode($value);
-                }
-            ];
+            error_log(print_r($_POST, true));
+            $result = $this->save_entity_fields_from_post(
+                $entity_id,
+                'Usctdp_Mgmt_Family_Query',
+                $post_fields);
+            wp_send_json_success($result);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error updating Family: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error updating family: ' . $e->getMessage());
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-            wp_send_json_error('An unexpected server error occurred during Family update.', 500);
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Request: ' . print_r($_POST, true));
+            wp_send_json_error('An unexpected server error occurred.', 500);
         }
-        $this->save_entity_fields_from_post('Family', 'Usctdp_Mgmt_Family_Query', $post_fields_sanitizers);
     }
 
     function ajax_get_family_balance()
@@ -1150,97 +1170,135 @@ class Usctdp_Mgmt_Admin
             'debit' => $int_sanitizer,
             'notes' => $textarea_sanitizer,
         ];
-        $this->save_entity_fields_from_post('Registration', 'Usctdp_Mgmt_Registration_Query', $post_fields_sanitizers);
+        //$this->save_entity_fields_from_post('Registration', 'Usctdp_Mgmt_Registration_Query', $post_fields_sanitizers);
     }
 
-    function ajax_select2_session_search()
+    function ajax_select2_search()
     {
         $results = [];
         try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_session_search'];
+            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_search'];
             if (!check_ajax_referer($handler['nonce'], 'security', false)) {
                 wp_send_json_error('Security check failed. Invalid Nonce.', 403);
             }
-            $query = new Usctdp_Mgmt_Session_Query();
             $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-            $active = isset($_GET['active']) ? intval($_GET['active']) : null;
-            $category = isset($_GET['category']) ? intval($_GET['category']) : null;
-            $query_results = $query->search_sessions($search, $active, $category, 10);
-            if ($query_results) {
-                foreach ($query_results as $result) {
-                    $results[] = array(
-                        'id' => $result->id,
-                        'text' => $result->title
-                    );
-                }
+            $target = isset($_GET['target']) ? sanitize_text_field($_GET['target']) : '';
+
+            if(empty($target)) {
+                wp_send_json_error('No search target specified.', 400);
             }
+            if(!array_key_exists($target, $this->select2_search_targets)) {
+                wp_send_json_error("Invalid target type: $target", 400);
+            }
+
+            $search_target = $this->select2_search_targets[$target];
+            $filters = [];
+            foreach($search_target['filters'] as $key => $func) {
+                $filters[$key] = isset($_GET[$key]) ? $func($_GET[$key]) : null;
+            }
+            $results = $search_target['callback']($search, $filters);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            $trace = $e->getTraceAsString();
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
+
         wp_send_json(array('items' => $results));
     }
 
-    function ajax_select2_activity_search()
+
+    function select2_session_search($search, $filters)
     {
         $results = [];
-        try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_activity_search'];
-            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        $query = new Usctdp_Mgmt_Session_Query();
+        $active = $filters['active'] ?? null;
+        $category = $filters['category'] ?? null; 
+        $query_results = $query->search_sessions($search, $active, $category, 10);
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $results[] = array(
+                    'id' => $result->id,
+                    'text' => $result->title
+                );
             }
-            $query = new Usctdp_Mgmt_Activity_Query();
-            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-            $session_id = isset($_GET['session_id']) ? sanitize_text_field($_GET['session_id']) : '';
-            $query_results = $query->search_activities($search, $session_id, null, 10);
-            if ($query_results) {
-                foreach ($query_results as $result) {
-                    $results[] = array(
-                        'id' => $result->id,
-                        'text' => $result->title
-                    );
-                }
-            }
-        } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
-            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
-        wp_send_json(array('items' => $results));
+        return $results;    
     }
 
-    function ajax_select2_product_search()
+    function select2_activity_search($search, $filters)
     {
         $results = [];
-        try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_product_search'];
-            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        $query = new Usctdp_Mgmt_Activity_Query();
+        $session_id = $filters['session_id'] ?? null; 
+        $query_results = $query->search_activities($search, $session_id, null, 10);
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $results[] = array(
+                    'id' => $result->id,
+                    'text' => $result->title
+                );
             }
-            $query = new Usctdp_Mgmt_Product_Query();
-            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-            $activity_string = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : "clinic";
-            $activity_type = null;
-            if ($activity_string == "clinic") {
-                $activity_type = Usctdp_Activity_Type::Clinic;
-            } else if ($activity_string == "tournament") {
-                $activity_type = Usctdp_Activity_Type::Tournament;
-            } else if ($activity_string == "camp") {
-                $activity_type = Usctdp_Activity_Type::Camp;
-            }
-            $query_results = $query->search_products($search, $activity_type, 10);
-            if ($query_results) {
-                foreach ($query_results as $result) {
-                    $results[] = array(
-                        'id' => $result->id,
-                        'text' => $result->title
-                    );
-                }
-            }
-        } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
-            wp_send_json_error('A system error occurred. Please try again.', 500);
         }
-        wp_send_json(array('items' => $results));
+        return $results;
+    }
+
+    function select2_product_search($search, $filters)
+    {
+        $results = [];
+        $query = new Usctdp_Mgmt_Product_Query();
+        $activity_type = $filters['type'] ?? 1;
+        $type_enum = Usctdp_Activity_Type::tryFrom($activity_type);
+        $query_results = $query->search_products($search, $type_enum, 10);
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $results[] = array(
+                    'id' => $result->id,
+                    'text' => $result->title
+                );
+            }
+        }
+        return $results;
+    }
+
+    function select2_family_search($search, $filters)
+    {
+        $results = [];
+        $query = new Usctdp_Mgmt_Family_Query();
+        $query_results = $query->search_families($search, 10);
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $results[] = array(
+                    'id' => $result->id,
+                    'text' => $result->title,
+                    'address' => $result->address,
+                    'city' => $result->city,
+                    'state' => $result->state,
+                    'zip' => $result->zip,
+                    'phone_numbers' => json_decode($result->phone_numbers),
+                    'email' => $result->email,
+                    'notes' => $result->notes,
+                );
+            }
+        }
+        return $results;
+    }
+
+    function select2_student_search($search, $filters)
+    {
+        $results = [];
+        $query = new Usctdp_Mgmt_Student_Query();
+        $family_id = $filters['family_id'] ?? null;
+        $query_results = $query->search_students($search, $family_id, 10);
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $results[] = array(
+                    'id' => $result->id,
+                    'text' => $result->title,
+                    'level' => $result->level,
+                );
+            }
+        }
+        return $result;
     }
 
     function ajax_session_rosters()
@@ -1316,71 +1374,6 @@ class Usctdp_Mgmt_Admin
         wp_send_json_success([
             'message' => 'Session active status updated successfully'
         ]);
-    }
-
-    function ajax_select2_family_search()
-    {
-        $results = [];
-        try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_family_search'];
-            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
-            }
-
-            $query = new Usctdp_Mgmt_Family_Query();
-            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-            $query_results = $query->search_families($search, 10);
-            if ($query_results) {
-                foreach ($query_results as $result) {
-                    $results[] = array(
-                        'id' => $result->id,
-                        'text' => $result->title,
-                        'title' => $result->title,
-                        'address' => $result->address,
-                        'city' => $result->city,
-                        'state' => $result->state,
-                        'zip' => $result->zip,
-                        'phone_numbers' => json_decode($result->phone_numbers),
-                        'email' => $result->email,
-                        'notes' => $result->notes,
-                    );
-                }
-            }
-        } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
-            wp_send_json_error('A system error occurred. Please try again.', 500);
-        }
-        wp_send_json(array('items' => $results));
-    }
-
-    function ajax_select2_student_search()
-    {
-        $results = [];
-        try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_student_search'];
-            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
-            }
-
-            $query = new Usctdp_Mgmt_Student_Query();
-            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-            $family_id = isset($_GET['family_id']) ? intval($_GET['family_id']) : null;
-            $query_results = $query->search_students($search, $family_id, 10);
-            if ($query_results) {
-                foreach ($query_results as $result) {
-                    $birth_date = new DateTime($result->birth_date);
-                    $results[] = array(
-                        'id' => $result->id,
-                        'text' => $result->title,
-                        'level' => $result->level,
-                    );
-                }
-            }
-        } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
-            wp_send_json_error('A system error occurred. Please try again.', 500);
-        }
-        wp_send_json(array('items' => $results));
     }
 
     function ajax_select2_clinic_search()

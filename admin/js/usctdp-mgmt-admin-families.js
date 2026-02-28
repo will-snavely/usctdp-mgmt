@@ -1,78 +1,247 @@
 (function ($) {
     "use strict";
     $(document).ready(function () {
-        var preloadedData = null;
-        var edit_mode = false;
-        const newStudentModal = document.querySelector('#new-student-modal');
-        const newFamilyModal = document.querySelector('#new-family-modal');
-
-        const fields = {
-            'family-email': {
-                column: 'email',
-                transform: function (value) { return value.trim(); },
-                compare: function (newVal, oldVal) { return newVal === oldVal; },
-                update: updateFamilyTextField
+        const UI_SCHEMA = [
+            {
+                section: 'address',
+                fields: [
+                    { key: 'address', label: 'Street',  type: 'text' },
+                    { key: 'city', label: 'City', type: 'text' },
+                    { key: 'state', label: 'State', type: 'text' },
+                    { key: 'zip', label: 'Zip', type: 'text' }
+                ]
             },
-            'family-address': {
-                column: 'address',
-                transform: function (value) { return value.trim(); },
-                compare: function (newVal, oldVal) { return newVal === oldVal; },
-                update: updateFamilyTextField
+            {
+                section: 'contact',
+                fields: [
+                    { key: 'phone_numbers', label: 'Phone' },
+                    { key: 'email', label: 'email', type: 'text' },
+                ]
             },
-            'family-city': {
-                column: 'city',
-                transform: function (value) { return value.trim(); },
-                compare: function (newVal, oldVal) { return newVal === oldVal; },
-                update: updateFamilyTextField
-            },
-            'family-state': {
-                column: 'state',
-                transform: function (value) { return value.trim(); },
-                compare: function (newVal, oldVal) { return newVal === oldVal; },
-                update: updateFamilyTextField
-            },
-            'family-zip': {
-                column: 'zip',
-                transform: function (value) { return value.trim(); },
-                compare: function (newVal, oldVal) { return newVal === oldVal; },
-                update: updateFamilyTextField
-            },
-            'family-phone': {
-                column: 'phone_numbers',
-                transform: function (value) {
-                    return value.split("\n")
-                        .map(function (item) { return item.trim(); })
-                        .filter(function (item) { return item !== ''; });
-                },
-                compare: function (newVal, oldVal) {
-                    if (newVal.length !== oldVal.length) {
-                        return false;
-                    }
-                    return newVal.every((value, index) => value === oldVal[index]);
-                },
-                update: updateFamilyPhoneField
+            {
+                section: 'notes',
+                fields: [
+                    { key: 'notes', label: 'Notes',  type: 'textarea' },
+                ]
             }
-        };
+        ];
 
-        $('#family-selector').select2({
-            placeholder: "Search for a family...",
-            allowClear: true,
-            ajax: {
+        async function fetchFamilyFields(family_id) {
+            const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_family_search_action,
-                        security: usctdp_mgmt_admin.select2_family_search_nonce,
-                    };
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.get_family_fields_action,
+                    security: usctdp_mgmt_admin.get_family_fields_nonce,
+                    family_id: family_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Unknown error');
+            }
+        } 
+
+        async function updateFamilyFields(familyId, changedData) {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.save_family_fields_action,
+                    security: usctdp_mgmt_admin.save_family_fields_nonce,
+                    family_id: familyId, 
+                    ...changedData
                 },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Unknown error');
+            }
+        }
+
+        var pendingChanges = {}; 
+        var currentId = null;
+        const queryClient = new window.QueryClient({
+            defaultOptions: {
+                queries: {
+                    queryFn: async ({ queryKey }) => {
+                        const [scope, id] = queryKey;
+                        if (scope === 'family' && id) {
+                            
+                            return await fetchFamilyFields(id);
+                        }
+                        return null;
+                    },
+                },
+            },
+        });
+        const familyObserver = new window.QueryObserver(queryClient, {
+            queryKey: ['family', currentId],
+        });
+
+        familyObserver.subscribe(result => {
+            if (result.data) {
+                try {
+                    renderUI(result.data);
+                } catch (err) {
+                    console.error("Critical Render Error:", err);
                 }
             }
         });
+
+        function renderUI(dbData) {
+            const container = document.getElementById('fields-container');
+            container.innerHTML = UI_SCHEMA.map(section => {
+                const fields = section.fields.map(field => {
+                    var value = pendingChanges[field.key] !== undefined 
+                        ? pendingChanges[field.key] 
+                        : dbData[field.key];
+                    const isDirty = pendingChanges.hasOwnProperty(field.key);
+                    var inputClasses = ['db-input', `field-${field.key}`];
+                    var groupClasses = ['field-group']
+                    if(isDirty) {
+                        groupClasses.push('is-dirty');
+                        inputClasses.push('is-dirty');
+                    }
+
+                    var tag = "";
+                    if (field.key === 'phone_numbers') {
+                        const currentValues = value || [];
+                        const inputs = currentValues.map((val, index) => `
+                            <div class="phone-row">
+                                <input type="tel" class="phone-input" data-index="${index}" value="${val}">
+                                <button type="button" class="remove-phone" data-index="${index}">&times;</button>
+                            </div>
+                        `).join('');
+
+                        tag= `
+                            <div class="phone-list">
+                                <div id="phone-list">${inputs}</div>
+                                <button type="button" id="add-phone">+ Add Number</button>
+                            </div>
+                        `;
+                    } else if(field.type === "textarea") {
+                        tag = `
+                            <textarea 
+                                rows=5
+                                class="${inputClasses.join(' ')}" 
+                                data-key="${field.key}">${value || ''}</textarea>`;
+                    } else {
+                        tag = ` 
+                            <input
+                                type="${field.type}" 
+                                class="${inputClasses.join(' ')}" 
+                                data-key="${field.key}" 
+                                value="${value || ''}">`;
+                    }
+                    return `
+                        <div class="${groupClasses.join(' ')}">
+                            <label>${field.label}</label>
+                            ${tag}
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="field-section">
+                        <div class="field-list">
+                            ${fields}
+                        </div>
+                    </div>
+                `;
+           }).join('');
+        }
+
+        $(document).on('input', '.phone-input', function() {
+            const allPhones = $('.phone-input').map(function() { 
+                return $(this).val(); 
+            }).get();
+            pendingChanges['phone_numbers'] = allPhones;
+            $(this).closest('.field-group').addClass('is-dirty');
+            $('#save-btn')
+                .prop('disabled', false)
+                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
+        });
+
+        $(document).on('click', '.remove-phone', function() {
+            const indexToRemove = $(this).data('index');
+            if(!pendingChanges.hasOwnProperty('phone_numbers')) {
+                var phones = queryClient.getQueryData(['family', currentId]).phone_numbers;
+                pendingChanges['phone_numbers'] = [...phones];
+            }
+            pendingChanges['phone_numbers'].splice(indexToRemove, 1);
+            renderUI(queryClient.getQueryData(['family', currentId]));
+            $('#save-btn')
+                .prop('disabled', false)
+                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
+        });
+
+        $(document).on('input', '.db-input', function() {
+            const key = $(this).data('key');
+            const val = $(this).val();
+            const $parent = $(this).parent().addClass('is-dirty');
+            $(this).addClass('is-dirty');
+            pendingChanges[key] = val;
+            $(this).pprent
+            $('#save-btn')
+                .prop('disabled', false)
+                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
+        });
+
+        $(document).on('click', '#add-phone', function() {
+            if(!pendingChanges.hasOwnProperty('phone_numbers')) {
+                var phones = queryClient.getQueryData(['family', currentId]).phone_numbers;
+                pendingChanges['phone_numbers'] = [...phones];
+                
+            }
+            pendingChanges['phone_numbers'].push('');
+            renderUI(queryClient.getQueryData(['family', currentId]));
+        });
+
+        // 4. The Batch Save Function
+        async function handleBatchSave() {
+            if (Object.keys(pendingChanges).length === 0) return;
+
+            const observer = new window.TSMutationObserver(queryClient, {
+                mutationFn: async (batch) => {
+                    const response = await updateFamilyFields(currentId, batch);
+                    if (!response) throw new Error("Server error");
+                    return response;
+                },
+                onSuccess: (updatedFullRecord) => {
+                    pendingChanges = {};
+                    queryClient.setQueryData(['family', currentId], updatedFullRecord);
+                    $('#save-btn').prop('disabled', 'true').text('Save Changes');
+                    $('#fields-status-msg').removeClass("error");
+                    $('#fields-status-msg').addClass("success");
+                    $('#fields-status-msg').text("Update successful");
+                    setTimeout(() => {
+                        $(`#fields-status-msg`).text('');
+                    }, 3000);
+                },
+                onError: (err) => {
+                    $('#save-btn').prop('disabled', 'true').text('Save Changes');
+                    $('#fields-status-msg').removeClass("success");
+                    $('#fields-status-msg').addClass("error");
+                    $('#fields-status-msg').text("Update failed");
+                    setTimeout(() => {
+                        $(`#fields-status-msg`).text('');
+                    }, 3000);
+                },
+            });
+
+            observer.mutate(pendingChanges);
+        }
+
+        $('#save-btn').on('click', handleBatchSave);
+
+        var preloadedData = {};
+        const newStudentModal = document.querySelector('#new-student-modal');
+        const newFamilyModal = document.querySelector('#new-family-modal');
 
         var membersTable = $('#family-members-table').DataTable({
             processing: true,
@@ -87,10 +256,9 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    var familyFilterValue = $('#family-selector').val();
                     d.action = usctdp_mgmt_admin.student_datatable_action;
                     d.security = usctdp_mgmt_admin.student_datatable_nonce;
-                    d.family_id = familyFilterValue;
+                    d.family_id = currentId;
                 }
             },
             columns: [
@@ -115,166 +283,6 @@
                     }
                 }
             ]
-        });
-
-        function updateFamilyTextField(id, value) {
-            $('#' + id + ' .view-mode-text').text(value);
-            $('#' + id + ' .editor').val(value);
-            $('#' + id).data('orig-value', value);
-        }
-
-        function updateFamilyPhoneField(id, values) {
-            $('#' + id + ' .view-mode').children().remove();
-            if (values && values.length > 0) {
-                values.forEach(function (value) {
-                    $('#' + id + ' .view-mode').append('<span>' + value + '</span>');
-                });
-                $('#' + id + ' .editor').val(values.join('\n'));
-            } else {
-                $('#' + id + ' .view-mode').append('<span>Not available</span>');
-                $('#' + id + ' .editor').val('');
-            }
-            $('#' + id).data('orig-value', values);
-        }
-
-        $('#family-selector').on('change', function () {
-            $("#save-notes-error").addClass("hidden");
-            $("#save-notes-success").addClass("hidden");
-            $('#save-notes-text').text('Save Notes');
-            $('#save-notes-button').removeClass('is-loading');
-            $('#family-section').addClass('hidden');
-
-            const selectedValue = this.value;
-            var data = preloadedData ? preloadedData : $(this).select2('data')[0];
-            if (selectedValue && selectedValue !== '') {
-                $('#family-section').removeClass('hidden');
-                $('#family-title').text(data.title);
-                updateFamilyTextField('family-email', data.email);
-                updateFamilyTextField('family-address', data.address);
-                updateFamilyTextField('family-city', data.city);
-                updateFamilyTextField('family-state', data.state);
-                updateFamilyTextField('family-zip', data.zip);
-                updateFamilyPhoneField('family-phone', data.phone_numbers);
-                $('#family-notes').val(data.notes);
-                const historyHref = 'admin.php?page=usctdp-admin-history&family_id=' + selectedValue;
-                $('#family-registration-history-link').attr('href', historyHref);
-                membersTable.ajax.reload();
-            }
-        });
-
-        function saveFamilyFields() {
-            const changedData = {};
-            Object.entries(fields).forEach(([divId, field]) => {
-                const curValue = field.transform($('#' + divId + ' .editor').val());
-                const origValue = $('#' + divId).data('orig-value');
-                if (!field.compare(curValue, origValue)) {
-                    if (curValue.length === 0) {
-                        changedData[field.column] = null;
-                    } else {
-                        changedData[field.column] = curValue;
-                    }
-                }
-            });
-            $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.save_family_fields_action,
-                    security: usctdp_mgmt_admin.save_family_fields_nonce,
-                    id: $('#family-selector').val(),
-                    ...changedData
-                },
-                success: function (responseData) {
-                    Object.entries(fields).forEach(([divId, field]) => {
-                        if (field.column in changedData) {
-                            field.update(divId, changedData[field.column]);
-                            if (preloadedData) {
-                                preloadedData[field.column] = changedData[field.column];
-                            } else {
-                                var data = $('#family-selector').select2('data')[0];
-                                data[field.column] = changedData[field.column];
-                                $('#family-selector').select2('data', data);
-                            }
-                        }
-                    });
-                },
-                error: function (xhr, status, error) {
-                    alert("Update failed!");
-                },
-                complete: function () {
-                    $('#edit-family-button').text('Edit');
-                    $('#edit-family-button').removeClass('is-loading');
-                    $("#family-info-list .family-field").each(function () {
-                        $(this).find('.view-mode').removeClass('hidden');
-                        $(this).find('.edit-mode').addClass('hidden');
-                        $(this).find('.edit-mode').prop('disabled', false);
-                    });
-                    edit_mode = false;
-                }
-            });
-        }
-
-        $('#edit-family-button').on('click', function () {
-            if (edit_mode) {
-                $("#family-info-list .family-field").each(function () {
-                    $(this).find('.edit-mode').prop('disabled', true);
-                });
-                $('#edit-family-button').text('Working...');
-                $('#edit-family-button').addClass('is-loading');
-                saveFamilyFields();
-            } else {
-                $(this).text('Save');
-                $("#family-info-list .family-field").each(function () {
-                    $(this).find('.view-mode').addClass('hidden');
-                    $(this).find('.edit-mode').removeClass('hidden');
-                });
-                edit_mode = true;
-            }
-        });
-
-        $("#save-notes-button").on("click", function () {
-            $("#save-notes-error").addClass("hidden");
-            $("#save-notes-success").addClass("hidden");
-            $('#save-notes-text').text('Working...');
-            $("#save-notes-button").addClass("is-loading");
-            $('#family-selector').attr('disabled', true);
-            $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.save_family_fields_action,
-                    id: $('#family-selector').val(),
-                    notes: $('#family-notes').val(),
-                    security: usctdp_mgmt_admin.save_family_fields_nonce,
-                },
-                success: function (responseData) {
-                    $("#save-notes-error").addClass("hidden");
-                    $("#save-notes-success").removeClass("hidden");
-
-                    // Update the local cache of the notes
-                    var data = preloadedData ? preloadedData : $('#family-selector').select2('data')[0];
-                    data.notes = $('#family-notes').val();
-                    const message = document.getElementById('save-notes-success');
-                    setTimeout(() => {
-                        message.classList.add('hidden');
-                    }, 3000);
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    $("#save-notes-error").removeClass("hidden");
-                    $("#save-notes-success").addClass("hidden");
-                    const message = document.getElementById('save-notes-error');
-                    setTimeout(() => {
-                        message.classList.add('hidden');
-                    }, 3000);
-                },
-                complete: function () {
-                    $('#save-notes-text').text('Save Notes');
-                    $('#save-notes-button').removeClass('is-loading');
-                    $('#family-selector').attr('disabled', false);
-                }
-            });
         });
 
         $('#new-student-button').on('click', (e) => {
@@ -371,20 +379,48 @@
             });
         });
 
-        if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.family_id) {
-            preloadedData = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
-            const newOption = new Option(
-                preloadedData.title,
-                preloadedData.id,
-                true,
-                true
-            );
-            $('#family-selector').append(newOption);
-            $('#family-selector').val(preloadedData.id);
-            $('#family-selector').trigger('change');
-            $('#family-selector').prop('disabled', true);
-            $('#selection-section').addClass('hidden');
+        const selectorConfig = {
+            'family-selector': {
+                name: 'family_id',
+                label: 'Family',
+                target: 'family',
+                next: null,
+                isRoot: true
+            },
+        };
+
+        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
+
+        $('#context-selectors').on('cascade:change', function (e) {
+            const { selectorId, value, text, state } = e.detail;
+            $('#family-section').addClass('hidden');
+            currentId = value; 
+            pendingChanges = {}; 
+            familyObserver.setOptions({
+                queryKey: ['family', currentId],
+            });
+            if(value) {
+                membersTable.ajax.reload();
+                const historyHref = 'admin.php?page=usctdp-admin-history&family_id=' + value;
+                $('#family-registration-history-link').attr('href', historyHref);
+                $('#family-title').text(text);
+                $('#family-section').removeClass('hidden');
+            }
+        });
+
+        if (usctdp_mgmt_admin.preload) {
+            if (usctdp_mgmt_admin.preload.family_id) {
+                const preloadedFamily = Object.values(usctdp_mgmt_admin.preload.family_id)[0]
+                preloadedData['family-selector'] = {
+                    id: preloadedFamily.id,
+                    text: preloadedFamily.title,
+                    disable: true
+                }
+                selectHandler.applyData(preloadedData);
+                $("#selection-section").addClass("hidden");
+            }
         }
+
     });
 })(jQuery);
 

@@ -1,16 +1,6 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    <div id="selection-section">
-        <div id="session-selection-section" class>
-            <h2> Select a Session </h2>
-            <select id="session-selector" class="selector">
-            </select>
-        </div>
-        <div id="activity-selection-section" class="hidden">
-            <h2> Select an Activity </h2>
-            <select id="activity-selector" class="selector">
-            </select>
-        </div>
+    <div id="context-selectors">
     </div>
 
     <div id="roster-section" class="hidden">

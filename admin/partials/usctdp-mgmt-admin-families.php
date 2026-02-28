@@ -87,14 +87,10 @@ $family_fields = [
         </dialog>
 
         <div id="selection-section">
-            <div id="family-selection-section">
-                <h2> Select a Family </h2>
-                <select id="family-selector">
-                </select>
-            </div>
+            <div id="context-selectors"></div>
             <div id="new-family-section">
                 <button id="new-family-button" class="button button-primary">
-                    <span id="new-family-text" class="button-text">Add New Family</span>
+                    <span id="new-family-text" class="button-text">Add New Family...</span>
                 </button>
             </div>
         </div>
@@ -102,72 +98,29 @@ $family_fields = [
         <div id="family-section" class="hidden">
             <h2 class="family-title"> Family: <span id="family-title"></span></h2>
             <div id="family-container">
-                <div id="family-properties">
-                    <div id="family-details">
-                        <div id="family-info-list">
-                            <?php foreach ($family_fields as $field => $data): ?>
-                                <div id="family-<?php echo esc_attr($field); ?>" class="family-field">
-                                    <label>
-                                        <?php echo esc_html($data[0]); ?>
-                                    </label>
-                                    <div class="view-mode">
-                                        <?php if ($data[1] === "text") : ?>
-                                            <span class="view-mode-text"></span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="edit-mode hidden">
-                                        <?php if ($data[1] === "textarea") : ?>
-                                            <textarea rows="5" class="editor"></textarea>
-                                        <?php else : ?>
-                                            <input type="text" class="editor">
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <div id="family-actions">
-                            <button id="edit-family-button" class="button">
-                                <span id="edit-family-text" class="button-text">Edit</span>
-                            </button>
-                        </div>
+                <div>
+                    <a href="#" class="button button-primary" id="family-registration-history-link">
+                        View Registration History...
+                    </a>
+                </div>
+                <div id="fields-panel">
+                    <div id="fields-container">
                     </div>
-                    <div class="family-notes">
-                        <label>Notes</label>
-                        <div id="family-notes-wrap">
-                            <textarea id="family-notes" rows=10></textarea>
-                            <div id="save-notes-action">
-                                <button id="save-notes-button" class="button">
-                                    <span id="save-notes-text">Save Notes</span>
-                                </button>
-                                <div id="save-notes-status">
-                                    <span id="save-notes-success" class="hidden success">
-                                        Notes Saved!
-                                    </span>
-                                    <span id="save-notes-error" class="hidden error">
-                                        Failed to save notes.
-                                    </span>
-                                </div>
-                            </div>
+                    <div class="controls">
+                        <button class="button button-primary" id="save-btn" disabled> Save Changes </button>
+                        <div class="fields-status">
+                            <span id="fields-status-msg"></span>
                         </div>
                     </div>
                 </div>
-                <div id="family-actions">
-                    <h2>Actions</h2>
-                    <div id="family-actions-list">
-                        <div>
-                            <a href=" #" class="button button-primary" id="new-student-button">
-                                Add New Student
-                            </a>
-                        </div>
-                        <div>
-                            <a href="#" class="button button-primary" id="family-registration-history-link">
-                                View History
-                            </a>
-                        </div>
-                    </div>
-                </div>
+
                 <div class="family-members">
                     <h2> Family Members</h2>
+                    <div>
+                        <a href=" #" class="button button-primary" id="new-student-button">
+                            Add New Member...
+                        </a>
+                    </div>
                     <div id="family-table-wrap">
                         <table id="family-members-table" class="usctdp-datatable">
                             <thead>

@@ -6,24 +6,12 @@
 
 #selection-section {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
 }
 
 #family-selector {
     width: 250px;
-}
-
-#family-details {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.view-mode {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
 }
 
 #family-container {
@@ -32,22 +20,117 @@
     gap: 10px;
 }
 
-#family-properties {
+
+#fields-panel {
+    font-family: 'Inter', system-ui, sans-serif;
+    max-width: 900px;
+    background: #f9fafb;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.controls {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    align-items: center;
 }
 
-#family-details {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.is-dirty .field-indicator {
+    display: inline-block;
 }
 
-#family-actions {
+.field-group label {
+    display: block;
+    font-weight: bold;
+    position: relative;
+}
+
+.field-group.is-dirty label::after {
+    content: " *";
+    color: #e67e22; 
+    font-weight: bold;
+}
+
+.db-input.is-dirty {
+    background-color: #fff9f0; 
+    border-left: 4px solid #e67e22; 
+}
+
+/* Keep fields in a row */
+.field-section {
+    margin-bottom: 20px;
+}
+
+.field-list {
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.field-group {
+    flex: 1; /* Makes all fields share width equally */
+    min-width: 150px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    justify-content: flex-start;
+}
+
+label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.db-input {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+/* Handling Multiple Phone Numbers as Chips */
+.phone-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    min-height: 38px;
+}
+
+.phone-chip {
+    background: #e5e7eb;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Highlight modified fields (The orange you mentioned) */
+.db-input.modified {
+    border-color: #f97316;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.1);
+}
+
+/* Notes span the full width */
+.field-notes {
+    width: 100%;
+    resize: vertical;
+}
+
+.controls {
+    margin-top: 24px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 16px;
+    display: flex;
+    gap: 12px;
 }
 
 div.dt-length select {
@@ -55,24 +138,8 @@ div.dt-length select {
 }
 
 #family-table-wrap {
-    max-width: 800px;
+    max-width: 940px;
     min-width: 0;
-}
-
-#family-info-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 5px;
-    padding: 5px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.family-field {
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 5px;
 }
 
 label {
@@ -81,72 +148,6 @@ label {
     color: #666;
     font-weight: 700;
     margin-bottom: 4px;
-}
-
-.family-field span {
-    font-size: 1rem;
-    color: #333;
-    min-height: 1.2em;
-}
-
-#family-notes-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-top: 5px;
-    gap: 10px;
-}
-
-#family-notes {
-    width: 400px;
-}
-
-#family-actions {
-    display: flex;
-    flex-direction: column;
-}
-
-#family-actions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-#save-notes-action {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-#edit-family-button {
-    width: 80px;
-}
-
-@keyframes loading-pulse {
-    0% {
-        opacity: 1;
-        color: #CCCCCC;
-    }
-
-    50% {
-        opacity: 0.8;
-        color: #1c2576;
-        transform: scale(0.98);
-    }
-
-    100% {
-        opacity: 1;
-        color: #CCCCCC;
-    }
-}
-
-.is-loading .button-text {
-    animation: loading-pulse 1.5s infinite ease-in-out;
-}
-
-.is-loading {
-    cursor: wait;
-    pointer-events: none;
 }
 
 /* The Modal Container */
@@ -226,4 +227,75 @@ dialog .modal_field label {
 dialog .modal_field input {
     grid-area: sel;
     width: 100%;
+}
+
+/* Container for the whole phone section */
+#phone-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+/* The individual row */
+.phone-row {
+    display: flex;
+    align-items: center;
+    gap: 0; /* We'll use borders to join them */
+}
+
+.phone-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px 0 0 6px; /* Rounded on the left only */
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.phone-input:focus {
+    outline: none;
+    border-color: #3498db;
+    z-index: 1; /* Keeps the blue border on top of the button */
+}
+
+/* The Remove (X) Button */
+.remove-phone {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-left: none; /* Merge with input */
+    border-radius: 0 6px 6px 0; /* Rounded on the right only */
+    color: #e74c3c;
+    padding: 0 10px;
+    height: 38px; 
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: background 0.2s;
+}
+
+.remove-phone:hover {
+    background: #fee;
+    border-color: #e74c3c;
+}
+
+/* The Add Button */
+#add-phone {
+    background: transparent;
+    color: #3498db;
+    border: 1px dashed #3498db;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+}
+
+#add-phone:hover {
+    background: #ebf5fb;
+    border-style: solid;
 }

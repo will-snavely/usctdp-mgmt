@@ -44,48 +44,26 @@
                     toggleLoading(false, $row.find('button'));
                 }
             });
-        })
-
-        $('#families-select2').select2({
-            placeholder: "Search for a family...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_family_search_action,
-                        security: usctdp_mgmt_admin.select2_family_search_nonce,
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
         });
 
-        $('#active-sessions-select2').select2({
-            placeholder: "Search for a session...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
+        $('#families-select2').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Search for a family...",
+                allowClear: true,
+                target: 'family'
+            }));
+
+        $('#active-sessions-select2').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Search for a session...",
+                allowClear: true,
+                target: 'session',
+                filter: function() {
                     return {
-                        q: params.term,
-                        active: 0,
-                        action: usctdp_mgmt_admin.select2_session_search_action,
-                        security: usctdp_mgmt_admin.select2_session_search_nonce,
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
+                        active: 0
+                    }
                 }
-            }
-        });
+            }));
 
         function addAction($cell, text, className, data) {
             var $actionItem = $('<div></div>')

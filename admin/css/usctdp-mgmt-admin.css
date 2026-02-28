@@ -71,3 +71,28 @@ div.dt-length select {
     cursor: wait;
     pointer-events: none;
 }
+
+.context-selector-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.context-selector-section {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+}
+
+.content-selector-wrap {
+    width: 400px;
+}
+
+.context-selector-label {
+    font-weight: bold;
+    text-align: right;
+    min-width: 80px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}

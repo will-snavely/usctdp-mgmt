@@ -2,37 +2,7 @@
     "use strict";
 
     $(document).ready(function () {
-        function createSelector(id, name, label, hidden, disabled, options = []) {
-            var classes = 'context-selector-section';
-            if (hidden) {
-                classes = 'hidden';
-            }
-            var optionsHtml = '';
-            for (const option of options) {
-                if ('id' in option && 'name' in option) {
-                    optionsHtml += `<option value='${option.id}'>${option.name}</option>`;
-                } else {
-                    optionsHtml += '<option></option>';
-                }
-            }
-            return `
-                <div id='${id}-section' class='${classes}'>
-                    <h2 id='${id}-label'> ${label} </h2>
-                    <select id='${id}' name='${name}' class='context-selector' ${disabled ? 'disabled' : ''}>
-                        ${optionsHtml}
-                    </select>
-                </div>`;
-        }
-
-        function formatUsd(amount) {
-            if (amount === null) {
-                amount = 0;
-            }
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(amount);
-        }
+        var preloadedData = {};
 
         function refreshFamilyBalance(family_id, student_id) {
             $.ajax({
@@ -45,9 +15,7 @@
                     student_id: student_id
                 },
                 success: function (response) {
-                    $('#family-total-debit').text(formatUsd(response.data.total_debits));
-                    $('#family-total-credit').text(formatUsd(response.data.total_credits));
-                    $('#family-total-balance').text(formatUsd(response.data.balance));
+                    $('#family-total-balance').text(USCTDP_Admin.formatUsd(response.data.balance));
                     if (response.data.balance >= 0) {
                         $('#family-total-balance').addClass('balance-red');
                         $('#family-total-balance').removeClass('balance-green');
@@ -55,148 +23,6 @@
                         $('#family-total-balance').addClass('balance-green');
                         $('#family-total-balance').removeClass('balance-red');
                     }
-                }
-            });
-        }
-
-        function defaultSelect2Options(placeholder, action, nonce, filter = function () { return {} }) {
-            return {
-                placeholder: placeholder,
-                allowClear: true,
-                ajax: {
-                    url: usctdp_mgmt_admin.ajax_url,
-                    data: function (params) {
-                        return {
-                            q: params.term,
-                            action: action,
-                            security: nonce,
-                            ...filter()
-                        };
-                    },
-                    processResults: function (data) {
-                        return {
-                            results: data.items
-                        };
-                    }
-                }
-            }
-        }
-
-        var contextData = {};
-        var preloadedData = { family: null, student: null };
-        if (usctdp_mgmt_admin.preload) {
-            if (usctdp_mgmt_admin.preload.family_id) {
-                preloadedData.family = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
-                contextData['family-selector'] = preloadedData.family.id;
-            }
-
-            if (usctdp_mgmt_admin.preload.student_id) {
-                preloadedData.student = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
-                preloadedData.family = {
-                    id: preloadedData.student.family_id,
-                    title: preloadedData.student.family_name
-                }
-                contextData['family-selector'] = preloadedData.student.family_id;
-                $('#student-filter').prop('disabled', true);
-                $('#student-filter-section').addClass('hidden');
-            }
-        }
-
-        var contextSelectors = {
-            'family-selector': {
-                selector: function () {
-                    var options = [];
-                    var hidden = false;
-                    var disabled = false;
-                    if (preloadedData.family) {
-                        options.push({
-                            id: preloadedData.family.id,
-                            name: preloadedData.family.title
-                        });
-                        disabled = true;
-                    }
-
-                    return $(createSelector(
-                        'family-selector',
-                        'family_id',
-                        'Select a Family',
-                        hidden,
-                        disabled,
-                        options
-                    ));
-                },
-                nextSelector: {
-                    options: [],
-                    choose: function () {
-                        return null;
-                    },
-                },
-                select2Options: function () {
-                    if (preloadedData.family) {
-                        return {
-                            placeholder: "Select a family...",
-                            allowClear: true
-                        };
-                    } else {
-                        return defaultSelect2Options(
-                            "Search for a family...",
-                            usctdp_mgmt_admin.select2_family_search_action,
-                            usctdp_mgmt_admin.select2_family_search_nonce
-                        );
-                    }
-                },
-            },
-        }
-
-        for (const [key, value] of Object.entries(contextSelectors)) {
-            var $selector = value.selector();
-            $selector.appendTo('#context-selectors');
-            if (value.select2Options) {
-                $(`#${key}`).select2(value.select2Options());
-            }
-            if ($(`#${key}`).prop('disabled')) {
-                continue;
-            }
-
-            $(`#${key}`).on('change', function () {
-                const selectedValue = this.value;
-                const nextSelector = value.nextSelector.choose();
-                const $nextSection = $(`#${nextSelector}-section`);
-                contextData[key] = selectedValue;
-                if ($nextSection) {
-                    if (selectedValue === '') {
-                        for (const option of value.nextSelector.options) {
-                            if ($(`#${option}`).prop('disabled')) {
-                                continue;
-                            }
-                            $(`#${option}-section`).addClass('hidden');
-                        }
-                    } else {
-
-                        $nextSection.removeClass('hidden');
-                    }
-                }
-                for (const option of value.nextSelector.options) {
-                    if ($(`#${option}`).prop('disabled')) {
-                        continue;
-                    }
-                    $(`#${option}`).val(null);
-                    $(`#${option}`).trigger('change');
-                }
-
-                const family = $('#family-selector').val();
-                if (family) {
-                    $('#session-filter').val(null).trigger('change');
-                    $('#student-filter').val(null).trigger('change');
-                    load_registration_history(
-                        $('#family-selector').find('option:selected').text(),
-                        $('#family-selector').val(),
-                        $('#student-filter').val()
-                    );
-                } else {
-                    $('#session-filter').val(null).trigger('change');
-                    $('#student-filter').val(null).trigger('change');
-                    $('#history-container').addClass("hidden");
                 }
             });
         }
@@ -215,47 +41,23 @@
         }
 
         function initSessionSelector($selectElem) {
-            $selectElem.select2({
-                placeholder: "Search for a session...",
-                ajax: {
-                    url: usctdp_mgmt_admin.ajax_url,
-                    data: function (params) {
-                        return {
-                            q: params.term,
-                            action: usctdp_mgmt_admin.select2_session_search_action,
-                            security: usctdp_mgmt_admin.select2_session_search_nonce
-                        };
-                    },
-                    processResults: function (data) {
-                        return {
-                            results: data.items
-                        };
-                    }
-                }
-            });
+            $selectElem.select2(
+                USCTDP_Admin.select2Options({
+                    placeholder: "Search for a session...",
+                    allowClear: true,
+                    target: 'session'
+                })
+            );
         }
 
         function initActivitySelector($selectElem, sessionSelectId) {
-            $selectElem.select2({
-                placeholder: "Search for an activity...",
-                ajax: {
-                    url: usctdp_mgmt_admin.ajax_url,
-                    data: function (params) {
-                        var selectedSession = $('#' + sessionSelectId).val();
-                        return {
-                            q: params.term,
-                            session_id: selectedSession,
-                            action: usctdp_mgmt_admin.select2_activity_search_action,
-                            security: usctdp_mgmt_admin.select2_activity_search_nonce
-                        };
-                    },
-                    processResults: function (data) {
-                        return {
-                            results: data.items
-                        };
-                    }
-                }
-            });
+            $selectElem.select2(
+                USCTDP_Admin.select2Options({
+                    placeholder: "Search for an activity...",
+                    allowClear: true,
+                    target: 'activity'
+                })
+            );
         }
 
         function getElementContent(el) {
@@ -697,46 +499,21 @@
             }
         });
 
-        $('#student-filter').select2({
-            placeholder: "Search for a student...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_student_search_action,
-                        security: usctdp_mgmt_admin.select2_student_search_nonce,
-                        family_id: $('#family-selector').val()
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
+        $('#student-filter').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Search for a student...",
+                allowClear: true,
+                target: 'student'
+            })
+        );
 
-        $('#session-filter').select2({
-            placeholder: "Search for a session...",
-            allowClear: true,
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                        action: usctdp_mgmt_admin.select2_session_search_action,
-                        security: usctdp_mgmt_admin.select2_session_search_nonce
-                    };
-                },
-                processResults: function (data) {
-                    return {
-                        results: data.items
-                    };
-                }
-            }
-        });
+        $('#session-filter').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Search for a session...",
+                allowClear: true,
+                target: 'session'
+            })
+        );
 
         function load_registration_history(title, family_id, student_id) {
             historyTable.ajax.reload();
@@ -745,22 +522,79 @@
             $('#history-container').removeClass('hidden');
         }
 
-        if (preloadedData.student) {
+        const selectorConfig = {
+            'family-selector': {
+                name: 'family_id',
+                label: 'Family',
+                target: 'family',
+                next: null,
+                isRoot: true
+            },
+        };
+
+        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
+
+        $('#context-selectors').on('cascade:change', function (e) {
+            const { selectorId, value, state } = e.detail;
+            if(value) {
+                $('#session-filter').val(null).trigger('change');
+                $('#student-filter').val(null).trigger('change');
+                load_registration_history(
+                    $('#family-selector').find('option:selected').text(),
+                    value,
+                    $('#student-filter').val()
+                );
+            } else {
+                $('#session-filter').val(null).trigger('change');
+                $('#student-filter').val(null).trigger('change');
+                $('#history-container').addClass("hidden");
+            }
+        });
+
+        if (usctdp_mgmt_admin.preload) {
+            if (usctdp_mgmt_admin.preload.family_id) {
+                const preloadedFamily = Object.values(usctdp_mgmt_admin.preload.family_id)[0]
+                preloadedData['family-selector'] = {
+                    id: preloadedFamily.id,
+                    text: preloadedFamily.title,
+                    disable: true
+                }
+            }
+
+            if (usctdp_mgmt_admin.preload.student_id) {
+                const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+                preloadedData['family-selector'] = {
+                    id: preloadedStudent.family_id,
+                    text: preloadedFamily.family_name,
+                    disable: true
+                }
+                preloadedData['student-selector'] = {
+                    id: preloadedStudent.student_id,
+                    text: preloadedFamily.student_name,
+                }
+                $('#student-filter').prop('disabled', true);
+                $('#student-filter-section').addClass('hidden');
+            }
+        }
+
+        if (preloadedData['student-selector']) {
             $('#context-selectors').addClass('hidden');
-            console.log(preloadedData.student);
+            /*
             load_registration_history(
                 preloadedData.student.student_name,
                 preloadedData.student.family_id,
                 preloadedData.student.student_id
             );
-        } else if (preloadedData.family) {
+            */
+        } else if (preloadedData['family-selector']) {
             $('#context-selectors').addClass('hidden');
-            console.log(preloadedData.family);
+            /*
             load_registration_history(
                 preloadedData.family.title,
                 preloadedData.family.id,
                 null
             );
+            */
         }
     });
 })(jQuery);

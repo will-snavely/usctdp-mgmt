@@ -1,40 +1,8 @@
-(function ($) {
+ful(function ($) {
     "use strict";
 
     $(document).ready(function () {
-        $('#session-selector').select2(
-            USCTDP_Admin.select2Options({
-                placeholder: "Search for a session...",
-                allowClear: true,
-                action: usctdp_mgmt_admin.select2_session_search_action,
-                nonce: usctdp_mgmt_admin.select2_session_search_nonce,
-            }));
-
-        $('#session-selector').on('change', function () {
-            const selectedValue = this.value;
-            if (selectedValue === '') {
-                $('#activity-selection-section').addClass('hidden');
-            } else {
-                $('#activity-selection-section').removeClass('hidden');
-            }
-            $('#activity-selector').val(null);
-            $('#activity-selector').trigger('change');
-            $('.print-status').addClass('hidden');
-        });
-
-        $('#activity-selector').select2(USCTDP_Admin.select2Options({
-            placeholder: "Search for an activity...",
-            allowClear: true,
-            action: usctdp_mgmt_admin.select2_activity_search_action,
-            nonce: usctdp_mgmt_admin.select2_activity_search_nonce,
-            filter: function () {
-                return {
-                    session_id: $('#session-selector').val()
-                };
-            }
-        }));
-
-        function toggleLoading(isLoading) {
+       function toggleLoading(isLoading) {
             if (isLoading) {
                 $('#print-roster-button .button-text').text('Working...');
                 $('#print-roster-button').addClass('is-loading');
@@ -117,40 +85,58 @@
             ]
         });
 
-        $('#activity-selector').on('change', function () {
-            const selectedValue = this.value;
-            if (selectedValue === '') {
-                $('#roster-section').addClass('hidden');
-            } else {
-                var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + selectedValue;
-                $('#roster-section').removeClass('hidden');
-                $('#register-student-button').attr('href', registerUrl);
-                table.ajax.reload();
+        const selectorConfig = {
+            'session-selector': {
+                name: 'session_id',
+                label: 'Session',
+                target: 'session',
+                next: 'activity-selector',
+                isRoot: true
+            },
+            'activity-selector': {
+                name: 'activity_id',
+                label: 'Activity',
+                target: 'activity',
+                next: null, 
+                filter: function () {
+                    return {
+                        session_id: $('#session-selector').val()
+                    };
+                }
             }
+        };
+
+        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
+
+        $('#context-selectors').on('cascade:change', function (e) {
+            const { selectorId, value, state } = e.detail;
             $('.print-status').addClass('hidden');
+            $('#roster-section').addClass('hidden');
+            if (selectorId == 'activity-selector') {
+                if(value) {
+                    var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + value;
+                    $('#roster-section').removeClass('hidden');
+                    $('#register-student-button').attr('href', registerUrl);
+                    table.ajax.reload();
+                    $('#roster-section').removeClass('hidden');
+                } 
+            }
         });
 
+        var preloadedData = {};
         if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.activity_id) {
             const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0]
-            const sessionOption = new Option(
-                preloadedActivity.session_name,
-                preloadedActivity.session_id,
-                true,
-                true
-            );
-            $('#session-selector').append(sessionOption)
-            $('#session-selector').val(preloadedActivity.session_id);
-            $('#session-selector').trigger('change');
-
-            const activityOption = new Option(
-                preloadedActivity.activity_name,
-                preloadedActivity.activity_id,
-                true,
-                true
-            );
-            $('#activity-selector').append(activityOption);
-            $('#activity-selector').val(preloadedActivity.activity_id);
-            $('#activity-selector').trigger('change');
+            preloadedData['session-selector'] = {
+                id: preloadedActivity.session_id,
+                text: preloadedActivity.session_name,
+                disable: true
+            };
+            preloadedData['activity-selector'] = {
+                id: preloadedActivity.activity_id,
+                text:  preloadedActivity.activity_name,
+                disable: true
+            };
         }
-    });
+        selectHandler.applyData(preloadedData);
+   });
 })(jQuery);

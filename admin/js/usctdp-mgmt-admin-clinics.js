@@ -100,17 +100,19 @@
             USCTDP_Admin.select2Options({
                 placeholder: "Search for a session...",
                 allowClear: true,
-                action: usctdp_mgmt_admin.select2_session_search_action,
-                nonce: usctdp_mgmt_admin.select2_session_search_nonce,
+                target: 'session'
             }));
 
         $('#clinic-filter').select2(
             USCTDP_Admin.select2Options({
                 placeholder: "Search for a clinic...",
                 allowClear: true,
-                action: usctdp_mgmt_admin.select2_product_search_action,
-                nonce: usctdp_mgmt_admin.select2_product_search_nonce,
-                type: 'clinic'
+                target: 'product',
+                filter: function() {
+                    return {
+                        'type': 1 // 1 == Clinic
+                    }
+                }
             }));
 
         var $table_controls = $('#clinics-table_wrapper');
