@@ -16,33 +16,36 @@ $nonce_action = $post_handler["nonce_action"];
                 <div id="notifications-section"></div>
             </div>
 
-            <div id="additional-details" class="hidden">
-                <div id="clinic-info">
-                    <div id="clinic-info-capacity" class="clinic-info-item">
-                        <label>Capacity:</label>
-                        <span class="clinic-info-value">
-                            <span id="clinic-current-size"></span>
-                            <span class="clinic-capacity-separator">out of</span>
-                            <span id="clinic-max-size"></span>
-                        </span>
+            <div id="preorder-details" class="hidden">
+                <div id="clinic-preorder-details">
+                    <div id="clinic-info">
+                        <div id="clinic-info-capacity" class="clinic-info-item">
+                            <label>Capacity</label>
+                            <span class="clinic-info-value">
+                                <span id="clinic-current-size"></span>
+                                <span class="clinic-capacity-separator">out of</span>
+                                <span id="clinic-max-size"></span>
+                            </span>
+                        </div>
+                        <div id="clinic-info-one-day-price" class="clinic-info-item ">
+                            <label>One Day $</label>
+                            <span class="clinic-info-value neutral" id="clinic-one-day-price"></span>
+                        </div>
+                        <div id="clinic-info-two-day-price" class="clinic-info-item ">
+                            <label>Two Day $</label>
+                            <span class="clinic-info-value neutral" id="clinic-two-day-price"></span>
+                        </div>
                     </div>
-                    <div id="clinic-info-one-day-price" class="clinic-info-item ">
-                        <label>One Day Price:</label>
-                        <span class="clinic-info-value neutral" id="clinic-one-day-price"></span>
-                    </div>
-                    <div id="clinic-info-two-day-price" class="clinic-info-item ">
-                        <label>Two Day Price:</label>
-                        <span class="clinic-info-value neutral" id="clinic-two-day-price"></span>
-                    </div>
-                </div>
-                <div id="registration-fields">
-                    <div id="student-level-field" class="registration-field">
-                        <label for="student-level">Student Level</label>
-                        <input name="student-level" id="student-level">
-                    </div>
-                    <div id="notes-section">
-                        <label for="notes">Notes</label>
-                        <textarea name="notes" id="notes" rows="5"></textarea>
+                    <div id="clinic-preorder-fields">
+                        <div id="student-level-field" class="registration-field">
+                            <label for="student-level">Level</label>
+                            <input type="text" name="student-level" id="student-level">
+                        </div>
+                        <div id="clinic-notes-section" class="notes-section">
+                            <label for="clinic-notes">Notes</label>
+                            <textarea name="clinic-notes" id="clinic-notes" rows="3" class="notes">
+                            </textarea>
+                        </div>
                     </div>
                 </div>
                 <div id="registration-submit-button-wrap">

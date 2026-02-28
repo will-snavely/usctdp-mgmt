@@ -10,51 +10,6 @@
 
         var pendingRegistrations = [];
 
-        function createSelector(id, name, label, hidden, disabled, options = []) {
-            var classes = 'context-selector-section';
-            if (hidden) {
-                classes += ' hidden';
-            }
-            var optionsHtml = '';
-            for (const option of options) {
-                if ('id' in option && 'name' in option) {
-                    optionsHtml += `<option value="${option.id}">${option.name}</option>`;
-                } else {
-                    optionsHtml += '<option></option>';
-                }
-            }
-            return `
-                <div id="${id}-section" class="${classes}">
-                    <span id="${id}-label" class="context-selector-label"> ${label} </span>
-                    <select id="${id}" name="${name}" class="context-selector" ${disabled ? 'disabled' : ''}>
-                        ${optionsHtml}
-                    </select>
-                </div>`;
-        }
-
-        function defaultSelect2Options(placeholder, action, nonce, filter = function () { return {} }) {
-            return {
-                placeholder: placeholder,
-                allowClear: true,
-                ajax: {
-                    url: usctdp_mgmt_admin.ajax_url,
-                    data: function (params) {
-                        return {
-                            q: params.term,
-                            action: action,
-                            security: nonce,
-                            ...filter()
-                        };
-                    },
-                    processResults: function (data) {
-                        return {
-                            results: data.items
-                        };
-                    }
-                }
-            }
-        }
-
         var contextData = {};
         var preloadedData = { student: null, activity: null };
         if (usctdp_mgmt_admin.preload) {
@@ -63,263 +18,15 @@
                 contextData['family-selector'] = preloadedData.student.family_id;
                 contextData['student-selector'] = preloadedData.student.student_id;
             }
-            if (usctdp_mgmt_admin.preload.activity_id) {
-                console.log(preloadedData.activity);
-                preloadedData.activity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
-                const activityTypeInt = preloadedData.activity.activity_type;
-                const activityType = activityTypes[activityTypeInt].id;
-                contextData['session-selector'] = preloadedData.activity.session_id;
-                if (activityType === 'clinic') {
-                    contextData['clinic-selector'] = preloadedData.activity.activity_id;
-                }
-            }
         }
 
-        var contextSelectors = {
-            'family-selector': {
-                selector: function () {
-                    var options = [];
-                    var hidden = false;
-                    var disabled = false;
-                    if (preloadedData.student) {
-                        options.push({
-                            id: preloadedData.student.family_id,
-                            name: preloadedData.student.family_name
-                        });
-                        disabled = true;
-                    }
-
-                    return $(createSelector(
-                        'family-selector',
-                        'family_id',
-                        'Family',
-                        hidden,
-                        disabled,
-                        options
-                    ));
-                },
-                nextSelector: {
-                    options: ['student-selector'],
-                    choose: function () {
-                        return 'student-selector';
-                    },
-                },
-                select2Options: function () {
-                    if (preloadedData.student) {
-                        return {
-                            placeholder: "Select a family...",
-                            allowClear: true
-                        };
-                    } else {
-                        return defaultSelect2Options(
-                            "Search for a family...",
-                            usctdp_mgmt_admin.select2_family_search_action,
-                            usctdp_mgmt_admin.select2_family_search_nonce
-                        );
-                    }
-                },
-            },
-            'student-selector': {
-                selector: function () {
-                    var options = [];
-                    var hidden = true;
-                    var disabled = false;
-                    if (preloadedData.student) {
-                        options.push({
-                            id: preloadedData.student.student_id,
-                            name: preloadedData.student.student_name
-                        });
-                        hidden = false;
-                        disabled = true;
-                    }
-
-                    return $(createSelector(
-                        'student-selector',
-                        'student_id',
-                        'Student',
-                        hidden,
-                        disabled,
-                        options
-                    ));
-                },
-                nextSelector: {
-                    options: ['session-selector'],
-                    choose: function () {
-                        return 'session-selector';
-                    },
-                },
-                select2Options: function () {
-                    if (preloadedData.student) {
-                        return {
-                            placeholder: "Select a student...",
-                            allowClear: true
-                        };
-                    } else {
-                        return defaultSelect2Options(
-                            "Search for a student...",
-                            usctdp_mgmt_admin.select2_student_search_action,
-                            usctdp_mgmt_admin.select2_student_search_nonce,
-                            function () {
-                                return {
-                                    family_id: $('#family-selector').val()
-                                };
-                            }
-                        );
-                    }
-                }
-            },
-            'session-selector': {
-                selector: function () {
-                    var options = [];
-                    var hidden = true;
-                    var disabled = false;
-                    if (preloadedData.activity) {
-                        options.push({
-                            id: preloadedData.activity.session_id,
-                            name: preloadedData.activity.session_name
-                        });
-                        hidden = false;
-                        disabled = true;
-                    }
-                    return $(createSelector(
-                        'session-selector',
-                        'session_id',
-                        'Session',
-                        hidden,
-                        disabled,
-                        options
-                    ));
-                },
-                nextSelector: {
-                    options: ['clinic-selector', 'tournament-selector'],
-                    choose: function () {
-                        return 'clinic-selector'
-                    }
-                },
-                select2Options: function () {
-                    if (preloadedData.activity) {
-                        return {
-                            placeholder: "Select a session...",
-                            allowClear: true
-                        };
-                    } else {
-                        return defaultSelect2Options(
-                            "Search for a session...",
-                            usctdp_mgmt_admin.select2_session_search_action,
-                            usctdp_mgmt_admin.select2_session_search_nonce
-                        );
-                    }
-                },
-            },
-            'clinic-selector': {
-                selector: function () {
-                    var options = [];
-                    var hidden = true;
-                    var disabled = false;
-                    if (preloadedData.activity) {
-                        options.push({
-                            id: preloadedData.activity.activity_id,
-                            name: preloadedData.activity.activity_name
-                        });
-                        hidden = false;
-                        disabled = true;
-                    }
-                    return $(createSelector(
-                        'clinic-selector',
-                        'activity_id',
-                        'Clinic',
-                        hidden,
-                        disabled,
-                        options
-                    ));
-                },
-                nextSelector: {
-                    options: [],
-                    choose: function () {
-                        return null;
-                    }
-                },
-                select2Options: function () {
-                    if (preloadedData.activity) {
-                        return {
-                            placeholder: "Search for an activity...",
-                            allowClear: true
-                        };
-                    } else {
-                        return defaultSelect2Options(
-                            "Search for an activity...",
-                            usctdp_mgmt_admin.select2_activity_search_action,
-                            usctdp_mgmt_admin.select2_activity_search_nonce,
-                            function () {
-                                return {
-                                    session_id: $('#session-selector').val()
-                                }
-                            }
-                        );
-                    }
-                }
-            }
-        }
-
-        for (const [key, value] of Object.entries(contextSelectors)) {
-            var $selector = value.selector();
-            $selector.appendTo('#context-selectors');
-            if (value.select2Options) {
-                $(`#${key}`).select2(value.select2Options());
-            }
-            if ($(`#${key}`).prop('disabled')) {
-                continue;
-            }
-
-            $(`#${key}`).on('change', function () {
-                const selectedValue = this.value;
-                const nextSelector = value.nextSelector.choose();
-                const $nextSection = $(`#${nextSelector}-section`);
-                contextData[key] = selectedValue;
-                if ($nextSection) {
-                    if (selectedValue === '') {
-                        for (const option of value.nextSelector.options) {
-                            if ($(`#${option}`).prop('disabled')) {
-                                continue;
-                            }
-                            $(`#${option}-section`).addClass('hidden');
-                        }
-                    } else {
-                        $nextSection.removeClass('hidden');
-                    }
-                }
-                for (const option of value.nextSelector.options) {
-                    if ($(`#${option}`).prop('disabled')) {
-                        continue;
-                    }
-                    $(`#${option}`).val(null);
-                    $(`#${option}`).trigger('change');
-                }
-
-                if (contextData['clinic-selector'] && contextData['student-selector']) {
-                    toggle_registration_fields(false);
-                    $('#notifications-section').children().remove();
-                    load_clinic_registration(contextData['clinic-selector'], contextData['student-selector']);
-                } else {
-                    $('#notifications-section').children().remove();
-                    toggle_registration_fields(false);
-                }
-            });
-        }
-
-        function toggle_registration_fields(visible) {
+        function togglePreorderDetails(visible) {
             if (visible) {
-                $('#additional-details').removeClass('hidden');
+                $('#preorder-details').removeClass('hidden');
             } else {
-                $('#additional-details').addClass('hidden');
+                $('#notifications-section').children().remove();
+                $('#preorder-details').addClass('hidden');
             }
-        }
-
-        function reset_registration_fields() {
-            $('.registration-field input').val('');
-            $('.registration-field select').val(null);
-            $('#notes').val('');
-            $('#notifications-section').children().remove();
         }
 
         function set_notification(slug, message, ignoreable = false) {
@@ -338,78 +45,76 @@
                 $notification.append($ignoreBtn);
 
                 $ignoreBtn.click(function () {
-                    reset_registration_fields();
-                    toggle_registration_fields(true);
-                    var $hiddenInput = $('<input type="hidden"></input>');
-                    $hiddenInput.attr('id', 'ignore-' + slug);
-                    $hiddenInput.attr('name', 'ignore-' + slug);
-                    $hiddenInput.attr('value', "true");
-                    $('#notifications-section').append($hiddenInput);
+                    toggleOrderDetails(true);
                 });
             }
             $('#notifications-section').append($notification);
         }
 
-        function formatUsd(amount) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(amount);
-        }
-
-        function load_clinic_registration(clinic_id, student_id) {
-            $.ajax({
+        async function getPreregistrationInfo(activity_id, student_id) {
+            const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'GET',
                 dataType: 'json',
                 data: {
                     action: usctdp_mgmt_admin.activity_preregistration_action,
-                    activity_id: clinic_id,
+                    activity_id: activity_id,
                     student_id: student_id,
                     security: usctdp_mgmt_admin.activity_preregistration_nonce,
-                },
-                success: function (response) {
-                    var current_size = response.data.registered;
-                    var max_size = response.data.capacity;
-                    var student_level = response.data.student_level;
-                    var pricing = response.data.pricing;
-                    var session_id = response.data.session_id;
-                    var product_id = response.data.product_id;
-
-                    $('#student-level').val(student_level);
-                    $('#clinic-current-size').text(current_size);
-                    $('#clinic-max-size').text(max_size);
-                    $('#clinic-info-capacity .clinic-info-value').removeClass('full available');
-                    $('#clinic-info-capacity .clinic-info-value').addClass(current_size >= max_size ? 'full' : 'available');
-                    $('#clinic-one-day-price').text(formatUsd(pricing['One']));
-                    $('#clinic-two-day-price').text(formatUsd(pricing['Two']));
-                    $("#clinic-info").removeData();
-                    $("#clinic-info").data('session_id', session_id);
-                    $("#clinic-info").data('product_id', product_id);
-                    $("#clinic-info").data('student_level', student_level);
-                    $("#clinic-info").data('pricing', pricing);
-
-                    if (response.data.student_registered) {
-                        set_notification(
-                            'student-registered',
-                            'The selected student is already registered for this class.',
-                            false
-                        );
-                    } else if (current_size >= max_size) {
-                        set_notification(
-                            'class-full',
-                            'This class is currently full.',
-                            true
-                        );
-                    } else {
-                        reset_registration_fields();
-                        toggle_registration_fields(true);
-                    }
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("AJAX Error:", textStatus, errorThrown);
                 }
             });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Unknown error');
+            }
+        }
+
+
+        function bind_clinic_info(info) {
+            const full = info.registered >= info.capacity;
+            $('#clinic-current-size').text(info.registered);
+            $('#clinic-max-size').text(info.capacity);
+            $('#clinic-info-capacity .clinic-info-value').removeClass('full available');
+            $('#clinic-info-capacity .clinic-info-value').addClass(full ? 'full' : 'available');
+            $('#clinic-one-day-price').text(USCTDP_Admin.formatUsd(info.pricing['One']));
+            $('#clinic-two-day-price').text(USCTDP_Admin.formatUsd(info.pricing['Two']));
+            $('#student-level').val(info.student_level);
+            $("#clinic-info").removeData();
+            $("#clinic-info").data('pricing', info.pricing);
+        }
+
+        async function loadClinicRegistration(clinicId, studentId) {
+            try {
+                const info = await getPreregistrationInfo(clinicId, studentId);
+                bind_clinic_info(info);
+                $("#clinic_notes").val('');
+                if (info.student_registered) {
+                    set_notification(
+                        'student-registered',
+                        'The selected student is already registered for this activity.',
+                        false
+                    );
+                } else if (info.registered >= info.capacity) {
+                    set_notification(
+                        'activity-full',
+                        'This activity is currently full.',
+                        true
+                    );
+                } else {
+                    togglePreorderDetails(true);
+                }
+            } catch(error) {
+                console.log("Error: ", error);
+                alert("Failed to load clinic registration data. Try again or report this to a developer.");
+            }
+        }
+
+        function loadActivityRegistration(activityId, activityType, studentId) {
+            $('#notifications-section').children().remove();
+            if(activityType === 1) { // Clinic
+                loadClinicRegistration(activityId, studentId);
+            }
         }
 
         $('#payment-method').on('change', function () {
@@ -485,7 +190,7 @@
                 const price = parseFloat($row.find('.price-input').val());
                 total += price;
             });
-            $('#registration-order-total-value').text(formatUsd(total));
+            $('#registration-order-total-value').text(USCTDP_Admin.formatUsd(total));
         }
 
         function getOrderData() {
@@ -565,17 +270,26 @@
             }
         }
 
+        function checkoutActivityName(name) {
+            const replacements = [
+                [/^Adult/, ""],
+            ];
+            return USCTDP_Admin.applyReplacements(name, replacements);
+        }
+
         $('#add-registration').on('click', function () {
+            const activityName = $('#activity-selector option:selected').text();
+            var displayActivityName = checkoutActivityName(activityName);
             const newRegistration = {
-                activity_id: $('#clinic-selector').val(),
-                activity_name: $('#clinic-selector option:selected').text(),
+                activity_id: $('#activity-selector').val(),
+                activity_name: displayActivityName, 
                 family_id: $('#family-selector').val(),
                 student_id: $('#student-selector').val(),
                 student_name: $('#student-selector option:selected').text(),
-                session_id: $('#clinic-info').data('session_id'),
+                session_id: $('#session-selector').val(),
                 session_name: $('#session-selector option:selected').text(),
-                product_id: $('#clinic-info').data('product_id'),
-                student_level: $('#clinic-info').data('student_level'),
+                product_id: $('#product-selector').val(),
+                student_level: $('#student-level').val(),
                 notes: $('#notes').val()
             };
             const one_day_price = parseInt($('#clinic-info').data('pricing')['One']);
@@ -587,8 +301,7 @@
                 diff
             );
             addPendingRegistration(newRegistration, priceEstimate);
-            reset_registration_fields();
-            toggle_registration_fields(false);
+            togglePreorderDetails(false);
             $('#clinic-selector').val(null).trigger('change');
         });
 
@@ -639,5 +352,102 @@
                     alert('There was an error. Please try again.');
                 });
         });
-    });
+ 
+        const selectorConfig = {
+            'family-selector': {
+                name: 'family_id',
+                label: 'Family',
+                target: 'family',
+                next: 'student-selector',
+                isRoot: true
+            },
+            'student-selector': {
+                name: 'student_id',
+                label: 'Student',
+                target: 'student',
+                next: 'product-selector', 
+                filter: function () {
+                    return {
+                        family_id: $('#family-selector').val()
+                    };
+                }
+            },
+            'product-selector': {
+                name: 'product_id',
+                label: 'Product',
+                target: 'product',
+                branches: ['session-selector'], 
+                next: function(val, $el) {
+                    return "session-selector";
+                }
+            },
+            'session-selector': {
+                name: 'session_id',
+                label: 'Session',
+                target: 'session',
+                next: 'activity-selector', 
+                filter: function () {
+                    const productData = $("#product-selector").select2('data');
+                    if(productData && productData.length > 0) {
+                        const selectedProduct = productData[0];
+                        return {
+                            category: selectedProduct.category
+                        };
+                    } else {
+                        return {};
+                    }
+                }
+            },
+            'activity-selector': {
+                name: 'activity_id',
+                label: 'Activity',
+                target: 'activity',
+                next: null,
+                filter: function () {
+                    return {
+                        session_id: $('#session-selector').val(),
+                        product_id: $('#product-selector').val()
+                    };
+                }
+            },
+        };
+
+        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
+
+        $('#context-selectors').on('cascade:change', function (e) {
+            const { selectorId, value, state } = e.detail;
+            if (selectorId === 'activity-selector') {
+                if(value) {
+                    const activityId = value;
+                    const studentId = $('#student-selector').val()
+                    if (activityId && studentId) {
+                        const activityData = $("#product-selector").select2('data')[0];
+                        const activityType = activityData.type;
+                        togglePreorderDetails(false);
+                        loadActivityRegistration(activityId, activityType, studentId);
+                    } else {
+                        togglePreorderDetails(false);
+                    }
+                } 
+            }
+        });
+
+        if (usctdp_mgmt_admin.preload?.student_id) {
+            const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+            preloadedData['family-selector'] = {
+                id: preloadedStudent.family_id,
+                text: preloadedFamily.family_name,
+                disable: true
+            }
+            preloadedData['student-selector'] = {
+                id: preloadedStudent.student_id,
+                text: preloadedFamily.student_name,
+                disable: false
+            }
+            $('#student-filter').prop('disabled', true);
+            $('#student-filter-section').addClass('hidden');
+            $('#context-selectors').addClass('hidden');
+            selectHandler.applyData(preloadedData);
+        }
+   });
 })(jQuery);

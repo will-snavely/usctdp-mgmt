@@ -61,6 +61,7 @@ class Usctdp_Mgmt_Session_Query extends Query
         $sql .= " ORDER BY title ASC LIMIT %d";
         $args[] = $limit;
         $query = $wpdb->prepare($sql, $args);
+        error_log($query);
         return $wpdb->get_results($query);
     }
 

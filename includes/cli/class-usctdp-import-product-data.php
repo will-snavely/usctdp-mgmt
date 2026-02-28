@@ -163,7 +163,7 @@ class Usctdp_Import_Product_Data
             "woocommerce_id" => $product_id,
             "title" => $title,
             "search_term" => $search_term,
-            "type" => Usctdp_Activity_Type::Tournament->value,
+            "type" => Usctdp_Product_Type::Tournament->value,
             "session_category" => $this->get_category_int($tournament['session_category']),
             "age_group" => $this->get_age_group_int($tournament['age_group']),
         ]);
@@ -190,7 +190,7 @@ class Usctdp_Import_Product_Data
             "woocommerce_id" => $product_id,
             "title" => $title,
             "search_term" => $search_term,
-            "type" => Usctdp_Activity_Type::Clinic->value,
+            "type" => Usctdp_Product_Type::Clinic->value,
             "session_category" => $this->get_category_int($clinic['session_category']),
             "age_group" => $this->get_age_group_int($clinic['age_group']),
         ]);

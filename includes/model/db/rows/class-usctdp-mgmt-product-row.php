@@ -17,6 +17,6 @@ class Usctdp_Mgmt_Product_Row extends Row
         $this->search_term = $this->search_term;
         $this->session_category = Usctdp_Session_Category::from($this->session_category);
         $this->age_group = Usctdp_Age_Group::from($this->age_group);
-        $this->type = Usctdp_Activity_Type::from($this->type);
+        $this->type = Usctdp_Product_Type::from($this->type);
     }
 }

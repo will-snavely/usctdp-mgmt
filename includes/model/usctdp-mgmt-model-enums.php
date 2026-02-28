@@ -22,6 +22,15 @@ enum Usctdp_Activity_Type: int
     case Camp = 3;
 }
 
+enum Usctdp_Product_Type: int
+{
+    case Clinic = 1;
+    case Tournament = 2;
+    case Camp = 3;
+    case SpecialEvent = 4;
+    case Merchandise = 5;
+}
+
 enum Usctdp_Age_Group: int
 {
     case Junior = 1;
@@ -30,6 +39,7 @@ enum Usctdp_Age_Group: int
 
 enum Usctdp_Session_Category: int
 {
+    case None = 0;
     case Junior_Beginner = 1;
     case Junior_Advanced = 2;
     case Adult = 3;

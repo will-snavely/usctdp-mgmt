@@ -174,7 +174,8 @@ class Usctdp_Mgmt_Admin
             'activity' => [
                 'callback' => $this->select2_activity_search(...),
                 'filters' => [
-                    'session_id' => intval(...)
+                    'session_id' => intval(...),
+                    'product_id' => intval(...)
                 ]
             ],
             'product' => [
@@ -572,9 +573,9 @@ class Usctdp_Mgmt_Admin
             'ajax_url' => admin_url('admin-ajax.php'),
         ];
         $handlers = [
+            'select2_search',
             'activity_preregistration',
             'registrations_datatable',
-            'select2_search',
             'create_woocommerce_order',
             'commit_registrations',
         ];
@@ -1193,6 +1194,7 @@ class Usctdp_Mgmt_Admin
 
             $search_target = $this->select2_search_targets[$target];
             $filters = [];
+            error_log(print_r($_GET, true));
             foreach($search_target['filters'] as $key => $func) {
                 $filters[$key] = isset($_GET[$key]) ? $func($_GET[$key]) : null;
             }
@@ -1210,6 +1212,7 @@ class Usctdp_Mgmt_Admin
     function select2_session_search($search, $filters)
     {
         $results = [];
+        error_log(print_r($filters, true));
         $query = new Usctdp_Mgmt_Session_Query();
         $active = $filters['active'] ?? null;
         $category = $filters['category'] ?? null; 
@@ -1230,12 +1233,14 @@ class Usctdp_Mgmt_Admin
         $results = [];
         $query = new Usctdp_Mgmt_Activity_Query();
         $session_id = $filters['session_id'] ?? null; 
-        $query_results = $query->search_activities($search, $session_id, null, 10);
+        $product_id = $filters['product_id'] ?? null; 
+        $query_results = $query->search_activities($search, $session_id, $product_id, 10);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(
                     'id' => $result->id,
-                    'text' => $result->title
+                    'text' => $result->title,
+                    'type' => $result->type
                 );
             }
         }
@@ -1247,13 +1252,15 @@ class Usctdp_Mgmt_Admin
         $results = [];
         $query = new Usctdp_Mgmt_Product_Query();
         $activity_type = $filters['type'] ?? 1;
-        $type_enum = Usctdp_Activity_Type::tryFrom($activity_type);
+        $type_enum = Usctdp_Product_Type::tryFrom($activity_type);
         $query_results = $query->search_products($search, $type_enum, 10);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(
                     'id' => $result->id,
-                    'text' => $result->title
+                    'text' => $result->title,
+                    'category' => intval($result->session_category),
+                    'type' => intval($result->type)
                 );
             }
         }
@@ -1298,7 +1305,7 @@ class Usctdp_Mgmt_Admin
                 );
             }
         }
-        return $result;
+        return $results;
     }
 
     function ajax_session_rosters()
@@ -1760,7 +1767,7 @@ class Usctdp_Mgmt_Admin
                 break;
             }
         }
-        if ($product->type == Usctdp_Activity_Type::Clinic) {
+        if ($product->type == Usctdp_Product_Type::Clinic) {
             return $this->find_variations($woo_product, [
                 'session' => $session_name,
                 'days-per-week' => "One",

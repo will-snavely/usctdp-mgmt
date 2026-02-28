@@ -10,6 +10,12 @@
         return new Intl.DateTimeFormat('en-US', options).format(dateObj);
     }
 
+    USCTDP_Admin.applyReplacements = function(input, replacements) {
+        return replacements.reduce((currentString, [pattern, replacement]) => {
+            return currentString.replace(pattern, replacement);
+        }, input);
+    }
+
     USCTDP_Admin.formatUsd = function(amount) {
         if (amount === null) {
            amount = 0;
@@ -125,31 +131,18 @@
             const text = $el.find('option:selected').text();
 
             // Determine the "Next" selector based on logic or static ID
-            var nextId = null;
-            var branches = settings.branches;
-            if(val) {
-                switch(typeof settings.next) {
-                    case 'function':
-                        nextId = settings.next(val, $el);
-                        break;
-                    case 'string':
-                        nextId = settings.next;
-                        branches = [nextId];
-                        break;
-                    default:
-                        nextId = null;
-                }
-            }
+            const next = settings.next;
+            var nextId = typeof next === "function" ? next(val, $el) : next;
+            var branches = typeof next === "string" ? [next] : settings.branches;
             if (branches) {
                 branches.forEach(branchId => this.resetAndHide(branchId));
             }
 
-            if (nextId) {
+            if (nextId && val) {
                 $(`#${nextId}-section`).removeClass('hidden');
             }
 
             this.updateState();
-
             this.trigger('change', { 
                 selectorId: id, 
                 value: val, 
@@ -173,9 +166,10 @@
             $el.val(null).trigger('change.select2');
             $(`#${id}-section`).addClass('hidden');
 
-            // Recursively clear all branches of THIS child
-            if (settings?.branches) {
-                settings.branches.forEach(branchId => this.resetAndHide(branchId));
+            const next = settings.next
+            var branches = typeof next === "string" ? [next] : settings.branches 
+            if (branches) {
+                branches.forEach(branchId => this.resetAndHide(branchId));
             }
         }
 

@@ -18,7 +18,7 @@ class Usctdp_Mgmt_Product_Query extends Query
     public function search_products($query, $type = null, $limit = 10)
     {
         global $wpdb;
-        $sql = "SELECT id, title FROM {$wpdb->prefix}{$this->table_name}";
+        $sql = "SELECT * FROM {$wpdb->prefix}{$this->table_name}";
         $args = [];
         $conditions = [];
         if ($query) {

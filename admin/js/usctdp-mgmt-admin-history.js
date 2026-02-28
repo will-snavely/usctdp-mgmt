@@ -580,7 +580,6 @@
                 $('#student-filter-section').addClass('hidden');
                 $('#context-selectors').addClass('hidden');
             }
-
             selectHandler.applyData(preloadedData);
         }
     });

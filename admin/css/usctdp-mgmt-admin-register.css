@@ -36,58 +36,59 @@
     display: contents;
 }
 
-.registration-field {
-    display: contents;
-}
-
-
-#additional-details {
+#order-details {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-#registration-fields {
+#clinic-preorder-details {
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding: 10px;
 }
 
-.registration-field {
+#clinic-preorder-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+}
+
+
+
+#student-level-field {
     display: flex;
     flex-direction: row;
     gap: 10px;
-    text-align: right;
+    align-items: center;
+}
+
+#student-level {
+    width: 40px;
+    height: 28px;
 }
 
 .registration-field label {
     font-weight: bold;
     text-align: right;
-    min-width: 80px;
     font-size: 0.9rem;
     text-transform: uppercase;
 }
 
-#registration-fields .registration-field {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    text-align: right;
-}
-
-#registration-fields .registration-field input {
+.registration-field input {
     width: 150px;
 }
 
-#notes-section {
+.notes-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 5px;
     box-sizing: border-box;
 }
 
-#notes-section label {
+.notes-section label {
     font-weight: bold;
     text-align: left;
     font-size: 0.9rem;
@@ -222,14 +223,16 @@
 }
 
 #clinic-info {
-    display: grid;
-    grid-template-columns: max-content max-content;
-    gap: 10px 10px;
-    align-items: center;
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    justify-content: center;
 }
 
 .clinic-info-item {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .clinic-info-item label {
