@@ -538,12 +538,15 @@
             const { selectorId, value, state } = e.detail;
             if(value) {
                 $('#session-filter').val(null).trigger('change');
-                $('#student-filter').val(null).trigger('change');
-                load_registration_history(
-                    $('#family-selector').find('option:selected').text(),
-                    value,
-                    $('#student-filter').val()
-                );
+                var studentId = null;
+                var title = $('#family-selector').find('option:selected').text();
+                if(preloadedData['student-selector']) {
+                    studentId = preloadedData['student-selector']["id"];
+                    title = preloadedData['student-selector']["text"];
+                } else {
+                    $('#student-filter').val(null).trigger('change');
+                }
+                load_registration_history(title, value, studentId);
             } else {
                 $('#session-filter').val(null).trigger('change');
                 $('#student-filter').val(null).trigger('change');
@@ -559,6 +562,7 @@
                     text: preloadedFamily.title,
                     disable: true
                 }
+                $('#context-selectors').addClass('hidden');
             }
 
             if (usctdp_mgmt_admin.preload.student_id) {
@@ -574,27 +578,10 @@
                 }
                 $('#student-filter').prop('disabled', true);
                 $('#student-filter-section').addClass('hidden');
+                $('#context-selectors').addClass('hidden');
             }
-        }
 
-        if (preloadedData['student-selector']) {
-            $('#context-selectors').addClass('hidden');
-            /*
-            load_registration_history(
-                preloadedData.student.student_name,
-                preloadedData.student.family_id,
-                preloadedData.student.student_id
-            );
-            */
-        } else if (preloadedData['family-selector']) {
-            $('#context-selectors').addClass('hidden');
-            /*
-            load_registration_history(
-                preloadedData.family.title,
-                preloadedData.family.id,
-                null
-            );
-            */
+            selectHandler.applyData(preloadedData);
         }
     });
 })(jQuery);

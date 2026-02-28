@@ -420,7 +420,6 @@
                 $("#selection-section").addClass("hidden");
             }
         }
-
     });
 })(jQuery);
 
