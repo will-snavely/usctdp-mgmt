@@ -28,11 +28,12 @@ enum Usctdp_Product_Type: int
     case Tournament = 2;
     case Camp = 3;
     case SpecialEvent = 4;
-    case Merchandise = 5;
+    case Equipment = 5;
 }
 
 enum Usctdp_Age_Group: int
 {
+    case None = 0;
     case Junior = 1;
     case Adult = 2;
 }

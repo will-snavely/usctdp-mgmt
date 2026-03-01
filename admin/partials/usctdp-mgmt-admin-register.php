@@ -47,11 +47,11 @@ $nonce_action = $post_handler["nonce_action"];
                             </textarea>
                         </div>
                     </div>
-                </div>
-                <div id="registration-submit-button-wrap">
-                    <button id="add-registration" class="button button-primary">
-                        Add Registration
-                    </button>
+                    <div id="registration-add-item-wrap">
+                        <button id="add-clinic-registration" class="button button-primary">
+                            Add Registration
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -64,7 +64,7 @@ $nonce_action = $post_handler["nonce_action"];
                             <tr>
                                 <th>Student</th>
                                 <th>Session</th>
-                                <th>Activity</th>
+                                <th>Item</th>
                                 <th>Price</th>
                                 <th>Actions</th>
                             </tr>

@@ -1251,7 +1251,7 @@ class Usctdp_Mgmt_Admin
     {
         $results = [];
         $query = new Usctdp_Mgmt_Product_Query();
-        $activity_type = $filters['type'] ?? 1;
+        $activity_type = $filters['type'] ?? null;
         $type_enum = Usctdp_Product_Type::tryFrom($activity_type);
         $query_results = $query->search_products($search, $type_enum, 10);
         if ($query_results) {

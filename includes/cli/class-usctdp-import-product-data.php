@@ -142,6 +142,26 @@ class Usctdp_Import_Product_Data
         return $product->save();
     }
 
+    private function create_equipment_woo_product($equipment)
+    {
+        $item_name = $equipment['name'];
+        $sku = 'equipment-' . sanitize_title($item_name);
+        $existing_id = wc_get_product_id_by_sku($sku);
+        if ($existing_id) {
+            WP_CLI::log('Product already exists for equipment: ' . $item_name);
+            return $existing_id;
+        }
+
+        $product = new WC_Product_Simple();
+        $product->set_name( "Equipment - $item_name" );
+        $product->set_status( 'publish' );
+        $product->set_regular_price( $equipment["price"] );
+        $product->set_description( $equipment["description"] );
+        $product->set_short_description( $equipment["description"] );
+        $product->set_catalog_visibility( 'hidden' );
+        return $product->save();
+    }
+
     private function create_tournament($tournament, $product_id)
     {
         $title = $tournament['name'];
@@ -193,6 +213,33 @@ class Usctdp_Import_Product_Data
             "type" => Usctdp_Product_Type::Clinic->value,
             "session_category" => $this->get_category_int($clinic['session_category']),
             "age_group" => $this->get_age_group_int($clinic['age_group']),
+        ]);
+    }
+
+    private function create_equipment($equipment, $product_id)
+    {
+        $title = 'Equipment - ' . $equipment['name'];
+        $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+        $query = new Usctdp_Mgmt_Product_Query([
+            'title' => $title,
+            'number' => 1,
+        ]);
+        if (!empty($query->items)) {
+            $id = $query->items[0]->id;
+            WP_CLI::log("Existing equipment $title found with id $id");
+            $query->update_item($id, [
+                "woocommerce_id" => $product_id,
+            ]);
+            return $id;
+        }
+        WP_CLI::log("Creating equipment $title");
+        return $query->add_item([
+            "woocommerce_id" => $product_id,
+            "title" => $title,
+            "search_term" => $search_term,
+            "type" => Usctdp_Product_Type::Equipment->value,
+            "session_category" => 0,
+            "age_group" => 0 
         ]);
     }
 
@@ -272,5 +319,13 @@ class Usctdp_Import_Product_Data
             wp_set_object_terms($product_id, ['beginner', 'intermediate', 'advanced'], 'skill_level');
             $menu_order += 10;
         }
+
+        $menu_order = 0;
+        foreach ($data["equipment"] as $tournament) {
+            $product_id = $this->create_equipment_woo_product($tournament, $menu_order);
+            $tournament_id = $this->create_equipment($tournament, $product_id);
+            $menu_order += 10;
+        }
+ 
     }
 }

@@ -136,8 +136,40 @@
             return match.length > 0 ? two_day_price : one_day_price;
         }
 
+        function createCartRow(options) {
+            const { student, session, item, price } = options;
+            return `
+                <tr> 
+                    <td class="cart-student-name">${student ?? '--'}</td>
+                    <td class="cart-session">${session ?? '--'}</td>
+                    <td class="cart-item">${item}</td>
+                    <td class="cart-price"> 
+                        <input class="price-input" name="price" value="${price}">
+                    </td>
+                    <td>
+                        <button class="button remove-btn">Remove</button> 
+                    </td>
+                </tr>`
+
+        }
+
+        function addEquipment(equipment, price) {
+            var $row = $(createCartRow({ item: equipment.product_name, price: equipment.price }));
+            $row.data('product_id', equipment.product_id)
+                .data('product_name', equipment.product_name)
+                .data('notes', equipment.notes);
+            $('#registration-order-table tbody').append($row);
+            $('#registration-order-section').removeClass('hidden');
+            updateRegistrationTotal();
+        }
+
         function addPendingRegistration(registration, priceEstimate) {
-            var $row = $('<tr></tr>');
+            var $row = $(createCartRow({ 
+                student: registration.student_name,
+                session: registration.session_name,
+                item: registration.activity_name, 
+                price: priceEstimate
+            }));
             $row.data('student_id', registration.student_id)
                 .data('session_id', registration.session_id)
                 .data('activity_id', registration.activity_id)
@@ -145,42 +177,25 @@
                 .data('student_level', registration.student_level)
                 .data('family_id', registration.family_id)
                 .data('notes', registration.notes);
-
-            $row.append($('<td></td>')
-                .addClass('registration-student-name')
-                .append($('<span></span>')
-                    .text(registration.student_name)));
-            $row.append($('<td></td>')
-                .addClass('registration-session-name')
-                .append($('<span></span>')
-                    .text(registration.session_name)));
-            $row.append($('<td></td>')
-                .addClass('registration-activity-name')
-                .append($('<span></span>')
-                    .text(registration.activity_name)));
-            $row.append($('<td></td>')
-                .append($('<input></input>')
-                    .addClass('price-input')
-                    .attr('name', 'price-input')
-                    .on('change', function () {
-                        updateRegistrationTotal();
-                    })
-                    .val(priceEstimate)));
-
-            $row.append($('<td></td>')
-                .append($('<button></button>')
-                    .text('Remove')
-                    .addClass('button')
-                    .on('click', function () {
-                        $row.remove();
-                        if ($('#registration-order-table tbody tr').length === 0) {
-                            $('#registration-order-section').addClass('hidden');
-                        }
-                    })));
+            console.log($row)
             $('#registration-order-table tbody').append($row);
             $('#registration-order-section').removeClass('hidden');
             updateRegistrationTotal();
         }
+
+        $('#registration-order-table').on('change', '.price-input', function() {
+            updateRegistrationTotal();
+        });
+
+        $('#registration-order-table').on('click', '.remove-btn', function() {
+            const $row = $(this).closest('tr');
+            $row.remove()
+            if ($('#registration-order-table tbody tr').length === 0) {
+                $('#registration-order-section').addClass('hidden');
+            }
+            updateRegistrationTotal();
+            
+        });
 
         function updateRegistrationTotal() {
             const $rows = $('#registration-order-table tbody tr');
@@ -277,7 +292,7 @@
             return USCTDP_Admin.applyReplacements(name, replacements);
         }
 
-        $('#add-registration').on('click', function () {
+        $('#add-clinic-registration').on('click', function () {
             const activityName = $('#activity-selector option:selected').text();
             var displayActivityName = checkoutActivityName(activityName);
             const newRegistration = {
@@ -302,7 +317,7 @@
             );
             addPendingRegistration(newRegistration, priceEstimate);
             togglePreorderDetails(false);
-            $('#clinic-selector').val(null).trigger('change');
+            $('#activity-selector').val(null).trigger('change');
         });
 
         $('#registration-checkout').on('click', function () {
@@ -378,7 +393,18 @@
                 target: 'product',
                 branches: ['session-selector'], 
                 next: function(val, $el) {
-                    return "session-selector";
+                    // 1 == clinic, 2 == tourney, 3 == camp
+                    const activities = new Set([1,2,3]);
+                    const productData = $el.select2('data');
+                    if(productData && productData.length > 0) {
+                        const selectedProduct = productData[0];
+                        const productType = selectedProduct.type;
+                        if(activities.has(productType)) {
+                            return "session-selector";
+                        } else {
+                            return null;
+                        }
+                    }
                 }
             },
             'session-selector': {
