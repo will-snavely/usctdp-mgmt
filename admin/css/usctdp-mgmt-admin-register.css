@@ -42,18 +42,18 @@
     gap: 10px;
 }
 
-#clinic-preorder-details {
+.preorder-subtype {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 10px;
+    padding: 0px 10px;
 }
 
-#clinic-preorder-fields {
+.preorder-fields {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 10px;
+    padding: 0 10px;
 }
 
 #student-level-field {

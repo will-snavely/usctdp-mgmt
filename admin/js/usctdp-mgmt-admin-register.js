@@ -20,12 +20,18 @@
             }
         }
 
-        function togglePreorderDetails(visible) {
+        function clearNotifications() {
+            $('#notifications-section').children().remove();
+        }
+
+        function togglePreorderDetails(visible, subtype) {
             if (visible) {
+                $('.preorder-subtype').addClass('hidden');
                 $('#preorder-details').removeClass('hidden');
+                $('#' + subtype).removeClass('hidden');
             } else {
-                $('#notifications-section').children().remove();
                 $('#preorder-details').addClass('hidden');
+                $('.preorder-subtype').addClass('hidden');
             }
         }
 
@@ -102,7 +108,7 @@
                         true
                     );
                 } else {
-                    togglePreorderDetails(true);
+                    togglePreorderDetails(true, "clinic-preorder");
                 }
             } catch(error) {
                 console.log("Error: ", error);
@@ -115,6 +121,11 @@
             if(activityType === 1) { // Clinic
                 loadClinicRegistration(activityId, studentId);
             }
+        }
+
+        function loadEquipmentPurchase() {
+            $('#notifications-section').children().remove();
+            togglePreorderDetails(true, "equipment-preorder");
         }
 
         $('#payment-method').on('change', function () {
@@ -150,13 +161,17 @@
                         <button class="button remove-btn">Remove</button> 
                     </td>
                 </tr>`
-
         }
 
         function addEquipment(equipment, price) {
-            var $row = $(createCartRow({ item: equipment.product_name, price: equipment.price }));
+            var $row = $(createCartRow({ 
+                student: equipment.student_name,
+                item: equipment.product_name, 
+                price: price }));
             $row.data('product_id', equipment.product_id)
                 .data('product_name', equipment.product_name)
+                .data('student_name', equipment.student_name)
+                .data('student_id', equipment.student_id)
                 .data('notes', equipment.notes);
             $('#registration-order-table tbody').append($row);
             $('#registration-order-section').removeClass('hidden');
@@ -177,7 +192,6 @@
                 .data('student_level', registration.student_level)
                 .data('family_id', registration.family_id)
                 .data('notes', registration.notes);
-            console.log($row)
             $('#registration-order-table tbody').append($row);
             $('#registration-order-section').removeClass('hidden');
             updateRegistrationTotal();
@@ -305,7 +319,7 @@
                 session_name: $('#session-selector option:selected').text(),
                 product_id: $('#product-selector').val(),
                 student_level: $('#student-level').val(),
-                notes: $('#notes').val()
+                notes: $('#clinic-notes').val()
             };
             const one_day_price = parseInt($('#clinic-info').data('pricing')['One']);
             const two_day_price = parseInt($('#clinic-info').data('pricing')['Two']);
@@ -316,9 +330,28 @@
                 diff
             );
             addPendingRegistration(newRegistration, priceEstimate);
+            clearNotifications();
             togglePreorderDetails(false);
             $('#activity-selector').val(null).trigger('change');
         });
+
+        $('#add-equipment').on('click', function () {
+            const equipmentName = $('#product-selector option:selected').text();
+            const newEquipment = {
+                product_id: $('#product-selector').val(),
+                product_name: equipmentName, 
+                family_id: $('#family-selector').val(),
+                student_id: $('#student-selector').val(),
+                student_name: $('#student-selector option:selected').text(),
+                notes: $('#equipment-notes').val()
+            };
+            addEquipment(newEquipment, 50);
+            clearNotifications();
+            togglePreorderDetails(false);
+            $('#product-selector').val(null).trigger('change');
+        });
+
+
 
         $('#registration-checkout').on('click', function () {
             $('#registration-checkout-section').removeClass('hidden');
@@ -441,20 +474,21 @@
         const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
 
         $('#context-selectors').on('cascade:change', function (e) {
-            const { selectorId, value, state } = e.detail;
-            if (selectorId === 'activity-selector') {
-                if(value) {
+            const { selectorId, value, complete } = e.detail;
+            clearNotifications();
+            togglePreorderDetails(false);
+            if(complete && value) {
+                if (selectorId === 'activity-selector') {
                     const activityId = value;
                     const studentId = $('#student-selector').val()
                     if (activityId && studentId) {
                         const activityData = $("#product-selector").select2('data')[0];
                         const activityType = activityData.type;
-                        togglePreorderDetails(false);
                         loadActivityRegistration(activityId, activityType, studentId);
-                    } else {
-                        togglePreorderDetails(false);
                     }
-                } 
+                } else if (selectorId === 'product-selector') {
+                    loadEquipmentPurchase();
+                }
             }
         });
 

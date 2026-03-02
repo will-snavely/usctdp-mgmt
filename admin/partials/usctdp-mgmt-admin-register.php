@@ -15,9 +15,8 @@ $nonce_action = $post_handler["nonce_action"];
                 <div id="context-selectors"></div>
                 <div id="notifications-section"></div>
             </div>
-
             <div id="preorder-details" class="hidden">
-                <div id="clinic-preorder-details">
+                <div id="clinic-preorder" class="preorder-subtype">
                     <div id="clinic-info">
                         <div id="clinic-info-capacity" class="clinic-info-item">
                             <label>Capacity</label>
@@ -27,29 +26,41 @@ $nonce_action = $post_handler["nonce_action"];
                                 <span id="clinic-max-size"></span>
                             </span>
                         </div>
-                        <div id="clinic-info-one-day-price" class="clinic-info-item ">
+                        <div id="clinic-info-one-day-price" class="clinic-info-item">
                             <label>One Day $</label>
                             <span class="clinic-info-value neutral" id="clinic-one-day-price"></span>
                         </div>
-                        <div id="clinic-info-two-day-price" class="clinic-info-item ">
+                        <div id="clinic-info-two-day-price" class="clinic-info-item">
                             <label>Two Day $</label>
                             <span class="clinic-info-value neutral" id="clinic-two-day-price"></span>
                         </div>
                     </div>
-                    <div id="clinic-preorder-fields">
+                    <div id="clinic-preorder-fields" class="preorder-fields">
                         <div id="student-level-field" class="registration-field">
                             <label for="student-level">Level</label>
                             <input type="text" name="student-level" id="student-level">
                         </div>
                         <div id="clinic-notes-section" class="notes-section">
                             <label for="clinic-notes">Notes</label>
-                            <textarea name="clinic-notes" id="clinic-notes" rows="3" class="notes">
-                            </textarea>
+                            <textarea name="clinic-notes" id="clinic-notes" rows="3" class="notes"></textarea>
                         </div>
                     </div>
-                    <div id="registration-add-item-wrap">
+                    <div id="add-item-wrap">
                         <button id="add-clinic-registration" class="button button-primary">
                             Add Registration
+                        </button>
+                    </div>
+                </div>
+                <div id="equipment-preorder" class="preorder-subtype">
+                    <div id="equipment-preorder-fields" class="preorder-fields">
+                        <div id="equipment-notes-section" class="notes-section">
+                            <label for="equipment-notes">Notes</label>
+                            <textarea name="equipment-notes" id="equipment-notes" rows="3" class="notes"></textarea>
+                        </div>
+                    </div>
+                    <div id="add-item-wrap">
+                        <button id="add-equipment" class="button button-primary">
+                            Add Equipment
                         </button>
                     </div>
                 </div>
@@ -85,7 +96,6 @@ $nonce_action = $post_handler["nonce_action"];
             </div>
 
             <div id="registration-checkout-section" class="hidden">
-                <h2> Checkout </h2>
                 <input type="hidden" name="user_id" value="">
                 <div id="payment-method-field" class="checkout-field">
                     <label for="payment_method">Payment Method</label>

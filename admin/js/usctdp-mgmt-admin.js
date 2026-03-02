@@ -148,13 +148,9 @@
                 value: val, 
                 text: text,
                 nextId: nextId,
-                state: this.state 
+                complete: val && (!nextId || nextId.length === 0),
+                state: this.state
             });
-
-            // Hook: Special event for when we hit the end of a chain
-            if (val && (!nextId || nextId.length === 0)) {
-                this.trigger('complete', { state: this.state });
-            }
         }
 
         resetAndHide(id) {
