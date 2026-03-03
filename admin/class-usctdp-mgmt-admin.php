@@ -23,7 +23,9 @@ use Google\Client;
  * @author     Will Snavely <will.snavely@gmail.com>
  */
 
-class Web_Request_Exception extends Exception {}
+class Web_Request_Exception extends Exception
+{
+}
 
 class Usctdp_Mgmt_Admin
 {
@@ -181,7 +183,7 @@ class Usctdp_Mgmt_Admin
             'product' => [
                 'callback' => $this->select2_product_search(...),
                 'filters' => [
-                    'type' => intval(...) 
+                    'type' => intval(...)
                 ]
             ],
             'family' => [
@@ -197,8 +199,12 @@ class Usctdp_Mgmt_Admin
         ];
     }
 
-    public function enqueue_styles() {}
-    public function enqueue_scripts() {}
+    public function enqueue_styles()
+    {
+    }
+    public function enqueue_scripts()
+    {
+    }
 
     private function usctdp_script_id($suffix)
     {
@@ -416,9 +422,13 @@ class Usctdp_Mgmt_Admin
         $this->add_usctdp_submenu('balances', 'Outstanding Balances', [$this, 'load_balances_page']);
     }
 
-    public function settings_init() {}
+    public function settings_init()
+    {
+    }
 
-    public function usctdp_mgmt_sanitize_settings($input) {}
+    public function usctdp_mgmt_sanitize_settings($input)
+    {
+    }
 
     private function echo_admin_page($path)
     {
@@ -868,7 +878,7 @@ class Usctdp_Mgmt_Admin
 
         try {
             $family_id = isset($_GET['family_id']) ? intval($_GET['family_id']) : null;
-            if(!$family_id) {
+            if (!$family_id) {
                 wp_send_json_error('Missing required parameter family_id', 400);
             }
 
@@ -876,12 +886,50 @@ class Usctdp_Mgmt_Admin
                 'id' => $family_id,
                 'number' => 1
             ]);
-            if(empty($query->items)) {
+            if (empty($query->items)) {
                 wp_send_json_error("No family found with id: $family_id", 400);
             }
             wp_send_json_success($query->items[0]);
         } catch (Throwable $e) {
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Error fetching family fields: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Request: ' . print_r($_POST, true));
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+
+    function ajax_save_registration_fields()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_registration_fields'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
+        }
+
+        $entity_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter registration_id', 400);
+        }
+
+        $post_fields = [
+            'student_level' => sanitize_text_field(...),
+            'activity_id' => intval(...),
+            'credit' => intval(...),
+            'debit' => intval(...),
+            'notes' => function ($value) {
+                return sanitize_textarea_field(stripslashes($value));
+            },
+        ];
+
+        try {
+            $result = $this->save_entity_fields_from_post(
+                $entity_id,
+                'Usctdp_Mgmt_Registration_Query',
+                $post_fields
+            );
+            wp_send_json_success($result);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error updating registration: ' . $e->getMessage());
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Request: ' . print_r($_POST, true));
             wp_send_json_error('An unexpected server error occurred.', 500);
@@ -896,12 +944,12 @@ class Usctdp_Mgmt_Admin
         }
 
         $entity_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
-        if(empty($entity_id)) {
+        if (empty($entity_id)) {
             wp_send_json_error('Missing required parameter family_id', 400);
         }
 
         $post_fields = [
-           'email' => sanitize_text_field(...),
+            'email' => sanitize_text_field(...),
             'address' => sanitize_text_field(...),
             'city' => sanitize_text_field(...),
             'state' => sanitize_text_field(...),
@@ -913,11 +961,11 @@ class Usctdp_Mgmt_Admin
         ];
 
         try {
-            error_log(print_r($_POST, true));
             $result = $this->save_entity_fields_from_post(
                 $entity_id,
                 'Usctdp_Mgmt_Family_Query',
-                $post_fields);
+                $post_fields
+            );
             wp_send_json_success($result);
         } catch (Throwable $e) {
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Error updating family: ' . $e->getMessage());
@@ -1144,35 +1192,6 @@ class Usctdp_Mgmt_Admin
         }
     }
 
-    function ajax_save_registration_fields()
-    {
-        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['save_registration_fields'];
-        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-            wp_send_json_error('Security check failed. Invalid Nonce.', 403);
-        }
-
-        $string_sanitizer = function ($value) {
-            return sanitize_text_field($value);
-        };
-
-        $int_sanitizer = function ($value) {
-            return intval($value);
-        };
-
-        $textarea_sanitizer = function ($value) {
-            return sanitize_textarea_field(stripslashes($value));
-        };
-
-        $post_fields_sanitizers = [
-            'student_level' => $string_sanitizer,
-            'activity_id' => $int_sanitizer,
-            'session_id' => $int_sanitizer,
-            'credit' => $int_sanitizer,
-            'debit' => $int_sanitizer,
-            'notes' => $textarea_sanitizer,
-        ];
-        //$this->save_entity_fields_from_post('Registration', 'Usctdp_Mgmt_Registration_Query', $post_fields_sanitizers);
-    }
 
     function ajax_select2_search()
     {
@@ -1185,17 +1204,16 @@ class Usctdp_Mgmt_Admin
             $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
             $target = isset($_GET['target']) ? sanitize_text_field($_GET['target']) : '';
 
-            if(empty($target)) {
+            if (empty($target)) {
                 wp_send_json_error('No search target specified.', 400);
             }
-            if(!array_key_exists($target, $this->select2_search_targets)) {
+            if (!array_key_exists($target, $this->select2_search_targets)) {
                 wp_send_json_error("Invalid target type: $target", 400);
             }
 
             $search_target = $this->select2_search_targets[$target];
             $filters = [];
-            error_log(print_r($_GET, true));
-            foreach($search_target['filters'] as $key => $func) {
+            foreach ($search_target['filters'] as $key => $func) {
                 $filters[$key] = isset($_GET[$key]) ? $func($_GET[$key]) : null;
             }
             $results = $search_target['callback']($search, $filters);
@@ -1215,7 +1233,7 @@ class Usctdp_Mgmt_Admin
         error_log(print_r($filters, true));
         $query = new Usctdp_Mgmt_Session_Query();
         $active = $filters['active'] ?? null;
-        $category = $filters['category'] ?? null; 
+        $category = $filters['category'] ?? null;
         $query_results = $query->search_sessions($search, $active, $category, 10);
         if ($query_results) {
             foreach ($query_results as $result) {
@@ -1225,15 +1243,15 @@ class Usctdp_Mgmt_Admin
                 );
             }
         }
-        return $results;    
+        return $results;
     }
 
     function select2_activity_search($search, $filters)
     {
         $results = [];
         $query = new Usctdp_Mgmt_Activity_Query();
-        $session_id = $filters['session_id'] ?? null; 
-        $product_id = $filters['product_id'] ?? null; 
+        $session_id = $filters['session_id'] ?? null;
+        $product_id = $filters['product_id'] ?? null;
         $query_results = $query->search_activities($search, $session_id, $product_id, 10);
         if ($query_results) {
             foreach ($query_results as $result) {

@@ -12,7 +12,8 @@ class Usctdp_Mgmt_Model
 
     public static function append_token_suffix($str, $threshold = 2)
     {
-        $parts = preg_split('/\s+/', $str, -1, PREG_SPLIT_NO_EMPTY);
+        $clean_string = preg_replace('/[^a-z0-9\s]/i', '', $str);
+        $parts = preg_split('/\s+/', $clean_string, -1, PREG_SPLIT_NO_EMPTY);
         $result = [];
         foreach ($parts as $part) {
             if (strlen($part) <= $threshold && ctype_alnum($part)) {

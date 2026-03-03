@@ -1,5 +1,6 @@
 (function ($) {
     "use strict";
+
     $(document).ready(function () {
         function toggleLoading(isLoading, $button) {
             if (isLoading) {
@@ -58,7 +59,7 @@
                 placeholder: "Search for a session...",
                 allowClear: true,
                 target: 'session',
-                filter: function() {
+                filter: function () {
                     return {
                         active: 0
                     }

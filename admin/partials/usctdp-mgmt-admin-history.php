@@ -28,8 +28,7 @@
                     <thead>
                         <tr>
                             <th>Student</th>
-                            <th>Activity</th>
-                            <th>Notes</th>
+                            <th>Registration Information</th>
                         </tr>
                     </thead>
                     <tbody>

@@ -5,7 +5,7 @@
             {
                 section: 'address',
                 fields: [
-                    { key: 'address', label: 'Street',  type: 'text' },
+                    { key: 'address', label: 'Street', type: 'text' },
                     { key: 'city', label: 'City', type: 'text' },
                     { key: 'state', label: 'State', type: 'text' },
                     { key: 'zip', label: 'Zip', type: 'text' }
@@ -21,7 +21,7 @@
             {
                 section: 'notes',
                 fields: [
-                    { key: 'notes', label: 'Notes',  type: 'textarea' },
+                    { key: 'notes', label: 'Notes', type: 'textarea' },
                 ]
             }
         ];
@@ -42,7 +42,7 @@
             } else {
                 throw new Error(response.data || 'Unknown error');
             }
-        } 
+        }
 
         async function updateFamilyFields(familyId, changedData) {
             const response = await $.ajax({
@@ -52,7 +52,7 @@
                 data: {
                     action: usctdp_mgmt_admin.save_family_fields_action,
                     security: usctdp_mgmt_admin.save_family_fields_nonce,
-                    family_id: familyId, 
+                    family_id: familyId,
                     ...changedData
                 },
             });
@@ -63,7 +63,7 @@
             }
         }
 
-        var pendingChanges = {}; 
+        var pendingChanges = {};
         var currentId = null;
         const queryClient = new window.QueryClient({
             defaultOptions: {
@@ -71,7 +71,7 @@
                     queryFn: async ({ queryKey }) => {
                         const [scope, id] = queryKey;
                         if (scope === 'family' && id) {
-                            
+
                             return await fetchFamilyFields(id);
                         }
                         return null;
@@ -97,13 +97,13 @@
             const container = document.getElementById('fields-container');
             container.innerHTML = UI_SCHEMA.map(section => {
                 const fields = section.fields.map(field => {
-                    var value = pendingChanges[field.key] !== undefined 
-                        ? pendingChanges[field.key] 
+                    var value = pendingChanges[field.key] !== undefined
+                        ? pendingChanges[field.key]
                         : dbData[field.key];
                     const isDirty = pendingChanges.hasOwnProperty(field.key);
                     var inputClasses = ['db-input', `field-${field.key}`];
                     var groupClasses = ['field-group']
-                    if(isDirty) {
+                    if (isDirty) {
                         groupClasses.push('is-dirty');
                         inputClasses.push('is-dirty');
                     }
@@ -118,13 +118,13 @@
                             </div>
                         `).join('');
 
-                        tag= `
+                        tag = `
                             <div class="phone-list">
                                 <div id="phone-list">${inputs}</div>
                                 <button type="button" id="add-phone">+ Add Number</button>
                             </div>
                         `;
-                    } else if(field.type === "textarea") {
+                    } else if (field.type === "textarea") {
                         tag = `
                             <textarea 
                                 rows=5
@@ -153,12 +153,12 @@
                         </div>
                     </div>
                 `;
-           }).join('');
+            }).join('');
         }
 
-        $(document).on('input', '.phone-input', function() {
-            const allPhones = $('.phone-input').map(function() { 
-                return $(this).val(); 
+        $(document).on('input', '.phone-input', function () {
+            const allPhones = $('.phone-input').map(function () {
+                return $(this).val();
             }).get();
             pendingChanges['phone_numbers'] = allPhones;
             $(this).closest('.field-group').addClass('is-dirty');
@@ -167,9 +167,9 @@
                 .text(`Save ${Object.keys(pendingChanges).length} Changes`);
         });
 
-        $(document).on('click', '.remove-phone', function() {
+        $(document).on('click', '.remove-phone', function () {
             const indexToRemove = $(this).data('index');
-            if(!pendingChanges.hasOwnProperty('phone_numbers')) {
+            if (!pendingChanges.hasOwnProperty('phone_numbers')) {
                 var phones = queryClient.getQueryData(['family', currentId]).phone_numbers;
                 pendingChanges['phone_numbers'] = [...phones];
             }
@@ -180,7 +180,7 @@
                 .text(`Save ${Object.keys(pendingChanges).length} Changes`);
         });
 
-        $(document).on('input', '.db-input', function() {
+        $(document).on('input', '.db-input', function () {
             const key = $(this).data('key');
             const val = $(this).val();
             const $parent = $(this).parent().addClass('is-dirty');
@@ -192,11 +192,11 @@
                 .text(`Save ${Object.keys(pendingChanges).length} Changes`);
         });
 
-        $(document).on('click', '#add-phone', function() {
-            if(!pendingChanges.hasOwnProperty('phone_numbers')) {
+        $(document).on('click', '#add-phone', function () {
+            if (!pendingChanges.hasOwnProperty('phone_numbers')) {
                 var phones = queryClient.getQueryData(['family', currentId]).phone_numbers;
                 pendingChanges['phone_numbers'] = [...phones];
-                
+
             }
             pendingChanges['phone_numbers'].push('');
             renderUI(queryClient.getQueryData(['family', currentId]));
@@ -394,12 +394,12 @@
         $('#context-selectors').on('cascade:change', function (e) {
             const { selectorId, value, text, state } = e.detail;
             $('#family-section').addClass('hidden');
-            currentId = value; 
-            pendingChanges = {}; 
+            currentId = value;
+            pendingChanges = {};
             familyObserver.setOptions({
                 queryKey: ['family', currentId],
             });
-            if(value) {
+            if (value) {
                 membersTable.ajax.reload();
                 const historyHref = 'admin.php?page=usctdp-admin-history&family_id=' + value;
                 $('#family-registration-history-link').attr('href', historyHref);

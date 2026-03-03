@@ -2,24 +2,6 @@
     "use strict";
 
     $(document).ready(function () {
-        const activityTypes = {
-            1: { name: "Clinic", id: "clinic" },
-            2: { name: "Tournament", id: "tournament" },
-            3: { name: "Camp", id: "camp" }
-        };
-
-        var pendingRegistrations = [];
-
-        var contextData = {};
-        var preloadedData = { student: null, activity: null };
-        if (usctdp_mgmt_admin.preload) {
-            if (usctdp_mgmt_admin.preload.student_id) {
-                preloadedData.student = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
-                contextData['family-selector'] = preloadedData.student.family_id;
-                contextData['student-selector'] = preloadedData.student.student_id;
-            }
-        }
-
         function clearNotifications() {
             $('#notifications-section').children().remove();
         }
@@ -76,7 +58,6 @@
             }
         }
 
-
         function bind_clinic_info(info) {
             const full = info.registered >= info.capacity;
             $('#clinic-current-size').text(info.registered);
@@ -110,7 +91,7 @@
                 } else {
                     togglePreorderDetails(true, "clinic-preorder");
                 }
-            } catch(error) {
+            } catch (error) {
                 console.log("Error: ", error);
                 alert("Failed to load clinic registration data. Try again or report this to a developer.");
             }
@@ -118,7 +99,7 @@
 
         function loadActivityRegistration(activityId, activityType, studentId) {
             $('#notifications-section').children().remove();
-            if(activityType === 1) { // Clinic
+            if (activityType === 1) { // Clinic
                 loadClinicRegistration(activityId, studentId);
             }
         }
@@ -164,10 +145,11 @@
         }
 
         function addEquipment(equipment, price) {
-            var $row = $(createCartRow({ 
+            var $row = $(createCartRow({
                 student: equipment.student_name,
-                item: equipment.product_name, 
-                price: price }));
+                item: equipment.product_name,
+                price: price
+            }));
             $row.data('product_id', equipment.product_id)
                 .data('product_name', equipment.product_name)
                 .data('student_name', equipment.student_name)
@@ -179,10 +161,10 @@
         }
 
         function addPendingRegistration(registration, priceEstimate) {
-            var $row = $(createCartRow({ 
+            var $row = $(createCartRow({
                 student: registration.student_name,
                 session: registration.session_name,
-                item: registration.activity_name, 
+                item: registration.activity_name,
                 price: priceEstimate
             }));
             $row.data('student_id', registration.student_id)
@@ -197,18 +179,18 @@
             updateRegistrationTotal();
         }
 
-        $('#registration-order-table').on('change', '.price-input', function() {
+        $('#registration-order-table').on('change', '.price-input', function () {
             updateRegistrationTotal();
         });
 
-        $('#registration-order-table').on('click', '.remove-btn', function() {
+        $('#registration-order-table').on('click', '.remove-btn', function () {
             const $row = $(this).closest('tr');
             $row.remove()
             if ($('#registration-order-table tbody tr').length === 0) {
                 $('#registration-order-section').addClass('hidden');
             }
             updateRegistrationTotal();
-            
+
         });
 
         function updateRegistrationTotal() {
@@ -311,7 +293,7 @@
             var displayActivityName = checkoutActivityName(activityName);
             const newRegistration = {
                 activity_id: $('#activity-selector').val(),
-                activity_name: displayActivityName, 
+                activity_name: displayActivityName,
                 family_id: $('#family-selector').val(),
                 student_id: $('#student-selector').val(),
                 student_name: $('#student-selector option:selected').text(),
@@ -339,7 +321,7 @@
             const equipmentName = $('#product-selector option:selected').text();
             const newEquipment = {
                 product_id: $('#product-selector').val(),
-                product_name: equipmentName, 
+                product_name: equipmentName,
                 family_id: $('#family-selector').val(),
                 student_id: $('#student-selector').val(),
                 student_name: $('#student-selector option:selected').text(),
@@ -350,8 +332,6 @@
             togglePreorderDetails(false);
             $('#product-selector').val(null).trigger('change');
         });
-
-
 
         $('#registration-checkout').on('click', function () {
             $('#registration-checkout-section').removeClass('hidden');
@@ -400,7 +380,7 @@
                     alert('There was an error. Please try again.');
                 });
         });
- 
+
         const selectorConfig = {
             'family-selector': {
                 name: 'family_id',
@@ -413,7 +393,7 @@
                 name: 'student_id',
                 label: 'Student',
                 target: 'student',
-                next: 'product-selector', 
+                next: 'product-selector',
                 filter: function () {
                     return {
                         family_id: $('#family-selector').val()
@@ -424,15 +404,15 @@
                 name: 'product_id',
                 label: 'Product',
                 target: 'product',
-                branches: ['session-selector'], 
-                next: function(val, $el) {
+                branches: ['session-selector'],
+                next: function (val, $el) {
                     // 1 == clinic, 2 == tourney, 3 == camp
-                    const activities = new Set([1,2,3]);
+                    const activities = new Set([1, 2, 3]);
                     const productData = $el.select2('data');
-                    if(productData && productData.length > 0) {
+                    if (productData && productData.length > 0) {
                         const selectedProduct = productData[0];
                         const productType = selectedProduct.type;
-                        if(activities.has(productType)) {
+                        if (activities.has(productType)) {
                             return "session-selector";
                         } else {
                             return null;
@@ -444,10 +424,10 @@
                 name: 'session_id',
                 label: 'Session',
                 target: 'session',
-                next: 'activity-selector', 
+                next: 'activity-selector',
                 filter: function () {
                     const productData = $("#product-selector").select2('data');
-                    if(productData && productData.length > 0) {
+                    if (productData && productData.length > 0) {
                         const selectedProduct = productData[0];
                         return {
                             category: selectedProduct.category
@@ -477,7 +457,7 @@
             const { selectorId, value, complete } = e.detail;
             clearNotifications();
             togglePreorderDetails(false);
-            if(complete && value) {
+            if (complete && value) {
                 if (selectorId === 'activity-selector') {
                     const activityId = value;
                     const studentId = $('#student-selector').val()
@@ -509,5 +489,5 @@
             $('#context-selectors').addClass('hidden');
             selectHandler.applyData(preloadedData);
         }
-   });
+    });
 })(jQuery);

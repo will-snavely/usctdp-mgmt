@@ -36,7 +36,7 @@
                     <span class="student-age"> Age: ${data.student_age}</span>
                 </div>
                 <div class="registration-actions">
-                    <button id="edit-activity-${idx}" class="button" data-state="edit">Edit</button>
+                    <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">Edit</button>
                 </div>`;
             return container;
         }
@@ -56,7 +56,12 @@
                 USCTDP_Admin.select2Options({
                     placeholder: "Search for an activity...",
                     allowClear: true,
-                    target: 'activity'
+                    target: 'activity',
+                    filter: function () {
+                        return {
+                            session_id: $('#' + sessionSelectId).val()
+                        }
+                    }
                 })
             );
         }
@@ -86,17 +91,6 @@
         }
 
         async function saveRegistrationFields(id, fields) {
-            const changedData = {};
-            const changedText = {};
-            for (const field of fields) {
-                const curValue = $('#' + field.input).val().trim();
-                const origValue = $('#' + field.input).attr('data-orig-value').trim();
-                if (curValue !== origValue) {
-                    changedData[field.field] = curValue;
-                    changedText[field.field] = getElementContent($('#' + field.input)).trim();
-                }
-            }
-
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'POST',
@@ -104,20 +98,25 @@
                 data: {
                     action: usctdp_mgmt_admin.save_registration_fields_action,
                     security: usctdp_mgmt_admin.save_registration_fields_nonce,
-                    id: id,
-                    ...changedData
+                    registration_id: id,
+                    ...fields
                 }
             });
+            return response;
+        }
 
-            for (const field of fields) {
-                if (field.field in changedText) {
-                    $('#' + field.display).text(changedText[field.field]);
-                    $('#' + field.input).attr('data-orig-text', changedText[field.field]);
-                }
-                if (field.field in changedData) {
-                    $('#' + field.input).attr('data-orig-value', changedData[field.field]);
-                }
-            }
+        function activityDisplayName(name) {
+            const replacements = [
+                [/^Adult/, ""],
+                [/Monday,/, "Mon"],
+                [/Tuesday,/, "Tues"],
+                [/Wednesday,/, "Wed"],
+                [/Thursday,/, "Thurs"],
+                [/Friday,/, "Fri"],
+                [/Saturday,/, "Sat"],
+                [/Sunday,/, "Sun"],
+            ];
+            return USCTDP_Admin.applyReplacements(name, replacements);
         }
 
         function renderActivityDetails(data, idx) {
@@ -126,368 +125,62 @@
                 sessionId,
                 activityName,
                 activityId,
-                studentLevel,
+                level,
                 debit,
-                credit
+                credit,
+                notes
             } = data;
-            const total = credit - debit;
+            const total = debit - credit;
+            const totalClass = total > 0 ? "balance-red" : "balance-green";
             const sessionSelectId = `session-selector-${idx}`;
             const activitySelectId = `activity-selector-${idx}`;
             return `
-              <div class="activity-fields">
-                <div class="session-selector-wrap activity-field">
-                  <label>Session</label>
-                  <span id="session-name-${idx}" class="view-mode">${sessionName}</span>
-                  <div id="session-selector-wrap-${idx}" class="hidden edit-mode">
-                    <select id="${sessionSelectId}" 
-                      data-orig-value="${sessionId}" 
-                      data-orig-text="${sessionName}">
-                    </select>
-                  </div>
-                </div>
-                <div class="activity-selector-wrap activity-field">
-                  <label>Activity</label>
-                  <span id="activity-name-${idx}" class="view-mode">${activityName}</span>
-                  <div id="activity-selector-wrap-${idx}" class="hidden edit-mode">
-                    <select id="${activitySelectId}" 
-                      data-orig-value="${activityId}" 
-                      data-orig-text="${activityName}">
-                    </select>
-                  </div>
-                </div>
-                <div class="student-level-wrap activity-field">
-                  <label>Level</label>
-                  <span id="student-level-${idx}" class="view-mode">${studentLevel}</span>
-                  <input 
-                    id="student-level-input-${idx}"
-                    class="hidden edit-mode"
-                    data-orig-value="${studentLevel}"
-                    data-orig-text="${studentLevel}"
-                    value="${studentLevel}">
-                </div>
-                <div class="debit-wrap activity-field">
-                  <label>Debit</label>
-                  <span id="debit-amt-${idx}" class="view-mode">${debit}</span>
-                  <input 
-                    id="debit-amt-input-${idx}" 
-                    class="edit-mode hidden"
-                    data-orig-value="${debit}"
-                    data-orig-text="${debit}"
-                    value="${debit}">
-                </div>
-                <div class="credit-wrap activity-field">
-                  <label>Credit</label>
-                  <span id="credit-amt-${idx}" class="view-mode">${credit}</span>
-                  <input 
-                    id="credit-amt-input-${idx}" 
-                    class="edit-mode hidden"
-                    data-orig-value="${credit}"
-                    data-orig-text="${credit}"
-                    value="${credit}">
-                </div>
-                <div class="total-wrap activity-field">
-                  <label>Total</label>
-                  <span id="total-amt-${idx}">${total}</span>
-                </div>
-              </div>`
-        }
-
-        function createActivityDetails(data, idx) {
-            const container = document.createElement('div');
-            const sessionSelectId = `session-selector-${idx}`;
-            const activitySelectId = `activity-selector-${idx}`;
-            container.className = 'activity-details-wrap';
-            container.id = `activity-details-wrap-${idx}`;
-            container.innerHTML = `
-                <div class="session-selector-wrap activity-field">
-                    <label>Session:</label>
-                    <span id="session-name-${idx}" class="view-mode">
-                        ${data.session_name}
-                    </span>
-                    <div id="session-selector-wrap-${idx}" class="hidden edit-mode">
-                        <select id="${sessionSelectId}" 
-                            data-orig-value="${data.session_id}" 
-                            data-orig-text="${data.session_name}">
-                        </select>
+              <div class="activity-fields fields-disabled">
+                <div class="fields-row">
+                    <div class="session-selector-wrap activity-field">
+                        <label>Session</label>
+                        <div id="session-selector-wrap-${idx}">
+                            <select id="${sessionSelectId}" class="session-select" data-orig-value="${sessionId}"
+                                data-orig-text="${sessionName}" data-activity-selector-id="${activitySelectId}" disabled>
+                                <option value="${sessionId}" selected>${sessionName}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="activity-selector-wrap activity-field">
+                        <label>Activity</label>
+                        <div id="activity-selector-wrap-${idx}">
+                            <select id="${activitySelectId}" class="activity-select" data-orig-value="${activityId}"
+                                data-orig-text="${activityName}" data-session-selector-id="${sessionSelectId}" disabled>
+                                <option value="${activityId}" selected>${activityName}</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <div class="activity-selector-wrap activity-field">
-                    <label>Activity:</label>
-                    <span id="activity-name-${idx}" class="view-mode">
-                        ${data.activity_name}
-                    </span>
-                    <div id="activity-selector-wrap-${idx}" class="hidden edit-mode">
-                        <select id="${activitySelectId}" 
-                            data-orig-value="${data.activity_id}" 
-                            data-orig-text="${data.activity_name}">
-                        </select>
+                <div class="fields-row">
+                    <div class="short-field-block">
+                        <div class="level-wrap activity-field">
+                            <label>Level</label>
+                            <input id="level-input-${idx}" class="level-input" value="${level}" readonly>
+                        </div>
+                        <div class="debit-wrap activity-field">
+                            <label>Debit</label>
+                            <input id="debit-input-${idx}" class="debit-input" value="${debit}" readonly>
+                        </div>
+                        <div class="credit-wrap activity-field">
+                            <label>Credit</label>
+                            <input id="credit-input-${idx}" class="credit-input" value="${credit}" readonly>
+                        </div>
+                        <div class="total-wrap activity-field">
+                            <label>Total</label>
+                            <span id="total-amt-${idx}" class="total-amt ${totalClass}">${total}</span>
+                        </div>
+                    </div>
+                    <div class="notes-wrap activity-field">
+                        <label>Notes</label>
+                        <textarea readonly rows=3 id="notes-input-${idx}" class="notes-input">${notes}</textarea>
                     </div>
                 </div>
-                <div class="student-level-wrap activity-field">
-                    <label>Level:</label>
-                    <span id="student-level-${idx}" class="view-mode">
-                        ${data.registration_student_level}
-                    </span>
-                    <input 
-                        id="student-level-input-${idx}"
-                        class="hidden edit-mode"
-                        data-orig-value="${data.registration_student_level}"
-                        data-orig-text="${data.registration_student_level}"
-                        value="${data.registration_student_level}">
-                </div>
-                <div class="activity-actions">
-                    <button id="edit-activity-${idx}" class="button" data-state="edit">Edit</button>
-                </div>
-                <div class="debit-wrap balance-field">
-                    <label>Debit:</label>
-                    <span id="debit-amt-${idx}" class="view-mode">${data.registration_debit}</span>
-                    <input 
-                        id="debit-amt-input-${idx}" 
-                        class="edit-mode hidden"
-                        data-orig-value="${data.registration_debit}"
-                        data-orig-text="${data.registration_debit}"
-                        value="${data.registration_debit}">
-                </div>
-                <div class="credit-wrap balance-field">
-                    <label>Credit:</label>
-                    <span id="credit-amt-${idx}" class="view-mode">${data.registration_credit}</span>
-                    <input 
-                        id="credit-amt-input-${idx}" 
-                        class="edit-mode hidden"
-                        data-orig-value="${data.registration_credit}"
-                        data-orig-text="${data.registration_credit}"
-                        value="${data.registration_credit}">
-                </div>
-                <div class="total-wrap balance-field">
-                    <label>Total:</label>
-                    <span id="total-amt-${idx}">${total}</span>
-                </div>
- 
-            `;
-
-            const fields = [
-                {
-                    input: `student-level-input-${idx}`,
-                    field: 'student_level',
-                    display: `student-level-${idx}`
-                },
-                {
-                    input: activitySelectId,
-                    field: 'activity_id',
-                    display: `activity-name-${idx}`
-                },
-                {
-                    input: sessionSelectId,
-                    field: 'session_id',
-                    display: `session-name-${idx}`
-                }
-            ];
-
-            container.querySelector(`#edit-activity-${idx}`).addEventListener('click', () => {
-                const $button = $(`#edit-activity-${idx}`);
-                const state = $button.data("state");
-                if (state == "edit") {
-                    $button.text("Save");
-                    $button.data("state", "save");
-                    const $sessionSelect = $('#' + sessionSelectId);
-                    if (!$sessionSelect.hasClass("select2-hidden-accessible")) {
-                        initSessionSelector($sessionSelect);
-                        const curSession = new Option(
-                            data.session_name,
-                            data.session_id,
-                            true,
-                            true
-                        );
-                        $('#' + sessionSelectId)
-                            .append(curSession)
-                            .val(data.session_id)
-                            .trigger("change");
-                        $('#' + sessionSelectId).on('change', function (e, restrict) {
-                            if (!restrict) {
-                                $('#' + activitySelectId).val(null).trigger("change");
-                            }
-                        });
-                    }
-
-                    const $activitySelect = $('#' + activitySelectId);
-                    if (!$activitySelect.hasClass("select2-hidden-accessible")) {
-                        initActivitySelector($activitySelect, sessionSelectId);
-                        const curActivity = new Option(
-                            data.activity_name,
-                            data.activity_id,
-                            true,
-                            true
-                        );
-                        $('#' + activitySelectId)
-                            .append(curActivity)
-                            .val(data.activity_id)
-                            .trigger("change");
-                    }
-
-                    $('#activity-details-wrap-' + idx + ' .view-mode').addClass('hidden');
-                    $('#activity-details-wrap-' + idx + ' .edit-mode').removeClass('hidden');
-                } else {
-                    $button.prop('disabled', true);
-                    saveRegistrationFields(data.registration_id, fields)
-                        .catch((error) => {
-                            alert("Update failed!");
-                            for (const field of fields) {
-                                resetElementVal($('#' + field.input));
-                            }
-                        })
-                        .finally(() => {
-                            $button.text("Edit");
-                            $button.data("state", "edit");
-                            $button.prop('disabled', false);
-                            $('#activity-details-wrap-' + idx + ' .view-mode').removeClass('hidden');
-                            $('#activity-details-wrap-' + idx + ' .edit-mode').addClass('hidden');
-                        });
-                }
-            });
-            return container;
-        }
-
-        function createBalanceDetails(data, idx) {
-            const container = document.createElement('div');
-            container.className = 'balance-details-wrap';
-            container.id = `balance-details-wrap-${idx}`;
-            const total = data.registration_debit - data.registration_credit;
-            container.innerHTML = `
-
-                <div class="debit-wrap balance-field">
-                    <label>Debit:</label>
-                    <span id="debit-amt-${idx}" class="view-mode">${data.registration_debit}</span>
-                    <input 
-                        id="debit-amt-input-${idx}" 
-                        class="edit-mode hidden"
-                        data-orig-value="${data.registration_debit}"
-                        data-orig-text="${data.registration_debit}"
-                        value="${data.registration_debit}">
-                </div>
-                <div class="credit-wrap balance-field">
-                    <label>Credit:</label>
-                    <span id="credit-amt-${idx}" class="view-mode">${data.registration_credit}</span>
-                    <input 
-                        id="credit-amt-input-${idx}" 
-                        class="edit-mode hidden"
-                        data-orig-value="${data.registration_credit}"
-                        data-orig-text="${data.registration_credit}"
-                        value="${data.registration_credit}">
-                </div>
-                <div class="total-wrap balance-field">
-                    <label>Total:</label>
-                    <span id="total-amt-${idx}">${total}</span>
-                </div>
-                <div class="activity-actions">
-                    <button id="edit-balance-${idx}" class="button" data-state="edit">Edit</button>
-                </div>
-            `;
-
-            const fields = [
-                {
-                    input: `credit-amt-input-${idx}`,
-                    field: 'credit',
-                    display: `credit-amt-${idx}`
-                },
-                {
-                    input: `debit-amt-input-${idx}`,
-                    field: 'debit',
-                    display: `debit-amt-${idx}`
-                }
-            ];
-
-            container.querySelector(`#edit-balance-${idx}`).addEventListener('click', () => {
-                const $button = $(`#edit-balance-${idx}`);
-                const state = $button.data("state");
-                if (state == "edit") {
-                    $button.text("Save");
-                    $button.data("state", "save");
-                    $('#balance-details-wrap-' + idx + ' .view-mode').addClass('hidden');
-                    $('#balance-details-wrap-' + idx + ' .edit-mode').removeClass('hidden');
-                } else {
-                    $button.prop('disabled', true);
-                    saveRegistrationFields(data.registration_id, fields)
-                        .catch((error) => {
-                            alert("Update failed!");
-                            for (const field of fields) {
-                                resetElementVal($('#' + field.input));
-                            }
-                        })
-                        .finally(() => {
-                            $button.text("Edit");
-                            $button.data("state", "edit");
-                            $button.prop('disabled', false);
-                            const debit = $('#debit-amt-input-' + idx).val();
-                            const credit = $('#credit-amt-input-' + idx).val();
-                            const total = debit - credit;
-
-                            const family_id = $('#family-selector').val();
-                            var student_id = null;
-                            if (preloadedData.student) {
-                                student_id = preloadedData.student.student_id;
-                            }
-                            refreshFamilyBalance(family_id, student_id);
-                            $('#total-amt-' + idx).text(total);
-                            $('#balance-details-wrap-' + idx + ' .view-mode').removeClass('hidden');
-                            $('#balance-details-wrap-' + idx + ' .edit-mode').addClass('hidden');
-                        });
-                }
-            });
-
-            return container;
-        }
-
-        function renderNotesEditor(data, idx) {
-            const container = document.createElement('div');
-            container.className = 'notes-container';
-            const existingNotes = data.registration_notes || "";
-            container.innerHTML = `
-                <textarea 
-                    rows=3
-                    id="note-field-${idx}" 
-                    class="notes-textarea">${existingNotes}</textarea>
-                <div class="notes-actions">
-                    <button class="button save-btn save-notes-btn" id="save-notes-btn-${idx}">
-                        Save Notes
-                    </button>
-                    <div id="save-notes-status-${idx}" class="notes-status">
-                        <span id="save-notes-success-${idx}" class="hidden success">
-                            Notes Saved!
-                        </span>
-                    </div>
-                </div>
-            `;
-
-            container.querySelector(`#save-notes-btn-${idx}`).addEventListener('click', () => {
-                const $button = $(`#save-notes-btn-${idx}`);
-                $button.prop('disabled', true);
-                $button.text("Saving...");
-                $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    dataType: 'json',
-                    data: {
-                        action: usctdp_mgmt_admin.save_registration_fields_action,
-                        security: usctdp_mgmt_admin.save_registration_fields_nonce,
-                        id: data.registration_id,
-                        notes: $('#note-field-' + idx).val()
-                    },
-                    success: function (response) {
-                        $(`#save-notes-success-${idx}`).removeClass('hidden');
-                        setTimeout(() => {
-                            $(`#save-notes-success-${idx}`).addClass('hidden');
-                        }, 3000);
-                    },
-                    error: function (error) {
-                        alert("Update failed!");
-                    },
-                    complete: function () {
-                        $button.prop('disabled', false);
-                        $button.text("Save Notes");
-                    }
-                });
-            });
-            return container;
+            </div>`;
         }
 
         var historyTable = $('#history-table').DataTable({
@@ -549,9 +242,10 @@
                                     sessionId: row.session_id,
                                     activityName: row.activity_name,
                                     activityId: row.activity_id,
-                                    studentLevel: row.registration_student_level,
+                                    level: row.registration_student_level,
                                     debit: row.registration_debit,
-                                    credit: row.registration_credit
+                                    credit: row.registration_credit,
+                                    notes: row.registration_notes
                                 };
                                 return renderActivityDetails(activityData, meta.row);
                             } catch (error) {
@@ -561,24 +255,12 @@
                         }
                         return '';
                     }
-                },
-                {
-                    data: 'id',
-                    render: function (data, type, row, meta) {
-                        if (type === 'display') {
-                            return renderNotesEditor(row, meta.row);
-                        }
-                        return '';
-                    }
-                },
-                {
-                    data: 'id',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                        }
-                        return '';
-                    }
                 }
+            ],
+            autoWidth: false,
+            columnDefs: [
+                { width: "15%", targets: 0 }, // Student
+                { width: "85%", targets: 1 }, // Activity
             ],
             initComplete: function () {
                 if ($("#table-filter-row").length === 0) {
@@ -594,6 +276,25 @@
                         historyTable.ajax.reload();
                     });
                 }
+            },
+
+            preDrawCallback: function (settings) {
+                var api = this.api();
+                $(api.table().body()).find('select').each(function () {
+                    if ($(this).hasClass("select2-hidden-accessible")) {
+                        $(this).select2('destroy');
+                    }
+                });
+            },
+
+            drawCallback: function (settings) {
+                var api = this.api();
+                $(api.table().body()).find('.session-select').each(function () {
+                    initSessionSelector($(this));
+                });
+                $(api.table().body()).find('.activity-select').each(function () {
+                    initActivitySelector($(this), $(this).data('session-selector-id'));
+                });
             }
         });
 
@@ -601,7 +302,12 @@
             USCTDP_Admin.select2Options({
                 placeholder: "Search for a student...",
                 allowClear: true,
-                target: 'student'
+                target: 'student',
+                filter: function () {
+                    return {
+                        family_id: $('#family-selector').val()
+                    }
+                }
             })
         );
 
@@ -612,6 +318,55 @@
                 target: 'session'
             })
         );
+
+        $('#history-table tbody').on('change', '.session-select', function () {
+            const activitySelectId = $(this).data('activity-selector-id');
+            $('#' + activitySelectId).val(null).trigger("change");
+        });
+
+
+        $('#history-table tbody').on('click', 'button.edit-activity', function (e) {
+            const $row = $(this).closest('tr');
+            const $button = $(this);
+            const state = $button.data("state");
+            var rowData = historyTable.row($row).data();
+
+            if (state == "edit") {
+                $button.text("Save");
+                $button.data("state", "save");
+                $row.find('.activity-fields').removeClass('fields-disabled');
+                $row.find('.activity-fields').addClass('fields-enabled');
+                $row.find('select').prop('disabled', false);
+                $row.find('input').prop('readonly', false);
+                $row.find('textarea').prop('readonly', false);
+            } else {
+                $button.text("Edit");
+                $button.data("state", "edit");
+                $row.find('select').prop('disabled', true);
+                $row.find('input').prop('readonly', true);
+                $row.find('textarea').prop('readonly', true);
+                $button.prop('disabled', true);
+
+                var update = {
+                    activity_id: $row.find('.activity-select').first().val(),
+                    student_level: $row.find('.level-input').first().val(),
+                    debit: $row.find('.debit-input').first().val(),
+                    credit: $row.find('.credit-input').first().val(),
+                    notes: $row.find('.notes-input').first().val()
+                }
+
+                saveRegistrationFields(rowData.registration_id, update)
+                    .catch((error) => {
+                        alert("Update failed! " + error);
+                    })
+                    .finally(() => {
+                        $button.text("Edit");
+                        $button.data("state", "edit");
+                        $button.prop('disabled', false);
+                        historyTable.ajax.reload();
+                    });
+            }
+        });
 
         function load_registration_history(title, family_id, student_id) {
             historyTable.ajax.reload();
@@ -634,11 +389,11 @@
 
         $('#context-selectors').on('cascade:change', function (e) {
             const { selectorId, value, state } = e.detail;
-            if(value) {
+            if (value) {
                 $('#session-filter').val(null).trigger('change');
                 var studentId = null;
                 var title = $('#family-selector').find('option:selected').text();
-                if(preloadedData['student-selector']) {
+                if (preloadedData['student-selector']) {
                     studentId = preloadedData['student-selector']["id"];
                     title = preloadedData['student-selector']["text"];
                 } else {

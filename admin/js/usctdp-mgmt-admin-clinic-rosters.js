@@ -2,7 +2,7 @@ ful(function ($) {
     "use strict";
 
     $(document).ready(function () {
-       function toggleLoading(isLoading) {
+        function toggleLoading(isLoading) {
             if (isLoading) {
                 $('#print-roster-button .button-text').text('Working...');
                 $('#print-roster-button').addClass('is-loading');
@@ -97,7 +97,7 @@ ful(function ($) {
                 name: 'activity_id',
                 label: 'Activity',
                 target: 'activity',
-                next: null, 
+                next: null,
                 filter: function () {
                     return {
                         session_id: $('#session-selector').val()
@@ -113,13 +113,13 @@ ful(function ($) {
             $('.print-status').addClass('hidden');
             $('#roster-section').addClass('hidden');
             if (selectorId == 'activity-selector') {
-                if(value) {
+                if (value) {
                     var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + value;
                     $('#roster-section').removeClass('hidden');
                     $('#register-student-button').attr('href', registerUrl);
                     table.ajax.reload();
                     $('#roster-section').removeClass('hidden');
-                } 
+                }
             }
         });
 
@@ -133,10 +133,10 @@ ful(function ($) {
             };
             preloadedData['activity-selector'] = {
                 id: preloadedActivity.activity_id,
-                text:  preloadedActivity.activity_name,
+                text: preloadedActivity.activity_name,
                 disable: true
             };
         }
         selectHandler.applyData(preloadedData);
-   });
+    });
 })(jQuery);

@@ -20,21 +20,6 @@
     gap: 10px;
 }
 
-.notes-textarea {
-    width: 300px;
-    border: 1px solid #e2e8f0;
-    padding: 8px;
-    font-size: 0.9rem;
-    resize: none;
-    transition: border-color 0.2s;
-}
-
-.notes-textarea:focus {
-    outline: none;
-    border-color: #3b82f6;
-    ring: 2px rgba(59, 130, 246, 0.1);
-}
-
 .button {
     background: #f1f5f9;
     border: none;
@@ -63,7 +48,7 @@
 
 .student-meta {
     font-size: 0.85rem;
-    color: #black;
+    color: black;
     text-transform: uppercase;
     letter-spacing: 0.025em;
 }
@@ -86,6 +71,7 @@ table td {
     vertical-align: top !important;
 }
 
+/*
 .reg-history-table tbody tr:nth-child(odd) {
     background-color: #d1efff !important;
 }
@@ -93,11 +79,12 @@ table td {
 .reg-history-table tbody tr:nth-child(even) {
     background-color: #dae0e6 !important;
 }
+*/
 
 .activity-name {
     display: inline-block;
     background: #eff6ff;
-    color: #black;
+    color: black;
     padding: 4px 10px;
     border-radius: 6px;
     font-size: 0.9rem;
@@ -112,40 +99,11 @@ table td {
     grid-auto-rows: minmax(30px, auto);
 }
 
-.balance-field {
-    display: contents;
-}
-
-.balance-field span {
-    width: 50px;
-    height: 100%;
-    margin: 0;
-}
-
-.balance-field label {
-    text-align: right;
-}
-
-.balance-field input {
-    width: 50px;
-    height: 26px;
-    box-sizing: border-box;
-    margin: 0;
-}
-
 .class-label {
     display: block;
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #black;
-    letter-spacing: 1px;
-}
-
-.class-label {
-    display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    color: #black;
+    color: black;
     letter-spacing: 1px;
 }
 
@@ -157,71 +115,11 @@ table td {
     font-weight: 600;
 }
 
-.status-paid {
-    color: #27ae60;
-    background: #eafaf1;
-    padding: 4px 10px;
-    border-radius: 20px;
-}
-
-.action-panel {
-    display: flex;
-    gap: 10px;
-    max-width: 400px;
-    margin-top: 12px;
-}
-
-.action-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 15px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: transform 0.1s, background-color 0.2s;
-}
-
-.action-btn:active {
-    transform: scale(0.97);
-}
-
-.btn-credit {
-    background-color: #ebf5ff;
-    color: #007bff;
-    border: 1px solid #cce5ff;
-}
-
-.btn-credit:hover {
-    background-color: #007bff;
-    color: #ffffff;
-}
-
-.btn-txn {
-    background-color: #e6fffa;
-    color: #38a169;
-    border: 1px solid #c6f6d5;
-}
-
-.btn-txn:hover {
-    background-color: #38a169;
-    color: #ffffff;
-}
-
-.action-btn .icon {
-    font-size: 1.1rem;
-}
-
 #family-balance {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 20px;
-    /* Space between the label/value pairs */
     padding: 15px;
     background-color: #f9f9f9;
     border-radius: 8px;
@@ -230,7 +128,6 @@ table td {
     width: fit-content;
 }
 
-/* Style the labels to be slightly smaller and muted */
 #family-balance label {
     font-weight: 600;
     color: #666;
@@ -245,14 +142,6 @@ table td {
     color: #000000;
 }
 
-.balance-red {
-    background: #f7adad;
-}
-
-.balance-green {
-    background: #aff39c;
-}
-
 .save-notes-btn {
     width: 100px;
 }
@@ -264,49 +153,116 @@ table td {
 }
 
 .activity-fields {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start; 
-  gap: 20px;
-  width: 100%;
+    display: flex;
+    width: fit-content;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    background: #f9fafb;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.fields-disabled {
+    background-color: #ffffff;
+    opacity: 0.8;
+    background: repeating-linear-gradient(45deg, #f9f9f9, #f9f9f9 2px, #ffffff 2px, #ffffff 10px);
+}
+
+.fields-enabled {
+    background-color: #ecfdff;
+}
+
+.fields-row {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    width: 100%;
 }
 
 .activity-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .activity-field label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.session-selector-wrap {
-    flex: 2;
-    min-width: 200px;
-}
-.activity-selector-wrap {
-    flex: 2;
-    min-width: 300px;
-}
-.student-level-wrap 
-.debit-wrap, 
-.credit-wrap, 
-.total-wrap {
-  flex: 0.25;
-  min-width: 80px;
+.session-select {
+    width: 350px;
 }
 
-.edit-mode:not(.hidden) {
-  display: block;
+
+.activity-select {
+    width: 350px;
 }
-input.edit-mode, select.edit-mode {
-  width: 100%;
-  padding: 4px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+
+.short-field-block {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    width: 350px;
+    justify-content: space-between;
+}
+
+.level-wrap,
+.debit-wrap,
+.credit-wrap {
+    width: 50px;
+}
+
+.notes-wrap {
+    width: 350px;
+}
+
+input.edit-mode,
+select.edit-mode {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.notes-textarea {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    padding: 8px;
+    font-size: 0.9rem;
+    resize: none;
+    transition: border-color 0.2s;
+}
+
+.notes-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    ring: 2px rgba(59, 130, 246, 0.1);
+}
+
+input[readonly],
+textarea[readonly] {
+    background-color: #f9fafb;
+    border-color: #e5e7eb;
+    color: #4b5563;
+    cursor: default;
+}
+
+.total-amt {
+    color: #000;
+    padding: 2px 2px;
+    text-align: center;
+    border-radius: 20px;
+}
+
+.balance-red {
+    background: #f7adad;
+}
+
+.balance-green {
+    background: #aff39c;
 }

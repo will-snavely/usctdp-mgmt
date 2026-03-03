@@ -108,7 +108,7 @@
                 placeholder: "Search for a clinic...",
                 allowClear: true,
                 target: 'product',
-                filter: function() {
+                filter: function () {
                     return {
                         'type': 1 // 1 == Clinic
                     }
