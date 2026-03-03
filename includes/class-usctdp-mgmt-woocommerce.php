@@ -28,11 +28,13 @@ class CheckoutException extends Exception
 class Usctdp_Mgmt_Woocommerce
 {
     private $hold_minutes = 10;
-    public function __construct() {}
+    public function __construct()
+    {
+    }
 
     public function display_before_single_product()
     {
-?>
+        ?>
         <dialog id="new-student-modal">
             <form id="new-student-form" method="dialog">
                 <h2>Add New Student</h2>
@@ -57,12 +59,16 @@ class Usctdp_Mgmt_Woocommerce
                 </div>
             </form>
         </dialog>
-    <?php
+        <?php
     }
 
-    public function display_before_variations_form() {}
+    public function display_before_variations_form()
+    {
+    }
 
-    public function display_before_variations_table() {}
+    public function display_before_variations_table()
+    {
+    }
 
     public function display_after_variations_table()
     {
@@ -80,11 +86,13 @@ class Usctdp_Mgmt_Woocommerce
         }
     }
 
-    private function render_admin_shop_options() {}
+    private function render_admin_shop_options()
+    {
+    }
 
     private function render_user_shop_options($family)
     {
-    ?>
+        ?>
         <div id="usctdp-woocommerce-extra" class="force-hidden">
             <div id="usctdp-student-selector">
                 <div id="select_name_or_new">
@@ -101,14 +109,20 @@ class Usctdp_Mgmt_Woocommerce
             </div>
             <div id="usctdp-day-selectors"></div>
         </div>
-<?php
+        <?php
     }
 
-    public function display_before_cart_button() {}
+    public function display_before_cart_button()
+    {
+    }
 
-    public function display_after_cart_button() {}
+    public function display_after_cart_button()
+    {
+    }
 
-    public function display_after_variations_form() {}
+    public function display_after_variations_form()
+    {
+    }
 
 
     private function int_to_day($day_of_week)

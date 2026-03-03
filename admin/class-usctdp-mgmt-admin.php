@@ -617,6 +617,10 @@ class Usctdp_Mgmt_Admin
         }
         $context = $this->load_page_context(['family_id', 'student_id']);
         $js_data['preload'] = $context;
+
+        if (isset($_GET['new_registrations'])) {
+            $js_data['new_registrations'] = json_decode($_GET['new_registrations'], true);
+        }
         wp_localize_script($this->usctdp_script_id('history'), 'usctdp_mgmt_admin', $js_data);
     }
 
@@ -739,8 +743,6 @@ class Usctdp_Mgmt_Admin
         $capacity = (int) $activity->activity_capacity;
         $found_posts = (int) $this->get_activity_registration_count($activity_id);
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
-        error_log("capacity: $capacity");
-        error_log("found_posts: $found_posts");
 
         wp_send_json_success([
             'capacity' => $capacity,
@@ -814,12 +816,8 @@ class Usctdp_Mgmt_Admin
                 'doc_url' => $drive_file->webViewLink
             ]);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                'Error generating roster: ' . $e->getMessage()
-            );
-            Usctdp_Mgmt_Logger::getLogger()->log_critical(
-                'Trace: ' . $e->getTraceAsString()
-            );
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error generating roster: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
             wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
         }
     }
@@ -1166,7 +1164,6 @@ class Usctdp_Mgmt_Admin
                 },
                 'birth_date' => function () {
                     $birth_date = $this->get_sanitized_post_field_text('birth_date');
-                    error_log("Birth date: " . $birth_date);
                     if (empty($birth_date)) {
                         return null;
                     }
@@ -1230,7 +1227,6 @@ class Usctdp_Mgmt_Admin
     function select2_session_search($search, $filters)
     {
         $results = [];
-        error_log(print_r($filters, true));
         $query = new Usctdp_Mgmt_Session_Query();
         $active = $filters['active'] ?? null;
         $category = $filters['category'] ?? null;
@@ -1550,8 +1546,14 @@ class Usctdp_Mgmt_Admin
 
         $reg_query = new Usctdp_Mgmt_Registration_Query([]);
         $results = $reg_query->get_registration_data($args);
-        foreach ($results['data'] as $row) {
-            $row->txns = $this->get_related_transactions($row->registration_id);
+        foreach ($results['data'] as &$row) {
+
+            $order_id = $row->registration_order_id;
+            if ($order_id) {
+                $row->view_order = get_edit_post_link($order_id);
+            } else {
+                $row->view_order = '';
+            }
         }
 
         $response = array(
@@ -1561,19 +1563,6 @@ class Usctdp_Mgmt_Admin
             "data" => $results['data']
         );
         wp_send_json($response);
-    }
-
-    public function get_related_transactions($reg_id)
-    {
-        global $wpdb;
-        $query = $wpdb->prepare(
-            "   SELECT txn.*
-                FROM {$wpdb->prefix}usctdp_transaction_link AS tlink
-                JOIN {$wpdb->prefix}usctdp_transaction AS txn ON tlink.transaction_id = txn.id 
-                WHERE tlink.registration_id = %d",
-            $reg_id
-        );
-        return $wpdb->get_results($query);
     }
 
     public function ajax_registrations_datatable()
@@ -1740,7 +1729,6 @@ class Usctdp_Mgmt_Admin
         }
 
         $results = [];
-        error_log("product: " . print_r($product->get_available_variations(), true));
         foreach ($product->get_available_variations() as $variation_data) {
             $variation_attributes = $variation_data['attributes'];
             $is_match = true;
@@ -1772,10 +1760,13 @@ class Usctdp_Mgmt_Admin
             'number' => 1
         ]);
         if (empty($product_query->items)) {
-            wp_send_json_error('Product with ID "' . $product_id . '" not found.', 404);
+            throw new Web_Request_Exception('Product with ID "' . $product_id . '" not found.', 404);
         }
         $product = $product_query->items[0];
         $woo_product = wc_get_product($product->woocommerce_id);
+        if (!$woo_product) {
+            throw new Web_Request_Exception('WooCommerce product with ID "' . $product->woocommerce_id . '" not found.', 404);
+        }
 
         $session_name = null;
         $session_meta = $woo_product->get_meta('_session_post_ids');
@@ -1795,6 +1786,18 @@ class Usctdp_Mgmt_Admin
                 'session' => $session_name,
             ]);
         }
+    }
+    private function find_equipment_woo_product($product_id)
+    {
+        $product_query = new Usctdp_Mgmt_Product_Query([
+            'id' => $product_id,
+            'number' => 1
+        ]);
+        if (empty($product_query->items)) {
+            throw new Web_Request_Exception('Product with ID "' . $product_id . '" not found.', 404);
+        }
+        $product = $product_query->items[0];
+        return wc_get_product($product->woocommerce_id);
     }
 
     public function ajax_create_woocommerce_order()
@@ -1821,58 +1824,103 @@ class Usctdp_Mgmt_Admin
             }
         }
 
-        // Lookup the family_id
-        $family_query = new Usctdp_Mgmt_Family_Query([
-            'id' => $family_id,
-            'number' => 1
-        ]);
+        $family_query = new Usctdp_Mgmt_Family_Query(['id' => $family_id, 'number' => 1]);
         if (empty($family_query->items)) {
             wp_send_json_error('Family with ID "' . $family_id . '" not found.', 404);
         }
         $family = $family_query->items[0];
         $user_id = $family->user_id;
 
+        $order = null;
         $order = wc_create_order(['customer_id' => $user_id]);
         if (is_wp_error($order)) {
             wp_send_json_error('Failed to create woocommerce order.', 500);
         }
 
-        $total = 0;
-        foreach ($order_data as $order_item) {
-            $session_id = $order_item["session_id"];
-            $product_id = $order_item["product_id"];
-            $variation_ids = $this->find_variations_for_session($product_id, $session_id);
-            error_log("variation_ids: " . print_r($variation_ids, true));
-            if (empty($variation_ids)) {
-                wp_send_json_error(
-                    'No variations found for product "' . $product_id . '" and session "' . $session_id . '".',
-                    404
-                );
+        try {
+            $total = 0;
+            foreach ($order_data as $order_item) {
+                $student_query = new Usctdp_Mgmt_Student_Query(['id' => $order_item["student_id"], 'number' => 1]);
+                if (empty($student_query->items)) {
+                    throw new Web_Request_Exception('Student with ID "' . $order_item["student_id"] . '" not found.', 404);
+                }
+                $student = $student_query->items[0];
+
+                if ($order_item["type"] == "equipment") {
+                    $product_id = $order_item["product_id"];
+                    $woo_product = $this->find_equipment_woo_product($product_id);
+                    $item_id = $order->add_product($woo_product, 1);
+                    $custom_price = floatval($order_item["debit"]);
+                    $total += $custom_price;
+                    $item = $order->get_item($item_id);
+                    $item->add_meta_data('Student', $student->title);
+                    $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
+                    $item->save();
+                } else if ($order_item["type"] == "registration") {
+                    $session_id = $order_item["session_id"];
+                    $session_query = new Usctdp_Mgmt_Session_Query(['id' => $session_id, 'number' => 1]);
+                    if (empty($session_query->items)) {
+                        throw new Web_Request_Exception("Session with ID $session_id not found.", 404);
+                    }
+                    $session = $session_query->items[0];
+
+                    $activity_id = $order_item["activity_id"];
+                    $activity_query = new Usctdp_Mgmt_Activity_Query(['id' => $activity_id, 'number' => 1]);
+                    if (empty($activity_query->items)) {
+                        throw new Web_Request_Exception("Activity with ID $activity_id not found.", 404);
+                    }
+                    $activity = $activity_query->items[0];
+
+                    $product_id = $order_item["product_id"];
+                    $variation_ids = $this->find_variations_for_session($product_id, $session_id);
+                    if (empty($variation_ids)) {
+                        $msg = "No variations found for product $product_id and session $session_id";
+                        throw new Web_Request_Exception($msg, 404);
+                    }
+                    $variation_id = $variation_ids[0];
+                    $product = wc_get_product($variation_id);
+                    $item_id = $order->add_product($product, 1);
+                    $custom_price = floatval($order_item["debit"]);
+                    $total += $custom_price;
+
+                    $item = $order->get_item($item_id);
+                    $item->add_meta_data('Student', $student->title);
+                    $item->add_meta_data('Session', $session->title);
+                    $item->add_meta_data('Activity', $activity->title);
+                    $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
+                    $item->save();
+                }
             }
-            $variation_id = $variation_ids[0];
-            $product = wc_get_product($variation_id);
-            $item_id = $order->add_product($product, 1);
 
-            $custom_price = floatval($order_item["debit"]);
-            $total += $custom_price;
-            $item = $order->get_item($item_id);
-            $item->set_props(array(
-                'subtotal' => $custom_price,
-                'total' => $custom_price,
-            ));
-            $item->save();
+            $order->set_total($total);
+            $order->save();
+            $order->update_status('pending', 'Order created by admin.');
+            wp_send_json_success([
+                "order_id" => $order->get_id(),
+                "user_id" => $user_id,
+                "family_id" => $family_id,
+                "payment_url" => $order->get_checkout_payment_url(),
+                "order_url" => get_edit_post_link($order->get_id())
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating order: ' . $e->getMessage());
+            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+
+            if ($order instanceof WC_Order) {
+                try {
+                    $order->delete(true);
+                } catch (Throwable $e) {
+                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Error cleaning up order: ' . $e->getMessage());
+                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+                }
+            }
+
+            if ($e instanceof Web_Request_Exception) {
+                wp_send_json_error($e->getMessage(), $e->getCode());
+            } else {
+                wp_send_json_error('An unexpected server error occurred during order creation.', 500);
+            }
         }
-
-        $order->set_total($total);
-        $order->save();
-        $order->update_status('pending', 'Order created by admin.');
-        wp_send_json_success([
-            "order_id" => $order->get_id(),
-            "user_id" => $user_id,
-            "family_id" => $family_id,
-            "payment_url" => $order->get_checkout_payment_url(),
-            "order_url" => get_edit_post_link($order->get_id())
-        ]);
     }
 
     function registration_checkout_handler()
@@ -1895,6 +1943,7 @@ class Usctdp_Mgmt_Admin
             $pay_now = isset($_POST['pay_now']) ? $_POST['pay_now'] === 'true' : false;
             $payment_url = isset($_POST['payment_url']) ? sanitize_url($_POST['payment_url']) : '';
             $order_url = isset($_POST['order_url']) ? sanitize_url($_POST['order_url']) : '';
+            $registrations = isset($_POST['registrations']) ? json_decode($_POST['registrations'], true) : [];
 
             if ($user_id === 0) {
                 throw new Web_Request_Exception('User ID is not set or invalid.');
@@ -1929,7 +1978,8 @@ class Usctdp_Mgmt_Admin
             } else {
                 $redirect_url = add_query_arg([
                     'usctdp_token' => $unique_token,
-                    'family_id' => $family_id
+                    'family_id' => $family_id,
+                    'new_registrations' => json_encode($registrations)
                 ], $this->get_redirect_url('usctdp-admin-history'));
                 $message = "Registrations completed successfully! View the order <a href='" . $order_url . "'>here</a>";
                 $transient_data = [
@@ -2071,6 +2121,14 @@ class Usctdp_Mgmt_Admin
                 $registration_records[] = $this->parse_registration_data($registration);
             }
 
+            $order_id = $_POST['order_id'] ?? null;
+            if ($order_id) {
+                $order = wc_get_order($order_id);
+                if (!$order) {
+                    throw new Web_Request_Exception('Order not found: ' . $order_id);
+                }
+            }
+
             $wpdb->query('START TRANSACTION');
             $transaction_started = true;
             $registration_query = new Usctdp_Mgmt_Registration_Query([]);
@@ -2101,6 +2159,7 @@ class Usctdp_Mgmt_Admin
                 $args['created_by'] = $current_user;
                 $args['last_modified_at'] = $current_time;
                 $args['last_modified_by'] = $current_user;
+                $args['order_id'] = $order_id;
                 $registration_id = $registration_query->add_item($args);
                 if (!$registration_id) {
                     throw new Web_Request_Exception('Failed to create registration.');

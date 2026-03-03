@@ -2,6 +2,8 @@
     "use strict";
 
     $(document).ready(function () {
+        var preloadedData = {};
+
         function clearNotifications() {
             $('#notifications-section').children().remove();
         }
@@ -154,7 +156,9 @@
                 .data('product_name', equipment.product_name)
                 .data('student_name', equipment.student_name)
                 .data('student_id', equipment.student_id)
-                .data('notes', equipment.notes);
+                .data('family_id', equipment.family_id)
+                .data('notes', equipment.notes)
+                .data('type', 'equipment');
             $('#registration-order-table tbody').append($row);
             $('#registration-order-section').removeClass('hidden');
             updateRegistrationTotal();
@@ -173,25 +177,12 @@
                 .data('product_id', registration.product_id)
                 .data('student_level', registration.student_level)
                 .data('family_id', registration.family_id)
-                .data('notes', registration.notes);
+                .data('notes', registration.notes)
+                .data('type', 'registration');
             $('#registration-order-table tbody').append($row);
             $('#registration-order-section').removeClass('hidden');
             updateRegistrationTotal();
         }
-
-        $('#registration-order-table').on('change', '.price-input', function () {
-            updateRegistrationTotal();
-        });
-
-        $('#registration-order-table').on('click', '.remove-btn', function () {
-            const $row = $(this).closest('tr');
-            $row.remove()
-            if ($('#registration-order-table tbody tr').length === 0) {
-                $('#registration-order-section').addClass('hidden');
-            }
-            updateRegistrationTotal();
-
-        });
 
         function updateRegistrationTotal() {
             const $rows = $('#registration-order-table tbody tr');
@@ -209,23 +200,38 @@
             const orderData = [];
             $rows.each(function () {
                 const $row = $(this);
-                const registration = {
-                    student_id: $row.data('student_id'),
-                    session_id: $row.data('session_id'),
-                    activity_id: $row.data('activity_id'),
-                    product_id: $row.data('product_id'),
-                    student_level: $row.data('student_level'),
-                    family_id: $row.data('family_id'),
-                    notes: $row.data('notes'),
-                    credit: 0,
-                    debit: parseFloat($row.find('.price-input').val())
-                };
-                orderData.push(registration);
+                const type = $row.data('type');
+                if (type === 'registration') {
+                    const registration = {
+                        student_id: $row.data('student_id'),
+                        session_id: $row.data('session_id'),
+                        activity_id: $row.data('activity_id'),
+                        product_id: $row.data('product_id'),
+                        student_level: $row.data('student_level'),
+                        family_id: $row.data('family_id'),
+                        notes: $row.data('notes'),
+                        credit: 0,
+                        debit: parseFloat($row.find('.price-input').val()),
+                        type: 'registration'
+                    };
+                    orderData.push(registration);
+                } else if (type === 'equipment') {
+                    const equipment = {
+                        product_id: $row.data('product_id'),
+                        student_id: $row.data('student_id'),
+                        family_id: $row.data('family_id'),
+                        notes: $row.data('notes'),
+                        credit: 0,
+                        debit: parseFloat($row.find('.price-input').val()),
+                        type: 'equipment'
+                    };
+                    orderData.push(equipment);
+                }
             });
             return orderData;
         }
 
-        async function createRegistrations(orderData) {
+        async function createRegistrations(orderData, order_id) {
             try {
                 const response = await $.ajax({
                     url: usctdp_mgmt_admin.ajax_url,
@@ -233,7 +239,8 @@
                     data: {
                         action: usctdp_mgmt_admin.commit_registrations_action,
                         security: usctdp_mgmt_admin.commit_registrations_nonce,
-                        registration_data: orderData,
+                        registration_data: orderData.filter(item => item.type === 'registration'),
+                        order_id: order_id
                     }
                 });
                 if (response.success) {
@@ -273,8 +280,12 @@
 
         async function submitRegistrations(orderData) {
             try {
-                await createRegistrations(orderData);
-                return await createWooCommerceOrder(orderData);
+                const order = await createWooCommerceOrder(orderData);
+                const registrations = await createRegistrations(orderData, order.order_id);
+                return {
+                    order: order,
+                    registrations: registrations.registration_ids
+                };
             } catch (error) {
                 console.error('Sequence failed:', error);
                 throw error;
@@ -333,6 +344,19 @@
             $('#product-selector').val(null).trigger('change');
         });
 
+        $('#registration-order-table').on('change', '.price-input', function () {
+            updateRegistrationTotal();
+        });
+
+        $('#registration-order-table').on('click', '.remove-btn', function () {
+            const $row = $(this).closest('tr');
+            $row.remove()
+            if ($('#registration-order-table tbody tr').length === 0) {
+                $('#registration-order-section').addClass('hidden');
+            }
+            updateRegistrationTotal();
+        });
+
         $('#registration-checkout').on('click', function () {
             $('#registration-checkout-section').removeClass('hidden');
             $('#registration-order-info input').prop('disabled', true);
@@ -368,10 +392,11 @@
                     if (payment_method === 'card') {
                         $('#submit_pay_now').val("true");
                     }
-                    $('#submit_user_id').val(response.user_id);
-                    $('#submit_family_id').val(response.family_id);
-                    $('#submit_payment_url').val(response.payment_url);
-                    $('#submit_order_url').val(response.order_url);
+                    $('#submit_user_id').val(response.order.user_id);
+                    $('#submit_family_id').val(response.order.family_id);
+                    $('#submit_payment_url').val(response.order.payment_url);
+                    $('#submit_order_url').val(response.order.order_url);
+                    $('#registrations').val(JSON.stringify(response.registrations));
                     form.submit();
                 })
                 .catch(function (error) {
@@ -472,21 +497,30 @@
             }
         });
 
-        if (usctdp_mgmt_admin.preload?.student_id) {
-            const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
-            preloadedData['family-selector'] = {
-                id: preloadedStudent.family_id,
-                text: preloadedFamily.family_name,
-                disable: true
+        if (usctdp_mgmt_admin.preload) {
+            if (usctdp_mgmt_admin.preload.family_id) {
+                const preloadedFamily = Object.values(usctdp_mgmt_admin.preload.family_id)[0]
+                preloadedData['family-selector'] = {
+                    id: preloadedFamily.id,
+                    text: preloadedFamily.title,
+                    disable: true
+                }
+                $('#context-selectors').addClass('hidden');
             }
-            preloadedData['student-selector'] = {
-                id: preloadedStudent.student_id,
-                text: preloadedFamily.student_name,
-                disable: false
+
+            if (usctdp_mgmt_admin.preload.student_id) {
+                const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+                preloadedData['family-selector'] = {
+                    id: preloadedStudent.family_id,
+                    text: preloadedStudent.family_name,
+                    disable: true
+                }
+                preloadedData['student-selector'] = {
+                    id: preloadedStudent.student_id,
+                    text: preloadedStudent.student_name,
+                    disable: true
+                }
             }
-            $('#student-filter').prop('disabled', true);
-            $('#student-filter-section').addClass('hidden');
-            $('#context-selectors').addClass('hidden');
             selectHandler.applyData(preloadedData);
         }
     });

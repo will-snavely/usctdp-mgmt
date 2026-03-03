@@ -3,6 +3,7 @@
 
     $(document).ready(function () {
         var preloadedData = {};
+        var newRegistrations = null;
 
         function refreshFamilyBalance(family_id, student_id) {
             $.ajax({
@@ -29,15 +30,29 @@
 
         function renderStudentDetails(data, idx) {
             const container = document.createElement('div');
+            var newRegBadge = '';
+            if (newRegistrations) {
+                const registrationId = parseInt(data.registration_id);
+                newRegBadge = newRegistrations.has(registrationId) ? '<span class="new-registration">New!</span>' : '';
+            }
             container.className = 'student-details-wrap';
             container.innerHTML = `
-                <span class="student-name">${data.student_first} ${data.student_last}</span>
-                <div class="student-meta">
-                    <span class="student-age"> Age: ${data.student_age}</span>
+                <div class="basic-info">
+                    <div class="student-name-wrap">
+                        <span class="student-name">${data.student_first} ${data.student_last}</span>
+                    </div>
+                    <div class="student-age-wrap">
+                        <span class="student-age">Age: ${data.student_age}</span>
+                    </div>
+                    <div class="new-registration-badge">
+                        ${newRegBadge}
+                    </div>
                 </div>
                 <div class="registration-actions">
-                    <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">Edit</button>
-                </div>`;
+                    <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">Edit Registration</button>
+                    <a id="view-order-${idx}" class="button view-order" href="${data.view_order}">View Order</a>
+                </div>
+                `;
             return container;
         }
 
@@ -64,30 +79,6 @@
                     }
                 })
             );
-        }
-
-        function getElementContent(el) {
-            var $el = $(el);
-            if ($el.is('select')) {
-                return $el.find('option:selected').text();
-            }
-            return $el.val();
-        }
-
-        function resetElementVal($el) {
-            const origVal = $el.attr('data-orig-value');
-            const origText = $el.attr('data-orig-text');
-            if ($el.is('select')) {
-                const $option = $el.find('option[value="' + origVal + '"]');
-                if ($option.length > 0) {
-                    $el.val(origVal).trigger('change', [true]);
-                } else {
-                    const newVal = new Option(origText, origVal, true, true);
-                    $el.append(newVal).val(origVal).trigger('change', [true]);
-                }
-            } else {
-                $el.val(origVal);
-            }
         }
 
         async function saveRegistrationFields(id, fields) {
@@ -324,7 +315,6 @@
             $('#' + activitySelectId).val(null).trigger("change");
         });
 
-
         $('#history-table tbody').on('click', 'button.edit-activity', function (e) {
             const $row = $(this).closest('tr');
             const $button = $(this);
@@ -334,6 +324,7 @@
             if (state == "edit") {
                 $button.text("Save");
                 $button.data("state", "save");
+                $button.addClass('save-btn');
                 $row.find('.activity-fields').removeClass('fields-disabled');
                 $row.find('.activity-fields').addClass('fields-enabled');
                 $row.find('select').prop('disabled', false);
@@ -342,6 +333,7 @@
             } else {
                 $button.text("Edit");
                 $button.data("state", "edit");
+                $button.removeClass('save-btn');
                 $row.find('select').prop('disabled', true);
                 $row.find('input').prop('readonly', true);
                 $row.find('textarea').prop('readonly', true);
@@ -366,6 +358,12 @@
                         historyTable.ajax.reload();
                     });
             }
+        });
+
+        $('#history-table tbody').on('click', 'button.view-order', function (e) {
+            const $row = $(this).closest('tr');
+            const rowData = historyTable.row($row).data();
+            console.log(rowData);
         });
 
         function load_registration_history(title, family_id, student_id) {
@@ -407,6 +405,10 @@
             }
         });
 
+        if (usctdp_mgmt_admin.new_registrations) {
+            newRegistrations = new Set(usctdp_mgmt_admin.new_registrations)
+        }
+
         if (usctdp_mgmt_admin.preload) {
             if (usctdp_mgmt_admin.preload.family_id) {
                 const preloadedFamily = Object.values(usctdp_mgmt_admin.preload.family_id)[0]
@@ -422,12 +424,12 @@
                 const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
                 preloadedData['family-selector'] = {
                     id: preloadedStudent.family_id,
-                    text: preloadedFamily.family_name,
+                    text: preloadedStudent.family_name,
                     disable: true
                 }
                 preloadedData['student-selector'] = {
                     id: preloadedStudent.student_id,
-                    text: preloadedFamily.student_name,
+                    text: preloadedStudent.student_name
                 }
                 $('#student-filter').prop('disabled', true);
                 $('#student-filter-section').addClass('hidden');

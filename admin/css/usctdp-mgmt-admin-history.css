@@ -14,28 +14,11 @@
     gap: 10px;
 }
 
-.student-meta {
+.basic-info {
     display: flex;
     flex-direction: row;
     gap: 10px;
-}
-
-.button {
-    background: #f1f5f9;
-    border: none;
-    color: #475569;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.85rem;
-}
-
-.save-btn {
-    background: #0f172a;
-    color: white;
-    margin-top: 8px;
-    width: 100%;
+    align-items: baseline;
 }
 
 .student-name {
@@ -43,14 +26,18 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: #1e293b;
-    margin-bottom: 4px;
 }
 
-.student-meta {
-    font-size: 0.85rem;
+.student-age {
+    font-size: 0.80rem;
     color: black;
     text-transform: uppercase;
     letter-spacing: 0.025em;
+}
+
+.save-btn {
+    background-color: #4CAF50 !important;
+    color: white !important;
 }
 
 #table-filters {
@@ -70,16 +57,6 @@
 table td {
     vertical-align: top !important;
 }
-
-/*
-.reg-history-table tbody tr:nth-child(odd) {
-    background-color: #d1efff !important;
-}
-
-.reg-history-table tbody tr:nth-child(even) {
-    background-color: #dae0e6 !important;
-}
-*/
 
 .activity-name {
     display: inline-block;
@@ -259,10 +236,39 @@ textarea[readonly] {
     border-radius: 20px;
 }
 
+.new-registration {
+    background-color: #f0abef;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #000;
+}
+
 .balance-red {
     background: #f7adad;
 }
 
 .balance-green {
     background: #aff39c;
+}
+
+.registration-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.registration-actions button,
+.registration-actions a {
+    width: fit-content;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #000;
+}
+
+.view-order {
+    text-align: center;
 }

@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Query;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -68,6 +68,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     reg.credit as registration_credit,
                     reg.debit as registration_debit,
                     reg.notes as registration_notes,
+                    reg.order_id as registration_order_id,
                     stud.id as student_id, stud.family_id as student_family_id,
                     stud.first as student_first,
                     stud.last as student_last,

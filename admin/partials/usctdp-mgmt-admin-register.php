@@ -128,6 +128,7 @@ $nonce_action = $post_handler["nonce_action"];
                         <input type="hidden" id="submit_payment_url" name="payment_url" value="">
                         <input type="hidden" id="submit_order_url" name="order_url" value="">
                         <input type="hidden" id="submit_pay_now" name="pay_now" value="">
+                        <input type="hidden" id="registrations" name="registrations" value="">
                         <?php wp_nonce_field($nonce_action, $nonce_name); ?>
                         <div id="registration-submit-button-wrap">
                             <?php submit_button(
