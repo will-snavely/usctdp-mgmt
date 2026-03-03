@@ -6,7 +6,7 @@
         <div id="history-container" class="hidden">
             <h2>Registration History for <span id="family-name"></span></h2>
             <div id="family-balance">
-                <label for="family-total-balance">Balance:</label>
+                <label>Balance</label>
                 <span id="family-total-balance"></span>
             </div>
             <div id="history-table-wrap">
@@ -29,7 +29,6 @@
                         <tr>
                             <th>Student</th>
                             <th>Activity</th>
-                            <th>Balance</th>
                             <th>Notes</th>
                         </tr>
                     </thead>

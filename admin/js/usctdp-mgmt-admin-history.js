@@ -27,7 +27,7 @@
             });
         }
 
-        function createStudentDetails(data) {
+        function renderStudentDetails(data, idx) {
             const container = document.createElement('div');
             container.className = 'student-details-wrap';
             container.innerHTML = `
@@ -35,8 +35,9 @@
                 <div class="student-meta">
                     <span class="student-age"> Age: ${data.student_age}</span>
                 </div>
-            `;
-
+                <div class="registration-actions">
+                    <button id="edit-activity-${idx}" class="button" data-state="edit">Edit</button>
+                </div>`;
             return container;
         }
 
@@ -119,6 +120,78 @@
             }
         }
 
+        function renderActivityDetails(data, idx) {
+            const {
+                sessionName,
+                sessionId,
+                activityName,
+                activityId,
+                studentLevel,
+                debit,
+                credit
+            } = data;
+            const total = credit - debit;
+            const sessionSelectId = `session-selector-${idx}`;
+            const activitySelectId = `activity-selector-${idx}`;
+            return `
+              <div class="activity-fields">
+                <div class="session-selector-wrap activity-field">
+                  <label>Session</label>
+                  <span id="session-name-${idx}" class="view-mode">${sessionName}</span>
+                  <div id="session-selector-wrap-${idx}" class="hidden edit-mode">
+                    <select id="${sessionSelectId}" 
+                      data-orig-value="${sessionId}" 
+                      data-orig-text="${sessionName}">
+                    </select>
+                  </div>
+                </div>
+                <div class="activity-selector-wrap activity-field">
+                  <label>Activity</label>
+                  <span id="activity-name-${idx}" class="view-mode">${activityName}</span>
+                  <div id="activity-selector-wrap-${idx}" class="hidden edit-mode">
+                    <select id="${activitySelectId}" 
+                      data-orig-value="${activityId}" 
+                      data-orig-text="${activityName}">
+                    </select>
+                  </div>
+                </div>
+                <div class="student-level-wrap activity-field">
+                  <label>Level</label>
+                  <span id="student-level-${idx}" class="view-mode">${studentLevel}</span>
+                  <input 
+                    id="student-level-input-${idx}"
+                    class="hidden edit-mode"
+                    data-orig-value="${studentLevel}"
+                    data-orig-text="${studentLevel}"
+                    value="${studentLevel}">
+                </div>
+                <div class="debit-wrap activity-field">
+                  <label>Debit</label>
+                  <span id="debit-amt-${idx}" class="view-mode">${debit}</span>
+                  <input 
+                    id="debit-amt-input-${idx}" 
+                    class="edit-mode hidden"
+                    data-orig-value="${debit}"
+                    data-orig-text="${debit}"
+                    value="${debit}">
+                </div>
+                <div class="credit-wrap activity-field">
+                  <label>Credit</label>
+                  <span id="credit-amt-${idx}" class="view-mode">${credit}</span>
+                  <input 
+                    id="credit-amt-input-${idx}" 
+                    class="edit-mode hidden"
+                    data-orig-value="${credit}"
+                    data-orig-text="${credit}"
+                    value="${credit}">
+                </div>
+                <div class="total-wrap activity-field">
+                  <label>Total</label>
+                  <span id="total-amt-${idx}">${total}</span>
+                </div>
+              </div>`
+        }
+
         function createActivityDetails(data, idx) {
             const container = document.createElement('div');
             const sessionSelectId = `session-selector-${idx}`;
@@ -165,6 +238,31 @@
                 <div class="activity-actions">
                     <button id="edit-activity-${idx}" class="button" data-state="edit">Edit</button>
                 </div>
+                <div class="debit-wrap balance-field">
+                    <label>Debit:</label>
+                    <span id="debit-amt-${idx}" class="view-mode">${data.registration_debit}</span>
+                    <input 
+                        id="debit-amt-input-${idx}" 
+                        class="edit-mode hidden"
+                        data-orig-value="${data.registration_debit}"
+                        data-orig-text="${data.registration_debit}"
+                        value="${data.registration_debit}">
+                </div>
+                <div class="credit-wrap balance-field">
+                    <label>Credit:</label>
+                    <span id="credit-amt-${idx}" class="view-mode">${data.registration_credit}</span>
+                    <input 
+                        id="credit-amt-input-${idx}" 
+                        class="edit-mode hidden"
+                        data-orig-value="${data.registration_credit}"
+                        data-orig-text="${data.registration_credit}"
+                        value="${data.registration_credit}">
+                </div>
+                <div class="total-wrap balance-field">
+                    <label>Total:</label>
+                    <span id="total-amt-${idx}">${total}</span>
+                </div>
+ 
             `;
 
             const fields = [
@@ -339,13 +437,13 @@
             return container;
         }
 
-        function createNotesEditor(data, idx) {
+        function renderNotesEditor(data, idx) {
             const container = document.createElement('div');
             container.className = 'notes-container';
             const existingNotes = data.registration_notes || "";
             container.innerHTML = `
                 <textarea 
-                    rows=6
+                    rows=3
                     id="note-field-${idx}" 
                     class="notes-textarea">${existingNotes}</textarea>
                 <div class="notes-actions">
@@ -434,9 +532,9 @@
             columns: [
                 {
                     data: 'id',
-                    render: function (data, type, row) {
+                    render: function (data, type, row, meta) {
                         if (type === 'display') {
-                            return createStudentDetails(row);
+                            return renderStudentDetails(row, meta.row);
                         }
                         return '';
                     }
@@ -446,7 +544,16 @@
                     render: function (data, type, row, meta) {
                         if (type === 'display') {
                             try {
-                                return createActivityDetails(row, meta.row);
+                                const activityData = {
+                                    sessionName: row.session_name,
+                                    sessionId: row.session_id,
+                                    activityName: row.activity_name,
+                                    activityId: row.activity_id,
+                                    studentLevel: row.registration_student_level,
+                                    debit: row.registration_debit,
+                                    credit: row.registration_credit
+                                };
+                                return renderActivityDetails(activityData, meta.row);
                             } catch (error) {
                                 console.error(error);
                                 return '';
@@ -459,16 +566,7 @@
                     data: 'id',
                     render: function (data, type, row, meta) {
                         if (type === 'display') {
-                            return createBalanceDetails(row, meta.row);
-                        }
-                        return '';
-                    }
-                },
-                {
-                    data: 'id',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                            return createNotesEditor(row);
+                            return renderNotesEditor(row, meta.row);
                         }
                         return '';
                     }

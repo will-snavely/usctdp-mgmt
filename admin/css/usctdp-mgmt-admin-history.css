@@ -21,7 +21,7 @@
 }
 
 .notes-textarea {
-    width: 400px;
+    width: 300px;
     border: 1px solid #e2e8f0;
     padding: 8px;
     font-size: 0.9rem;
@@ -94,16 +94,6 @@ table td {
     background-color: #dae0e6 !important;
 }
 
-.activity-field label,
-.balance-field label {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: black;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-}
-
 .activity-name {
     display: inline-block;
     background: #eff6ff;
@@ -112,51 +102,6 @@ table td {
     border-radius: 6px;
     font-size: 0.9rem;
     font-weight: 500;
-}
-
-.activity-details-wrap {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 5px 10px;
-    align-items: top;
-    grid-auto-rows: minmax(30px, auto);
-}
-
-.activity-field {
-    display: contents;
-}
-
-.activity-field label {
-    text-align: right;
-}
-
-.activity-field span {
-    width: 300px;
-    height: 100%;
-    margin: 0;
-}
-
-.activity-field select {
-    width: 300px;
-    box-sizing: border-box;
-    margin: 0;
-}
-
-.activity-field input {
-    width: 50px;
-    height: 26px;
-    box-sizing: border-box;
-    margin: 0;
-}
-
-.activity-actions {
-    grid-column: 1;
-    display: flex;
-    justify-content: flex-end;
-}
-
-.activity-actions .button {
-    min-width: 50px;
 }
 
 .balance-details-wrap {
@@ -294,30 +239,6 @@ table td {
     text-transform: uppercase;
 }
 
-/* Style the spans (the dollar amounts) */
-#family-balance span {
-    font-weight: 700;
-    color: #333;
-    font-size: 1.1rem;
-}
-
-#family-total-credit {
-    color: #000000;
-    padding: 4px 8px;
-    background: #aff39c;
-    border-radius: 4px;
-}
-
-
-#family-total-debit {
-    color: #000000;
-    padding: 4px 8px;
-    background: #f7adad;
-    border-radius: 4px;
-}
-
-
-/* Optional: Color coding the balance */
 #family-total-balance {
     padding: 4px 8px;
     border-radius: 4px;
@@ -340,4 +261,52 @@ table td {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.activity-fields {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start; 
+  gap: 20px;
+  width: 100%;
+}
+
+.activity-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activity-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.session-selector-wrap {
+    flex: 2;
+    min-width: 200px;
+}
+.activity-selector-wrap {
+    flex: 2;
+    min-width: 300px;
+}
+.student-level-wrap 
+.debit-wrap, 
+.credit-wrap, 
+.total-wrap {
+  flex: 0.25;
+  min-width: 80px;
+}
+
+.edit-mode:not(.hidden) {
+  display: block;
+}
+input.edit-mode, select.edit-mode {
+  width: 100%;
+  padding: 4px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
