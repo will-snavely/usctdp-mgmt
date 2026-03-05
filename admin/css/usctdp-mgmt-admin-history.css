@@ -1,3 +1,8 @@
+:root {
+    --dt-row-selected: 151, 241, 247;
+    --dt-row-selected-text: 0, 0, 0;
+}
+
 #main-content {
     display: flex;
     flex-direction: column;
@@ -129,25 +134,60 @@ table td {
     gap: 10px;
 }
 
-.activity-fields {
+@property --angle1 {
+  syntax: '<angle>';
+  initial-value: 45deg;
+  inherits: false;
+}
+
+@property --angle2 {
+  syntax: '<angle>';
+  initial-value: -45deg;
+  inherits: false;
+}
+
+@property --size {
+  syntax: '<length>';
+  initial-value: 16px;
+  inherits: false;
+}
+
+.registration-card {
     display: flex;
     width: fit-content;
     flex-direction: column;
     align-items: flex-start;
     gap: 20px;
-    background: #f9fafb;
     padding: 20px;
-    border-radius: 8px;
-}
-
-.fields-disabled {
+    background: 
+        linear-gradient(var(--angle1), transparent 49%, #e9e9e9 49% 51%, transparent 51%) , 
+        linear-gradient(var(--angle2), transparent 49%, #e9e9e9 49% 51%, transparent 51%);
+    background-size: var(--size) var(--size);
     background-color: #ffffff;
     opacity: 0.8;
-    background: repeating-linear-gradient(45deg, #f9f9f9, #f9f9f9 2px, #ffffff 2px, #ffffff 10px);
+    border-radius: 8px;
+    border-left-style: solid;
+    border-left-width: 0px;
+    border-left-color: #0208c4;
+    transition: 
+        --angle1 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        --angle2 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        --size 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        border-left-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.fields-enabled {
-    background-color: #ecfdff;
+.registration-card.selected {
+    border-left-width: 10px; 
+}
+
+.registration-card.editing {
+  --angle1: 0deg;
+  --angle2: 90deg;
+  --size: 32px; 
+  background-color: #d2fad7;
+  opacity: 1;
 }
 
 .fields-row {
@@ -255,8 +295,12 @@ textarea[readonly] {
 
 .registration-actions {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
+    border-style: solid;
+    border-width: 0px 0px 0px 1px;
+    border-color: #c9c9c9;
+    padding: 10px
 }
 
 .registration-actions button,
@@ -271,4 +315,25 @@ textarea[readonly] {
 
 .view-order {
     text-align: center;
+}
+
+.table-header-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-style: normal;
+    font-weight: normal;
+}
+
+.count-badge {
+    background: #0d6efd; 
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 8px;
+}
+
+#bulk-action-selector {
+    width: 200px;
 }

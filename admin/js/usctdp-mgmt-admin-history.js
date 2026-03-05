@@ -28,34 +28,6 @@
             });
         }
 
-        function renderStudentDetails(data, idx) {
-            const container = document.createElement('div');
-            var newRegBadge = '';
-            if (newRegistrations) {
-                const registrationId = parseInt(data.registration_id);
-                newRegBadge = newRegistrations.has(registrationId) ? '<span class="new-registration">New!</span>' : '';
-            }
-            container.className = 'student-details-wrap';
-            container.innerHTML = `
-                <div class="basic-info">
-                    <div class="student-name-wrap">
-                        <span class="student-name">${data.student_first} ${data.student_last}</span>
-                    </div>
-                    <div class="student-age-wrap">
-                        <span class="student-age">Age: ${data.student_age}</span>
-                    </div>
-                    <div class="new-registration-badge">
-                        ${newRegBadge}
-                    </div>
-                </div>
-                <div class="registration-actions">
-                    <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">Edit Registration</button>
-                    <a id="view-order-${idx}" class="button view-order" href="${data.view_order}">View Order</a>
-                </div>
-                `;
-            return container;
-        }
-
         function initSessionSelector($selectElem) {
             $selectElem.select2(
                 USCTDP_Admin.select2Options({
@@ -112,21 +84,43 @@
 
         function renderActivityDetails(data, idx) {
             const {
-                sessionName,
-                sessionId,
-                activityName,
-                activityId,
-                level,
-                debit,
-                credit,
-                notes
+                studentFirst, studentLast, studentAge,
+                sessionName, sessionId,
+                activityName, activityId,
+                registrationId,
+                level, debit, credit, notes
             } = data;
             const total = debit - credit;
             const totalClass = total > 0 ? "balance-red" : "balance-green";
             const sessionSelectId = `session-selector-${idx}`;
             const activitySelectId = `activity-selector-${idx}`;
+
+            var newRegBadge = '';
+            if (newRegistrations) {
+                const registrationId = parseInt(registrationId);
+                newRegBadge = newRegistrations.has(registrationId) ? '<span class="new-registration">New!</span>' : '';
+            }
             return `
-              <div class="activity-fields fields-disabled">
+              <div class="registration-card edit-disabled">
+                <div class="basic-info">
+                    <div class="checkbox-wrap">
+                        <input type="checkbox" class="row-check" value="${registrationId}">
+                    </div>
+                    <div class="student-name-wrap">
+                        <span class="student-name">${studentFirst} ${studentLast}</span>
+                    </div>
+                    <div class="student-age-wrap">
+                        <span class="student-age">Age: ${studentAge}</span>
+                    </div>
+                    <div class="new-registration-badge">
+                        ${newRegBadge}
+                    </div>
+                    <div class="registration-actions">
+                        <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">
+                            Edit
+                        </button>
+                    </div>
+                </div>
                 <div class="fields-row">
                     <div class="session-selector-wrap activity-field">
                         <label>Session</label>
@@ -218,17 +212,11 @@
                     data: 'id',
                     render: function (data, type, row, meta) {
                         if (type === 'display') {
-                            return renderStudentDetails(row, meta.row);
-                        }
-                        return '';
-                    }
-                },
-                {
-                    data: 'id',
-                    render: function (data, type, row, meta) {
-                        if (type === 'display') {
                             try {
                                 const activityData = {
+                                    studentFirst: row.student_first,
+                                    studentLast: row.student_last,
+                                    studentAge: row.student_age,
                                     sessionName: row.session_name,
                                     sessionId: row.session_id,
                                     activityName: row.activity_name,
@@ -247,11 +235,6 @@
                         return '';
                     }
                 }
-            ],
-            autoWidth: false,
-            columnDefs: [
-                { width: "15%", targets: 0 }, // Student
-                { width: "85%", targets: 1 }, // Activity
             ],
             initComplete: function () {
                 if ($("#table-filter-row").length === 0) {
@@ -280,6 +263,7 @@
 
             drawCallback: function (settings) {
                 var api = this.api();
+                $('#cb-select-all').prop('checked', false);
                 $(api.table().body()).find('.session-select').each(function () {
                     initSessionSelector($(this));
                 });
@@ -289,9 +273,60 @@
             }
         });
 
+        function updateBulkUI() {
+            const count = $('.row-check:checked').length;
+            const $btn = $('#apply-bulk-btn');
+            const $countText = $('#selected-count');
+            const $selector = $('#bulk-action-selector');
+            if (count > 0) {
+                $countText.text(count);
+                $('#selection-status').removeClass("hidden");
+                if($selector.val()) {
+                    $btn.prop('disabled', false);
+                } else {
+                    $btn.prop('disabled', true);
+                }
+            } else {
+                $btn.prop('disabled', true);
+                $('#selection-status').addClass("hidden");
+            }
+        }
+
+        $('#bulk-action-selector').on('change', function() {
+            updateBulkUI();
+        });
+
+        // Select All Click
+        $('#cb-select-all').on('click', function() {
+            var isChecked = $(this).prop('checked');
+            $('#history-table tbody .row-check').prop('checked', isChecked);
+            $('#history-table tbody tr .registration-card').toggleClass('selected', isChecked);
+            updateBulkUI();
+        });
+
+        // Individual Row Click
+        $('#history-table tbody').on('change', '.row-check', function() {
+            $(this).closest('.registration-card').toggleClass('selected', this.checked);
+            if (!this.checked) {
+                $('#cb-select-all').prop('checked', false);
+            }
+            var totalOnPage = $('#history-table tbody .row-check').length;
+            var totalChecked = $('#history-table tbody .row-check:checked').length;
+            if (totalOnPage === totalChecked) {
+                $('#cb-select-all').prop('checked', true);
+            }
+            updateBulkUI();
+        });
+
+        $('#bulk-action-selector').select2({
+            placeholder: "Select a bulk action...",
+            allowClear: true,
+            minimumResultsForSearch: Infinity
+        });
+
         $('#student-filter').select2(
             USCTDP_Admin.select2Options({
-                placeholder: "Search for a student...",
+                placeholder: "Filter by student...",
                 allowClear: true,
                 target: 'student',
                 filter: function () {
@@ -304,7 +339,7 @@
 
         $('#session-filter').select2(
             USCTDP_Admin.select2Options({
-                placeholder: "Search for a session...",
+                placeholder: "Filter by session...",
                 allowClear: true,
                 target: 'session'
             })
@@ -325,8 +360,7 @@
                 $button.text("Save");
                 $button.data("state", "save");
                 $button.addClass('save-btn');
-                $row.find('.activity-fields').removeClass('fields-disabled');
-                $row.find('.activity-fields').addClass('fields-enabled');
+                $row.find('.registration-card').addClass('editing');
                 $row.find('select').prop('disabled', false);
                 $row.find('input').prop('readonly', false);
                 $row.find('textarea').prop('readonly', false);
@@ -334,6 +368,7 @@
                 $button.text("Edit");
                 $button.data("state", "edit");
                 $button.removeClass('save-btn');
+                $row.find('.registration-card').removeClass('editing');
                 $row.find('select').prop('disabled', true);
                 $row.find('input').prop('readonly', true);
                 $row.find('textarea').prop('readonly', true);
@@ -355,15 +390,12 @@
                         $button.text("Edit");
                         $button.data("state", "edit");
                         $button.prop('disabled', false);
-                        historyTable.ajax.reload();
+                        refreshFamilyBalance();
+                        setTimeout(() => {
+                            historyTable.ajax.reload();
+                        }, 600);
                     });
             }
-        });
-
-        $('#history-table tbody').on('click', 'button.view-order', function (e) {
-            const $row = $(this).closest('tr');
-            const rowData = historyTable.row($row).data();
-            console.log(rowData);
         });
 
         function load_registration_history(title, family_id, student_id) {
@@ -384,7 +416,6 @@
         };
 
         const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
-
         $('#context-selectors').on('cascade:change', function (e) {
             const { selectorId, value, state } = e.detail;
             if (value) {

@@ -1219,7 +1219,6 @@ class Usctdp_Mgmt_Admin
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
-
         wp_send_json(array('items' => $results));
     }
 
@@ -1254,7 +1253,7 @@ class Usctdp_Mgmt_Admin
                 $results[] = array(
                     'id' => $result->id,
                     'text' => $result->title,
-                    'type' => $result->type
+                    'type' => intval($result->type)
                 );
             }
         }
@@ -1395,34 +1394,6 @@ class Usctdp_Mgmt_Admin
         wp_send_json_success([
             'message' => 'Session active status updated successfully'
         ]);
-    }
-
-    function ajax_select2_clinic_search()
-    {
-        $results = [];
-        try {
-            $handler = Usctdp_Mgmt_Admin::$ajax_handlers['select2_clinic_search'];
-            if (!check_ajax_referer($handler['nonce'], 'security', false)) {
-                wp_send_json_error('Security check failed. Invalid Nonce.', 403);
-            }
-
-            $query = new Usctdp_Mgmt_Clinic_Query();
-            $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
-            $session_id = isset($_GET['session_id']) ? intval($_GET['session_id']) : null;
-            $query_results = $query->search_clinics($search, $session_id, 10);
-            if ($query_results) {
-                foreach ($query_results as $result) {
-                    $results[] = array(
-                        'id' => $result->id,
-                        'text' => $result->title,
-                    );
-                }
-            }
-        } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
-            wp_send_json_error('A system error occurred. Please try again.', 500);
-        }
-        wp_send_json(array('items' => $results));
     }
 
     function age_from_birth_date($birth_date)

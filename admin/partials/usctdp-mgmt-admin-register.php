@@ -76,7 +76,8 @@ $nonce_action = $post_handler["nonce_action"];
                                 <th>Student</th>
                                 <th>Session</th>
                                 <th>Item</th>
-                                <th>Price</th>
+                                <th>Debit</th>
+                                <th>Credit</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -85,9 +86,17 @@ $nonce_action = $post_handler["nonce_action"];
                     </table>
                 </div>
                 <div id="registration-order-summary">
-                    <div id="registration-order-summary-total">
-                        <span>Total:</span>
-                        <span id="registration-order-total-value"></span>
+                    <div id="order-summary-debit" class="order-summary debit">
+                        <span class="label">Debit</span>
+                        <span id="order-total-debit"></span>
+                    </div>
+                    <div id="order-summary-credit" class="order-summary credit">
+                        <span class="label">Credit</span>
+                        <span id="order-total-credit"></span>
+                    </div>
+                    <div id="order-summary-balance" class="order-summary balance">
+                        <span class="label">Balance</span>
+                        <span id="order-total-balance"></span>
                     </div>
                     <button id="registration-checkout" class="button button-primary">
                         Checkout

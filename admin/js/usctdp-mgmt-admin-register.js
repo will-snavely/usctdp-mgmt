@@ -131,14 +131,17 @@
         }
 
         function createCartRow(options) {
-            const { student, session, item, price } = options;
+            const { student, session, item, credit, debit } = options;
             return `
                 <tr> 
                     <td class="cart-student-name">${student ?? '--'}</td>
                     <td class="cart-session">${session ?? '--'}</td>
                     <td class="cart-item">${item}</td>
-                    <td class="cart-price"> 
-                        <input class="price-input" name="price" value="${price}">
+                    <td class="cart-debit"> 
+                        <input class="price-input debit-input" name="debit" value="${debit}">
+                    </td>
+                    <td class="cart-credit"> 
+                        <input class="price-input credit-input" name="credit" value="${credit}">
                     </td>
                     <td>
                         <button class="button remove-btn">Remove</button> 
@@ -150,7 +153,8 @@
             var $row = $(createCartRow({
                 student: equipment.student_name,
                 item: equipment.product_name,
-                price: price
+                debit: price,
+                credit: price
             }));
             $row.data('product_id', equipment.product_id)
                 .data('product_name', equipment.product_name)
@@ -169,7 +173,8 @@
                 student: registration.student_name,
                 session: registration.session_name,
                 item: registration.activity_name,
-                price: priceEstimate
+                debit: priceEstimate,
+                credit: priceEstimate
             }));
             $row.data('student_id', registration.student_id)
                 .data('session_id', registration.session_id)
@@ -186,13 +191,16 @@
 
         function updateRegistrationTotal() {
             const $rows = $('#registration-order-table tbody tr');
-            let total = 0;
+            let debit_total = 0;
+            let credit_total = 0;
             $rows.each(function () {
                 const $row = $(this);
-                const price = parseFloat($row.find('.price-input').val());
-                total += price;
+                debit_total += parseFloat($row.find('.debit-input').val());
+                credit_total += parseFloat($row.find('.credit-input').val());
             });
-            $('#registration-order-total-value').text(USCTDP_Admin.formatUsd(total));
+            $('#order-total-debit').text(USCTDP_Admin.formatUsd(debit_total));
+            $('#order-total-credit').text(USCTDP_Admin.formatUsd(credit_total));
+            $('#order-total-balance').text(USCTDP_Admin.formatUsd(debit_total - credit_total));
         }
 
         function getOrderData() {
@@ -206,26 +214,14 @@
                         student_id: $row.data('student_id'),
                         session_id: $row.data('session_id'),
                         activity_id: $row.data('activity_id'),
-                        product_id: $row.data('product_id'),
                         student_level: $row.data('student_level'),
                         family_id: $row.data('family_id'),
                         notes: $row.data('notes'),
-                        credit: 0,
-                        debit: parseFloat($row.find('.price-input').val()),
+                        credit: parseFloat($row.find('.credit-input').val()),
+                        debit: parseFloat($row.find('.debit-input').val()),
                         type: 'registration'
                     };
                     orderData.push(registration);
-                } else if (type === 'equipment') {
-                    const equipment = {
-                        product_id: $row.data('product_id'),
-                        student_id: $row.data('student_id'),
-                        family_id: $row.data('family_id'),
-                        notes: $row.data('notes'),
-                        credit: 0,
-                        debit: parseFloat($row.find('.price-input').val()),
-                        type: 'equipment'
-                    };
-                    orderData.push(equipment);
                 }
             });
             return orderData;
@@ -310,7 +306,6 @@
                 student_name: $('#student-selector option:selected').text(),
                 session_id: $('#session-selector').val(),
                 session_name: $('#session-selector option:selected').text(),
-                product_id: $('#product-selector').val(),
                 student_level: $('#student-level').val(),
                 notes: $('#clinic-notes').val()
             };
@@ -328,8 +323,8 @@
             $('#activity-selector').val(null).trigger('change');
         });
 
+        /*
         $('#add-equipment').on('click', function () {
-            const equipmentName = $('#product-selector option:selected').text();
             const newEquipment = {
                 product_id: $('#product-selector').val(),
                 product_name: equipmentName,
@@ -343,6 +338,7 @@
             togglePreorderDetails(false);
             $('#product-selector').val(null).trigger('change');
         });
+        */
 
         $('#registration-order-table').on('change', '.price-input', function () {
             updateRegistrationTotal();
@@ -358,9 +354,12 @@
         });
 
         $('#registration-checkout').on('click', function () {
+            clearNotifications();
+            togglePreorderDetails(false);
             $('#registration-checkout-section').removeClass('hidden');
             $('#registration-order-info input').prop('disabled', true);
             $('#registration-order-info button').prop('disabled', true);
+            $('#registration-checkout').addClass('hidden', true);
             $('#context-selection').addClass('hidden');
         });
 
@@ -418,31 +417,11 @@
                 name: 'student_id',
                 label: 'Student',
                 target: 'student',
-                next: 'product-selector',
+                next: 'session-selector',
                 filter: function () {
                     return {
                         family_id: $('#family-selector').val()
                     };
-                }
-            },
-            'product-selector': {
-                name: 'product_id',
-                label: 'Product',
-                target: 'product',
-                branches: ['session-selector'],
-                next: function (val, $el) {
-                    // 1 == clinic, 2 == tourney, 3 == camp
-                    const activities = new Set([1, 2, 3]);
-                    const productData = $el.select2('data');
-                    if (productData && productData.length > 0) {
-                        const selectedProduct = productData[0];
-                        const productType = selectedProduct.type;
-                        if (activities.has(productType)) {
-                            return "session-selector";
-                        } else {
-                            return null;
-                        }
-                    }
                 }
             },
             'session-selector': {
@@ -450,17 +429,6 @@
                 label: 'Session',
                 target: 'session',
                 next: 'activity-selector',
-                filter: function () {
-                    const productData = $("#product-selector").select2('data');
-                    if (productData && productData.length > 0) {
-                        const selectedProduct = productData[0];
-                        return {
-                            category: selectedProduct.category
-                        };
-                    } else {
-                        return {};
-                    }
-                }
             },
             'activity-selector': {
                 name: 'activity_id',
@@ -470,7 +438,6 @@
                 filter: function () {
                     return {
                         session_id: $('#session-selector').val(),
-                        product_id: $('#product-selector').val()
                     };
                 }
             },
@@ -487,15 +454,14 @@
                     const activityId = value;
                     const studentId = $('#student-selector').val()
                     if (activityId && studentId) {
-                        const activityData = $("#product-selector").select2('data')[0];
+                        const activityData = $("#activity-selector").select2('data')[0];
                         const activityType = activityData.type;
                         loadActivityRegistration(activityId, activityType, studentId);
                     }
-                } else if (selectorId === 'product-selector') {
-                    loadEquipmentPurchase();
-                }
+                } 
             }
         });
+
 
         if (usctdp_mgmt_admin.preload) {
             if (usctdp_mgmt_admin.preload.family_id) {
