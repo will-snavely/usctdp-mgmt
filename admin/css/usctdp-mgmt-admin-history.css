@@ -118,6 +118,12 @@ table td {
     text-transform: uppercase;
 }
 
+#family-balance span {
+    font-weight: 700;
+    color: #333;
+    font-size: 1.1rem;
+}
+
 #family-total-balance {
     padding: 4px 8px;
     border-radius: 4px;

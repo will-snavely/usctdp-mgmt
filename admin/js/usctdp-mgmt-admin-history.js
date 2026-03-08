@@ -4,6 +4,9 @@
     $(document).ready(function () {
         var preloadedData = {};
         var newRegistrations = null;
+        const postPaymentModal = document.querySelector('#post-payment-modal');
+        const registrationTable = 
+            new USCTDP_Admin.RegistrationPaymentTable("registration-payment-table"); 
 
         function refreshFamilyBalance(family_id, student_id) {
             $.ajax({
@@ -81,6 +84,26 @@
             ];
             return USCTDP_Admin.applyReplacements(name, replacements);
         }
+
+        function createCartRow(options) {
+            const { student, session, item, credit, debit } = options;
+            return `
+                <tr> 
+                    <td class="cart-student-name">${student ?? '--'}</td>
+                    <td class="cart-session">${session ?? '--'}</td>
+                    <td class="cart-item">${item}</td>
+                    <td class="cart-debit"> 
+                        <input class="price-input debit-input" name="debit" value="${debit}">
+                    </td>
+                    <td class="cart-credit"> 
+                        <input class="price-input credit-input" name="credit" value="${credit}">
+                    </td>
+                    <td>
+                        <button class="button remove-btn">Remove</button> 
+                    </td>
+                </tr>`
+        }
+
 
         function renderActivityDetails(data, idx) {
             const {
@@ -292,6 +315,17 @@
             }
         }
 
+        function openPostPaymentModal(registrations) {
+            console.log(registrations);
+            registrationTable.clear();
+            for(const reg of registrations) {
+                if(reg.registration_credit < reg.registration_debit) {
+                    registrationTable.addRegistration(reg);
+                }
+            }
+            postPaymentModal.showModal();
+        }
+
         $('#bulk-action-selector').on('change', function() {
             updateBulkUI();
         });
@@ -324,6 +358,18 @@
             minimumResultsForSearch: Infinity
         });
 
+        $('#apply-bulk-btn').on('click', function() {
+            const action = $('#bulk-action-selector').val();
+            const registrations = $('.row-check:checked').map(function() {
+                const $row = $(this).closest("tr");
+                return historyTable.row($row).data();
+            }).get();
+
+            if(action === 'post-payments') {
+                openPostPaymentModal(registrations);
+            }
+        });
+
         $('#student-filter').select2(
             USCTDP_Admin.select2Options({
                 placeholder: "Filter by student...",
@@ -345,6 +391,10 @@
             })
         );
 
+        $('#close-payment-modal').on('click', () => {
+            postPaymentModal.close();
+        });
+
         $('#history-table tbody').on('change', '.session-select', function () {
             const activitySelectId = $(this).data('activity-selector-id');
             $('#' + activitySelectId).val(null).trigger("change");
@@ -355,6 +405,11 @@
             const $button = $(this);
             const state = $button.data("state");
             var rowData = historyTable.row($row).data();
+            const familyId = $("#family-selector").val();
+            var studentId = null;
+            if (preloadedData['student-selector']) {
+                studentId = preloadedData['student-selector']["id"];
+            }
 
             if (state == "edit") {
                 $button.text("Save");
@@ -390,7 +445,7 @@
                         $button.text("Edit");
                         $button.data("state", "edit");
                         $button.prop('disabled', false);
-                        refreshFamilyBalance();
+                        refreshFamilyBalance(familyId, studentId);
                         setTimeout(() => {
                             historyTable.ajax.reload();
                         }, 600);

@@ -83,8 +83,7 @@ if ($balance_results) {
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="session-rosters-table-body">
-                        </tbody>
+                        <tbody id="session-rosters-table-body"></tbody>
                     </table>
                 </div>
             </div>

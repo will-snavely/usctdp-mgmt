@@ -96,3 +96,210 @@ div.dt-length select {
     font-size: 0.9rem;
     text-transform: uppercase;
 }
+
+.payment-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.payment-table-wrap {
+    max-height: 320px; 
+    overflow-y: auto; 
+    border: 1px solid #ddd; 
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    background-color: #b3b3b3;
+}
+
+.payment-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.payment-table th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #dcdcdc;
+    color: #555;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    padding: 16px;
+    text-align: left;
+    border-bottom: 2px solid #000;
+}
+
+.payment-table td {
+    padding: 16px;
+    border-top: 1px solid #000000;
+    background-color: #e3eef2;
+    color: #333;
+    vertical-align: middle;
+}
+
+.payment-summaries {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.debit-summary {
+    background-color: #f3c3c3; 
+    color: black;
+    border-style: solid;
+    border-width: 2px;
+    border-color: #471818;
+}
+
+.credit-summary {
+    background-color: #a5f3bc;
+    color: black;
+    border-style: solid;
+    border-width: 2px;
+    border-color: #01571a;
+}
+
+.balance-summary {
+    background-color: #ceecf5;
+    color: black;
+    border-style: solid;
+    border-width: 2px;
+    border-color: #005670;
+}
+
+.price-input {
+    width: 60px;
+}
+
+.order-summary {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 2px 1px;
+    border-radius: 20px;
+}
+
+.order-summary .label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.checkout-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checkout-section label {
+    font-weight: bold;
+    text-align: right;
+    font-size: 0.9rem;
+    width: 120px;
+}
+
+.checkout-field {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+}
+
+.payment-option {
+    margin-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* The Modal Container */
+dialog {
+    border: none;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 850px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    background-color: #ffffff;
+    margin: auto;
+    position: fixed;
+    inset: 0;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+dialog h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    color: #333;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+dialog label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+dialog input {
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+dialog form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+dialog .actions-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 2px solid #f0f0f0;
+    padding-top: 10px;
+    margin-top: 10px;
+}
+
+dialog .modal_field {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+        "lab sel";
+    gap: 5px;
+}
+
+dialog .modal_field label {
+    grid-area: lab;
+    justify-self: end;
+    align-self: center;
+    text-align: right;
+    margin-right: 5px;
+}
+
+dialog .modal_field input {
+    grid-area: sel;
+    width: 100%;
+}
+
+

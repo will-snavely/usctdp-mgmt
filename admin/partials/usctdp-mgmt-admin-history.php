@@ -1,6 +1,14 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     <div id="main-content">
+        <dialog id="post-payment-modal">
+            <h2>Post Payment</h2>
+            <div id="registration-payment-table"></div>
+            <div class="actions-footer">
+                <button type="button" class="button" id="close-payment-modal">Cancel</button>
+            </div>
+        </dialog>
+
         <div id="context-selectors">
         </div>
         <div id="history-container" class="hidden">

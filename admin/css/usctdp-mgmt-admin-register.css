@@ -240,12 +240,6 @@
     vertical-align: middle;
 }
 
-/* Specific styling for the Activity column to make it stand out */
-#registration-order-table td:nth-child(3) {
-    font-weight: 500;
-    color: #2c3e50;
-}
-
 .price-input {
     width: 50px;
 }
