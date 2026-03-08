@@ -20,11 +20,10 @@ class Usctdp_Mgmt_Registration_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             activity_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned NOT NULL,
-            order_id bigint(20) unsigned,
             tracking_id tinytext,
             student_level tinytext,
-            credit smallint unsigned,
-            debit smallint unsigned,
+            credit decimal(10,2),
+            debit decimal(10,2),
             status tinyint unsigned NOT NULL,
             created_at datetime NOT NULL,
             created_by bigint(20) unsigned NOT NULL,
@@ -34,7 +33,6 @@ class Usctdp_Mgmt_Registration_Table extends Table
             PRIMARY KEY (id),
             KEY activity_id (activity_id),
             KEY student_id (student_id),
-            KEY order_id (order_id)
         ";
     }
 }

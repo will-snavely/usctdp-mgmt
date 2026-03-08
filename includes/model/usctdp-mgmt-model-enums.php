@@ -55,3 +55,20 @@ enum Usctdp_Registration_Status: int
     case Confirmed = 2;
     case Voided = 3;
 }
+
+enum Usctdp_Payment_Method: int
+{
+    case None = 0;
+    case Check = 1;
+    case Cash = 2;
+    case Card = 3;
+    case External = 4;
+}
+
+enum Usctdp_Payment_Status: int
+{
+    case None = 0;
+    case Pending = 1;
+    case Completed = 2;
+    case Canceled = 3;
+}

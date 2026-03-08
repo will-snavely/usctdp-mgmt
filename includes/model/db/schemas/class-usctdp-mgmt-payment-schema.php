@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Schema;
 
-class Usctdp_Mgmt_Registration_Schema extends Schema
+class Usctdp_Mgmt_Transaction_Link_Schema extends Schema
 {
     public $columns = [
         'id' => [
@@ -13,71 +13,64 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'extra' => 'auto_increment',
             'primary' => true,
             'sortable' => true,
+            'default' => 0
         ],
-        'activity_id' => [
-            'name' => 'activity_id',
+        'registration_id' => [
+            'name' => 'registration_id',
             'type' => 'bigint',
-            'length' => '20',
             'unsigned' => true,
             'index' => true,
+            'default' => 0,
         ],
-        'student_id' => [
-            'name' => 'student_id',
+        'order_id' => [
+            'name' => 'order_id',
             'type' => 'bigint',
-            'length' => '20',
             'unsigned' => true,
             'index' => true,
+            'default' => 0,
         ],
-        'tracking_id' => [
-            'name' => 'tracking_id',
-            'type' => 'tinytext',
-        ],
-        'student_level' => [
-            'name' => 'student_level',
-            'type' => 'tinytext',
-        ],
-        'credit' => [
-            'name' => 'credit',
+        'amount' => [
+            'name' => 'amount',
             'type' => 'decimal',
             'length' => '10,2',
             'default' => '0.00',
             'unsigned' => false,
         ],
-        'debit' => [
-            'name' => 'debit',
+        'house_credit_used' => [
+            'name' => 'house_credit_used',
             'type' => 'decimal',
             'length' => '10,2',
             'default' => '0.00',
             'unsigned' => false,
         ],
-        'notes' => [
-            'name' => 'notes',
-            'type' => 'text',
+        'method' => [
+            'name' => 'method',
+            'type' => 'tinyint',
+            'unsigned' => true
         ],
         'status' => [
             'name' => 'status',
             'type' => 'tinyint',
+            'unsigned' => true
+        ],
+        'created_by' => [
+            'name' => 'created_by',
+            'type' => 'bigint',
             'unsigned' => true,
+            'default' => 0
         ],
         'created_at' => [
             'name' => 'created_at',
             'type' => 'datetime',
         ],
-        'created_by' => [
-            'name' => 'created_by',
-            'type' => 'bigint',
-            'length' => '20',
-            'unsigned' => true,
-        ],
-        'last_modified_at' => [
-            'name' => 'last_modified_at',
+        'completed_at' => [
+            'name' => 'completed_at',
             'type' => 'datetime',
         ],
-        'last_modified_by' => [
-            'name' => 'last_modified_by',
-            'type' => 'bigint',
-            'length' => '20',
-            'unsigned' => true,
+        'reference_number' => [
+            'name' => 'reference_number',
+            'type' => 'tinytext',
+            'default' => ''
         ],
     ];
 }

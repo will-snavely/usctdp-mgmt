@@ -14,11 +14,10 @@ class Usctdp_Mgmt_Registration_Row extends Row
         $this->id = (int) $this->id;
         $this->activity_id = (int) $this->activity_id;
         $this->student_id = (int) $this->student_id;
-        $this->order_id = (int) $this->order_id;
         $this->tracking_id = (string) $this->tracking_id;
         $this->student_level = (string) $this->student_level;
-        $this->credit = (int) $this->credit;
-        $this->debit = (int) $this->debit;
+        $this->credit = (string) $this->credit;
+        $this->debit = (string) $this->debit;
         $this->notes = (string) $this->notes;
         $this->status = (int) $this->status;
         $this->created_at = (string) $this->created_at;
