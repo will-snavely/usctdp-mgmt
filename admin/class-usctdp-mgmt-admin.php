@@ -89,6 +89,11 @@ class Usctdp_Mgmt_Admin
             'nonce' => 'clinic_datatable_nonce',
             'callback' => 'ajax_clinic_datatable'
         ],
+        'payment_datatable' => [
+            'action' => 'payment_datatable',
+            'nonce' => 'payment_datatable_nonce',
+            'callback' => 'ajax_payment_datatable'
+        ],
         'registrations_datatable' => [
             'action' => 'registrations_datatable',
             'nonce' => 'registrations_datatable_nonce',
@@ -607,6 +612,7 @@ class Usctdp_Mgmt_Admin
         $handlers = [
             'select2_search',
             'registration_history_datatable',
+            'payment_datatable',
             'save_registration_fields',
             'get_family_balance',
         ];
@@ -853,6 +859,7 @@ class Usctdp_Mgmt_Admin
                 }
             }
         }
+        error_log(print_r($args, true));
 
         if (empty($args)) {
             return $entity;
@@ -912,8 +919,8 @@ class Usctdp_Mgmt_Admin
         $post_fields = [
             'student_level' => sanitize_text_field(...),
             'activity_id' => intval(...),
-            'credit' => intval(...),
-            'debit' => intval(...),
+            'credit' => sanitize_text_field(...),
+            'debit' => sanitize_text_field(...),
             'notes' => function ($value) {
                 return sanitize_textarea_field(stripslashes($value));
             },
@@ -1482,6 +1489,39 @@ class Usctdp_Mgmt_Admin
         wp_send_json($response);
     }
 
+    public function ajax_payment_datatable()
+    {
+        $handler = Usctdp_Mgmt_Admin::$ajax_handlers['payment_datatable'];
+        if (!check_ajax_referer($handler['nonce'], 'security', false)) {
+            wp_send_json_error('Nonce check failed.', 403);
+        }
+
+        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : null;
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+        ];
+        if ($registration_id) {
+            $args['registration_id'] = $registration_id;
+        } else {
+            wp_send_json_error('No registration ID provided.', 400);
+        }
+
+        $query = new Usctdp_Mgmt_Payment_Query([]);
+        $results = $query->get_payment_data($args);
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $results['count'],
+            "recordsFiltered" => $results['count'],
+            "data" => $results['data']
+        );
+        wp_send_json($response);
+    }
+
     public function ajax_registration_history_datatable()
     {
         $handler = Usctdp_Mgmt_Admin::$ajax_handlers['registration_history_datatable'];
@@ -1517,16 +1557,6 @@ class Usctdp_Mgmt_Admin
 
         $reg_query = new Usctdp_Mgmt_Registration_Query([]);
         $results = $reg_query->get_registration_data($args);
-        foreach ($results['data'] as &$row) {
-
-            $order_id = $row->registration_order_id;
-            if ($order_id) {
-                $row->view_order = get_edit_post_link($order_id);
-            } else {
-                $row->view_order = '';
-            }
-        }
-
         $response = array(
             "draw" => $draw,
             "recordsTotal" => $results['count'],
@@ -1783,7 +1813,6 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('No order data provided.', 400);
         }
 
-        // Ensure family_id is consistent across all items
         $family_id = null;
         foreach ($order_data as $order_item) {
             if ($family_id == null) {
@@ -1816,7 +1845,6 @@ class Usctdp_Mgmt_Admin
                     throw new Web_Request_Exception('Student with ID "' . $order_item["student_id"] . '" not found.', 404);
                 }
                 $student = $student_query->items[0];
-
                 if ($order_item["type"] == "equipment") {
                     $product_id = $order_item["product_id"];
                     $woo_product = $this->find_equipment_woo_product($product_id);
@@ -1834,14 +1862,12 @@ class Usctdp_Mgmt_Admin
                         throw new Web_Request_Exception("Session with ID $session_id not found.", 404);
                     }
                     $session = $session_query->items[0];
-
                     $activity_id = $order_item["activity_id"];
                     $activity_query = new Usctdp_Mgmt_Activity_Query(['id' => $activity_id, 'number' => 1]);
                     if (empty($activity_query->items)) {
                         throw new Web_Request_Exception("Activity with ID $activity_id not found.", 404);
                     }
                     $activity = $activity_query->items[0];
-
                     $product_id = $order_item["product_id"];
                     $variation_ids = $this->find_variations_for_session($product_id, $session_id);
                     if (empty($variation_ids)) {
@@ -1876,7 +1902,6 @@ class Usctdp_Mgmt_Admin
         } catch (Throwable $e) {
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating order: ' . $e->getMessage());
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-
             if ($order instanceof WC_Order) {
                 try {
                     $order->delete(true);
@@ -2073,7 +2098,7 @@ class Usctdp_Mgmt_Admin
         $transaction_started = false;
         $transaction_completed = false;
         $response_message = '';
-        $registration_ids = [];
+        $reg_ids = [];
         global $wpdb;
 
         try {
@@ -2092,14 +2117,6 @@ class Usctdp_Mgmt_Admin
                 $registration_records[] = $this->parse_registration_data($registration);
             }
 
-            $order_id = $_POST['order_id'] ?? null;
-            if ($order_id) {
-                $order = wc_get_order($order_id);
-                if (!$order) {
-                    throw new Web_Request_Exception('Order not found: ' . $order_id);
-                }
-            }
-
             $wpdb->query('START TRANSACTION');
             $transaction_started = true;
             $registration_query = new Usctdp_Mgmt_Registration_Query([]);
@@ -2113,7 +2130,7 @@ class Usctdp_Mgmt_Admin
             }
 
             $current_user = get_current_user_id();
-            foreach ($registration_records as $record) {
+            foreach ($registration_records as &$record) {
                 $args = $record['sql_args'];
                 if ($this->is_student_enrolled($args['student_id'], $args['activity_id'])) {
                     throw new Web_Request_Exception('Student is already enrolled in activity: ' . $record['activity']->title);
@@ -2130,12 +2147,11 @@ class Usctdp_Mgmt_Admin
                 $args['created_by'] = $current_user;
                 $args['last_modified_at'] = $current_time;
                 $args['last_modified_by'] = $current_user;
-                $args['order_id'] = $order_id;
                 $registration_id = $registration_query->add_item($args);
                 if (!$registration_id) {
                     throw new Web_Request_Exception('Failed to create registration.');
                 }
-                $registration_ids[] = $registration_id;
+                $reg_ids[] = $reg_id;
             }
 
             $wpdb->query('COMMIT');
@@ -2157,9 +2173,12 @@ class Usctdp_Mgmt_Admin
                 }
                 wp_send_json_error($response_message, 500);
             } else {
+                $args = [];
+                $args["registration_ids"] = $reg_ids;
+                $reg_query = new Usctdp_Mgmt_Registration_Query([]);
+                $results = $reg_query->get_registration_data($args);
                 wp_send_json_success([
-                    "message" => "Registration(s) created successfully!",
-                    "registration_ids" => $registration_ids
+                    "data" => $results['data']
                 ]);
             }
         }

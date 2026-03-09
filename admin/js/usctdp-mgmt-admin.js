@@ -227,6 +227,140 @@
                 $row.remove();
                 this.updateRegistrationTotal();
             });
+
+            $(`#${this.getId('submit-payment-form')}`).on('submit', function (event) {
+                event.preventDefault();
+                const form = this;
+                const $btn = `#${this.getId('submit-payment-btn')}`
+                $btn.prop('disabled', true).text('Processing...');
+
+                const orderData = getOrderData();
+                submitPayment(orderData)
+                    .then(function (response) {
+                        const payment_method = $('#payment_method').val();
+                        $('#submit_pay_now').val("false");
+                        if (payment_method === 'card') {
+                            $('#submit_pay_now').val("true");
+                        }
+                        $('#submit_user_id').val(response.order.user_id);
+                        $('#submit_family_id').val(response.order.family_id);
+                        $('#submit_payment_url').val(response.order.payment_url);
+                        $('#submit_order_url').val(response.order.order_url);
+                        $('#registrations').val(JSON.stringify(response.registrations));
+                        form.submit();
+                    })
+                    .catch(function (error) {
+                        console.error("Order creation failed:", error);
+                        $btn.prop('disabled', false).text('Submit Registration');
+                        alert('There was an error. Please try again.');
+                    });
+            });
+
+        }
+
+        getOrderData() {
+            const $rows = $('#registration-order-table tbody tr');
+            const orderData = [];
+            $rows.each(function () {
+                const $row = $(this);
+                const type = $row.data('type');
+                if (type === 'registration') {
+                    const registration = {
+                        registration_id: $row.data('registration_id'), 
+                        student_id: $row.data('student_id'),
+                        session_id: $row.data('session_id'),
+                        activity_id: $row.data('activity_id'),
+                        student_level: $row.data('student_level'),
+                        family_id: $row.data('family_id'),
+                        notes: $row.data('notes'),
+                        credit: parseFloat($row.find('.credit-input').val()),
+                        debit: parseFloat($row.find('.debit-input').val()),
+                        type: 'registration'
+                    };
+                    orderData.push(registration);
+                }
+            });
+            return orderData;
+        }
+
+        async createRegistrations(orderData) {
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.commit_registrations_action,
+                        security: usctdp_mgmt_admin.commit_registrations_nonce,
+                        registration_data: orderData.filter(item => item.type === 'registration'),
+                    }
+                });
+                if (response.success) {
+                    return response.data;
+                } else {
+                    throw new Error(response.data || 'PHP logic error');
+                }
+            } catch (error) {
+                console.error('Registration Commit Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
+        async submitPayment(orderData) {
+            const { registrationMode = "update" } = this.settings;
+            try {
+                var regIds = [];
+                if(registrationMode === "create") {
+                    const result = await createRegistrations(orderData, order.order_id);
+                    regIds = result.registration_ids;
+                }
+
+                const order = await createWooCommerceOrder(orderData);
+                return {
+                    order: order,
+                    registrations: registrations.registration_ids
+                };
+            } catch (error) {
+                console.error('Sequence failed:', error);
+                throw error;
+            }
+        }
+
+        async createWooCommerceOrder(orderData) {
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.create_woocommerce_order_action,
+                        security: usctdp_mgmt_admin.create_woocommerce_order_nonce,
+                        order_data: orderData,
+                    }
+                });
+
+                if (response.success) {
+                    return response.data;
+                } else {
+                    throw new Error(response.data || 'PHP logic error');
+                }
+
+            } catch (error) {
+                console.error('Order Creation Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
+        async submitPayment(orderData) {
+            try {
+                const order = await createWooCommerceOrder(orderData);
+                const registrations = await createRegistrations(orderData, order.order_id);
+                return {
+                    order: order,
+                    registrations: registrations.registration_ids
+                };
+            } catch (error) {
+                console.error('Sequence failed:', error);
+                throw error;
+            }
         }
 
         clear() {
@@ -264,7 +398,6 @@
                             <tbody></tbody>
                         </table>
                     </div>
-
                     <div class="payment-summaries">
                         <div class="order-summary credit-summary">
                             <span class="label">Current</br>Balance</span>
@@ -278,10 +411,8 @@
                             <span class="label">Updated</br>Balance</span>
                             <span class="total"></span>
                         </div>
-
                         ${checkoutButtonHtml}
                     </div>
-
                     <div class="checkout-section ${checkoutButton ? 'hidden' : ''}">
                         <div class="payment-method checkout-field">
                             <label for="${this.getId('payment_method')}">Payment Method</label>
@@ -292,7 +423,6 @@
                                 <option value="cash">Cash</option>
                             </select>
                         </div>
-
                         <div class="check-fields payment-option hidden">
                             <div class="check-number-field checkout-field">
                                 <label for="${this.getId('check_number')}">Check Number</label>
@@ -314,7 +444,7 @@
                                 <input type="hidden" id="${this.getId('registrations')}" name="registrations" value="">
                                 <?php wp_nonce_field($nonce_action, $nonce_name);?>
                                 <div class"submit-payment-button-wrap">
-                                    <button class="button button-primary" id="${this.getId('registration-payment')}">
+                                    <button class="button button-primary" id="${this.getId('submit-payment-btn')}">
                                         ${submitButtonText}
                                     </button>
                                 </div>
@@ -331,7 +461,6 @@
             let credit_total = 0;
             $rows.each(function () {
                 const $row = $(this);
-                console.log($row);
                 debit_total += parseFloat($row.find('.debit-input').val());
                 credit_total += parseFloat($row.find('.credit-input').val());
             });
@@ -373,8 +502,8 @@
                 debit: outstanding,
                 credit: outstanding
             }));
-            
-            $row.data('student_id', registration.student_id)
+            $row.data('registration_id', registration.registration_id ?? null)
+                .data('student_id', registration.student_id)
                 .data('session_id', registration.session_id)
                 .data('activity_id', registration.activity_id)
                 .data('product_id', registration.product_id)
@@ -383,7 +512,6 @@
                 .data('notes', registration.notes)
                 .data('type', 'registration');
             this.container.find('table tbody').append($row);
-
             this.updateRegistrationTotal();
         }
     };

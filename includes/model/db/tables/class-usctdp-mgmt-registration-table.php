@@ -32,7 +32,7 @@ class Usctdp_Mgmt_Registration_Table extends Table
             notes text,
             PRIMARY KEY (id),
             KEY activity_id (activity_id),
-            KEY student_id (student_id),
+            KEY student_id (student_id)
         ";
     }
 }

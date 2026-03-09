@@ -23,6 +23,12 @@ class Usctdp_Mgmt_Registration_Query extends Query
         $where_args = [];
         $conditions = [];
         $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
+        if (isset($args["registration_ids"])) {
+            $ids = $args["registration_ids"];
+            $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+            $conditions[] = "ID IN ($placeholders)";
+            $where_args = array_merge($where_args, $ids);
+        }
         if (isset($args["activity_id"])) {
             $conditions[] = "reg.activity_id = %d";
             $where_args[] = $args['activity_id'];
@@ -68,7 +74,6 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     reg.credit as registration_credit,
                     reg.debit as registration_debit,
                     reg.notes as registration_notes,
-                    reg.order_id as registration_order_id,
                     stud.id as student_id, stud.family_id as student_family_id,
                     stud.first as student_first,
                     stud.last as student_last,
@@ -87,6 +92,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
+        console.log($query);
         $window = $wpdb->get_results($query);
         $count_sql = "SELECT COUNT(*) as count
                 FROM {$wpdb->prefix}usctdp_registration AS reg

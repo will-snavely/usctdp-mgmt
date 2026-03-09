@@ -47,12 +47,11 @@ class Usctdp_Random_Registration_Generator
             }
             $enrolled[$class->id]["roster"][] = $student->id;
             $student_level = $student->level;
-            $balance = 0;
             $cost = rand(100, 300);
             $credit = $cost;
             if (rand(1, 100) <= $chance_unpaid) {
-                $balance = $cost;
-                $credit -= rand(0, $cost - 1);
+                $credit = 0;
+                //$credit -= rand(0, $cost - 1);
             }
             $reg_query = new Usctdp_Mgmt_Registration_Query();
             $registration_id = $reg_query->add_item([
@@ -61,7 +60,6 @@ class Usctdp_Random_Registration_Generator
                 'student_level' => $student_level,
                 'debit' => $cost,
                 'credit' => $credit,
-                'balance' => $balance,
                 'notes' => '',
                 'status' => Usctdp_Registration_Status::Confirmed->value,
                 'created_at' => current_time('mysql'),
