@@ -20,7 +20,7 @@ class Usctdp_Mgmt_Payment_Row extends Row
         $this->created_at = (string) $this->created_at;
         $this->completed_at = (string) $this->completed_at;
         $this->reference_number = (string) $this->reference_number;
-        $this->method = Usctdp_Payment_Method::from($this->method);
-        $this->status = Usctdp_Payment_Status::from($this->status);
+        $this->method = (string) $this->method;
+        $this->status = (string) $this->status;
     }
 }

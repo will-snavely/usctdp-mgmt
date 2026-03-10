@@ -15,7 +15,7 @@
  * @wordpress-plugin
  * Plugin Name:       USCTDP Management
  * Plugin URI:        https://www.usctdp.com
- * Description:       This is a description of the plugin.
+ * Description:       Manages USCTDP content and functionality.
  * Version:           1.0.0
  * Author:            Will Snavely
  * Author URI:        https://www.wsnavely.com/
@@ -37,7 +37,7 @@ if (!defined("WPINC")) {
  */
 define("USCTDP_MGMT_VERSION", "1.0.0");
 
-if (! defined('USCTDP_DIR_PATH')) {
+if (!defined('USCTDP_DIR_PATH')) {
     define('USCTDP_DIR_PATH', plugin_dir_url(__FILE__));
 }
 

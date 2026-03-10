@@ -22,6 +22,11 @@ class Usctdp_Mgmt_Product_Schema extends Schema
             'sortable' => true,
             'index' => true,
         ],
+        'code' => [
+            'name' => 'code',
+            'type' => 'tinytext',
+            'index' => true,
+        ],
         'title' => [
             'name' => 'title',
             'type' => 'tinytext',

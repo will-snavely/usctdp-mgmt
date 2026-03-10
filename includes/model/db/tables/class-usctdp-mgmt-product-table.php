@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Table;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -25,6 +25,7 @@ class Usctdp_Mgmt_Product_Table extends Table
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             woocommerce_id bigint(20) unsigned NOT NULL,
+            code tinytext NOT NULL,
             title tinytext,
             search_term tinytext,
             type tinyint,
@@ -32,6 +33,7 @@ class Usctdp_Mgmt_Product_Table extends Table
             age_group tinyint,
             PRIMARY KEY (id),
             KEY woocommerce_id (woocommerce_id),
+            INDEX code (code(10)),
             FULLTEXT search (search_term)
         ";
     }

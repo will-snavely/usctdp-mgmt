@@ -31,10 +31,10 @@
                     </div>
                 </div>
 
-               <table id="history-table" class="reg-history-table">
+                <table id="history-table" class="reg-history-table">
                     <thead>
                         <tr>
-                            <th> 
+                            <th>
                                 <div class="table-header-controls">
                                     <div class="select-all-control">
                                         <input id="cb-select-all" type="checkbox" class="cb-select-all">
@@ -52,7 +52,7 @@
                                             <span id="selected-count">0</span> item(s) selected
                                         </span>
                                     </div>
-                               </div>
+                                </div>
                             </th>
                         </tr>
                     </thead>

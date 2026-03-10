@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Query;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -45,7 +45,7 @@ class Usctdp_Mgmt_Payment_Query extends Query
             "   SELECT *
                 FROM {$wpdb->prefix}usctdp_payment AS pment
                 {$where_clause}
-                ORDER BY reg.id DESC
+                ORDER BY pment.id DESC
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );

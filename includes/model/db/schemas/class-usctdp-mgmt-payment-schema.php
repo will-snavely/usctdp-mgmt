@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Schema;
 
-class Usctdp_Mgmt_Transaction_Link_Schema extends Schema
+class Usctdp_Mgmt_Payment_Schema extends Schema
 {
     public $columns = [
         'id' => [
@@ -45,13 +45,11 @@ class Usctdp_Mgmt_Transaction_Link_Schema extends Schema
         ],
         'method' => [
             'name' => 'method',
-            'type' => 'tinyint',
-            'unsigned' => true
+            'type' => 'tinytext',
         ],
         'status' => [
             'name' => 'status',
-            'type' => 'tinyint',
-            'unsigned' => true
+            'type' => 'tinytext',
         ],
         'created_by' => [
             'name' => 'created_by',

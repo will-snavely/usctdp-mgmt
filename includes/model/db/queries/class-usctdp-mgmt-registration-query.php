@@ -26,7 +26,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
         if (isset($args["registration_ids"])) {
             $ids = $args["registration_ids"];
             $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
-            $conditions[] = "ID IN ($placeholders)";
+            $conditions[] = "reg.id IN ($placeholders)";
             $where_args = array_merge($where_args, $ids);
         }
         if (isset($args["activity_id"])) {
@@ -92,7 +92,6 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
-        console.log($query);
         $window = $wpdb->get_results($query);
         $count_sql = "SELECT COUNT(*) as count
                 FROM {$wpdb->prefix}usctdp_registration AS reg

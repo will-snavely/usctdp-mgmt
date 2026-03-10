@@ -4,6 +4,17 @@
     $(document).ready(function () {
         var preloadedData = {};
 
+        const paymentSettings = {
+            checkoutButton: true,
+            allowPayLater: true,
+            registrationMode: "create",
+            submitButtonText: "Submit"
+        };
+        const paymentTable = new USCTDP_Admin.RegistrationPaymentTable(
+            "payment-table-section",
+            paymentSettings
+        );
+
         function clearNotifications() {
             $('#notifications-section').children().remove();
         }
@@ -17,6 +28,10 @@
                 $('#preorder-details').addClass('hidden');
                 $('.preorder-subtype').addClass('hidden');
             }
+        }
+
+        function togglePaymentTable(visible) {
+            $("#payment-table-section").toggleClass("hidden", !visible);
         }
 
         function set_notification(slug, message, ignoreable = false) {
@@ -106,11 +121,6 @@
             }
         }
 
-        function loadEquipmentPurchase() {
-            $('#notifications-section').children().remove();
-            togglePreorderDetails(true, "equipment-preorder");
-        }
-
         $('#payment-method').on('change', function () {
             if (this.value === 'check') {
                 $('#check-fields').removeClass('hidden');
@@ -130,164 +140,6 @@
             return match.length > 0 ? two_day_price : one_day_price;
         }
 
-        function createCartRow(options) {
-            const { student, session, item, credit, debit } = options;
-            return `
-                <tr> 
-                    <td class="cart-student-name">${student ?? '--'}</td>
-                    <td class="cart-session">${session ?? '--'}</td>
-                    <td class="cart-item">${item}</td>
-                    <td class="cart-debit"> 
-                        <input class="price-input debit-input" name="debit" value="${debit}">
-                    </td>
-                    <td class="cart-credit"> 
-                        <input class="price-input credit-input" name="credit" value="${credit}">
-                    </td>
-                    <td>
-                        <button class="button remove-btn">Remove</button> 
-                    </td>
-                </tr>`
-        }
-
-        function addEquipment(equipment, price) {
-            var $row = $(createCartRow({
-                student: equipment.student_name,
-                item: equipment.product_name,
-                debit: price,
-                credit: price
-            }));
-            $row.data('product_id', equipment.product_id)
-                .data('product_name', equipment.product_name)
-                .data('student_name', equipment.student_name)
-                .data('student_id', equipment.student_id)
-                .data('family_id', equipment.family_id)
-                .data('notes', equipment.notes)
-                .data('type', 'equipment');
-            $('#registration-order-table tbody').append($row);
-            $('#registration-order-section').removeClass('hidden');
-            updateRegistrationTotal();
-        }
-
-        function addPendingRegistration(registration, priceEstimate) {
-            var $row = $(createCartRow({
-                student: registration.student_name,
-                session: registration.session_name,
-                item: registration.activity_name,
-                debit: priceEstimate,
-                credit: priceEstimate
-            }));
-            $row.data('student_id', registration.student_id)
-                .data('session_id', registration.session_id)
-                .data('activity_id', registration.activity_id)
-                .data('product_id', registration.product_id)
-                .data('student_level', registration.student_level)
-                .data('family_id', registration.family_id)
-                .data('notes', registration.notes)
-                .data('type', 'registration');
-            $('#registration-order-table tbody').append($row);
-            $('#registration-order-section').removeClass('hidden');
-            updateRegistrationTotal();
-        }
-
-        function updateRegistrationTotal() {
-            const $rows = $('#registration-order-table tbody tr');
-            let debit_total = 0;
-            let credit_total = 0;
-            $rows.each(function () {
-                const $row = $(this);
-                debit_total += parseFloat($row.find('.debit-input').val());
-                credit_total += parseFloat($row.find('.credit-input').val());
-            });
-            $('#order-total-debit').text(USCTDP_Admin.formatUsd(debit_total));
-            $('#order-total-credit').text(USCTDP_Admin.formatUsd(credit_total));
-            $('#order-total-balance').text(USCTDP_Admin.formatUsd(debit_total - credit_total));
-        }
-
-        function getOrderData() {
-            const $rows = $('#registration-order-table tbody tr');
-            const orderData = [];
-            $rows.each(function () {
-                const $row = $(this);
-                const type = $row.data('type');
-                if (type === 'registration') {
-                    const registration = {
-                        student_id: $row.data('student_id'),
-                        session_id: $row.data('session_id'),
-                        activity_id: $row.data('activity_id'),
-                        student_level: $row.data('student_level'),
-                        family_id: $row.data('family_id'),
-                        notes: $row.data('notes'),
-                        credit: parseFloat($row.find('.credit-input').val()),
-                        debit: parseFloat($row.find('.debit-input').val()),
-                        type: 'registration'
-                    };
-                    orderData.push(registration);
-                }
-            });
-            return orderData;
-        }
-
-        async function createRegistrations(orderData, order_id) {
-            try {
-                const response = await $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    data: {
-                        action: usctdp_mgmt_admin.commit_registrations_action,
-                        security: usctdp_mgmt_admin.commit_registrations_nonce,
-                        registration_data: orderData.filter(item => item.type === 'registration'),
-                        order_id: order_id
-                    }
-                });
-                if (response.success) {
-                    return response.data;
-                } else {
-                    throw new Error(response.data || 'PHP logic error');
-                }
-            } catch (error) {
-                console.error('Registration Commit Failed:', error.statusText || error.message);
-                throw error;
-            }
-        }
-
-        async function createWooCommerceOrder(orderData) {
-            try {
-                const response = await $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    data: {
-                        action: usctdp_mgmt_admin.create_woocommerce_order_action,
-                        security: usctdp_mgmt_admin.create_woocommerce_order_nonce,
-                        order_data: orderData,
-                    }
-                });
-
-                if (response.success) {
-                    return response.data;
-                } else {
-                    throw new Error(response.data || 'PHP logic error');
-                }
-
-            } catch (error) {
-                console.error('Order Creation Failed:', error.statusText || error.message);
-                throw error;
-            }
-        }
-
-        async function submitRegistrations(orderData) {
-            try {
-                const order = await createWooCommerceOrder(orderData);
-                const registrations = await createRegistrations(orderData, order.order_id);
-                return {
-                    order: order,
-                    registrations: registrations.registration_ids
-                };
-            } catch (error) {
-                console.error('Sequence failed:', error);
-                throw error;
-            }
-        }
-
         function checkoutActivityName(name) {
             const replacements = [
                 [/^Adult/, ""],
@@ -298,111 +150,72 @@
         $('#add-clinic-registration').on('click', function () {
             const activityName = $('#activity-selector option:selected').text();
             var displayActivityName = checkoutActivityName(activityName);
-            const newRegistration = {
+            const includeRacket = $('#include_racket').is(':checked');
+            var racketFee = 0;
+            if (includeRacket) {
+                var rawFee = $('#racket_fee').val();
+                const fixedFee = parseFloat(rawFee).toFixed(2);
+                racketFee = parseFloat(fixedFee);
+            }
+            const studentData = $("#student-selector").select2('data')[0];
+            const registration = {
                 activity_id: $('#activity-selector').val(),
                 activity_name: displayActivityName,
-                family_id: $('#family-selector').val(),
+                include_racket: includeRacket,
                 student_id: $('#student-selector').val(),
-                student_name: $('#student-selector option:selected').text(),
+                family_id: $('#family-selector').val(),
+                student_first: studentData.first,
+                student_last: studentData.last,
+                student_level: $('#student-level').val(),
                 session_id: $('#session-selector').val(),
                 session_name: $('#session-selector option:selected').text(),
-                student_level: $('#student-level').val(),
                 notes: $('#clinic-notes').val()
             };
             const one_day_price = parseInt($('#clinic-info').data('pricing')['One']);
             const two_day_price = parseInt($('#clinic-info').data('pricing')['Two']);
             const diff = two_day_price - one_day_price;
             const priceEstimate = clinicPriceEstimate(
-                newRegistration,
+                registration,
                 one_day_price,
                 diff
             );
-            addPendingRegistration(newRegistration, priceEstimate);
+            paymentTable.addNewRegistration(registration, priceEstimate);
+            if (includeRacket) {
+                const equipment = {
+                    product_code: 'racket',
+                    product_name: 'Wilson Tennis Racket',
+                    student_id: $('#student-selector').val(),
+                    student_first: studentData.first,
+                    student_last: studentData.last,
+                };
+                const price = racketFee;
+                paymentTable.addEquipment(equipment, price);
+            }
             clearNotifications();
             togglePreorderDetails(false);
+            togglePaymentTable(true);
             $('#activity-selector').val(null).trigger('change');
         });
 
-        /*
-        $('#add-equipment').on('click', function () {
-            const newEquipment = {
-                product_id: $('#product-selector').val(),
-                product_name: equipmentName,
-                family_id: $('#family-selector').val(),
-                student_id: $('#student-selector').val(),
-                student_name: $('#student-selector option:selected').text(),
-                notes: $('#equipment-notes').val()
-            };
-            addEquipment(newEquipment, 50);
-            clearNotifications();
-            togglePreorderDetails(false);
-            $('#product-selector').val(null).trigger('change');
-        });
-        */
-
-        $('#registration-order-table').on('change', '.price-input', function () {
-            updateRegistrationTotal();
-        });
-
-        $('#registration-order-table').on('click', '.remove-btn', function () {
-            const $row = $(this).closest('tr');
-            $row.remove()
-            if ($('#registration-order-table tbody tr').length === 0) {
-                $('#registration-order-section').addClass('hidden');
+        $('#include_racket').on('change', function () {
+            const includeRacket = $('#include_racket').is(':checked');
+            if (includeRacket) {
+                $('#racket_fee').val(50);
+                $('#racket-fee-field').removeClass('hidden');
+            } else {
+                $('#racket_fee').val('');
+                $('#racket-fee-field').addClass('hidden');
             }
-            updateRegistrationTotal();
         });
 
-        $('#registration-checkout').on('click', function () {
+        $('#payment-table-section').on('payment:checkout', function () {
             clearNotifications();
             togglePreorderDetails(false);
-            $('#registration-checkout-section').removeClass('hidden');
-            $('#registration-order-info input').prop('disabled', true);
-            $('#registration-order-info button').prop('disabled', true);
-            $('#registration-checkout').addClass('hidden', true);
             $('#context-selection').addClass('hidden');
         });
 
-        $('#payment_method').on('change', function () {
-            $(".payment-option").addClass('hidden');
-            if (this.value !== "") {
-                $('#submit-registration-button').removeClass('hidden');
-            } else {
-                $('#submit-registration-button').addClass('hidden');
-            }
-            if (this.value === 'check') {
-                $('#check-fields').removeClass('hidden');
-            } else if (this.value === 'card') {
-                $('#card-fields').removeClass('hidden');
-            }
-        });
-
-        $('#submit-registration-form').on('submit', function (event) {
-            event.preventDefault();
-            const form = this;
-            const $btn = $('#submit-registration-btn');
-            $btn.prop('disabled', true).text('Processing...');
-
-            const orderData = getOrderData();
-            submitRegistrations(orderData)
-                .then(function (response) {
-                    const payment_method = $('#payment_method').val();
-                    $('#submit_pay_now').val("false");
-                    if (payment_method === 'card') {
-                        $('#submit_pay_now').val("true");
-                    }
-                    $('#submit_user_id').val(response.order.user_id);
-                    $('#submit_family_id').val(response.order.family_id);
-                    $('#submit_payment_url').val(response.order.payment_url);
-                    $('#submit_order_url').val(response.order.order_url);
-                    $('#registrations').val(JSON.stringify(response.registrations));
-                    form.submit();
-                })
-                .catch(function (error) {
-                    console.error("Order creation failed:", error);
-                    $btn.prop('disabled', false).text('Submit Registration');
-                    alert('There was an error. Please try again.');
-                });
+        $('#payment-table-section').on('payment:empty', function () {
+            togglePaymentTable(false);
         });
 
         const selectorConfig = {
@@ -458,10 +271,9 @@
                         const activityType = activityData.type;
                         loadActivityRegistration(activityId, activityType, studentId);
                     }
-                } 
+                }
             }
         });
-
 
         if (usctdp_mgmt_admin.preload) {
             if (usctdp_mgmt_admin.preload.family_id) {

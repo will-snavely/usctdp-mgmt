@@ -26,7 +26,6 @@ use Google\Client;
 class Web_Request_Exception extends Exception
 {
 }
-
 class Usctdp_Mgmt_Admin
 {
     private $plugin_name;
@@ -34,17 +33,11 @@ class Usctdp_Mgmt_Admin
     private $select2_search_targets;
 
     public static $post_handlers = [
-        'registration' => [
-            'submit_hook' => 'usctdp_registration',
-            'nonce_name' => 'usctdp_registration_nonce',
-            'nonce_action' => 'usctdp_registration_nonce_action',
-            'callback' => 'registration_handler'
-        ],
-        'registration_checkout' => [
-            'submit_hook' => 'usctdp_registration_checkout',
-            'nonce_name' => 'usctdp_registration_checkout_nonce',
-            'nonce_action' => 'usctdp_registration_checkout_nonce_action',
-            'callback' => 'registration_checkout_handler'
+        'payment_checkout' => [
+            'submit_hook' => 'usctdp_payment_checkout',
+            'nonce_name' => 'usctdp_payment_checkout_nonce',
+            'nonce_action' => 'usctdp_payment_checkout_nonce_action',
+            'callback' => 'payment_checkout_handler'
         ],
     ];
 
@@ -521,6 +514,7 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
+            'post_url' => admin_url('admin-post.php')
         ];
         $handlers = ['datatable_balances', 'datatable_balances_detail'];
         foreach ($handlers as $key) {
@@ -535,6 +529,7 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
+            'post_url' => admin_url('admin-post.php')
         ];
         $handlers = ['clinic_datatable', 'select2_search'];
         foreach ($handlers as $key) {
@@ -549,6 +544,7 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
+            'post_url' => admin_url('admin-post.php')
         ];
         $handlers = [
             'select2_search',
@@ -569,6 +565,7 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
+            'post_url' => admin_url('admin-post.php')
         ];
         $handlers = [
             'gen_roster',
@@ -586,19 +583,31 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
+            'post_url' => admin_url('admin-post.php')
         ];
-        $handlers = [
+        $ajax_handlers = [
             'select2_search',
             'activity_preregistration',
             'registrations_datatable',
             'create_woocommerce_order',
             'commit_registrations',
         ];
-        foreach ($handlers as $key) {
+        foreach ($ajax_handlers as $key) {
             $handler = Usctdp_Mgmt_Admin::$ajax_handlers[$key];
             $js_data[$key . "_action"] = $handler['action'];
             $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce']);
         }
+
+        $post_handlers = [
+            'payment_checkout'
+        ];
+        foreach ($post_handlers as $key) {
+            $handler = Usctdp_Mgmt_Admin::$post_handlers[$key];
+            $js_data[$key . "_action"] = $handler['submit_hook'];
+            $js_data[$key . "_nonce"] = wp_create_nonce($handler['nonce_action']);
+            $js_data[$key . "_nonce_id"] = $handler['nonce_name'];
+        }
+
         $context = $this->load_page_context(['activity_id', 'student_id']);
         $js_data['preload'] = $context;
         wp_localize_script($this->usctdp_script_id('register'), 'usctdp_mgmt_admin', $js_data);
@@ -608,6 +617,7 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
+            'post_url' => admin_url('admin-post.php')
         ];
         $handlers = [
             'select2_search',
@@ -634,6 +644,7 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
+            'post_url' => admin_url('admin-post.php')
         ];
         $handlers = [
             'get_family_fields',
@@ -1247,7 +1258,6 @@ class Usctdp_Mgmt_Admin
         }
         return $results;
     }
-
     function select2_activity_search($search, $filters)
     {
         $results = [];
@@ -1322,6 +1332,8 @@ class Usctdp_Mgmt_Admin
                     'id' => $result->id,
                     'text' => $result->title,
                     'level' => $result->level,
+                    'first' => $result->first,
+                    'last' => $result->last,
                 );
             }
         }
@@ -1788,14 +1800,14 @@ class Usctdp_Mgmt_Admin
             ]);
         }
     }
-    private function find_equipment_woo_product($product_id)
+    private function find_woo_product_by_code($product_code)
     {
         $product_query = new Usctdp_Mgmt_Product_Query([
-            'id' => $product_id,
+            'code' => $product_code,
             'number' => 1
         ]);
         if (empty($product_query->items)) {
-            throw new Web_Request_Exception('Product with ID "' . $product_id . '" not found.', 404);
+            throw new Web_Request_Exception('Product with code "' . $product_code . '" not found.', 404);
         }
         $product = $product_query->items[0];
         return wc_get_product($product->woocommerce_id);
@@ -1808,10 +1820,16 @@ class Usctdp_Mgmt_Admin
             wp_send_json_error('Nonce check failed.', 403);
         }
 
-        $order_data = $_POST['order_data'];
+        $order_data = isset($_POST['order_data']) ? $_POST['order_data'] : null;
         if (empty($order_data)) {
             wp_send_json_error('No order data provided.', 400);
         }
+
+        $payment_method = isset($_POST['payment_method']) ? $_POST['payment_method'] : null;
+        if (empty($payment_method)) {
+            wp_send_json_error('No payment method provided.', 400);
+        }
+        $check_number = isset($_POST['check_number']) ? sanitize_text_field($_POST['check_number']) : 'None';
 
         $family_id = null;
         foreach ($order_data as $order_item) {
@@ -1820,6 +1838,20 @@ class Usctdp_Mgmt_Admin
             } else {
                 if ($family_id != $order_item["family_id"]) {
                     wp_send_json_error('All items must belong to the same family.', 400);
+                }
+            }
+
+            if ($order_item["type"] == "registration") {
+                $registration_id = $order_item["registration_id"];
+                $line_item_id = $order_item["line_item_id"];
+                if (empty($registration_id)) {
+                    $error_message = "Registration ID missing for line item $line_item_id.";
+                    throw new Web_Request_Exception($error_message, 400);
+                }
+                $registration_query = new Usctdp_Mgmt_Registration_Query(['id' => $registration_id, 'number' => 1]);
+                if (empty($registration_query->items)) {
+                    $error_message = "Registration with ID \"$registration_id\" not found.";
+                    throw new Web_Request_Exception($error_message, 404);
                 }
             }
         }
@@ -1836,6 +1868,8 @@ class Usctdp_Mgmt_Admin
         if (is_wp_error($order)) {
             wp_send_json_error('Failed to create woocommerce order.', 500);
         }
+        $is_order_paid = $payment_method === 'cash' || $payment_method === 'check';
+        $created_payments = [];
 
         try {
             $total = 0;
@@ -1846,10 +1880,10 @@ class Usctdp_Mgmt_Admin
                 }
                 $student = $student_query->items[0];
                 if ($order_item["type"] == "equipment") {
-                    $product_id = $order_item["product_id"];
-                    $woo_product = $this->find_equipment_woo_product($product_id);
+                    $product_code = $order_item["product_code"];
+                    $woo_product = $this->find_woo_product_by_code($product_code);
                     $item_id = $order->add_product($woo_product, 1);
-                    $custom_price = floatval($order_item["debit"]);
+                    $custom_price = floatval($order_item["credit"]);
                     $total += $custom_price;
                     $item = $order->get_item($item_id);
                     $item->add_meta_data('Student', $student->title);
@@ -1868,7 +1902,7 @@ class Usctdp_Mgmt_Admin
                         throw new Web_Request_Exception("Activity with ID $activity_id not found.", 404);
                     }
                     $activity = $activity_query->items[0];
-                    $product_id = $order_item["product_id"];
+                    $product_id = $activity->product_id;
                     $variation_ids = $this->find_variations_for_session($product_id, $session_id);
                     if (empty($variation_ids)) {
                         $msg = "No variations found for product $product_id and session $session_id";
@@ -1877,7 +1911,7 @@ class Usctdp_Mgmt_Admin
                     $variation_id = $variation_ids[0];
                     $product = wc_get_product($variation_id);
                     $item_id = $order->add_product($product, 1);
-                    $custom_price = floatval($order_item["debit"]);
+                    $custom_price = floatval($order_item["credit"]);
                     $total += $custom_price;
 
                     $item = $order->get_item($item_id);
@@ -1886,12 +1920,56 @@ class Usctdp_Mgmt_Admin
                     $item->add_meta_data('Activity', $activity->title);
                     $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
                     $item->save();
+
+                    $registration_id = $order_item["registration_id"];
+                    $payment_status = $is_order_paid ? 'paid' : 'pending';
+                    $current_time = current_time('mysql');
+
+                    $args = [
+                        'registration_id' => $registration_id,
+                        'order_id' => $order->get_id(),
+                        'amount' => number_format($custom_price, 2),
+                        'method' => $payment_method,
+                        'status' => $payment_status,
+                        'created_by' => get_current_user_id(),
+                        'created_at' => $current_time,
+                    ];
+                    if ($payment_method === 'check') {
+                        $args['reference_number'] = $check_number;
+                    }
+                    if ($is_order_paid) {
+                        $args['completed_at'] = $current_time;
+                    }
+                    $payment_query = new Usctdp_Mgmt_Payment_Query([]);
+                    $result = $payment_query->add_item($args);
+                    if ($result) {
+                        $created_payments[] = $result;
+                    } else {
+                        $msg = "Failed to create payment for registration $registration_id";
+                        throw new Web_Request_Exception($msg, 404);
+                    }
                 }
             }
 
             $order->set_total($total);
+            if ($payment_method === 'cash') {
+                $order->set_payment_method('cod');
+                $order->set_payment_method_title('Cash');
+                $order->add_order_note("Admin recorded payment via Cash");
+                $order->payment_complete();
+                $order->set_status('completed');
+            } else if ($payment_method === 'check') {
+                $order->set_payment_method('cheque');
+                $order->set_payment_method_title('Check');
+                $order->update_meta_data('_check_number', $check_number);
+                $order->add_order_note("Admin recorded payment via Check #" . $check_number);
+                $order->payment_complete();
+                $order->set_status('completed');
+            } else {
+                $order->update_status('pending', 'Awaiting payment via ' . $payment_method);
+            }
             $order->save();
-            $order->update_status('pending', 'Order created by admin.');
+
             wp_send_json_success([
                 "order_id" => $order->get_id(),
                 "user_id" => $user_id,
@@ -1907,6 +1985,17 @@ class Usctdp_Mgmt_Admin
                     $order->delete(true);
                 } catch (Throwable $e) {
                     Usctdp_Mgmt_Logger::getLogger()->log_critical('Error cleaning up order: ' . $e->getMessage());
+                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+                }
+            }
+            foreach ($created_payments as $payment) {
+                try {
+                    $payment_query = new Usctdp_Mgmt_Payment_Query([]);
+                    if (!$payment_query->delete_item($payment)) {
+                        Usctdp_Mgmt_Logger::getLogger()->log_critical('Error cleaning up payment: ' . $payment->id);
+                    }
+                } catch (Throwable $e) {
+                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Error cleaning up payment: ' . $e->getMessage());
                     Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
                 }
             }
@@ -2075,9 +2164,15 @@ class Usctdp_Mgmt_Admin
             $debit = sanitize_text_field($data['debit']);
         }
 
+        $line_item_id = 0;
+        if (isset($data['line_item_id'])) {
+            $line_item_id = sanitize_text_field($data['line_item_id']);
+        }
+
         return [
             "student" => $student,
             "activity" => $activity,
+            "line_item_id" => $line_item_id,
             "sql_args" => [
                 'activity_id' => $activity_id,
                 'student_id' => $student_id,
@@ -2098,7 +2193,7 @@ class Usctdp_Mgmt_Admin
         $transaction_started = false;
         $transaction_completed = false;
         $response_message = '';
-        $reg_ids = [];
+        $registration_ids = [];
         global $wpdb;
 
         try {
@@ -2107,7 +2202,7 @@ class Usctdp_Mgmt_Admin
             }
 
             $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
-            $registration_data = $_POST['registration_data'];
+            $registration_data = isset($_POST['registration_data']) ? $_POST['registration_data'] : [];
             if (empty($registration_data)) {
                 throw new Web_Request_Exception('No registrations provided.');
             }
@@ -2132,6 +2227,7 @@ class Usctdp_Mgmt_Admin
             $current_user = get_current_user_id();
             foreach ($registration_records as &$record) {
                 $args = $record['sql_args'];
+                $line_item_id = $record['line_item_id'];
                 if ($this->is_student_enrolled($args['student_id'], $args['activity_id'])) {
                     throw new Web_Request_Exception('Student is already enrolled in activity: ' . $record['activity']->title);
                 }
@@ -2151,18 +2247,18 @@ class Usctdp_Mgmt_Admin
                 if (!$registration_id) {
                     throw new Web_Request_Exception('Failed to create registration.');
                 }
-                $reg_ids[] = $reg_id;
+                $registration_ids[$line_item_id] = $registration_id;
             }
-
             $wpdb->query('COMMIT');
             $transaction_completed = true;
-        } catch (Throwable $e) {
+        } catch (Web_Request_Exception $e) {
             $trace = $e->getTraceAsString();
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
             $response_message = $e->getMessage();
-            if (!($e instanceof Web_Request_Exception)) {
-                $response_message = 'A system error occurred. Please try again.';
-            }
+        } catch (Throwable $e) {
+            $trace = $e->getTraceAsString();
+            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
+            $response_message = 'A system error occurred. Please try again.';
         } finally {
             if (!$transaction_completed) {
                 if ($transaction_started) {
@@ -2173,12 +2269,8 @@ class Usctdp_Mgmt_Admin
                 }
                 wp_send_json_error($response_message, 500);
             } else {
-                $args = [];
-                $args["registration_ids"] = $reg_ids;
-                $reg_query = new Usctdp_Mgmt_Registration_Query([]);
-                $results = $reg_query->get_registration_data($args);
                 wp_send_json_success([
-                    "data" => $results['data']
+                    "ids" => $registration_ids
                 ]);
             }
         }

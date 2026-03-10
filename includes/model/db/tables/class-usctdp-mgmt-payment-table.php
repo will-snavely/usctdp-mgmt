@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Table;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -22,8 +22,8 @@ class Usctdp_Mgmt_Payment_Table extends Table
             order_id bigint(20) unsigned NOT NULL,
             amount decimal(10, 2),
             house_credit_used decimal(10, 2),
-            method tinyint unsigned,
-            status tinyint unsigned,
+            method tinytext,
+            status tinytext,
             created_by bigint(20),
             created_at datetime,
             completed_at datetime,

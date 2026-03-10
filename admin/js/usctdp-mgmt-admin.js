@@ -1,7 +1,7 @@
-(function($) {
+(function ($) {
     window.USCTDP_Admin = window.USCTDP_Admin || {};
 
-    USCTDP_Admin.displayTime = function(dateObj) {
+    USCTDP_Admin.displayTime = function (dateObj) {
         const options = {
             hour: 'numeric',
             minute: '2-digit',
@@ -10,15 +10,15 @@
         return new Intl.DateTimeFormat('en-US', options).format(dateObj);
     }
 
-    USCTDP_Admin.applyReplacements = function(input, replacements) {
+    USCTDP_Admin.applyReplacements = function (input, replacements) {
         return replacements.reduce((currentString, [pattern, replacement]) => {
             return currentString.replace(pattern, replacement);
         }, input);
     }
 
-    USCTDP_Admin.formatUsd = function(amount) {
+    USCTDP_Admin.formatUsd = function (amount) {
         if (amount === null) {
-           amount = 0;
+            amount = 0;
         }
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
@@ -32,8 +32,8 @@
             allowClear = true,
             target = null,
             url = usctdp_mgmt_admin.ajax_url,
-            action=usctdp_mgmt_admin.select2_search_action,
-            nonce=usctdp_mgmt_admin.select2_search_nonce,
+            action = usctdp_mgmt_admin.select2_search_action,
+            nonce = usctdp_mgmt_admin.select2_search_nonce,
             minimumInputLength = 0,
             filter = () => ({}),
             ...extraOptions
@@ -66,7 +66,7 @@
         };
     };
 
-    USCTDP_Admin.select2Options = select2Options; 
+    USCTDP_Admin.select2Options = select2Options;
 
     USCTDP_Admin.CascasdingSelect = class {
         constructor(containerId, config) {
@@ -83,7 +83,7 @@
                 bubbles: true
             });
             this.container[0].dispatchEvent(event);
-        } 
+        }
 
         init() {
             Object.entries(this.config).forEach(([id, settings]) => {
@@ -108,7 +108,7 @@
                         </select>
                     </div>
                 </div>`;
-            
+
             this.container.append(html);
         }
 
@@ -143,9 +143,9 @@
             }
 
             this.updateState();
-            this.trigger('change', { 
-                selectorId: id, 
-                value: val, 
+            this.trigger('change', {
+                selectorId: id,
+                value: val,
                 text: text,
                 nextId: nextId,
                 complete: val && (!nextId || nextId.length === 0),
@@ -163,7 +163,7 @@
             $(`#${id}-section`).addClass('hidden');
 
             const next = settings.next
-            var branches = typeof next === "string" ? [next] : settings.branches 
+            var branches = typeof next === "string" ? [next] : settings.branches
             if (branches) {
                 branches.forEach(branchId => this.resetAndHide(branchId));
             }
@@ -197,18 +197,27 @@
             this.container = $(`#${containerId}`);
             this.settings = settings ?? {};
             this.init();
-        }           
+        }
+
+        trigger(eventName, detail = {}) {
+            const event = new CustomEvent(`payment:${eventName}`, {
+                detail: { ...detail, manager: this },
+                bubbles: true
+            });
+            this.container[0].dispatchEvent(event);
+        }
 
         init() {
             this.renderTable();
-
             this.container.on('change', '.price-input', (event) => {
-                this.updateRegistrationTotal();
+                this.updatePaymentTotals();
             });
 
             this.container.on('click', '.checkout-btn', (event) => {
                 event.preventDefault();
+                this.container.find('.checkout-btn').addClass('hidden');
                 this.container.find('.checkout-section').removeClass('hidden');
+                this.trigger('checkout', {});
             });
 
             this.container.on('change', `#${this.getId('payment_method')}`, (event) => {
@@ -218,66 +227,105 @@
 
                 if (value === 'check') {
                     this.container.find('.check-fields').removeClass('hidden');
-                } 
+                } else if (value === 'pay_later') {
+                    this.container.find('.pay-later-fields').removeClass('hidden');
+                } else if (value === 'card') {
+                    this.container.find('.card-fields').removeClass('hidden');
+                }
             });
 
             this.container.on('click', '.remove-btn', (e) => {
                 e.preventDefault();
                 const $row = $(e.currentTarget).closest('tr');
                 $row.remove();
-                this.updateRegistrationTotal();
+                this.updatePaymentTotals();
+
+                const rowCount = this.container.find("tbody tr").length;
+                this.trigger('removeItem', { remaining: rowCount });
+
+                if (rowCount === 0) {
+                    this.trigger('empty', {});
+                }
             });
 
-            $(`#${this.getId('submit-payment-form')}`).on('submit', function (event) {
-                event.preventDefault();
-                const form = this;
-                const $btn = `#${this.getId('submit-payment-btn')}`
-                $btn.prop('disabled', true).text('Processing...');
-
-                const orderData = getOrderData();
-                submitPayment(orderData)
+            $(`#${this.getId('submit-payment-form')}`).on('submit', (e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const $submitBtn = $('#' + this.getId('submit-payment-btn'));
+                $submitBtn.prop('disabled', true).val('Processing...');
+                const orderData = this.getOrderData();
+                this.submitPayment(orderData)
                     .then(function (response) {
                         const payment_method = $('#payment_method').val();
+
                         $('#submit_pay_now').val("false");
                         if (payment_method === 'card') {
                             $('#submit_pay_now').val("true");
                         }
+
                         $('#submit_user_id').val(response.order.user_id);
                         $('#submit_family_id').val(response.order.family_id);
                         $('#submit_payment_url').val(response.order.payment_url);
                         $('#submit_order_url').val(response.order.order_url);
                         $('#registrations').val(JSON.stringify(response.registrations));
-                        form.submit();
+                        //form.submit();
                     })
-                    .catch(function (error) {
+                    .catch((error) => {
+                        const submitBtnText = this.settings.submitButtonText ?? "Submit Payment";
                         console.error("Order creation failed:", error);
-                        $btn.prop('disabled', false).text('Submit Registration');
-                        alert('There was an error. Please try again.');
+                        $submitBtn.prop('disabled', false).val(submitBtnText);
+                        alert('There was an error. Please try again, or inform a developer.');
                     });
             });
+        }
 
+        checkoutActivityName(name) {
+            const replacements = [
+                [/^Adult/, ""],
+            ];
+            return USCTDP_Admin.applyReplacements(name, replacements);
         }
 
         getOrderData() {
-            const $rows = $('#registration-order-table tbody tr');
+            const paymentMethodId = this.getId('payment_method')
+            const paymentMethod = $('#' + paymentMethodId).val();
+            const $rows = this.container.find('.payment-table tbody tr');
             const orderData = [];
+            let lineItemId = 0;
             $rows.each(function () {
                 const $row = $(this);
                 const type = $row.data('type');
+                lineItemId++;
                 if (type === 'registration') {
+                    const debit = parseFloat($row.find('.debit-input').val()).toFixed(2);
+                    var credit = parseFloat($row.find('.credit-input').val()).toFixed(2);
+                    if (paymentMethod === 'pay_later') {
+                        credit = 0;
+                    }
                     const registration = {
-                        registration_id: $row.data('registration_id'), 
+                        registration_id: $row.data('registration_id'),
                         student_id: $row.data('student_id'),
                         session_id: $row.data('session_id'),
                         activity_id: $row.data('activity_id'),
                         student_level: $row.data('student_level'),
                         family_id: $row.data('family_id'),
                         notes: $row.data('notes'),
-                        credit: parseFloat($row.find('.credit-input').val()),
-                        debit: parseFloat($row.find('.debit-input').val()),
-                        type: 'registration'
+                        credit: parseFloat(credit),
+                        debit: parseFloat(debit),
+                        type: 'registration',
+                        line_item_id: lineItemId,
                     };
                     orderData.push(registration);
+                } else if (type == "equipment") {
+                    orderData.push({
+                        product_code: $row.data('product_code'),
+                        student_id: $row.data('student_id'),
+                        family_id: $row.data('family_id'),
+                        credit: parseFloat(credit),
+                        debit: parseFloat(debit),
+                        type: 'equipment',
+                        line_item_id: lineItemId,
+                    });
                 }
             });
             return orderData;
@@ -295,7 +343,7 @@
                     }
                 });
                 if (response.success) {
-                    return response.data;
+                    return response.data.ids;
                 } else {
                     throw new Error(response.data || 'PHP logic error');
                 }
@@ -305,28 +353,13 @@
             }
         }
 
-        async submitPayment(orderData) {
-            const { registrationMode = "update" } = this.settings;
-            try {
-                var regIds = [];
-                if(registrationMode === "create") {
-                    const result = await createRegistrations(orderData, order.order_id);
-                    regIds = result.registration_ids;
-                }
-
-                const order = await createWooCommerceOrder(orderData);
-                return {
-                    order: order,
-                    registrations: registrations.registration_ids
-                };
-            } catch (error) {
-                console.error('Sequence failed:', error);
-                throw error;
-            }
-        }
-
         async createWooCommerceOrder(orderData) {
             try {
+                const paymentMethod = this.container.find("#" + this.getId('payment_method')).val();
+                var checkNumber = '';
+                if (paymentMethod === 'check') {
+                    checkNumber = this.container.find("#" + this.getId('check_number')).val();
+                }
                 const response = await $.ajax({
                     url: usctdp_mgmt_admin.ajax_url,
                     method: 'POST',
@@ -334,6 +367,8 @@
                         action: usctdp_mgmt_admin.create_woocommerce_order_action,
                         security: usctdp_mgmt_admin.create_woocommerce_order_nonce,
                         order_data: orderData,
+                        payment_method: paymentMethod,
+                        check_number: checkNumber
                     }
                 });
 
@@ -350,15 +385,28 @@
         }
 
         async submitPayment(orderData) {
+            const { registrationMode = "update" } = this.settings;
             try {
-                const order = await createWooCommerceOrder(orderData);
-                const registrations = await createRegistrations(orderData, order.order_id);
+                var ids = [];
+                if (registrationMode === "create") {
+                    ids = await this.createRegistrations(orderData);
+                    for (var i = 0; i < orderData.length; i++) {
+                        const line_item_id = orderData[i].line_item_id;
+                        if (line_item_id in ids) {
+                            orderData[i].registration_id = ids[line_item_id];
+                        } else {
+                            console.log("Line item id " + line_item_id + " not found in created registrations.");
+                        }
+                    }
+                }
+
+                const order = await this.createWooCommerceOrder(orderData);
                 return {
                     order: order,
-                    registrations: registrations.registration_ids
+                    registrations: ids
                 };
             } catch (error) {
-                console.error('Sequence failed:', error);
+                console.error('Submission failed:', error);
                 throw error;
             }
         }
@@ -375,11 +423,19 @@
         renderTable() {
             const {
                 submitButtonText = "Submit Payment",
-                checkoutButton = false
-            } = this.settings; 
+                checkoutButton = false,
+                allowPayLater = false,
+                postUrl = usctdp_mgmt_admin?.post_url,
+                postAction = usctdp_mgmt_admin?.payment_checkout_action,
+                nonceValue = usctdp_mgmt_admin?.payment_checkout_nonce,
+                nonceId = usctdp_mgmt_admin?.payment_checkout_nonce_id,
+            } = this.settings;
             const checkoutButtonHtml = checkoutButton
-                        ? '<button class="checkout-btn button button-primary">Checkout</button>'
-                        : '';
+                ? '<button class="checkout-btn button button-primary">Checkout</button>'
+                : '';
+            const payLaterHtml = allowPayLater
+                ? '<option value="pay_later">Pay Later</option>'
+                : '';
 
             const html = `
                 <div class="payment-wrap">
@@ -399,16 +455,16 @@
                         </table>
                     </div>
                     <div class="payment-summaries">
-                        <div class="order-summary credit-summary">
-                            <span class="label">Current</br>Balance</span>
+                        <div class="order-summary debit-summary">
+                            <span class="label">Amount</br>Owed</span>
                             <span class="total"></span>
                         </div>
-                        <div class="order-summary debit-summary">
+                        <div class="order-summary credit-summary">
                             <span class="label">Total</br>Payment</span>
                             <span class="total"></span>
                         </div>
                         <div class="order-summary balance-summary">
-                            <span class="label">Updated</br>Balance</span>
+                            <span class="label">Remaining</br>Balance</span>
                             <span class="total"></span>
                         </div>
                         ${checkoutButtonHtml}
@@ -421,6 +477,7 @@
                                 <option value="card">Card</option>
                                 <option value="check">Check</option>
                                 <option value="cash">Cash</option>
+                                ${payLaterHtml}
                             </select>
                         </div>
                         <div class="check-fields payment-option hidden">
@@ -433,20 +490,40 @@
                                 <input type="date" name="check_received_date" id="${this.getId('check_received_date')}">
                             </div>
                         </div>
-                        <div class="submit-payment-wrap hidden">
-                            <form id="${this.getId('submit-payment-form')}">
-                                <input type="hidden" name="action" value="<?php echo esc_attr($submit_hook); ?>">
+                        <div class="pay-later-fields payment-option payment-note hidden">
+                            <h3> Note </h3>
+                            <p>
+                                By selecting <b>Pay Later</b>, the credit amount for every line item
+                                will be set to 0 (regardless of the payment amount entered above). 
+                                Payment can be posted later on the <b>Registration History</b> page.
+                            </p>
+                        </div>
+                        <div class="card-fields payment-option payment-note hidden">
+                            <h3> Note </h3>
+                            <p>
+                                By selecting <b>Card</b>, you will be redirected to a payment gateway
+                                after clicking the <b>${submitButtonText}</b> button, where you can enter
+                                card details and complete the transaction.
+                            </p>
+                        </div>
+                        <div class="submit-payment-wrap hidden"> 
+                            <form id="${this.getId('submit-payment-form')}" action="${postUrl}" method="post">
+                                <input type="hidden" name="action" value="${postAction}">
+                                <input type="hidden" name="${nonceId}" value="${nonceValue}">
                                 <input type="hidden" id="${this.getId('submit_user_id')}" name="user_id" value="">
                                 <input type="hidden" id="${this.getId('submit_family_id')}" name="family_id" value="">
                                 <input type="hidden" id="${this.getId('submit_payment_url')}" name="payment_url" value="">
                                 <input type="hidden" id="${this.getId('submit_order_url')}" name="order_url" value="">
                                 <input type="hidden" id="${this.getId('submit_pay_now')}" name="pay_now" value="">
                                 <input type="hidden" id="${this.getId('registrations')}" name="registrations" value="">
-                                <?php wp_nonce_field($nonce_action, $nonce_name);?>
-                                <div class"submit-payment-button-wrap">
-                                    <button class="button button-primary" id="${this.getId('submit-payment-btn')}">
-                                        ${submitButtonText}
-                                    </button>
+                                
+                                <div class="submit-payment-button-wrap">
+                                    <input 
+                                        type="submit" 
+                                        name="submit"
+                                        id="${this.getId('submit-payment-btn')}"
+                                        class="button button-primary" 
+                                        value="${submitButtonText}">
                                 </div>
                             </form>
                         </div>
@@ -455,18 +532,20 @@
             this.container.append(html);
         }
 
-        updateRegistrationTotal() {
+        updatePaymentTotals() {
             const $rows = this.container.find('table tbody tr');
             let debit_total = 0;
             let credit_total = 0;
             $rows.each(function () {
                 const $row = $(this);
-                debit_total += parseFloat($row.find('.debit-input').val());
-                credit_total += parseFloat($row.find('.credit-input').val());
+                const debit = parseFloat($row.find('.debit-input').val()).toFixed(2);
+                const credit = parseFloat($row.find('.credit-input').val()).toFixed(2);
+                debit_total += parseFloat(debit);
+                credit_total += parseFloat(credit);
             });
-            this.container.find(".credit-summary .total")
-                .text(USCTDP_Admin.formatUsd(debit_total));
             this.container.find(".debit-summary .total")
+                .text(USCTDP_Admin.formatUsd(debit_total));
+            this.container.find(".credit-summary .total")
                 .text(USCTDP_Admin.formatUsd(credit_total));
             this.container.find(".balance-summary .total")
                 .text(USCTDP_Admin.formatUsd(debit_total - credit_total));
@@ -480,10 +559,10 @@
                     <td class="cart-session">${session ?? '--'}</td>
                     <td class="cart-item">${item}</td>
                     <td class="cart-debit"> 
-                        <input class="price-input debit-input" name="debit" value="${debit}">
+                        <input class="price-input debit-input" type="number" name="debit" value="${debit}">
                     </td>
                     <td class="cart-credit"> 
-                        <input class="price-input credit-input" name="credit" value="${credit}">
+                        <input class="price-input credit-input" type="number" name="credit" value="${credit}">
                     </td>
                     <td>
                         <button class="button remove-btn">Remove</button> 
@@ -491,12 +570,32 @@
                 </tr>`
         }
 
-        addRegistration(registration) {
+        addEquipment(eq, price) {
+            const studentName = `${eq.student_first} ${eq.student_last}`
+            var $row = $(this.addOrderRow({
+                student: studentName,
+                item: eq.product_name,
+                debit: price,
+                credit: price
+            }));
+            $row.data('product_code', eq.product_code)
+                .data('product_name', eq.product_name)
+                .data('student_name', eq.student_name)
+                .data('student_id', eq.student_id)
+                .data('family_id', eq.family_id)
+                .data('notes', eq.notes)
+                .data('type', 'equipment');
+            this.container.find('table tbody').append($row);
+            this.updatePaymentTotals();
+        }
+
+        addExistingRegistration(registration) {
             const debit = registration.registration_debit;
             const credit = registration.registration_credit;
             var outstanding = debit - credit;
+            const studentName = `${registration.student_first} ${registration.student_last}`
             var $row = $(this.addOrderRow({
-                student: registration.student_first + ' ' + registration.student_last,
+                student: studentName,
                 session: registration.session_name,
                 item: registration.activity_name,
                 debit: outstanding,
@@ -507,12 +606,36 @@
                 .data('session_id', registration.session_id)
                 .data('activity_id', registration.activity_id)
                 .data('product_id', registration.product_id)
-                .data('student_level', registration.student_level)
                 .data('family_id', registration.family_id)
+                .data('student_level', registration.student_level)
                 .data('notes', registration.notes)
                 .data('type', 'registration');
             this.container.find('table tbody').append($row);
-            this.updateRegistrationTotal();
+            this.updatePaymentTotals();
+        }
+
+        addNewRegistration(registration, price) {
+            const debit = price;
+            const credit = price;
+            const studentName = `${registration.student_first} ${registration.student_last}`
+            var $row = $(this.addOrderRow({
+                student: studentName,
+                session: registration.session_name,
+                item: registration.activity_name,
+                debit: price,
+                credit: price
+            }));
+            $row.data('registration_id', null)
+                .data('student_id', registration.student_id)
+                .data('session_id', registration.session_id)
+                .data('activity_id', registration.activity_id)
+                .data('product_id', registration.product_id)
+                .data('family_id', registration.family_id)
+                .data('student_level', registration.student_level)
+                .data('notes', registration.notes)
+                .data('type', 'registration');
+            this.container.find('table tbody').append($row);
+            this.updatePaymentTotals();
         }
     };
 })(jQuery);

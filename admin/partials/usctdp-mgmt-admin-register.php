@@ -1,12 +1,3 @@
-<?php
-$page_title = get_admin_page_title();
-$post_handler = Usctdp_Mgmt_Admin::$post_handlers["registration_checkout"];
-$submit_hook = $post_handler["submit_hook"];
-$nonce_name = $post_handler["nonce_name"];
-$nonce_action = $post_handler["nonce_action"];
-
-?>
-
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     <div id="registration-container">
@@ -37,20 +28,16 @@ $nonce_action = $post_handler["nonce_action"];
                     </div>
                     <div id="clinic-preorder-fields" class="preorder-fields">
                         <div id="student-level-field" class="registration-field">
-                            <label for="student-level">Level</label>
+                            <label for="student-level">Student Level</label>
                             <input type="text" name="student-level" id="student-level">
                         </div>
-                        <div id="add-equipment-field" class="registration-field">
-                            <label for="equipment_addon">Add Equipment</label>
-                            <select name="equipment_addon" id="payment_method" autocomplete="off">
-                                <option value="">Select...</option>
-                                <option value="racket">Racket</option>
-                                <option value="check">Other</option>
-                            </select>
+                        <div id="include-racket-field" class="registration-field">
+                            <label for="include_racket">Include Racket</label>
+                            <input type="checkbox" name="include_racket" id="include_racket">
                         </div>
-                        <div id="equipment-fee" class="registration-field hidden">
-                            <label for="equipment_fee">Equipment Fee</label>
-                            <input type="number" name="equipment_fee" id="equipment_fee">
+                        <div id="racket-fee-field" class="registration-field hidden">
+                            <label for="racket_fee">Racket Fee</label>
+                            <input type="number" name="racket_fee" id="racket_fee">
                         </div>
                         <div id="clinic-notes-section" class="notes-section">
                             <label for="clinic-notes">Notes</label>
@@ -65,93 +52,6 @@ $nonce_action = $post_handler["nonce_action"];
                 </div>
             </div>
         </div>
-
-        <div id="registration-order-section" class="hidden">
-            <div id="registration-order-info">
-                <div id="registration-order-table-wrap">
-                    <table id="registration-order-table">
-                        <thead>
-                            <tr>
-                                <th>Student</th>
-                                <th>Session</th>
-                                <th>Item</th>
-                                <th>Debit</th>
-                                <th>Credit</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-                </div>
-                <div id="registration-order-summary">
-                    <div id="order-summary-debit" class="order-summary debit">
-                        <span class="label">Debit</span>
-                        <span id="order-total-debit"></span>
-                    </div>
-                    <div id="order-summary-credit" class="order-summary credit">
-                        <span class="label">Credit</span>
-                        <span id="order-total-credit"></span>
-                    </div>
-                    <div id="order-summary-balance" class="order-summary balance">
-                        <span class="label">Balance</span>
-                        <span id="order-total-balance"></span>
-                    </div>
-                    <button id="registration-checkout" class="button button-primary">
-                        Checkout
-                    </button>
-                </div>
-            </div>
-
-            <div id="registration-checkout-section" class="hidden">
-                <input type="hidden" name="user_id" value="">
-                <div id="payment-method-field" class="checkout-field">
-                    <label for="payment_method">Payment Method</label>
-                    <select name="payment_method" id="payment_method" autocomplete="off">
-                        <option value="">Select...</option>
-                        <option value="card">Card</option>
-                        <option value="check">Check</option>
-                        <option value="cash">Cash</option>
-                        <option value="charge-later">Charge Later</option>
-                    </select>
-                </div>
-
-                <div id="check-fields" class="hidden payment-option">
-                    <div id="check-number-field" class="checkout-field">
-                        <label for="check_number">Check Number</label>
-                        <input type="text" name="check_number" id="check_number">
-                    </div>
-                    <div id="check-received-date-field" class="checkout-field">
-                        <label for="check_received_date">Date Received</label>
-                        <input type="date" name="check_received_date" id="check_received_date">
-                    </div>
-                </div>
-
-                <div id="submit-registration-button" class="hidden">
-                    <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post"
-                        id="submit-registration-form">
-                        <input type="hidden" name="action" value="<?php echo esc_attr($submit_hook); ?>">
-                        <input type="hidden" id="submit_user_id" name="user_id" value="">
-                        <input type="hidden" id="submit_family_id" name="family_id" value="">
-                        <input type="hidden" id="submit_payment_url" name="payment_url" value="">
-                        <input type="hidden" id="submit_order_url" name="order_url" value="">
-                        <input type="hidden" id="submit_pay_now" name="pay_now" value="">
-                        <input type="hidden" id="registrations" name="registrations" value="">
-                        <?php wp_nonce_field($nonce_action, $nonce_name); ?>
-                        <div id="registration-submit-button-wrap">
-                            <?php submit_button(
-                                'Submit Registration(s)',
-                                'primary',
-                                'registration_submit',
-                                false,
-                                [
-                                    'id' => 'submit-registration-btn',
-                                ]
-                            ); ?>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <div id="payment-table-section" class="hidden"></div>
     </div>
 </div>

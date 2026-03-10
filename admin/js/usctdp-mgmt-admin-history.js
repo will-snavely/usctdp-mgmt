@@ -5,8 +5,8 @@
         var preloadedData = {};
         var newRegistrations = null;
         const postPaymentModal = document.querySelector('#post-payment-modal');
-        const registrationTable = 
-            new USCTDP_Admin.RegistrationPaymentTable("registration-payment-table"); 
+        const paymentTable =
+            new USCTDP_Admin.RegistrationPaymentTable("registration-payment-table");
 
         function refreshFamilyBalance(family_id, student_id) {
             $.ajax({
@@ -304,7 +304,7 @@
             if (count > 0) {
                 $countText.text(count);
                 $('#selection-status').removeClass("hidden");
-                if($selector.val()) {
+                if ($selector.val()) {
                     $btn.prop('disabled', false);
                 } else {
                     $btn.prop('disabled', true);
@@ -317,21 +317,21 @@
 
         function openPostPaymentModal(registrations) {
             console.log(registrations);
-            registrationTable.clear();
-            for(const reg of registrations) {
-                if(reg.registration_credit < reg.registration_debit) {
-                    registrationTable.addRegistration(reg);
+            paymentTable.clear();
+            for (const reg of registrations) {
+                if (reg.registration_credit < reg.registration_debit) {
+                    paymentTable.addRegistration(reg);
                 }
             }
             postPaymentModal.showModal();
         }
 
-        $('#bulk-action-selector').on('change', function() {
+        $('#bulk-action-selector').on('change', function () {
             updateBulkUI();
         });
 
         // Select All Click
-        $('#cb-select-all').on('click', function() {
+        $('#cb-select-all').on('click', function () {
             var isChecked = $(this).prop('checked');
             $('#history-table tbody .row-check').prop('checked', isChecked);
             $('#history-table tbody tr .registration-card').toggleClass('selected', isChecked);
@@ -339,7 +339,7 @@
         });
 
         // Individual Row Click
-        $('#history-table tbody').on('change', '.row-check', function() {
+        $('#history-table tbody').on('change', '.row-check', function () {
             $(this).closest('.registration-card').toggleClass('selected', this.checked);
             if (!this.checked) {
                 $('#cb-select-all').prop('checked', false);
@@ -358,14 +358,14 @@
             minimumResultsForSearch: Infinity
         });
 
-        $('#apply-bulk-btn').on('click', function() {
+        $('#apply-bulk-btn').on('click', function () {
             const action = $('#bulk-action-selector').val();
-            const registrations = $('.row-check:checked').map(function() {
+            const registrations = $('.row-check:checked').map(function () {
                 const $row = $(this).closest("tr");
                 return historyTable.row($row).data();
             }).get();
 
-            if(action === 'post-payments') {
+            if (action === 'post-payments') {
                 openPostPaymentModal(registrations);
             }
         });

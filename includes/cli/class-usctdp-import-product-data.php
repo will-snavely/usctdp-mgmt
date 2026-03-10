@@ -153,12 +153,12 @@ class Usctdp_Import_Product_Data
         }
 
         $product = new WC_Product_Simple();
-        $product->set_name( "Equipment - $item_name" );
-        $product->set_status( 'publish' );
-        $product->set_regular_price( $equipment["price"] );
-        $product->set_description( $equipment["description"] );
-        $product->set_short_description( $equipment["description"] );
-        $product->set_catalog_visibility( 'hidden' );
+        $product->set_name("Equipment - $item_name");
+        $product->set_status('publish');
+        $product->set_regular_price($equipment["price"]);
+        $product->set_description($equipment["description"]);
+        $product->set_short_description($equipment["description"]);
+        $product->set_catalog_visibility('hidden');
         return $product->save();
     }
 
@@ -183,6 +183,7 @@ class Usctdp_Import_Product_Data
             "woocommerce_id" => $product_id,
             "title" => $title,
             "search_term" => $search_term,
+            "code" => $tournament['code'],
             "type" => Usctdp_Product_Type::Tournament->value,
             "session_category" => $this->get_category_int($tournament['session_category']),
             "age_group" => $this->get_age_group_int($tournament['age_group']),
@@ -210,6 +211,7 @@ class Usctdp_Import_Product_Data
             "woocommerce_id" => $product_id,
             "title" => $title,
             "search_term" => $search_term,
+            "code" => $clinic['code'],
             "type" => Usctdp_Product_Type::Clinic->value,
             "session_category" => $this->get_category_int($clinic['session_category']),
             "age_group" => $this->get_age_group_int($clinic['age_group']),
@@ -237,9 +239,10 @@ class Usctdp_Import_Product_Data
             "woocommerce_id" => $product_id,
             "title" => $title,
             "search_term" => $search_term,
+            "code" => $equipment['code'],
             "type" => Usctdp_Product_Type::Equipment->value,
             "session_category" => 0,
-            "age_group" => 0 
+            "age_group" => 0
         ]);
     }
 
@@ -326,6 +329,6 @@ class Usctdp_Import_Product_Data
             $tournament_id = $this->create_equipment($tournament, $product_id);
             $menu_order += 10;
         }
- 
+
     }
 }
