@@ -141,21 +141,21 @@ table td {
 }
 
 @property --angle1 {
-  syntax: '<angle>';
-  initial-value: 45deg;
-  inherits: false;
+    syntax: '<angle>';
+    initial-value: 45deg;
+    inherits: false;
 }
 
 @property --angle2 {
-  syntax: '<angle>';
-  initial-value: -45deg;
-  inherits: false;
+    syntax: '<angle>';
+    initial-value: -45deg;
+    inherits: false;
 }
 
 @property --size {
-  syntax: '<length>';
-  initial-value: 16px;
-  inherits: false;
+    syntax: '<length>';
+    initial-value: 16px;
+    inherits: false;
 }
 
 .registration-card {
@@ -165,35 +165,24 @@ table td {
     align-items: flex-start;
     gap: 20px;
     padding: 20px;
-    background: 
-        linear-gradient(var(--angle1), transparent 49%, #e9e9e9 49% 51%, transparent 51%) , 
-        linear-gradient(var(--angle2), transparent 49%, #e9e9e9 49% 51%, transparent 51%);
     background-size: var(--size) var(--size);
-    background-color: #ffffff;
-    opacity: 0.8;
+    background-color: #bababa;
+    opacity: 1;
     border-radius: 8px;
     border-left-style: solid;
     border-left-width: 0px;
-    border-left-color: #0208c4;
-    transition: 
-        --angle1 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-        --angle2 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-        --size 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    border-left-color: #0d6efd;
+    transition:
         background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
         border-left-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .registration-card.selected {
-    border-left-width: 10px; 
+    border-left-width: 10px;
 }
 
 .registration-card.editing {
-  --angle1: 0deg;
-  --angle2: 90deg;
-  --size: 32px; 
-  background-color: #d2fad7;
-  opacity: 1;
+    background-color: #d2fad7;
 }
 
 .fields-row {
@@ -212,7 +201,7 @@ table td {
 .activity-field label {
     font-size: 0.75rem;
     font-weight: 700;
-    color: #666;
+    color: #1a1a1a;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -283,7 +272,7 @@ textarea[readonly] {
 }
 
 .new-registration {
-    background-color: #f0abef;
+    background-color: #f7a0f0;
     padding: 2px 8px;
     border-radius: 20px;
     font-size: 0.8rem;
@@ -332,7 +321,7 @@ textarea[readonly] {
 }
 
 .count-badge {
-    background: #0d6efd; 
+    background: #0d6efd;
     color: white;
     font-size: 11px;
     padding: 2px 6px;

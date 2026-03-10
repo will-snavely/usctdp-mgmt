@@ -250,25 +250,21 @@
 
             $(`#${this.getId('submit-payment-form')}`).on('submit', (e) => {
                 e.preventDefault();
-                const form = e.currentTarget;
+                const form = $(e.currentTarget);
                 const $submitBtn = $('#' + this.getId('submit-payment-btn'));
                 $submitBtn.prop('disabled', true).val('Processing...');
                 const orderData = this.getOrderData();
                 this.submitPayment(orderData)
-                    .then(function (response) {
-                        const payment_method = $('#payment_method').val();
-
-                        $('#submit_pay_now').val("false");
-                        if (payment_method === 'card') {
-                            $('#submit_pay_now').val("true");
-                        }
-
-                        $('#submit_user_id').val(response.order.user_id);
-                        $('#submit_family_id').val(response.order.family_id);
-                        $('#submit_payment_url').val(response.order.payment_url);
-                        $('#submit_order_url').val(response.order.order_url);
-                        $('#registrations').val(JSON.stringify(response.registrations));
-                        //form.submit();
+                    .then((response) => {
+                        const payment_method = $('#' + this.getId('payment_method')).val();
+                        const regIds = Object.values(response.registrations);
+                        $('#' + this.getId('submit_user_id')).val(response.order.user_id);
+                        $('#' + this.getId('submit_family_id')).val(response.order.family_id);
+                        $('#' + this.getId('submit_payment_method')).val(payment_method);
+                        $('#' + this.getId('submit_payment_url')).val(response.order.payment_url);
+                        $('#' + this.getId('submit_order_url')).val(response.order.order_url);
+                        $('#' + this.getId('submit_registrations')).val(JSON.stringify(regIds));
+                        form[0].submit();
                     })
                     .catch((error) => {
                         const submitBtnText = this.settings.submitButtonText ?? "Submit Payment";
@@ -514,13 +510,13 @@
                                 <input type="hidden" id="${this.getId('submit_family_id')}" name="family_id" value="">
                                 <input type="hidden" id="${this.getId('submit_payment_url')}" name="payment_url" value="">
                                 <input type="hidden" id="${this.getId('submit_order_url')}" name="order_url" value="">
-                                <input type="hidden" id="${this.getId('submit_pay_now')}" name="pay_now" value="">
-                                <input type="hidden" id="${this.getId('registrations')}" name="registrations" value="">
+                                <input type="hidden" id="${this.getId('submit_payment_method')}" name="payment_method" value="">
+                                <input type="hidden" id="${this.getId('submit_registrations')}" name="registrations" value="">
                                 
                                 <div class="submit-payment-button-wrap">
                                     <input 
                                         type="submit" 
-                                        name="submit"
+                                        name="submit-form"
                                         id="${this.getId('submit-payment-btn')}"
                                         class="button button-primary" 
                                         value="${submitButtonText}">

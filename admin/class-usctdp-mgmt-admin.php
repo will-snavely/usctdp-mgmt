@@ -2008,9 +2008,9 @@ class Usctdp_Mgmt_Admin
         }
     }
 
-    function registration_checkout_handler()
+    function payment_checkout_handler()
     {
-        $post_handler = Usctdp_Mgmt_Admin::$post_handlers['registration_checkout'];
+        $post_handler = Usctdp_Mgmt_Admin::$post_handlers['payment_checkout'];
         $nonce_name = $post_handler['nonce_name'];
         $nonce_action = $post_handler['nonce_action'];
         $unique_token = bin2hex(random_bytes(8));
@@ -2025,7 +2025,7 @@ class Usctdp_Mgmt_Admin
             }
             $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
             $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : 0;
-            $pay_now = isset($_POST['pay_now']) ? $_POST['pay_now'] === 'true' : false;
+            $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : "";
             $payment_url = isset($_POST['payment_url']) ? sanitize_url($_POST['payment_url']) : '';
             $order_url = isset($_POST['order_url']) ? sanitize_url($_POST['order_url']) : '';
             $registrations = isset($_POST['registrations']) ? json_decode($_POST['registrations'], true) : [];
@@ -2042,8 +2042,11 @@ class Usctdp_Mgmt_Admin
             if (empty($order_url)) {
                 throw new Web_Request_Exception('Order URL is not set.');
             }
+            if (empty($payment_method)) {
+                throw new Web_Request_Exception('Payment method is not set.');
+            }
 
-            if ($pay_now) {
+            if ($payment_method === 'card') {
                 if (function_exists('WC') && WC()->session === null) {
                     $session_class = apply_filters('woocommerce_session_handler', 'WC_Session_Handler');
                     WC()->session = new $session_class();
@@ -2066,7 +2069,7 @@ class Usctdp_Mgmt_Admin
                     'family_id' => $family_id,
                     'new_registrations' => json_encode($registrations)
                 ], $this->get_redirect_url('usctdp-admin-history'));
-                $message = "Registrations completed successfully! View the order <a href='" . $order_url . "'>here</a>";
+                $message = "Registrations completed successfully!";
                 $transient_data = [
                     'type' => 'success',
                     'message' => $message

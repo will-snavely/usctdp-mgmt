@@ -4,6 +4,7 @@
     $(document).ready(function () {
         var preloadedData = {};
         var newRegistrations = null;
+        const paymentHistoryModal = document.querySelector('#payment-history-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
         const paymentTable =
             new USCTDP_Admin.RegistrationPaymentTable("registration-payment-table");
@@ -104,7 +105,6 @@
                 </tr>`
         }
 
-
         function renderActivityDetails(data, idx) {
             const {
                 studentFirst, studentLast, studentAge,
@@ -120,8 +120,8 @@
 
             var newRegBadge = '';
             if (newRegistrations) {
-                const registrationId = parseInt(registrationId);
-                newRegBadge = newRegistrations.has(registrationId) ? '<span class="new-registration">New!</span>' : '';
+                const regId = parseInt(registrationId);
+                newRegBadge = newRegistrations.has(regId) ? '<span class="new-registration">New!</span>' : '';
             }
             return `
               <div class="registration-card edit-disabled">
@@ -141,6 +141,14 @@
                     <div class="registration-actions">
                         <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">
                             Edit
+                        </button>
+
+                        <button id="payment-history-${idx}" class="button other-action payment-history">
+                            Payment History
+                        </button>
+
+                        <button id="post-payment-${idx}" class="button other-action post-payment">
+                            Post Payment
                         </button>
                     </div>
                 </div>
@@ -244,6 +252,7 @@
                                     sessionId: row.session_id,
                                     activityName: row.activity_name,
                                     activityId: row.activity_id,
+                                    registrationId: row.registration_id,
                                     level: row.registration_student_level,
                                     debit: row.registration_debit,
                                     credit: row.registration_credit,
@@ -263,7 +272,7 @@
                 if ($("#table-filter-row").length === 0) {
                     var $table_controls = $('#history-table_wrapper');
                     var $first_row = $table_controls.find("div.dt-layout-row").first();
-                    var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>"
+                    var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>";
                     $first_row.after(filter_row);
                     $('#table-filters').appendTo('#table-filter-row');
                     $('#session-filter, #student-filter').on('change', function () {
@@ -319,11 +328,15 @@
             console.log(registrations);
             paymentTable.clear();
             for (const reg of registrations) {
-                if (reg.registration_credit < reg.registration_debit) {
-                    paymentTable.addRegistration(reg);
+                if (parseFloat(reg.registration_credit) < parseFloat(reg.registration_debit)) {
+                    paymentTable.addExistingRegistration(reg);
                 }
             }
             postPaymentModal.showModal();
+        }
+
+        function openPaymentHistoryModal(registrationId) {
+            paymentHistoryModal.showModal();
         }
 
         $('#bulk-action-selector').on('change', function () {
@@ -395,6 +408,11 @@
             postPaymentModal.close();
         });
 
+        $('#close-payment-history-modal').on('click', () => {
+            paymentHistoryModal.close();
+        });
+
+
         $('#history-table tbody').on('change', '.session-select', function () {
             const activitySelectId = $(this).data('activity-selector-id');
             $('#' + activitySelectId).val(null).trigger("change");
@@ -416,6 +434,7 @@
                 $button.data("state", "save");
                 $button.addClass('save-btn');
                 $row.find('.registration-card').addClass('editing');
+                $row.find(".other-action").prop('disabled', true);
                 $row.find('select').prop('disabled', false);
                 $row.find('input').prop('readonly', false);
                 $row.find('textarea').prop('readonly', false);
@@ -442,15 +461,27 @@
                         alert("Update failed! " + error);
                     })
                     .finally(() => {
-                        $button.text("Edit");
+                        $button.text("Processing..");
                         $button.data("state", "edit");
-                        $button.prop('disabled', false);
                         refreshFamilyBalance(familyId, studentId);
                         setTimeout(() => {
                             historyTable.ajax.reload();
                         }, 600);
                     });
             }
+        });
+
+        $('#history-table tbody').on('click', 'button.payment-history', function (e) {
+            const $row = $(this).closest('tr');
+            var rowData = historyTable.row($row).data();
+            const registrationId = rowData.registration_id;
+            openPaymentHistoryModal(registrationId);
+        });
+
+        $('#history-table tbody').on('click', 'button.post-payment', function (e) {
+            const $row = $(this).closest('tr');
+            var rowData = historyTable.row($row).data();
+            openPostPaymentModal([rowData]);
         });
 
         function load_registration_history(title, family_id, student_id) {

@@ -9,6 +9,14 @@
             </div>
         </dialog>
 
+        <dialog id="payment-history-modal">
+            <h2>Payment History</h2>
+            <div id="payment-history-table"></div>
+            <div class="actions-footer">
+                <button type="button" class="button" id="close-payment-history-modal">Cancel</button>
+            </div>
+        </dialog>
+
         <div id="context-selectors">
         </div>
         <div id="history-container" class="hidden">
