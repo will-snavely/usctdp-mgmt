@@ -3,28 +3,34 @@
 class Usctdp_Mgmt_Admin_Ajax
 {
     public static $ajax_handlers = [
+        'activity_preregistration' => 'ajax_activity_preregistration',
+        'clinic_datatable' => 'ajax_clinic_datatable',
+        'commit_registrations' => 'ajax_commit_registrations',
+        'create_family' => 'ajax_create_family',
+        'create_student' => 'ajax_create_student',
+        'create_woocommerce_order' => 'ajax_create_woocommerce_order',
         'datatable_balances' => 'ajax_datatable_balances',
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
+        'gen_roster' => 'ajax_gen_roster',
+        'get_family_balance' => 'ajax_get_family_balance',
+        'get_family_fields' => 'ajax_get_family_fields',
+        'payment_datatable' => 'ajax_payment_datatable',
+        'registration_history_datatable' => 'ajax_registration_history_datatable',
+        'registrations_datatable' => 'registrations_datatable',
+        'save_family_fields' => 'ajax_save_family_fields',
+        'save_registration_fields' => 'ajax_save_registration_fields',
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
-        'toggle_session_active' => 'ajax_toggle_session_active',
         'student_datatable' => 'ajax_student_datatable',
-        'clinic_datatable' => 'ajax_clinic_datatable',
-        'payment_datatable' => 'ajax_payment_datatable',
-        'registrations_datatable' => 'registrations_datatable',
-        'registration_history_datatable' => 'ajax_registration_history_datatable',
-        'get_family_fields' => 'ajax_get_family_fields',
-        'save_family_fields' => 'ajax_save_family_fields',
-        'get_family_balance' => 'ajax_get_family_balance',
-        'create_family' => 'ajax_create_family',
-        'create_student' => 'ajax_create_student',
-        'save_registration_fields' => 'ajax_save_registration_fields',
-        'gen_roster' => 'ajax_gen_roster',
-        'activity_preregistration' => 'ajax_activity_preregistration',
-        'create_woocommerce_order' => 'ajax_create_woocommerce_order',
-        'commit_registrations' => 'ajax_commit_registrations',
+        'toggle_session_active' => 'ajax_toggle_session_active',
     ];
+
+    private $select_handlers;
+
+    public function __construct() {
+        $this->select_handlers = new Usctdp_Mgmt_Select_Handlers();
+    }
 
     private function is_student_enrolled($student_id, $activity_id)
     {
@@ -46,14 +52,8 @@ class Usctdp_Mgmt_Admin_Ajax
 
     private function get_activity_capacity($activity_id)
     {
-        $activity_query = new Usctdp_Mgmt_Activity_Query([
-            'id' => $activity_id,
-            'number' => 1
-        ]);
-        if (empty($activity_query->items)) {
-            return null;
-        }
-        return $activity_query->items[0]->capacity;
+        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        return $activity ? $activity->capacity : null;
     }
 
     private function get_sanitized_post_field_text($field)
@@ -72,15 +72,12 @@ class Usctdp_Mgmt_Admin_Ajax
         return null;
     }
 
-    private function create_entity_from_post($entity_name, $query_object, $fields)
+    private function create_entity_from_post($query_object, $fields)
     {
         $args = [];
-        foreach ($fields as $field => $getter) {
-            try {
-                $args[$field] = $getter();
-            } catch (Throwable $e) {
-                throw new Web_Request_Exception('Field ' . $field . ' is invalid.', 400);
-            }
+        foreach ($fields as $field => $transform) {
+            $raw = $_POST[$field] ?? null;
+            $args[$field] = $transform($raw);
         }
         $query = new $query_object([]);
         return $query->add_item($args);
@@ -130,24 +127,16 @@ class Usctdp_Mgmt_Admin_Ajax
         $activity_id = isset($_GET['activity_id']) ? sanitize_text_field($_GET['activity_id']) : '';
         $student_id = isset($_GET['student_id']) ? sanitize_text_field($_GET['student_id']) : '';
 
-        $student_query = new Usctdp_Mgmt_Student_Query([
-            'student_id' => $student_id,
-            'number' => 1
-        ]);
-        if (empty($student_query->items)) {
+
+        $student = Usctdp_Mgmt_Model::get_student($student_id);
+        if (!$student) {
             wp_send_json_error('Student with ID "' . $student_id . '" not found.', 404);
         }
-        $student = $student_query->items[0];
 
-        $activity_query = new Usctdp_Mgmt_Activity_Query([]);
-        $result = $activity_query->get_activity_data([
-            'id' => $activity_id,
-            'number' => 1
-        ]);
-        if (empty($result['data'])) {
+        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        if (!$activity) {
             wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
         }
-        $activity = $result['data'][0];
 
         $pricing_query = new Usctdp_Mgmt_Pricing_Query([
             'session_id' => $activity->session_id,
@@ -184,29 +173,23 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $target = null;
         if (!empty($activity_id)) {
-            $activity_query = new Usctdp_Mgmt_Activity_Query([
-                'id' => $activity_id,
-                'number' => 1
-            ]);
-            if (empty($activity_query->items)) {
+            $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+            if (!$activity) {
                 wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
             }
             $target = [
-                'id' => $activity_query->items[0]->id,
-                'title' => $activity_query->items[0]->title,
-                'type' => $activity_query->items[0]->type,
+                'id' => $activity->id,
+                'title' => $activity->title,
+                'type' => $activity->type,
             ];
         } else if (!empty($session_id)) {
-            $session_query = new Usctdp_Mgmt_Session_Query([
-                'id' => $session_id,
-                'number' => 1
-            ]);
-            if (empty($session_query->items)) {
+            $session = Usctdp_Mgmt_Model::get_session($session_id);
+            if (!$session) {
                 wp_send_json_error('Session with ID "' . $session_id . '" not found.', 404);
             }
             $target = [
-                'id' => $session_query->items[0]->id,
-                'title' => $session_query->items[0]->title,
+                'id' => $session->id,
+                'title' => $session->title,
                 'type' => "session",
             ];
         }
@@ -248,14 +231,11 @@ class Usctdp_Mgmt_Admin_Ajax
                 wp_send_json_error('Missing required parameter family_id', 400);
             }
 
-            $query = new Usctdp_Mgmt_Family_Query([
-                'id' => $family_id,
-                'number' => 1
-            ]);
-            if (empty($query->items)) {
+            $family = Usctdp_Mgmt_Model::get_family($family_id);
+            if (!$family) {
                 wp_send_json_error("No family found with id: $family_id", 400);
             }
-            wp_send_json_success($query->items[0]);
+            wp_send_json_success($family);
         } catch (Throwable $e) {
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Error fetching family fields: ' . $e->getMessage());
             Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
@@ -383,53 +363,34 @@ class Usctdp_Mgmt_Admin_Ajax
 
         try {
             $fields = [
-                'email' => function () {
-                    return $this->get_sanitized_post_field_text('email');
-                },
-                'title' => function () {
+                'email' => sanitize_text_field(...), 
+                'last' => sanitize_text_field(...),
+                'address' => sanitize_text_field(...),
+                'city' => sanitize_text_field(...),
+                'state' => sanitize_text_field(...),
+                'zip' => sanitize_text_field(...), 
+                'phone_numbers' => json_encode(...),
+                'title' => function ($raw) {
                     $phone = trim($this->get_sanitized_post_field_text('phone'));
-                    $last_name = $this->get_sanitized_post_field_text('last');
                     $last_four = substr($phone, -4);
+                    $last_name = sanitize_text_field($raw);
                     return $last_name . ' ' . $last_four;
                 },
-                'search_term' => function () {
+                'search_term' => function ($raw) {
                     $phone = trim($this->get_sanitized_post_field_text('phone'));
-                    $last_name = $this->get_sanitized_post_field_text('last');
                     $last_four = substr($phone, -4);
+                    $last_name = sanitize_text_field($raw);
                     return Usctdp_Mgmt_Model::append_token_suffix($last_name . ' ' . $last_four);
                 },
-                'last' => function () {
-                    return $this->get_sanitized_post_field_text('last');
-                },
-                'address' => function () {
-                    return $this->get_sanitized_post_field_text('address');
-                },
-                'city' => function () {
-                    return $this->get_sanitized_post_field_text('city');
-                },
-                'state' => function () {
-                    return $this->get_sanitized_post_field_text('state');
-                },
-                'zip' => function () {
-                    return $this->get_sanitized_post_field_text('zip');
-                },
-                'phone_numbers' => function () {
-                    return json_encode([$_POST['phone']]);
-                }
             ];
-            $family_id = $this->create_entity_from_post('Family', 'Usctdp_Mgmt_Family_Query', $fields);
+            $family_id = $this->create_entity_from_post('Usctdp_Mgmt_Family_Query', $fields);
             if (!$family_id) {
                 wp_send_json_error('Failed to create family.', 500);
             }
-
-            $family_query = new Usctdp_Mgmt_Family_Query([
-                'id' => $family_id,
-                'number' => 1
-            ]);
-            if (empty($family_query->items)) {
+            $family = Usctdp_Mgmt_Model::get_family($family_id);
+            if (!$family) {
                 wp_send_json_error('Failed to create family.', 500);
             }
-            $family = $family_query->items[0];
             $last_name = $family->last;
             $phone = trim($family->phone_numbers[0]);
             $last_four = substr($phone, -4);
@@ -479,10 +440,11 @@ class Usctdp_Mgmt_Admin_Ajax
 
         try {
             $fields = [
-                'family_id' => function () {
-                    return $this->get_sanitized_post_field_int('family_id');
-                },
-                'title' => function () {
+                'family_id' => intval(...),
+                'first' => sanitize_text_field(...),
+                'last' => sanitize_text_field(...),
+                'level' => sanitize_text_field(...),
+                'title' => function ($raw) {
                     $first_name = $this->get_sanitized_post_field_text('first');
                     $last_name = $this->get_sanitized_post_field_text('last');
                     return $first_name . ' ' . $last_name;
@@ -492,25 +454,16 @@ class Usctdp_Mgmt_Admin_Ajax
                     $last_name = $this->get_sanitized_post_field_text('last');
                     return Usctdp_Mgmt_Model::append_token_suffix($first_name . ' ' . $last_name);
                 },
-                'first' => function () {
-                    return $this->get_sanitized_post_field_text('first');
-                },
-                'last' => function () {
-                    return $this->get_sanitized_post_field_text('last');
-                },
-                'birth_date' => function () {
-                    $birth_date = $this->get_sanitized_post_field_text('birth_date');
-                    if (empty($birth_date)) {
+                'birth_date' => function ($raw) {
+                    if (empty($raw)) {
                         return null;
                     }
-                    $date = new DateTime($birth_date);
+                    $date = new DateTime($raw);
                     return $date->format('Y-m-d');
                 },
-                'level' => function () {
-                    return $this->get_sanitized_post_field_text('level');
-                }
             ];
-            $student_id = $this->create_entity_from_post('Student', 'Usctdp_Mgmt_Student_Query', $fields);
+
+            $student_id = $this->create_entity_from_post('Usctdp_Mgmt_Student_Query', $fields);
             if (!$student_id) {
                 wp_send_json_error('Failed to create student.', 500);
             } else {
@@ -537,16 +490,16 @@ class Usctdp_Mgmt_Admin_Ajax
             if (empty($target)) {
                 wp_send_json_error('No search target specified.', 400);
             }
-            if (!array_key_exists($target, $this->select2_search_targets)) {
+        
+            if(!$this->select_handlers->is_valid_target($target)) {
                 wp_send_json_error("Invalid target type: $target", 400);
             }
 
-            $search_target = $this->select2_search_targets[$target];
             $filters = [];
-            foreach ($search_target['filters'] as $key => $func) {
-                $filters[$key] = isset($_GET[$key]) ? $func($_GET[$key]) : null;
+            foreach ($this->select_handlers->get_filters($target) as $key => $parser) {
+                $filters[$key] = isset($_GET[$key]) ? $parser($_GET[$key]) : null;
             }
-            $results = $search_target['callback']($search, $filters);
+            $results = $this->select_handlers->select2_search($target, $search, $filters);
         } catch (Throwable $e) {
             $trace = $e->getTraceAsString();
             Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
@@ -961,14 +914,11 @@ class Usctdp_Mgmt_Admin_Ajax
 
     private function find_variations_for_session($product_id, $session_id)
     {
-        $product_query = new Usctdp_Mgmt_Product_Query([
-            'id' => $product_id,
-            'number' => 1
-        ]);
-        if (empty($product_query->items)) {
+        $product = Usctdp_Mgmt_Model::get_product($product_id);
+        if (!$product) {
             throw new Web_Request_Exception('Product with ID "' . $product_id . '" not found.', 404);
         }
-        $product = $product_query->items[0];
+
         $woo_product = wc_get_product($product->woocommerce_id);
         if (!$woo_product) {
             throw new Web_Request_Exception('WooCommerce product with ID "' . $product->woocommerce_id . '" not found.', 404);
@@ -996,14 +946,10 @@ class Usctdp_Mgmt_Admin_Ajax
 
     private function find_woo_product_by_code($product_code)
     {
-        $product_query = new Usctdp_Mgmt_Product_Query([
-            'code' => $product_code,
-            'number' => 1
-        ]);
-        if (empty($product_query->items)) {
+        $product = Usctdp_Mgmt_Model::get_product($product_id);
+        if (!$product) {
             throw new Web_Request_Exception('Product with code "' . $product_code . '" not found.', 404);
         }
-        $product = $product_query->items[0];
         return wc_get_product($product->woocommerce_id);
     }
 
@@ -1047,11 +993,10 @@ class Usctdp_Mgmt_Admin_Ajax
             }
         }
 
-        $family_query = new Usctdp_Mgmt_Family_Query(['id' => $family_id, 'number' => 1]);
-        if (empty($family_query->items)) {
+        $family = Usctdp_Mgmt_Model::get_family($family_id);
+        if (!$family) {
             wp_send_json_error('Family with ID "' . $family_id . '" not found.', 404);
         }
-        $family = $family_query->items[0];
         $user_id = $family->user_id;
 
         if($payment_method === "pay_later") {
@@ -1074,11 +1019,10 @@ class Usctdp_Mgmt_Admin_Ajax
         try {
             $total = 0;
             foreach ($order_data as $order_item) {
-                $student_query = new Usctdp_Mgmt_Student_Query(['id' => $order_item["student_id"], 'number' => 1]);
-                if (empty($student_query->items)) {
+                $student = Usctdp_Mgmt_Model::get_student($student_id);
+                if (!$student) {
                     throw new Web_Request_Exception('Student with ID "' . $order_item["student_id"] . '" not found.', 404);
                 }
-                $student = $student_query->items[0];
                 if ($order_item["type"] == "equipment") {
                     $product_code = $order_item["product_code"];
                     $woo_product = $this->find_woo_product_by_code($product_code);
@@ -1091,17 +1035,15 @@ class Usctdp_Mgmt_Admin_Ajax
                     $item->save();
                 } else if ($order_item["type"] == "registration") {
                     $session_id = $order_item["session_id"];
-                    $session_query = new Usctdp_Mgmt_Session_Query(['id' => $session_id, 'number' => 1]);
-                    if (empty($session_query->items)) {
+                    $session = Usctdp_Mgmt_Model::get_session($session_id);
+                    if (!$session) {
                         throw new Web_Request_Exception("Session with ID $session_id not found.", 404);
                     }
-                    $session = $session_query->items[0];
                     $activity_id = $order_item["activity_id"];
-                    $activity_query = new Usctdp_Mgmt_Activity_Query(['id' => $activity_id, 'number' => 1]);
-                    if (empty($activity_query->items)) {
+                    $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+                    if (!$activity) {
                         throw new Web_Request_Exception("Activity with ID $activity_id not found.", 404);
                     }
-                    $activity = $activity_query->items[0];
                     $product_id = $activity->product_id;
                     $variation_ids = $this->find_variations_for_session($product_id, $session_id);
                     if (empty($variation_ids)) {
@@ -1224,24 +1166,16 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         $activity_id = $data['activity_id'];
-        $activity_query = new Usctdp_Mgmt_Activity_Query([
-            'id' => $activity_id,
-            'number' => 1
-        ]);
-        if (empty($activity_query->items)) {
+        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        if (!$activity) {
             throw new Web_Request_Exception('Activity with ID ' . $activity_id . ' not found.');
         }
-        $activity = $activity_query->items[0];
 
         $student_id = $data['student_id'];
-        $student_query = new Usctdp_Mgmt_Student_Query([
-            'id' => $student_id,
-            'number' => 1
-        ]);
-        if (empty($student_query->items)) {
+        $student = Usctdp_Mgmt_Model::get_student($student_id);
+        if (!$student) {
             throw new Web_Request_Exception('Student with ID ' . $student_id . ' not found.');
         }
-        $student = $student_query->items[0];
 
         $student_level = '';
         if (isset($data['student_level'])) {

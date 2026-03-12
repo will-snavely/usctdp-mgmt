@@ -51,11 +51,38 @@ class Usctdp_Mgmt_Select_Handlers
 
     public function select2_search($target, $search, $filters)
     {
-        if(!$this->is_valid_target(target)) {
+        if($this->is_valid_target($target)) {
+            $search_target = $this->select2_search_targets[$target];
+            return $search_target['callback']($search, $filters);
+        } else {
             return [];
         }
-        $search_target = $this->select2_search_targets[$target];
-        return $search_target['callback']($search, $filters);
+    }
+
+    function get_filters($target) {
+        if($this->is_valid_target($target)) {
+            return $this->select2_search_targets[$target]['filters'];
+        } else {
+            return [];
+        }
+    }
+
+    function select2_session_search($search, $filters)
+    {
+        $results = [];
+        $query = new Usctdp_Mgmt_Session_Query();
+        $active = $filters['active'] ?? null;
+        $category = $filters['category'] ?? null;
+        $query_results = $query->search_sessions($search, $active, $category, 10);
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $results[] = array(
+                    'id' => $result->id,
+                    'text' => $result->title
+                );
+            }
+        }
+        return $results;
     }
 
     private function select2_activity_search($search, $filters)
