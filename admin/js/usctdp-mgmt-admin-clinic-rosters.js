@@ -68,7 +68,7 @@
                 { data: 'student_age' },
                 { data: 'registration_student_level' },
                 {
-                    data: 'student_family_id',
+                    data: 'family_id',
                     render: function (data, type, row) {
                         if (type === 'display') {
                             var familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + data;

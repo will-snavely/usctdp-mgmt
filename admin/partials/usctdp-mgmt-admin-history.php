@@ -11,7 +11,22 @@
 
         <dialog id="payment-history-modal">
             <h2>Payment History</h2>
-            <div id="payment-history-table"></div>
+            <div id="payment-history-table-wrap">
+                <table id="payment-history-table" class="usctdp-datatable">
+                    <thead>
+                        <tr>
+                            <th>Date Posted</th>
+                            <th>Status</th>
+                            <th>Method</th>
+                            <th>Amount</th>
+                            <th>Credits Used</th>
+                            <th>Reference Number</th>
+                            <th>Order Link</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clinics-table-body"></tbody>
+                </table>
+            </div>
             <div class="actions-footer">
                 <button type="button" class="button" id="close-payment-history-modal">Cancel</button>
             </div>

@@ -6,8 +6,15 @@
         var newRegistrations = null;
         const paymentHistoryModal = document.querySelector('#payment-history-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
+
+        const paymentSettings = {
+            checkoutButton: false,
+            allowPayLater: false,
+            registrationMode: "update",
+            redirectOnComplete: false,
+        };
         const paymentTable =
-            new USCTDP_Admin.RegistrationPaymentTable("registration-payment-table");
+            new USCTDP_Admin.RegistrationPaymentTable("registration-payment-table", paymentSettings);
 
         function refreshFamilyBalance(family_id, student_id) {
             $.ajax({
@@ -199,6 +206,58 @@
             </div>`;
         }
 
+        var paymentHistoryTable = $('#payment-history-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            paging: true,
+            searching: false,
+            info: true,
+            deferLoading: 0,
+
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    var registrationId = $('#payment-history-modal').data("registrationId");
+                    d.action = usctdp_mgmt_admin.payment_datatable_action;
+                    d.security = usctdp_mgmt_admin.payment_datatable_nonce;
+                    d.registration_id = registrationId;
+                }
+            },
+            columns: [
+                {
+                    data: 'created_at',
+                },
+                {
+                    data: 'status',
+                },
+                {
+                    data: 'method',
+                },
+                {
+                    data: 'amount',
+                },
+                {
+                    data: 'house_credit_used',
+                },
+                {
+                    data: 'reference_number',
+                },
+                {
+                    data: 'order_url',
+                    render: function (data, type, row, meta) {
+                        if (type === 'display') {
+                            return `<a href="${data}">Link</a>`
+                        }
+                        return '';
+                    }
+                },
+            ],
+        });
+
+
+
         var historyTable = $('#history-table').DataTable({
             processing: true,
             serverSide: true,
@@ -336,6 +395,8 @@
         }
 
         function openPaymentHistoryModal(registrationId) {
+            $('#payment-history-modal').data("registrationId", registrationId);
+            paymentHistoryTable.ajax.reload();
             paymentHistoryModal.showModal();
         }
 

@@ -250,6 +250,7 @@
 
             $(`#${this.getId('submit-payment-form')}`).on('submit', (e) => {
                 e.preventDefault();
+                const { redirectOnComplete = true } = this.settings;
                 const form = $(e.currentTarget);
                 const $submitBtn = $('#' + this.getId('submit-payment-btn'));
                 $submitBtn.prop('disabled', true).val('Processing...');
@@ -257,14 +258,15 @@
                 this.submitPayment(orderData)
                     .then((response) => {
                         const payment_method = $('#' + this.getId('payment_method')).val();
-                        const regIds = Object.values(response.registrations);
-                        $('#' + this.getId('submit_user_id')).val(response.order.user_id);
-                        $('#' + this.getId('submit_family_id')).val(response.order.family_id);
-                        $('#' + this.getId('submit_payment_method')).val(payment_method);
-                        $('#' + this.getId('submit_payment_url')).val(response.order.payment_url);
-                        $('#' + this.getId('submit_order_url')).val(response.order.order_url);
-                        $('#' + this.getId('submit_registrations')).val(JSON.stringify(regIds));
-                        form[0].submit();
+                        if(payment_method == 'card' || redirectOnComplete) {
+                            const regIds = Object.values(response.registrations);
+                            $('#' + this.getId('submit_user_id')).val(response.order.user_id);
+                            $('#' + this.getId('submit_family_id')).val(response.order.family_id);
+                            $('#' + this.getId('submit_payment_method')).val(payment_method);
+                            $('#' + this.getId('submit_payment_url')).val(response.order.payment_url);
+                            $('#' + this.getId('submit_registrations')).val(JSON.stringify(regIds));
+                            form[0].submit();
+                        }
                     })
                     .catch((error) => {
                         const submitBtnText = this.settings.submitButtonText ?? "Submit Payment";
@@ -380,7 +382,23 @@
             }
         }
 
+        async saveRegistrationFields(id, fields) {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.save_registration_fields_action,
+                    security: usctdp_mgmt_admin.save_registration_fields_nonce,
+                    registration_id: id,
+                    ...fields
+                }
+            });     
+            return response;
+        } 
+
         async submitPayment(orderData) {
+            const payment_method = $('#' + this.getId('payment_method')).val();
             const { registrationMode = "update" } = this.settings;
             try {
                 var ids = [];
@@ -394,9 +412,14 @@
                             console.log("Line item id " + line_item_id + " not found in created registrations.");
                         }
                     }
+                } else {
+                    for (var i = 0; i < orderData.length; i++) {
+                    }
+ 
                 }
 
                 const order = await this.createWooCommerceOrder(orderData);
+
                 return {
                     order: order,
                     registrations: ids

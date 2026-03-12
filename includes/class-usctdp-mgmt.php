@@ -1,32 +1,5 @@
 <?php
 
-/**
- * The file that defines the core plugin class
- *
- * A class definition that includes attributes and functions used across both the
- * public-facing side of the site and the admin area.
- *
- * @link       https://www.wsnavely.com
- * @since      1.0.0
- *
- * @package    Usctdp_Mgmt
- * @subpackage Usctdp_Mgmt/includes
- */
-
-/**
- * The core plugin class.
- *
- * This is used to define internationalization, admin-specific hooks, and
- * public-facing site hooks.
- *
- * Also maintains the unique identifier of this plugin as well as the current
- * version of the plugin.
- *
- * @since      1.0.0
- * @package    Usctdp_Mgmt
- * @subpackage Usctdp_Mgmt/includes
- * @author     Will Snavely <will.snavely@gmail.com>
- */
 class Usctdp_Mgmt
 {
     /**
@@ -117,6 +90,15 @@ class Usctdp_Mgmt
             "admin/class-usctdp-mgmt-admin.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "admin/class-usctdp-mgmt-admin-ajax.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "admin/class-usctdp-mgmt-admin-google.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "admin/class-usctdp-mgmt-select-handlers.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "public/class-usctdp-mgmt-public.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -198,6 +180,7 @@ class Usctdp_Mgmt
             'display_before_single_product',
         );
     }
+
     private function define_woocommerce_hooks()
     {
         $commerce_handler = new Usctdp_Mgmt_Woocommerce();
@@ -263,6 +246,7 @@ class Usctdp_Mgmt
             $this->get_plugin_name(),
             $this->get_version(),
         );
+
         $this->loader->add_action(
             "admin_enqueue_scripts",
             $plugin_admin,
@@ -292,24 +276,20 @@ class Usctdp_Mgmt
             );
         }
 
-        foreach (Usctdp_Mgmt_Admin::$ajax_handlers as $handler) {
+        $admin_ajax = new Usctdp_Mgmt_Admin_Ajax();
+        foreach (Usctdp_Mgmt_Admin_Ajax::$ajax_handlers as $action => $callback) {
             $this->loader->add_action(
-                'wp_ajax_' . $handler["action"],
-                $plugin_admin,
-                $handler["callback"]
+                'wp_ajax_' . $action,
+                $admin_ajax,
+                $callback
             );
         }
 
+        $google_admin = new Usctdp_Mgmt_Admin_Google();
         $this->loader->add_action(
             'admin_init',
-            $plugin_admin,
-            'usctdp_google_oauth_handler'
-        );
-
-        $this->loader->add_action(
-            'admin_init',
-            $plugin_admin,
-            'settings_init'
+            $google_admin,
+            'google_oauth_handler'
         );
     }
 
