@@ -1,4 +1,4 @@
-<rphp
+<?php
 
 use BerlinDB\Database\Query;
 
