@@ -1,31 +1,6 @@
 <?php
 
-class CheckoutException extends Exception
-{
-    private string $slug;
-
-    public function __construct($message, $slug, $code = 0, ?Throwable $previous = null)
-    {
-        $this->slug = $slug;
-        parent::__construct($message, $code, $previous);
-    }
-
-    public function getSlug(): string
-    {
-        return $this->slug;
-    }
-}
-
-/**
- * The commerce-specific functionality of the plugin.
- *
- * @link       https://www.wsnavely.com
- * @since      1.0.0
- *
- * @package    Usctdp_Mgmt
- * @subpackage Usctdp_Mgmt/includes
- */
-class Usctdp_Mgmt_Woocommerce
+class Usctdp_Mgmt_Woocommerce_Hooks
 {
     private $hold_minutes = 10;
     public function __construct()
@@ -263,7 +238,6 @@ class Usctdp_Mgmt_Woocommerce
     public function after_checkout_validation($data, $errors)
     {
         global $wpdb;
-        error_log("after_checkout_validation");
 
         $registration_table = $wpdb->prefix . 'usctdp_registration';
         $activity_table = $wpdb->prefix . 'usctdp_activity';
@@ -314,7 +288,7 @@ class Usctdp_Mgmt_Woocommerce
                         $name = $student->title;
                         $class = $activity->title;
                         $msg = "$name is already enrolled in '$class'.";
-                        throw new CheckoutException($msg, 'already_enrolled');
+                        throw new Usctdp_Checkout_Exception($msg, 'already_enrolled');
                     } else {
                         $already_reserved = true;
                     }
@@ -335,7 +309,7 @@ class Usctdp_Mgmt_Woocommerce
                 $current_count = $wpdb->get_var($count_query);
                 if ($current_count >= $max_capacity) {
                     $msg = $activity->title . " is currently full.";
-                    throw new CheckoutException($msg, 'out_of_stock');
+                    throw new Usctdp_Checkout_Exception($msg, 'out_of_stock');
                 }
 
                 $current_time = current_time('mysql');
@@ -358,21 +332,20 @@ class Usctdp_Mgmt_Woocommerce
                     $msg = "An error occurred while creating the reservation ";
                     $msg .= " for " . $activity->title . ".";
                     $msg .= " Try again or contact the office.";
-                    throw new CheckoutException($msg, 'reservation_failed');
+                    throw new Usctdp_Checkout_Exception($msg, 'reservation_failed');
                 }
             }
             $wpdb->query('COMMIT');
             $txn_commited = true;
-        } catch (CheckoutException $ce) {
+        } catch (Usctdp_Checkout_Exception $ce) {
             $errors->add($ce->getSlug(), $ce->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_error(
+            Usctdp_Mgmt::logger()->log_error(
                 'USCTDP: Error validating and reserving capacity: ' . $ce->getMessage()
             );
         } catch (Throwable $e) {
             $msg = 'A system error occurred while checking out. Please contact the office.';
             $errors->add('system-error', $msg);
-            $trace = $e->getTraceAsString();
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
+            Usctdp_Mgmt::logger()->log_exception('Checkout error', $e);
         } finally {
             if ($txn_started && !$txn_commited) {
                 $wpdb->query('ROLLBACK');

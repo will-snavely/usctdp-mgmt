@@ -4,8 +4,7 @@ class Select2_Search_Exception extends Exception
 {
 }
 
-
-class Usctdp_Mgmt_Select_Handlers 
+class Usctdp_Mgmt_Select2 
 {
     private $select2_search_targets;
 
@@ -49,7 +48,7 @@ class Usctdp_Mgmt_Select_Handlers
         return array_key_exists($target, $this->select2_search_targets);
     }
 
-    public function select2_search($target, $search, $filters)
+    public function search($target, $search, $filters)
     {
         if($this->is_valid_target($target)) {
             $search_target = $this->select2_search_targets[$target];
@@ -59,7 +58,7 @@ class Usctdp_Mgmt_Select_Handlers
         }
     }
 
-    function get_filters($target) {
+    public function get_filters($target) {
         if($this->is_valid_target($target)) {
             return $this->select2_search_targets[$target]['filters'];
         } else {
@@ -67,7 +66,7 @@ class Usctdp_Mgmt_Select_Handlers
         }
     }
 
-    function select2_session_search($search, $filters)
+    public function select2_session_search($search, $filters)
     {
         $results = [];
         $query = new Usctdp_Mgmt_Session_Query();

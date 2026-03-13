@@ -30,6 +30,8 @@ class Usctdp_Mgmt
      */
     protected $version;
 
+    private static $service_instances = [];
+
     /**
      * Define the core functionality of the plugin.
      *
@@ -47,13 +49,31 @@ class Usctdp_Mgmt
             $this->version = "1.0.0";
         }
         $this->plugin_name = "usctdp-mgmt";
-
         $this->load_dependencies();
         $this->set_locale();
         $this->define_admin_hooks();
         $this->define_public_hooks();
         $this->define_model_hooks();
         $this->define_woocommerce_hooks();
+    }
+
+    public static function woocommerce() {
+        return self::get('Usctdp_Mgmt_Woocommerce');
+    }
+
+    public static function select2() {
+        return self::get('Usctdp_Mgmt_Select2');
+    }
+
+    public static function logger() {
+        return self::get('Usctdp_Mgmt_Logger');
+    }  
+
+    private static function get($class) {
+        if (!isset(self::$service_instances[$class])) {
+            self::$service_instances[$class] = new $class();
+        }
+        return self::$service_instances[$class];
     }
 
     /**
@@ -81,10 +101,25 @@ class Usctdp_Mgmt
             "includes/class-usctdp-mgmt-model.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/class-usctdp-mgmt-woocommerce.php";
+            "includes/woocommerce/class-usctdp-mgmt-woocommerce-hooks.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/woocommerce/class-usctdp-mgmt-woocommerce.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/woocommerce/usctdp-mgmt-woocommerce-errors.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/class-usctdp-mgmt-i18n.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/select2/class-usctdp-mgmt-select2.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/class-usctdp-mgmt-logger.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/docgen/class-usctdp-mgmt-docgen.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "admin/class-usctdp-mgmt-admin.php";
@@ -96,16 +131,7 @@ class Usctdp_Mgmt
             "admin/class-usctdp-mgmt-admin-google.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
-            "admin/class-usctdp-mgmt-select-handlers.php";
-
-        require_once plugin_dir_path(dirname(__FILE__)) .
             "public/class-usctdp-mgmt-public.php";
-
-        require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/class-usctdp-mgmt-logger.php";
-
-        require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/docgen/class-usctdp-mgmt-docgen.php";
 
         $this->loader = new Usctdp_Mgmt_Loader();
     }
@@ -183,7 +209,7 @@ class Usctdp_Mgmt
 
     private function define_woocommerce_hooks()
     {
-        $commerce_handler = new Usctdp_Mgmt_Woocommerce();
+        $commerce_handler = new Usctdp_Mgmt_Woocommerce_Hooks();
         $this->define_product_page_display_hooks($commerce_handler);
 
         $this->loader->add_filter(

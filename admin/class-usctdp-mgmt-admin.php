@@ -388,14 +388,14 @@ class Usctdp_Mgmt_Admin
                     WC()->session->init();
                 }
                 if (function_exists('switch_to_user')) {
-                    Usctdp_Mgmt_Logger::getLogger()->log_info("Switching to user: " . $user_id);
+                    Usctdp_Mgmt::logger()->log_info("Switching to user: " . $user_id);
                     if (ob_get_length())
                         ob_clean();
                     switch_to_user($user_id);
                 } else {
                     throw new Web_Request_Exception('User switching not enabled.');
                 }
-                Usctdp_Mgmt_Logger::getLogger()->log_info("Redirecting to payment URL: " . $payment_url);
+                Usctdp_Mgmt::logger()->log_info("Redirecting to payment URL: " . $payment_url);
                 wp_redirect($payment_url);
                 exit;
             } else {
@@ -414,8 +414,7 @@ class Usctdp_Mgmt_Admin
                 exit;
             }
         } catch (Throwable $e) {
-            $trace = $e->getTraceAsString();
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
+            Usctdp_Mgmt::logger()->log_exception("payment_checkout_handler", $e);
 
             $user_message = $e->getMessage();
             if (!($e instanceof Web_Request_Exception)) {

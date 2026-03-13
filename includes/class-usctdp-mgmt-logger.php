@@ -1,22 +1,38 @@
 <?php
+
+enum Usctdp_Log_Level: int
+{
+    case Debug = 1;
+    case Info = 2;
+    case Warning = 3;
+    case Error = 4;
+    case Critical = 5;
+}
+
 class Usctdp_Mgmt_Logger
 {
-    private static $instance = null;
+    private $loggers;
 
-    private function __construct()
+    function __construct()
     {
+        $this->loggers = [
+            Usctdp_Log_Level::Debug->value => $this->log_debug(...),
+            Usctdp_Log_Level::Info->value => $this->log_info(...),
+            Usctdp_Log_Level::Warning->value => $this->log_warning(...),
+            Usctdp_Log_Level::Error->value => $this->log_error(...),
+            Usctdp_Log_Level::Critical->value => $this->log_critical(...),
+        ];
     }
 
-    public static function getLogger()
-    {
-        if (self::$instance === null) {
-            self::$instance = new self();
-        }
-        return self::$instance;
+    private function get_logger($level) {
+        return $this->loggers[$level->value] ?? $this->log_info(...);
     }
 
-    private function __clone()
+    public function log_exception($message, $e, $level=Usctdp_Log_Level::Error)
     {
+        $logger = $this->get_logger($level);
+        $logger($message . ": " . $e->getMessage());
+        $logger('Trace: ' . $e->getTraceAsString());
     }
 
     public function log_critical($message)

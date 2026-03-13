@@ -26,12 +26,6 @@ class Usctdp_Mgmt_Admin_Ajax
         'toggle_session_active' => 'ajax_toggle_session_active',
     ];
 
-    private $select_handlers;
-
-    public function __construct() {
-        $this->select_handlers = new Usctdp_Mgmt_Select_Handlers();
-    }
-
     private function is_student_enrolled($student_id, $activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
@@ -127,7 +121,6 @@ class Usctdp_Mgmt_Admin_Ajax
         $activity_id = isset($_GET['activity_id']) ? sanitize_text_field($_GET['activity_id']) : '';
         $student_id = isset($_GET['student_id']) ? sanitize_text_field($_GET['student_id']) : '';
 
-
         $student = Usctdp_Mgmt_Model::get_student($student_id);
         if (!$student) {
             wp_send_json_error('Student with ID "' . $student_id . '" not found.', 404);
@@ -215,8 +208,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'doc_url' => $drive_file->webViewLink
             ]);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error generating roster: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
             wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
         }
     }
@@ -237,9 +229,7 @@ class Usctdp_Mgmt_Admin_Ajax
             }
             wp_send_json_success($family);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error fetching family fields: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Request: ' . print_r($_POST, true));
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_family_fields', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
@@ -271,9 +261,7 @@ class Usctdp_Mgmt_Admin_Ajax
             );
             wp_send_json_success($result);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error updating registration: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Request: ' . print_r($_POST, true));
+            Usctdp_Mgmt::logger()->log_exception('ajax_save_registration_fields', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
@@ -307,9 +295,7 @@ class Usctdp_Mgmt_Admin_Ajax
             );
             wp_send_json_success($result);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error updating family: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Request: ' . print_r($_POST, true));
+            Usctdp_Mgmt::logger()->log_exception('ajax_save_family_fields', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
@@ -351,8 +337,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'balance' => $results->total_debits - $results->total_credits
             ]);
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error getting family balance: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_family_balance', $e);
             wp_send_json_error('An unexpected server error occurred during family balance retrieval.', 500);
         }
     }
@@ -416,16 +401,14 @@ class Usctdp_Mgmt_Admin_Ajax
                 'family_id' => $family_id
             ], 200);
         } catch (Web_Request_Exception $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating family: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            Usctdp_Mgmt::logger()->log_exception('ajax_create_family', $e);
             if ($family_id) {
                 $family_query = new Usctdp_Mgmt_Family_Query([]);
                 $family_query->delete_item($family_id);
             }
             wp_send_json_error($e->getMessage(), $e->getCode());
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating family: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            Usctdp_Mgmt::logger()->log_exception('ajax_create_family', $e);
             if ($family_id) {
                 $family_query = new Usctdp_Mgmt_Family_Query([]);
                 $family_query->delete_item($family_id);
@@ -472,8 +455,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 ], 200);
             }
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating student: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
+            Usctdp_Mgmt::logger()->log_exception('ajax_create_student', $e);
             wp_send_json_error('An unexpected server error occurred during student creation.', 500);
         }
     }
@@ -481,8 +463,8 @@ class Usctdp_Mgmt_Admin_Ajax
     function ajax_select2_search()
     {
         $this->check_nonce('select2_search');
-        $results = [];
 
+        $results = [];
         try {
             $search = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
             $target = isset($_GET['target']) ? sanitize_text_field($_GET['target']) : '';
@@ -491,18 +473,17 @@ class Usctdp_Mgmt_Admin_Ajax
                 wp_send_json_error('No search target specified.', 400);
             }
         
-            if(!$this->select_handlers->is_valid_target($target)) {
+            if(!Usctdp_Mgmt::select2()->is_valid_target($target)) {
                 wp_send_json_error("Invalid target type: $target", 400);
             }
 
             $filters = [];
-            foreach ($this->select_handlers->get_filters($target) as $key => $parser) {
+            foreach (Usctdp_Mgmt::select2()->get_filters($target) as $key => $parser) {
                 $filters[$key] = isset($_GET[$key]) ? $parser($_GET[$key]) : null;
             }
-            $results = $this->select_handlers->select2_search($target, $search, $filters);
+            $results = Usctdp_Mgmt::select2()->search($target, $search, $filters);
         } catch (Throwable $e) {
-            $trace = $e->getTraceAsString();
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
+            Usctdp_Mgmt::logger()->log_exception('ajax_select2_search', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('items' => $results));
@@ -517,7 +498,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $query = new Usctdp_Mgmt_Session_Query();
             $query_results = $query->get_active_session_rosters();
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            Usctdp_Mgmt::logger()->log_exception('ajax_session_rosters', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json(array('data' => $query_results));
@@ -569,7 +550,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 wp_send_json_error('Failed to update session active status due to an unexpected server error.', 500);
             }
         } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage());
+            Usctdp_Mgmt::logger()->log_exception('ajax_toggle_session_active', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json_success([
@@ -881,78 +862,6 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
-    function find_variations($product, $match_criteria)
-    {
-        if (!$product || !$product->is_type('variable')) {
-            return null;
-        }
-
-        $results = [];
-        foreach ($product->get_available_variations() as $variation_data) {
-            $variation_attributes = $variation_data['attributes'];
-            $is_match = true;
-            foreach ($match_criteria as $key => $value) {
-                $search_key = 'attribute_' . sanitize_title($key);
-                if (isset($variation_attributes[$search_key])) {
-                    if ($variation_attributes[$search_key] !== '' && $variation_attributes[$search_key] !== $value) {
-                        $is_match = false;
-                        break;
-                    }
-                } else {
-                    $is_match = false;
-                    break;
-                }
-            }
-
-            if ($is_match) {
-                $results[] = $variation_data['variation_id'];
-            }
-        }
-
-        return $results;
-    }
-
-    private function find_variations_for_session($product_id, $session_id)
-    {
-        $product = Usctdp_Mgmt_Model::get_product($product_id);
-        if (!$product) {
-            throw new Web_Request_Exception('Product with ID "' . $product_id . '" not found.', 404);
-        }
-
-        $woo_product = wc_get_product($product->woocommerce_id);
-        if (!$woo_product) {
-            throw new Web_Request_Exception('WooCommerce product with ID "' . $product->woocommerce_id . '" not found.', 404);
-        }
-
-        $session_name = null;
-        $session_meta = $woo_product->get_meta('_session_post_ids');
-        foreach ($session_meta as $name => $session_id) {
-            if ($session_id == $session_id) {
-                $session_name = $name;
-                break;
-            }
-        }
-        if ($product->type == Usctdp_Product_Type::Clinic) {
-            return $this->find_variations($woo_product, [
-                'session' => $session_name,
-                'days-per-week' => "One",
-            ]);
-        } else {
-            return $this->find_variations($woo_product, [
-                'session' => $session_name,
-            ]);
-        }
-    }
-
-    private function find_woo_product_by_code($product_code)
-    {
-        $product = Usctdp_Mgmt_Model::get_product($product_id);
-        if (!$product) {
-            throw new Web_Request_Exception('Product with code "' . $product_code . '" not found.', 404);
-        }
-        return wc_get_product($product->woocommerce_id);
-    }
-
     public function ajax_create_woocommerce_order()
     {
         $this->check_nonce('create_woocommerce_order');
@@ -977,177 +886,8 @@ class Usctdp_Mgmt_Admin_Ajax
                     wp_send_json_error('All items must belong to the same family.', 400);
                 }
             }
-
-            if ($order_item["type"] == "registration") {
-                $registration_id = $order_item["registration_id"];
-                $line_item_id = $order_item["line_item_id"];
-                if (empty($registration_id)) {
-                    $error_message = "Registration ID missing for line item $line_item_id.";
-                    throw new Web_Request_Exception($error_message, 400);
-                }
-                $registration_query = new Usctdp_Mgmt_Registration_Query(['id' => $registration_id, 'number' => 1]);
-                if (empty($registration_query->items)) {
-                    $error_message = "Registration with ID \"$registration_id\" not found.";
-                    throw new Web_Request_Exception($error_message, 404);
-                }
-            }
         }
 
-        $family = Usctdp_Mgmt_Model::get_family($family_id);
-        if (!$family) {
-            wp_send_json_error('Family with ID "' . $family_id . '" not found.', 404);
-        }
-        $user_id = $family->user_id;
-
-        if($payment_method === "pay_later") {
-            wp_send_json_success([
-                "order_id" => "",
-                "user_id" => $user_id,
-                "family_id" => $family_id,
-                "payment_url" => "",
-            ]);
-        }
-
-        $order = null;
-        $order = wc_create_order(['customer_id' => $user_id]);
-        if (is_wp_error($order)) {
-            wp_send_json_error('Failed to create woocommerce order.', 500);
-        }
-        $is_order_paid = $payment_method === 'cash' || $payment_method === 'check';
-        $created_payments = [];
-
-        try {
-            $total = 0;
-            foreach ($order_data as $order_item) {
-                $student = Usctdp_Mgmt_Model::get_student($student_id);
-                if (!$student) {
-                    throw new Web_Request_Exception('Student with ID "' . $order_item["student_id"] . '" not found.', 404);
-                }
-                if ($order_item["type"] == "equipment") {
-                    $product_code = $order_item["product_code"];
-                    $woo_product = $this->find_woo_product_by_code($product_code);
-                    $item_id = $order->add_product($woo_product, 1);
-                    $custom_price = floatval($order_item["credit"]);
-                    $total += $custom_price;
-                    $item = $order->get_item($item_id);
-                    $item->add_meta_data('Student', $student->title);
-                    $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
-                    $item->save();
-                } else if ($order_item["type"] == "registration") {
-                    $session_id = $order_item["session_id"];
-                    $session = Usctdp_Mgmt_Model::get_session($session_id);
-                    if (!$session) {
-                        throw new Web_Request_Exception("Session with ID $session_id not found.", 404);
-                    }
-                    $activity_id = $order_item["activity_id"];
-                    $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
-                    if (!$activity) {
-                        throw new Web_Request_Exception("Activity with ID $activity_id not found.", 404);
-                    }
-                    $product_id = $activity->product_id;
-                    $variation_ids = $this->find_variations_for_session($product_id, $session_id);
-                    if (empty($variation_ids)) {
-                        $msg = "No variations found for product $product_id and session $session_id";
-                        throw new Web_Request_Exception($msg, 404);
-                    }
-                    $variation_id = $variation_ids[0];
-                    $product = wc_get_product($variation_id);
-                    $item_id = $order->add_product($product, 1);
-                    $custom_price = floatval($order_item["credit"]);
-                    $total += $custom_price;
-
-                    $item = $order->get_item($item_id);
-                    $item->add_meta_data('Student', $student->title);
-                    $item->add_meta_data('Session', $session->title);
-                    $item->add_meta_data('Activity', $activity->title);
-                    $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
-                    $item->save();
-
-                    $registration_id = $order_item["registration_id"];
-                    $payment_status = $is_order_paid ? 'paid' : 'pending';
-                    $current_time = current_time('mysql');
-
-                    $args = [
-                        'registration_id' => $registration_id,
-                        'order_id' => $order->get_id(),
-                        'amount' => number_format($custom_price, 2),
-                        'method' => $payment_method,
-                        'status' => $payment_status,
-                        'created_by' => get_current_user_id(),
-                        'created_at' => $current_time,
-                    ];
-                    if ($payment_method === 'check') {
-                        $args['reference_number'] = $check_number;
-                    }
-                    if ($is_order_paid) {
-                        $args['completed_at'] = $current_time;
-                    }
-                    $payment_query = new Usctdp_Mgmt_Payment_Query([]);
-                    $result = $payment_query->add_item($args);
-                    if ($result) {
-                        $created_payments[] = $result;
-                    } else {
-                        $msg = "Failed to create payment for registration $registration_id";
-                        throw new Web_Request_Exception($msg, 404);
-                    }
-                }
-            }
-
-            $order->set_total($total);
-            if ($payment_method === 'cash') {
-                $order->set_payment_method('cod');
-                $order->set_payment_method_title('Cash');
-                $order->add_order_note("Admin recorded payment via Cash");
-                $order->payment_complete();
-                $order->set_status('completed');
-            } else if ($payment_method === 'check') {
-                $order->set_payment_method('cheque');
-                $order->set_payment_method_title('Check');
-                $order->update_meta_data('_check_number', $check_number);
-                $order->add_order_note("Admin recorded payment via Check #" . $check_number);
-                $order->payment_complete();
-                $order->set_status('completed');
-            } else {
-                $order->update_status('pending', 'Awaiting payment via ' . $payment_method);
-            }
-            $order->save();
-
-            wp_send_json_success([
-                "order_id" => $order->get_id(),
-                "user_id" => $user_id,
-                "family_id" => $family_id,
-                "payment_url" => $order->get_checkout_payment_url(),
-                "order_url" => get_edit_post_link($order->get_id())
-            ]);
-        } catch (Throwable $e) {
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Error creating order: ' . $e->getMessage());
-            Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-            if ($order instanceof WC_Order) {
-                try {
-                    $order->delete(true);
-                } catch (Throwable $e) {
-                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Error cleaning up order: ' . $e->getMessage());
-                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-                }
-            }
-            foreach ($created_payments as $payment) {
-                try {
-                    $payment_query = new Usctdp_Mgmt_Payment_Query([]);
-                    if (!$payment_query->delete_item($payment)) {
-                        Usctdp_Mgmt_Logger::getLogger()->log_critical('Error cleaning up payment: ' . $payment->id);
-                    }
-                } catch (Throwable $e) {
-                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Error cleaning up payment: ' . $e->getMessage());
-                    Usctdp_Mgmt_Logger::getLogger()->log_critical('Trace: ' . $e->getTraceAsString());
-                }
-            }
-
-            if ($e instanceof Web_Request_Exception) {
-                wp_send_json_error($e->getMessage(), $e->getCode());
-            } else {
-                wp_send_json_error('An unexpected server error occurred during order creation.', 500);
-            }
-        }
     }
 
     private function parse_registration_data($data)
@@ -1286,12 +1026,10 @@ class Usctdp_Mgmt_Admin_Ajax
             $wpdb->query('COMMIT');
             $transaction_completed = true;
         } catch (Web_Request_Exception $e) {
-            $trace = $e->getTraceAsString();
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
+            Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
             $response_message = $e->getMessage();
         } catch (Throwable $e) {
-            $trace = $e->getTraceAsString();
-            Usctdp_Mgmt_Logger::getLogger()->log_error($e->getMessage() . "\n" . $trace);
+            Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
             $response_message = 'A system error occurred. Please try again.';
         } finally {
             if (!$transaction_completed) {

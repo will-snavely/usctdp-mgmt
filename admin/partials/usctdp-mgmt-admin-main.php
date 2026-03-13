@@ -30,7 +30,6 @@ if ($balance_results) {
             <div class="grid-square-header">
                 <span class="grid-header">Families</span>
             </div>
-
             <div id="usctdp-families-manager" class="grid-square-content">
                 <select id="families-select2"></select>
                 <button type="button" id="manage-family-btn" class="button" disabled>Manage Family</button>

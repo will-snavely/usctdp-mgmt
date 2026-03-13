@@ -98,7 +98,6 @@ class Usctdp_Mgmt_Activity_Query extends Query
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
-        error_log($query);
         $window = $wpdb->get_results($query);
 
         $count_sql = "SELECT COUNT(*) as count

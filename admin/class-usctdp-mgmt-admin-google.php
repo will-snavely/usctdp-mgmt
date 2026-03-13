@@ -12,7 +12,7 @@ class Usctdp_Mgmt_Admin_Google
         }
 
         if (isset($_GET['usctdp_google_auth']) && $_GET['usctdp_google_auth'] === '1') {
-            Usctdp_Mgmt_Logger::getLogger()->log_info('Google OAuth Initiated');
+            Usctdp_Mgmt::logger()->log_info('Google OAuth Initiated');
             $scopes = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/documents'];
             $client = new Client();
             $client->setClientId(env('GOOGLE_DOCS_CLIENT_ID'));
@@ -26,7 +26,7 @@ class Usctdp_Mgmt_Admin_Google
             wp_redirect(filter_var($authUrl, FILTER_SANITIZE_URL));
             exit;
         } else if (isset($_GET['code'])) {
-            Usctdp_Mgmt_Logger::getLogger()->log_info('Google OAuth Code Received');
+            Usctdp_Mgmt::logger()->log_info('Google OAuth Code Received');
             $unique_token = bin2hex(random_bytes(8));
             $transient_key = Usctdp_Mgmt_Admin::$transient_prefix . '_' . $unique_token;
             $transient_data = null;
@@ -49,12 +49,12 @@ class Usctdp_Mgmt_Admin_Google
             try {
                 $token = $client->fetchAccessTokenWithAuthCode($code);
                 if (isset($token['refresh_token'])) {
-                    Usctdp_Mgmt_Logger::getLogger()->log_info('Google OAuth Refresh Token Received');
+                    Usctdp_Mgmt::logger()->log_info('Google OAuth Refresh Token Received');
                     update_option('usctdp_google_refresh_token', $token['refresh_token']);
                     update_option('usctdp_google_refresh_token_timestamp', date('Y-m-d H:i:s'));
                     $message = 'Authorization successful! Refresh Token stored.';
                 } else {
-                    Usctdp_Mgmt_Logger::getLogger()->log_info(' Google OAuth Refresh Token Not Received');
+                    Usctdp_Mgmt::logger()->log_info(' Google OAuth Refresh Token Not Received');
                     $message = 'Authorization successful, but Refresh Token was not returned.';
                     $message .= ' (user may have authorized previously).';
                 }
@@ -65,8 +65,8 @@ class Usctdp_Mgmt_Admin_Google
                 set_transient($transient_key, $transient_data, 10);
                 wp_redirect(add_query_arg(['usctdp_auth_status' => 'success', 'code' => false], $redirect_url));
                 exit;
-            } catch (\Exception $e) {
-                Usctdp_Mgmt_Logger::getLogger()->log_error("Google OAuth Error: " . $e->getMessage());
+            } catch (Throwable $e) {
+                Usctdp_Mgmt::logger()->log_exception("google_oauth_handler", $e);
                 $transient_data = [
                     'type' => 'error',
                     'message' => 'An unknown error occurred.'
