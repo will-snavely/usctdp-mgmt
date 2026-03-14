@@ -1,0 +1,132 @@
+<?php
+
+class Usctdp_Mgmt_Model
+{
+    public $model_types;
+    public static $token_suffix = "_xxx";
+
+    public function __construct()
+    {
+        $this->load_model_dependencies();
+    }
+
+    public static function append_token_suffix($str, $threshold = 2)
+    {
+        $clean_string = preg_replace('/[^a-z0-9\s]/i', '', $str);
+        $parts = preg_split('/\s+/', $clean_string, -1, PREG_SPLIT_NO_EMPTY);
+        $result = [];
+        foreach ($parts as $part) {
+            if (strlen($part) <= $threshold && ctype_alnum($part)) {
+                $result[] = $part . self::$token_suffix;
+            } else {
+                $result[] = $part;
+            }
+        }
+        return implode(" ", $result);
+    }
+
+    public static function strip_token_suffix($str)
+    {
+        $result = str_replace(self::$token_suffix, "", $str);
+        return $result;
+    }
+
+    public function load_model_dependencies()
+    {
+        $base_prefix = plugin_dir_path(dirname(__FILE__)) . "model/";
+        require_once $base_prefix . "usctdp-mgmt-model-enums.php";
+
+        $berlindb_entities = [
+            "activity",
+            "clinic",
+            "family",
+            "registration",
+            "roster-link",
+            "payment",
+            "pricing",
+            "product",
+            "session",
+            "student",
+            "tournament",
+            "waitlist",
+        ];
+        $db_prefix = $base_prefix . "db/";
+        $kinds = [
+            ["schema", "schemas"],
+            ["table", "tables"],
+            ["row", "rows"],
+            ["query", "queries"],
+        ];
+        foreach ($berlindb_entities as $entity) {
+            foreach ($kinds as $kind) {
+                $file = "class-usctdp-mgmt-{$entity}-{$kind[0]}.php";
+                require_once $db_prefix . $kind[1] . "/" . $file;
+            }
+        }
+    }
+
+    public function get_db_tables()
+    {
+        return [
+            new Usctdp_Mgmt_Activity_Table(),
+            new Usctdp_Mgmt_Clinic_Table(),
+            new Usctdp_Mgmt_Family_Table(),
+            new Usctdp_Mgmt_Registration_Table(),
+            new Usctdp_Mgmt_Roster_Link_Table(),
+            new Usctdp_Mgmt_Payment_Table(),
+            new Usctdp_Mgmt_Pricing_Table(),
+            new Usctdp_Mgmt_Product_Table(),
+            new Usctdp_Mgmt_Session_Table(),
+            new Usctdp_Mgmt_Student_Table(),
+            new Usctdp_Mgmt_Tournament_Table(),
+        ];
+    }
+
+    public function register_berlindb_entities()
+    {
+        $tables = $this->get_db_tables();
+        foreach ($tables as $table) {
+            if (!$table->exists()) {
+                $table->install();
+            }
+        }
+    }
+
+    private static function get_one($obj, $id) {
+        $query = new $obj(['id' => $id, 'number' => 1]);
+        if (empty($query->items)) {
+            return null;
+        }
+        return $query->items[0];
+    }
+
+    public static function get_activity($id) {
+        return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Activity_Query', $id);
+    }
+
+    public static function get_expanded_activity($id) {
+        $query = new Usctdp_Mgmt_Activity_Query();
+        $result = $query->get_activity_data(['id' => $id]);
+        error_log(print_r($result, true));
+        if (!$result || !isset($result['data']) || empty($result['data'])) {
+            return null;
+        }
+        return $result['data'][0];
+    }
+
+    public static function get_student($id) {
+        return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Student_Query', $id);
+    }
+
+    public static function get_family($id) {
+        return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Family_Query', $id);
+    }
+
+    public static function get_product($id) {
+        return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Product_Query', $id);
+    }
+
+    public static function get_session($id) {
+        return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Session_Query', $id);
+    }
+}

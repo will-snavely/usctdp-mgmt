@@ -33,7 +33,7 @@ class Usctdp_Mgmt_Product_Table extends Table
             age_group tinyint,
             PRIMARY KEY (id),
             KEY woocommerce_id (woocommerce_id),
-            INDEX code (code(10)),
+            INDEX code (code),
             FULLTEXT search (search_term)
         ";
     }

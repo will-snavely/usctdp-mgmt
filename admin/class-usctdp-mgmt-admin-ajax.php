@@ -114,7 +114,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    private function ajax_activity_preregistration()
+    public function ajax_activity_preregistration()
     {
         $this->check_nonce('activity_preregistration');
 
@@ -123,12 +123,12 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $student = Usctdp_Mgmt_Model::get_student($student_id);
         if (!$student) {
-            wp_send_json_error('Student with ID "' . $student_id . '" not found.', 404);
+            wp_send_json_error('Student with ID ' . $student_id . ' not found.', 404);
         }
 
-        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        $activity = Usctdp_Mgmt_Model::get_expanded_activity($activity_id);
         if (!$activity) {
-            wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
+            wp_send_json_error('Activity with ID ' . $activity_id . ' not found.', 404);
         }
 
         $pricing_query = new Usctdp_Mgmt_Pricing_Query([
@@ -137,7 +137,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'number' => 1
         ]);
         if (empty($pricing_query->items)) {
-            wp_send_json_error('Pricing for activity "' . $activity_id . '" not found.', 404);
+            wp_send_json_error('Pricing for activity ' . $activity_id . ' not found.', 404);
         }
 
         $pricing = $pricing_query->items[0];
@@ -213,7 +213,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    function ajax_get_family_fields()
+    public function ajax_get_family_fields()
     {
         $this->check_nonce('get_family_fields');
 
@@ -234,7 +234,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    function ajax_save_registration_fields()
+    public function ajax_save_registration_fields()
     {
         $this->check_nonce('save_registration_fields');
 
@@ -266,7 +266,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    function ajax_save_family_fields()
+    public function ajax_save_family_fields()
     {
         $this->check_nonce('save_family_fields');
 
@@ -300,7 +300,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    function ajax_get_family_balance()
+    public function ajax_get_family_balance()
     {
         $this->check_nonce('get_family_balance');
 
@@ -342,7 +342,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    function ajax_create_family()
+    public function ajax_create_family()
     {
         $this->check_nonce('create_family');
 
@@ -417,7 +417,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    function ajax_create_student()
+    public function ajax_create_student()
     {
         $this->check_nonce('create_student');
 
@@ -460,7 +460,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    function ajax_select2_search()
+    public function ajax_select2_search()
     {
         $this->check_nonce('select2_search');
 
@@ -489,7 +489,7 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json(array('items' => $results));
     }
 
-    function ajax_session_rosters()
+    public function ajax_session_rosters()
     {
         $this->check_nonce('session_rosters');
 
@@ -529,7 +529,7 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
-    function ajax_toggle_session_active()
+    public function ajax_toggle_session_active()
     {
         $this->check_nonce('toggle_session_active');
 
@@ -558,14 +558,14 @@ class Usctdp_Mgmt_Admin_Ajax
         ]);
     }
 
-    function age_from_birth_date($birth_date)
+    public function age_from_birth_date($birth_date)
     {
         $today = new DateTime('now');
         $age = $today->diff($birth_date);
         return $age->y;
     }
 
-    function ajax_student_datatable()
+    public function ajax_student_datatable()
     {
         $this->check_nonce('student_datatable');
 
@@ -960,7 +960,7 @@ class Usctdp_Mgmt_Admin_Ajax
         ];
     }
 
-    function ajax_commit_registrations()
+    public function ajax_commit_registrations()
     {
         $this->check_nonce('commit_registrations');
 

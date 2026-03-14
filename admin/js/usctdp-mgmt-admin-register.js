@@ -50,7 +50,7 @@
                 $notification.append($ignoreBtn);
 
                 $ignoreBtn.click(function () {
-                    toggleOrderDetails(true);
+                    togglePreorderDetails(true);
                 });
             }
             $('#notifications-section').append($notification);

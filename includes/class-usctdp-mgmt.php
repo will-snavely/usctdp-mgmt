@@ -98,7 +98,7 @@ class Usctdp_Mgmt
             "includes/class-usctdp-mgmt-loader.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
-            "includes/class-usctdp-mgmt-model.php";
+            "includes/model/class-usctdp-mgmt-model.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/woocommerce/class-usctdp-mgmt-woocommerce-hooks.php";

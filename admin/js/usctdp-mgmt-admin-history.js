@@ -149,13 +149,14 @@
                         <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">
                             Edit
                         </button>
-
-                        <button id="payment-history-${idx}" class="button other-action payment-history">
+                        <button id="payment-history-${idx}" class="button ledger-action payment-history">
                             Payment History
                         </button>
-
-                        <button id="post-payment-${idx}" class="button other-action post-payment">
+                        <button id="post-payment-${idx}" class="button ledger-action post-payment">
                             Post Payment
+                        </button>
+                        <button id="post-payment-${idx}" class="button ledger-action post-payment">
+                            Post Refund
                         </button>
                     </div>
                 </div>
@@ -495,7 +496,7 @@
                 $button.data("state", "save");
                 $button.addClass('save-btn');
                 $row.find('.registration-card').addClass('editing');
-                $row.find(".other-action").prop('disabled', true);
+                $row.find(".ledger-action").prop('disabled', true);
                 $row.find('select').prop('disabled', false);
                 $row.find('input').prop('readonly', false);
                 $row.find('textarea').prop('readonly', false);
