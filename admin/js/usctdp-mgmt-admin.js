@@ -551,16 +551,19 @@
             this.container.append(html);
         }
 
+        parsePaymentField($row, selector) {
+            const raw = $row.find(selector).val() ?? 0;
+            return parseFloat(parseFloat(raw).toFixed(2));
+        }
+
         updatePaymentTotals() {
             const $rows = this.container.find('table tbody tr');
             let debit_total = 0;
             let credit_total = 0;
-            $rows.each(function () {
+            $rows.each((index, elem) => {
                 const $row = $(this);
-                const debit = parseFloat($row.find('.debit-input').val()).toFixed(2);
-                const credit = parseFloat($row.find('.credit-input').val()).toFixed(2);
-                debit_total += parseFloat(debit);
-                credit_total += parseFloat(credit);
+                debit_total += this.parsePaymentField($row, '.debit-input');
+                credit_total += this.parsePaymentField($row, '.credit-input');
             });
             this.container.find(".debit-summary .total")
                 .text(USCTDP_Admin.formatUsd(debit_total));
@@ -608,19 +611,16 @@
             this.updatePaymentTotals();
         }
 
-        addExistingRegistration(registration) {
-            const debit = registration.registration_debit;
-            const credit = registration.registration_credit;
-            var outstanding = debit - credit;
+        addRegistration(registration, debit, credit) {
             const studentName = `${registration.student_first} ${registration.student_last}`
             var $row = $(this.addOrderRow({
                 student: studentName,
                 session: registration.session_name,
                 item: registration.activity_name,
-                debit: outstanding,
-                credit: outstanding
+                debit: debit ?? "",
+                credit: credit ?? ""
             }));
-            $row.data('registration_id', registration.registration_id ?? null)
+            $row.data('registration_id', registration.registration_id)
                 .data('student_id', registration.student_id)
                 .data('session_id', registration.session_id)
                 .data('activity_id', registration.activity_id)
@@ -633,28 +633,18 @@
             this.updatePaymentTotals();
         }
 
+        addExistingRegistration(registration) {
+            if(!registration.registration_id) {
+                throw new Error("Tried to add existing registration with no id.");
+            }
+            const debit = registration.registration_debit;
+            const credit = registration.registration_credit;
+            var outstanding = debit - credit;
+            this.addRegistration(registration, outstanding, null);
+        }
+
         addNewRegistration(registration, price) {
-            const debit = price;
-            const credit = price;
-            const studentName = `${registration.student_first} ${registration.student_last}`
-            var $row = $(this.addOrderRow({
-                student: studentName,
-                session: registration.session_name,
-                item: registration.activity_name,
-                debit: price,
-                credit: price
-            }));
-            $row.data('registration_id', null)
-                .data('student_id', registration.student_id)
-                .data('session_id', registration.session_id)
-                .data('activity_id', registration.activity_id)
-                .data('product_id', registration.product_id)
-                .data('family_id', registration.family_id)
-                .data('student_level', registration.student_level)
-                .data('notes', registration.notes)
-                .data('type', 'registration');
-            this.container.find('table tbody').append($row);
-            this.updatePaymentTotals();
+            this.addRegistration(registration, price, null);
         }
     };
 })(jQuery);

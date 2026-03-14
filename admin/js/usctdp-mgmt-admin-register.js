@@ -150,9 +150,9 @@
         $('#add-clinic-registration').on('click', function () {
             const activityName = $('#activity-selector option:selected').text();
             var displayActivityName = checkoutActivityName(activityName);
-            const includeRacket = $('#include_racket').is(':checked');
+            const addRacket = $('#add_racket').is(':checked');
             var racketFee = 0;
-            if (includeRacket) {
+            if (addRacket) {
                 var rawFee = $('#racket_fee').val();
                 const fixedFee = parseFloat(rawFee).toFixed(2);
                 racketFee = parseFloat(fixedFee);
@@ -161,7 +161,7 @@
             const registration = {
                 activity_id: $('#activity-selector').val(),
                 activity_name: displayActivityName,
-                include_racket: includeRacket,
+                add_racket: addRacket,
                 student_id: $('#student-selector').val(),
                 family_id: $('#family-selector').val(),
                 student_first: studentData.first,
@@ -180,7 +180,7 @@
                 diff
             );
             paymentTable.addNewRegistration(registration, priceEstimate);
-            if (includeRacket) {
+            if (addRacket) {
                 const equipment = {
                     product_code: 'racket',
                     product_name: 'Wilson Tennis Racket',
@@ -197,9 +197,9 @@
             $('#activity-selector').val(null).trigger('change');
         });
 
-        $('#include_racket').on('change', function () {
-            const includeRacket = $('#include_racket').is(':checked');
-            if (includeRacket) {
+        $('#add_racket').on('change', function () {
+            const addRacket = $('#add_racket').is(':checked');
+            if (addRacket) {
                 $('#racket_fee').val(50);
                 $('#racket-fee-field').removeClass('hidden');
             } else {

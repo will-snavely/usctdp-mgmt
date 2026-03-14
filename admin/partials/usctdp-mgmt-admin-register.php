@@ -31,9 +31,9 @@
                             <label for="student-level">Student Level</label>
                             <input type="text" name="student-level" id="student-level">
                         </div>
-                        <div id="include-racket-field" class="registration-field">
-                            <label for="include_racket">Include Racket</label>
-                            <input type="checkbox" name="include_racket" id="include_racket">
+                        <div id="add-racket-field" class="registration-field">
+                            <label for="add_racket">Add Racket</label>
+                            <input type="checkbox" name="add_racket" id="add_racket">
                         </div>
                         <div id="racket-fee-field" class="registration-field hidden">
                             <label for="racket_fee">Racket Fee</label>
