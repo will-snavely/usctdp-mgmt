@@ -214,6 +214,11 @@
             $('#context-selection').addClass('hidden');
         });
 
+        $('#payment-table-section').on('payment:modify', function () {
+            $('#activity-selector').val(null).trigger('change');
+            $('#context-selection').removeClass('hidden');
+        });
+
         $('#payment-table-section').on('payment:empty', function () {
             togglePaymentTable(false);
         });

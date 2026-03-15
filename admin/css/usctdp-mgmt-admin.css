@@ -141,6 +141,14 @@ div.dt-length select {
     vertical-align: middle;
 }
 
+.payment-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    width: 100%;
+}
+
 .payment-summaries {
     display: flex;
     flex-direction: row;

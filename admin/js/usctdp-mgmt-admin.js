@@ -215,9 +215,18 @@
 
             this.container.on('click', '.checkout-btn', (event) => {
                 event.preventDefault();
-                this.container.find('.checkout-btn').addClass('hidden');
+                this.container.find('.checkout-btn-wrap').addClass('hidden');
+                this.container.find('.modify-btn-wrap').removeClass('hidden');
                 this.container.find('.checkout-section').removeClass('hidden');
                 this.trigger('checkout', {});
+            });
+
+            this.container.on('click', '.modify-btn', (event) => {
+                event.preventDefault();
+                this.container.find('.checkout-btn-wrap').removeClass('hidden');
+                this.container.find('.modify-btn-wrap').addClass('hidden');
+                this.container.find('.checkout-section').addClass('hidden');
+                this.trigger('modify', {});
             });
 
             this.container.on('change', `#${this.getId('payment_method')}`, (event) => {
@@ -450,7 +459,14 @@
                 nonceId = usctdp_mgmt_admin?.payment_checkout_nonce_id,
             } = this.settings;
             const checkoutButtonHtml = checkoutButton
-                ? '<button class="checkout-btn button button-primary">Checkout</button>'
+                ? `<div class="checkout-btn-wrap">
+                       <button class="checkout-btn button button-primary">Checkout</button>
+                   </div>`
+                : '';
+            const modifyButtonHtml = checkoutButton
+                ? `<div class="modify-btn-wrap hidden">
+                       <button class="modify-btn button button-primary">Modify Order</button>
+                   </div>`
                 : '';
             const payLaterHtml = allowPayLater
                 ? '<option value="pay_later">Pay Later</option>'
@@ -473,20 +489,23 @@
                             <tbody></tbody>
                         </table>
                     </div>
-                    <div class="payment-summaries">
-                        <div class="order-summary debit-summary">
-                            <span class="label">Amount</br>Owed</span>
-                            <span class="total"></span>
-                        </div>
-                        <div class="order-summary credit-summary">
-                            <span class="label">Total</br>Payment</span>
-                            <span class="total"></span>
-                        </div>
-                        <div class="order-summary balance-summary">
-                            <span class="label">Remaining</br>Balance</span>
-                            <span class="total"></span>
+                    <div class="payment-footer">
+                        <div class="payment-summaries">
+                            <div class="order-summary debit-summary">
+                                <span class="label">Amount</br>Owed</span>
+                                <span class="total"></span>
+                            </div>
+                            <div class="order-summary credit-summary">
+                                <span class="label">Total</br>Payment</span>
+                                <span class="total"></span>
+                            </div>
+                            <div class="order-summary balance-summary">
+                                <span class="label">Remaining</br>Balance</span>
+                                <span class="total"></span>
+                            </div>
                         </div>
                         ${checkoutButtonHtml}
+                        ${modifyButtonHtml}
                     </div>
                     <div class="checkout-section ${checkoutButton ? 'hidden' : ''}">
                         <div class="payment-method checkout-field">
@@ -552,8 +571,9 @@
         }
 
         parsePaymentField($row, selector) {
-            const raw = $row.find(selector).val() ?? 0;
-            return parseFloat(parseFloat(raw).toFixed(2));
+            const raw = $row.find(selector).val();
+            console.log(raw);
+            return raw ? parseFloat(parseFloat(raw).toFixed(2)) : 0;
         }
 
         updatePaymentTotals() {
@@ -561,7 +581,7 @@
             let debit_total = 0;
             let credit_total = 0;
             $rows.each((index, elem) => {
-                const $row = $(this);
+                const $row = $(elem);
                 debit_total += this.parsePaymentField($row, '.debit-input');
                 credit_total += this.parsePaymentField($row, '.credit-input');
             });
