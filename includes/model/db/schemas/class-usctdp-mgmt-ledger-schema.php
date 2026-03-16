@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Schema;
 
-class Usctdp_Mgmt_Payment_Schema extends Schema
+class Usctdp_Mgmt_Ledger_Schema extends Schema
 {
     public $columns = [
         'id' => [
@@ -14,10 +14,10 @@ class Usctdp_Mgmt_Payment_Schema extends Schema
             'primary' => true,
             'sortable' => true,
         ],
-        'transaction_id' => [
-            'name' => 'transaction_id',
-            'type' => 'varchar',
-            'length' => 50,
+        'registration_id' => [
+            'name' => 'registration_id',
+            'type' => 'bigint',
+            'unsigned' => true,
             'index' => true,
         ],
         'family_id' => [
@@ -26,17 +26,22 @@ class Usctdp_Mgmt_Payment_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
-        'student_id' => [
-            'name' => 'student_id',
-            'type' => 'bigint',
-            'unsigned' => true,
-            'index' => true,
-        ],
-        'account_type' => [
-            'name' => 'account_type',
+        'event_id' => [
+            'name' => 'event_id',
             'type' => 'varchar',
             'length' => 50,
             'index' => true,
+        ],
+        'account' => [
+            'name' => 'account',
+            'type' => 'varchar',
+            'length' => 50,
+            'index' => true,
+        ],
+        'event' => [
+            'name' => 'event',
+            'type' => 'varchar',
+            'length' => 50,
         ],
         'payment_method' => [
             'name' => 'payment_method',
@@ -54,7 +59,6 @@ class Usctdp_Mgmt_Payment_Schema extends Schema
             'name' => 'order_id',
             'type' => 'bigint',
             'unsigned' => true,
-            'index' => true,
             'default' => 0,
         ],
         'debit' => [
@@ -71,8 +75,8 @@ class Usctdp_Mgmt_Payment_Schema extends Schema
             'default' => '0.00',
             'unsigned' => false,
         ],
-        'description' => [
-            'name' => 'description',
+        'notes' => [
+            'name' => 'notes',
             'type' => 'text',
         ],
         'created_by' => [
@@ -85,5 +89,5 @@ class Usctdp_Mgmt_Payment_Schema extends Schema
             'name' => 'created_at',
             'type' => 'datetime',
         ],
-   ];
+    ];
 }

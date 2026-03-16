@@ -6,11 +6,10 @@
         var newRegistrations = null;
         const paymentHistoryModal = document.querySelector('#payment-history-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
-
         const paymentSettings = {
             checkoutButton: false,
             allowPayLater: false,
-            registrationMode: "update",
+            paymentMode: "update",
             redirectOnComplete: false,
         };
         const paymentTable =
@@ -64,14 +63,21 @@
             );
         }
 
+        function initPaymentActionSelect($selectElem) {
+            $selectElem.select2({
+                placeholder: "Select a payment action...",
+                allowClear: true,
+            });
+        }
+
         async function saveRegistrationFields(id, fields) {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.save_registration_fields_action,
-                    security: usctdp_mgmt_admin.save_registration_fields_nonce,
+                    action: usctdp_mgmt_admin.update_registration_action,
+                    security: usctdp_mgmt_admin.update_registration_nonce,
                     registration_id: id,
                     ...fields
                 }
@@ -121,6 +127,9 @@
                 level, debit, credit, notes
             } = data;
             const total = debit - credit;
+            const debitDisplay = USCTDP_Admin.formatUsd(debit);
+            const creditDisplay = USCTDP_Admin.formatUsd(credit);
+            const totalDisplay = USCTDP_Admin.formatUsd(total);
             const totalClass = total > 0 ? "balance-red" : "balance-green";
             const sessionSelectId = `session-selector-${idx}`;
             const activitySelectId = `activity-selector-${idx}`;
@@ -149,17 +158,9 @@
                         <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">
                             Edit
                         </button>
-                        <button id="payment-history-${idx}" class="button ledger-action payment-history">
-                            Payment History
-                        </button>
-                        <button id="post-payment-${idx}" class="button ledger-action post-payment">
-                            Post Payment
-                        </button>
-                        <button id="post-payment-${idx}" class="button ledger-action post-payment">
-                            Post Refund
-                        </button>
                     </div>
                 </div>
+
                 <div class="fields-row">
                     <div class="session-selector-wrap activity-field">
                         <label>Session</label>
@@ -179,24 +180,46 @@
                             </select>
                         </div>
                     </div>
+                    <div class="level-wrap activity-field">
+                        <label>Level</label>
+                        <input id="level-input-${idx}" class="level-input" value="${level}" readonly>
+                    </div>
                 </div>
                 <div class="fields-row">
-                    <div class="short-field-block">
-                        <div class="level-wrap activity-field">
-                            <label>Level</label>
-                            <input id="level-input-${idx}" class="level-input" value="${level}" readonly>
+                    <div class="financials">
+                        <div class="payment-info">
+                            <div class="debit-wrap activity-field centered">
+                                <label>Debit</label>
+                                <span id="debit-input-${idx}" class="debit-amt amt-badge balance-red">
+                                    ${debitDisplay}
+                                </span>
+                            </div>
+                            <div class="credit-wrap activity-field centered">
+                                <label>Credit</label>
+                                <span id="credit-input-${idx}" class="credit-amt amt-badge balance-green">
+                                    ${creditDisplay}
+                                </span>
+                            </div>
+                            <div class="balance-wrap activity-field centered">
+                                <label>Balance</label>
+                                <span id="balance-amt-${idx}" class="balance-amt amt-badge ${totalClass}">
+                                    ${totalDisplay}
+                                </span>
+                            </div>
+                            <div class="payment-history-button">
+                                <button id="payment-history-${idx}" class="button payment-history">
+                                    Payment History
+                                </button>
+                            </div>
                         </div>
-                        <div class="debit-wrap activity-field">
-                            <label>Debit</label>
-                            <input id="debit-input-${idx}" class="debit-input" value="${debit}" readonly>
-                        </div>
-                        <div class="credit-wrap activity-field">
-                            <label>Credit</label>
-                            <input id="credit-input-${idx}" class="credit-input" value="${credit}" readonly>
-                        </div>
-                        <div class="total-wrap activity-field">
-                            <label>Total</label>
-                            <span id="total-amt-${idx}" class="total-amt ${totalClass}">${total}</span>
+                        <div class="payment-actions">
+                            <select id="payment-action-${idx}" class="payment-action-select">
+                                <option value=""></option>
+                                <option value="payment">Post Payment</option>
+                                <option value="refund">Post Refund</option>
+                                <option value="credit">Issue House Credit</option>
+                            </select>
+                            <button id="post-payment-${idx}" class="button ledger-action" disabled>Go</button>
                         </div>
                     </div>
                     <div class="notes-wrap activity-field">
@@ -209,11 +232,11 @@
 
         var paymentHistoryTable = $('#payment-history-table').DataTable({
             processing: true,
-            serverSide: true,
+            serverSide: false,
             ordering: false,
-            paging: true,
+            paging: false,
             searching: false,
-            info: true,
+            info: false,
             deferLoading: 0,
 
             ajax: {
@@ -221,43 +244,63 @@
                 type: 'POST',
                 data: function (d) {
                     var registrationId = $('#payment-history-modal').data("registrationId");
-                    d.action = usctdp_mgmt_admin.payment_datatable_action;
-                    d.security = usctdp_mgmt_admin.payment_datatable_nonce;
+                    d.action = usctdp_mgmt_admin.ledger_events_datatable_action;
+                    d.security = usctdp_mgmt_admin.ledger_events_datatable_nonce;
                     d.registration_id = registrationId;
-                }
+                    d.account = 'registration_fees';
+                },
+                dataSrc: "data"
             },
             columns: [
+                { data: 'event_date' },
+                { data: 'event_description' },
                 {
-                    data: 'created_at',
-                },
-                {
-                    data: 'status',
-                },
-                {
-                    data: 'method',
-                },
-                {
-                    data: 'amount',
-                },
-                {
-                    data: 'house_credit_used',
-                },
-                {
-                    data: 'reference_number',
-                },
-                {
-                    data: 'order_url',
+                    data: 'charge_amount',
                     render: function (data, type, row, meta) {
-                        if (type === 'display') {
-                            return `<a href="${data}">Link</a>`
-                        }
-                        return '';
-                    }
+                        return USCTDP_Admin.formatUsd(data);
+                    },
+                    className: 'num-col text-red'
                 },
+                {
+                    data: 'payment_amount',
+                    render: function (data, type, row, meta) {
+                        return USCTDP_Admin.formatUsd(data);
+                    },
+                    className: 'num-col text-green'
+                },
+                {
+                    data: null,
+                    className: 'num-col balance-col',
+                    render: function (data, type, row, meta) {
+                        var api = new $.fn.dataTable.Api(meta.settings);
+                        var balance = 0;
+                        for (var i = 0; i <= meta.row; i++) {
+                            var r = api.row(i).data();
+                            balance += (parseFloat(r.charge_amount) - parseFloat(r.payment_amount));
+                        }
+                        return USCTDP_Admin.formatUsd(balance);
+                    }
+                }
             ],
+            // Update the Summary Bar after the data loads
+            drawCallback: function () {
+                var api = this.api();
+                var totalBalance = 0;
+
+                api.rows().every(function () {
+                    var d = this.data();
+                    totalBalance += (parseFloat(d.charge_amount) - parseFloat(d.payment_amount));
+                });
+
+                $('#ledger-total-balance').text(USCTDP_Admin.formatUsd(totalBalance));
+
+                if (totalBalance <= 0) {
+                    $('#ledger-status-text').text('PAID').css('color', '#00a32a');
+                } else {
+                    $('#ledger-status-text').text('BALANCE DUE').css('color', '#d63638');
+                }
+            }
         });
-
-
 
         var historyTable = $('#history-table').DataTable({
             processing: true,
@@ -362,6 +405,11 @@
                 $(api.table().body()).find('.activity-select').each(function () {
                     initActivitySelector($(this), $(this).data('session-selector-id'));
                 });
+                $(api.table().body()).find('.payment-action-select').each(function () {
+                    initPaymentActionSelect($(this));
+                });
+
+                updateBulkUI();
             }
         });
 
@@ -474,6 +522,21 @@
             paymentHistoryModal.close();
         });
 
+        $('#history-table tbody').on('change', '.payment-action-select', function () {
+            const $row = $(this).closest('tr');
+            const $select = $(this);
+            const action = $select.val();
+            if (action) {
+                $row.find('.ledger-action').prop('disabled', false);
+            } else {
+                $row.find('.ledger-action').prop('disabled', true);
+            }
+        });
+
+        $('#history-table tbody').on('click', '.ledger-action', function () {
+            const $row = $(this).closest('tr');
+            console.log("here");
+        });
 
         $('#history-table tbody').on('change', '.session-select', function () {
             const activitySelectId = $(this).data('activity-selector-id');
@@ -528,7 +591,7 @@
                         refreshFamilyBalance(familyId, studentId);
                         setTimeout(() => {
                             historyTable.ajax.reload();
-                        }, 600);
+                        }, 400);
                     });
             }
         });

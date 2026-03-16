@@ -11,20 +11,28 @@
 
         <dialog id="payment-history-modal">
             <h2>Payment History</h2>
+            <div class="usctdp-ledger-summary">
+                <div class="summary-group">
+                    <span class="summary-label">Status</span>
+                    <div id="ledger-status-text" class="summary-value status-pending">Loading...</div>
+                </div>
+                <div class="summary-group text-right">
+                    <span class="summary-label">Current Balance</span>
+                    <div id="ledger-total-balance" class="summary-value balance-amount">$0.00</div>
+                </div>
+            </div>
             <div id="payment-history-table-wrap">
-                <table id="payment-history-table" class="usctdp-datatable">
+                <table id="payment-history-table" class="usctdp-table">
                     <thead>
                         <tr>
-                            <th>Date Posted</th>
-                            <th>Status</th>
-                            <th>Method</th>
-                            <th>Amount</th>
-                            <th>Credits Used</th>
-                            <th>Reference Number</th>
-                            <th>Order Link</th>
+                            <th>Date</th>
+                            <th>Event</th>
+                            <th>Charge</th>
+                            <th>Payment</th>
+                            <th>Balance</th>
                         </tr>
                     </thead>
-                    <tbody id="clinics-table-body"></tbody>
+                    <tbody id="payment-history-table-body"></tbody>
                 </table>
             </div>
             <div class="actions-footer">
@@ -66,7 +74,7 @@
                                     <div class="bulk-actions">
                                         <select id="bulk-action-selector">
                                             <option value=""></option>
-                                            <option value="post-payments">Post Payments</option>
+                                            <option value="post-payments">Post Payment</option>
                                         </select>
                                         <button id="apply-bulk-btn" class="button action" disabled>
                                             Apply

@@ -198,6 +198,10 @@ table td {
     gap: 4px;
 }
 
+.centered {
+    align-items: center;
+}
+
 .activity-field label {
     font-size: 0.75rem;
     font-weight: 700;
@@ -207,30 +211,44 @@ table td {
 }
 
 .session-select {
-    width: 350px;
+    width: 400px;
 }
-
 
 .activity-select {
-    width: 350px;
+    width: 400px;
 }
 
-.short-field-block {
+.payment-action-select {
+    width: 200px;
+}
+
+.payment-info {
     display: flex;
     flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-end;
     gap: 20px;
-    width: 350px;
-    justify-content: space-between;
+    width: 400px;
 }
 
-.level-wrap,
+.financials {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.level-wrap {
+    width: 50px;
+}
+
 .debit-wrap,
 .credit-wrap {
     width: 70px;
 }
 
 .notes-wrap {
-    width: 350px;
+    width: 470px;
 }
 
 input.edit-mode,
@@ -264,15 +282,15 @@ textarea[readonly] {
     cursor: default;
 }
 
-.total-amt {
+.amt-badge {
     color: #000;
-    padding: 2px 2px;
+    padding: 4px 8px;
     text-align: center;
     border-radius: 20px;
 }
 
 .new-registration {
-    background-color: #f7a0f0;
+    background-color: #f7adad;
     padding: 2px 8px;
     border-radius: 20px;
     font-size: 0.8rem;
@@ -308,7 +326,13 @@ textarea[readonly] {
     color: #000;
 }
 
-.view-order {
+.payment-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.payment .view-order {
     text-align: center;
 }
 
@@ -331,4 +355,71 @@ textarea[readonly] {
 
 #bulk-action-selector {
     width: 200px;
+}
+
+/* Container for the balance overview */
+.usctdp-ledger-summary {
+    display: flex;
+    justify-content: space-between;
+    background: #f9f9f9;
+    padding: 15px 20px;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.summary-label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #646970;
+    margin-bottom: 4px;
+}
+
+.summary-value {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* Table styling */
+.usctdp-table.dataTable {
+    border-collapse: collapse !important;
+}
+
+.usctdp-table thead th {
+    background: #f0f0f1;
+    color: #2c3338;
+    padding: 12px !important;
+    font-size: 12px;
+    border-bottom: 2px solid #dcdcde !important;
+}
+
+.usctdp-table tbody td {
+    padding: 12px !important;
+    vertical-align: top;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.num-col {
+    text-align: right !important;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 500;
+}
+
+.text-red {
+    color: #d63638;
+}
+
+.text-green {
+    color: #00a32a;
+}
+
+.balance-col {
+    background-color: #f6f7f7;
+    font-weight: 700;
+}
+
+.text-right {
+    text-align: right;
 }

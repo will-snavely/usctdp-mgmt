@@ -50,8 +50,8 @@
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.save_family_fields_action,
-                    security: usctdp_mgmt_admin.save_family_fields_nonce,
+                    action: usctdp_mgmt_admin.update_family_action,
+                    security: usctdp_mgmt_admin.update_family_nonce,
                     family_id: familyId,
                     ...changedData
                 },

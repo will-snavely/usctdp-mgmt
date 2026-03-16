@@ -7,23 +7,26 @@ class Usctdp_Mgmt_Admin_Ajax
         'clinic_datatable' => 'ajax_clinic_datatable',
         'commit_registrations' => 'ajax_commit_registrations',
         'create_family' => 'ajax_create_family',
+        'create_ledger_entry' => 'ajax_create_ledger_entry',
+        'create_ledger_entries' => 'ajax_create_ledger_entries',
         'create_student' => 'ajax_create_student',
         'create_woocommerce_order' => 'ajax_create_woocommerce_order',
         'datatable_balances' => 'ajax_datatable_balances',
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
         'gen_roster' => 'ajax_gen_roster',
+        'get_family' => 'ajax_get_family',
         'get_family_balance' => 'ajax_get_family_balance',
-        'get_family_fields' => 'ajax_get_family_fields',
-        'payment_datatable' => 'ajax_payment_datatable',
+        'ledger_datatable' => 'ajax_ledger_datatable',
+        'ledger_events_datatable' => 'ajax_ledger_events_datatable',
         'registration_history_datatable' => 'ajax_registration_history_datatable',
         'registrations_datatable' => 'registrations_datatable',
-        'save_family_fields' => 'ajax_save_family_fields',
-        'save_registration_fields' => 'ajax_save_registration_fields',
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
         'student_datatable' => 'ajax_student_datatable',
         'toggle_session_active' => 'ajax_toggle_session_active',
+        'update_family' => 'ajax_update_family',
+        'update_registration' => 'ajax_update_registration',
     ];
 
     private function is_student_enrolled($student_id, $activity_id)
@@ -66,18 +69,19 @@ class Usctdp_Mgmt_Admin_Ajax
         return null;
     }
 
-    private function create_entity_from_post($query_object, $fields)
+    private function create_entity($source, $query_object, $fields)
     {
         $args = [];
         foreach ($fields as $field => $transform) {
-            $raw = $_POST[$field] ?? null;
+            $raw = $source[$field] ?? null;
             $args[$field] = $transform($raw);
         }
-        $query = new $query_object([]);
+        $query = new $query_object();
+        error_log(print_r($args, true));
         return $query->add_item($args);
     }
 
-    private function save_entity_fields_from_post($entity_id, $query_object, $fields)
+    private function save_entity($entity_id, $source, $query_object, $fields)
     {
         $query = new $query_object(['id' => $entity_id, 'number' => 1]);
         if (empty($query->items)) {
@@ -87,8 +91,8 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $args = [];
         foreach ($fields as $field => $transform) {
-            if (array_key_exists($field, $_POST)) {
-                $data = $transform($_POST[$field]);
+            if (array_key_exists($field, $source)) {
+                $data = $transform($source[$field]);
                 if ($data !== $entity->$field) {
                     $args[$field] = $data;
                 }
@@ -108,7 +112,8 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    private function check_nonce($handler) {
+    private function check_nonce($handler)
+    {
         if (!check_ajax_referer($handler . '_nonce', 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 400);
         }
@@ -213,9 +218,9 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    public function ajax_get_family_fields()
+    public function ajax_get_family()
     {
-        $this->check_nonce('get_family_fields');
+        $this->check_nonce('get_family');
 
         try {
             $family_id = isset($_GET['family_id']) ? intval($_GET['family_id']) : null;
@@ -229,14 +234,96 @@ class Usctdp_Mgmt_Admin_Ajax
             }
             wp_send_json_success($family);
         } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_get_family_fields', $e);
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_family', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
 
-    public function ajax_save_registration_fields()
+    public function ajax_ledger_datatable()
     {
-        $this->check_nonce('save_registration_fields');
+        $this->check_nonce('ledger_datatable');
+
+        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
+        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+        $account = isset($_POST['account']) ? sanitize_text_field($_POST['account']) : null;
+        $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : null;
+        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : null;
+
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+        ];
+        if ($family_id) {
+            $args['family_id'] = $family_id;
+        }
+        if ($student_id) {
+            $args['student_id'] = $student_id;
+        }
+        if ($account) {
+            $args['account'] = $account;
+        }
+        if ($order_id) {
+            $args['order_id'] = $order_id;
+        }
+        if ($registration_id) {
+            $args['registration_id'] = $registration_id;
+        }
+
+        $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+        $result = $ledger_query->get_ledger_data($args);
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $result['count'],
+            "recordsFiltered" => $result['count'],
+            "data" => $result['data'],
+        );
+        wp_send_json($response);
+    }
+
+    public function ajax_ledger_events_datatable()
+    {
+        $this->check_nonce('ledger_events_datatable');
+
+        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
+        $account = isset($_POST['account']) ? sanitize_text_field($_POST['account']) : null;
+        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : null;
+
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+        ];
+        if ($family_id) {
+            $args['family_id'] = $family_id;
+        }
+        if ($account) {
+            $args['account'] = $account;
+        }
+        if ($registration_id) {
+            $args['registration_id'] = $registration_id;
+        }
+
+        $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+        $result = $ledger_query->get_ledger_events($args);
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $result['count'],
+            "recordsFiltered" => $result['count'],
+            "data" => $result['data'],
+        );
+        wp_send_json($response);
+    }
+
+    public function ajax_update_registration()
+    {
+        $this->check_nonce('update_registration');
 
         $entity_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : '';
         if (empty($entity_id)) {
@@ -254,21 +341,22 @@ class Usctdp_Mgmt_Admin_Ajax
         ];
 
         try {
-            $result = $this->save_entity_fields_from_post(
+            $result = $this->save_entity(
                 $entity_id,
+                $_POST,
                 'Usctdp_Mgmt_Registration_Query',
                 $post_fields
             );
             wp_send_json_success($result);
         } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_save_registration_fields', $e);
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_registration', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
 
-    public function ajax_save_family_fields()
+    public function ajax_update_family()
     {
-        $this->check_nonce('save_family_fields');
+        $this->check_nonce('update_family');
 
         $entity_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
         if (empty($entity_id)) {
@@ -288,14 +376,15 @@ class Usctdp_Mgmt_Admin_Ajax
         ];
 
         try {
-            $result = $this->save_entity_fields_from_post(
+            $result = $this->save_entity(
                 $entity_id,
+                $_POST,
                 'Usctdp_Mgmt_Family_Query',
                 $post_fields
             );
             wp_send_json_success($result);
         } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_save_family_fields', $e);
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_family', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
@@ -348,12 +437,12 @@ class Usctdp_Mgmt_Admin_Ajax
 
         try {
             $fields = [
-                'email' => sanitize_text_field(...), 
+                'email' => sanitize_text_field(...),
                 'last' => sanitize_text_field(...),
                 'address' => sanitize_text_field(...),
                 'city' => sanitize_text_field(...),
                 'state' => sanitize_text_field(...),
-                'zip' => sanitize_text_field(...), 
+                'zip' => sanitize_text_field(...),
                 'phone_numbers' => json_encode(...),
                 'title' => function ($raw) {
                     $phone = trim($this->get_sanitized_post_field_text('phone'));
@@ -368,7 +457,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     return Usctdp_Mgmt_Model::append_token_suffix($last_name . ' ' . $last_four);
                 },
             ];
-            $family_id = $this->create_entity_from_post('Usctdp_Mgmt_Family_Query', $fields);
+            $family_id = $this->create_entity($_POST, 'Usctdp_Mgmt_Family_Query', $fields);
             if (!$family_id) {
                 wp_send_json_error('Failed to create family.', 500);
             }
@@ -390,6 +479,7 @@ class Usctdp_Mgmt_Admin_Ajax
             );
             $user_id = wp_insert_user($userdata);
             if (is_wp_error($user_id)) {
+                $family_query = new Usctdp_Mgmt_Family_Query();
                 $family_query->delete_item($family_id);
                 throw new Web_Request_Exception(
                     $user_id->get_error_message(),
@@ -446,7 +536,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 },
             ];
 
-            $student_id = $this->create_entity_from_post('Usctdp_Mgmt_Student_Query', $fields);
+            $student_id = $this->create_entity($_POST, 'Usctdp_Mgmt_Student_Query', $fields);
             if (!$student_id) {
                 wp_send_json_error('Failed to create student.', 500);
             } else {
@@ -457,6 +547,60 @@ class Usctdp_Mgmt_Admin_Ajax
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_create_student', $e);
             wp_send_json_error('An unexpected server error occurred during student creation.', 500);
+        }
+    }
+
+    private function create_ledger_entry($source)
+    {
+        $fields = [
+            'family_id' => intval(...),
+            'student_id' => intval(...),
+            'order_id' => intval(...),
+            'event_id' => sanitize_text_field(...),
+            'event' => sanitize_text_field(...),
+            'account' => sanitize_text_field(...),
+            'registration_id' => intval(...),
+            'debit' => sanitize_text_field(...),
+            'credit' => sanitize_text_field(...),
+            'payment_method' => sanitize_text_field(...),
+            'reference_id' => sanitize_text_field(...),
+            'notes' => sanitize_text_field(...),
+            'created_by' => function ($raw) {
+                return get_current_user_id();
+            },
+            'created_at' => function ($raw) {
+                return current_time('mysql');
+            },
+        ];
+        return $this->create_entity($source, 'Usctdp_Mgmt_Ledger_Query', $fields);
+    }
+    public function ajax_create_ledger_entries()
+    {
+        $this->check_nonce('create_ledger_entries');
+        $entries = isset($_POST['entries']) ? $_POST['entries'] : null;
+        if (empty($entries)) {
+            wp_send_json_error('No ledger entries provided.', 400);
+        }
+
+        global $wpdb;
+        try {
+            $wpdb->query('START TRANSACTION');
+            $ids = [];
+            foreach ($entries as $entry) {
+                $result = $this->create_ledger_entry($entry);
+                if ($result) {
+                    $ids[] = $result;
+                } else {
+                    $wpdb->query('ROLLBACK');
+                    wp_send_json_error('Failed to create ledger entry.', 500);
+                }
+            }
+            $wpdb->query('COMMIT');
+            wp_send_json_success($ids);
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            Usctdp_Mgmt::logger()->log_exception('ajax_create_ledger_entries', $e);
+            wp_send_json_error('An unexpected server error occurred during ledger entry creation.', 500);
         }
     }
 
@@ -472,8 +616,8 @@ class Usctdp_Mgmt_Admin_Ajax
             if (empty($target)) {
                 wp_send_json_error('No search target specified.', 400);
             }
-        
-            if(!Usctdp_Mgmt::select2()->is_valid_target($target)) {
+
+            if (!Usctdp_Mgmt::select2()->is_valid_target($target)) {
                 wp_send_json_error("Invalid target type: $target", 400);
             }
 
@@ -634,41 +778,6 @@ class Usctdp_Mgmt_Admin_Ajax
             "recordsTotal" => $result['count'],
             "recordsFiltered" => $result['count'],
             "data" => $result['data'],
-        );
-        wp_send_json($response);
-    }
-
-    public function ajax_payment_datatable()
-    {
-        $this->check_nonce('payment_datatable');
-
-        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : null;
-        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
-        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
-        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
-
-        $args = [
-            'number' => $length,
-            'offset' => $start,
-        ];
-        if ($registration_id) {
-            $args['registration_id'] = $registration_id;
-        } else {
-            wp_send_json_error('No registration ID provided.', 400);
-        }
-
-        $query = new Usctdp_Mgmt_Payment_Query([]);
-        $results = $query->get_payment_data($args);
-        foreach($results["data"] as &$result) {
-            if(!empty($result->order_id)) {
-                $result->order_url = get_edit_post_link($result->order_id);
-            }
-        }
-        $response = array(
-            "draw" => $draw,
-            "recordsTotal" => $results['count'],
-            "recordsFiltered" => $results['count'],
-            "data" => $results['data']
         );
         wp_send_json($response);
     }
@@ -862,32 +971,60 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
+    private function get_order_family_id($line_items)
+    {
+        $family_id = null;
+        foreach ($line_items as $line_item) {
+            if ($family_id === null) {
+                $family_id = $line_item['family_id'];
+            } else if ($family_id !== $line_item['family_id']) {
+                return false;
+            }
+        }
+        return $family_id;
+    }
+
     public function ajax_create_woocommerce_order()
     {
         $this->check_nonce('create_woocommerce_order');
 
-        $order_data = isset($_POST['order_data']) ? $_POST['order_data'] : null;
-        if (empty($order_data)) {
-            wp_send_json_error('No order data provided.', 400);
+        $line_items = isset($_POST['line_items'])
+            ? $_POST['line_items']
+            : null;
+        if (empty($line_items)) {
+            wp_send_json_error('No line items provided.', 400);
         }
 
-        $payment_method = isset($_POST['payment_method']) ? $_POST['payment_method'] : null;
+        $payment_method = isset($_POST['payment_method'])
+            ? sanitize_text_field($_POST['payment_method'])
+            : null;
         if (empty($payment_method)) {
             wp_send_json_error('No payment method provided.', 400);
         }
-        $check_number = isset($_POST['check_number']) ? sanitize_text_field($_POST['check_number']) : 'None';
 
-        $family_id = null;
-        foreach ($order_data as $order_item) {
-            if ($family_id == null) {
-                $family_id = $order_item["family_id"];
-            } else {
-                if ($family_id != $order_item["family_id"]) {
-                    wp_send_json_error('All items must belong to the same family.', 400);
-                }
-            }
+        $check_number = isset($_POST['check_number'])
+            ? sanitize_text_field($_POST['check_number'])
+            : null;
+
+        $family_id = $this->get_order_family_id($line_items);
+        if (!$family_id) {
+            wp_send_json_error('No unique family ID found for the line items.', 400);
         }
 
+        $result = Usctdp_Mgmt::woocommerce()->create_woocommerce_order(
+            $family_id,
+            $line_items,
+            $payment_method,
+            $check_number
+        );
+        $order = $result['order'];
+
+        wp_send_json_success([
+            'order_id' => $order->get_id(),
+            'order_url' => get_edit_post_link($order->get_id()),
+            'payment_url' => $order->get_checkout_payment_url(),
+            'user_id' => $result['user_id'],
+        ]);
     }
 
     private function parse_registration_data($data)

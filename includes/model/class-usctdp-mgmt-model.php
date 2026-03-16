@@ -40,9 +40,9 @@ class Usctdp_Mgmt_Model
             "activity",
             "clinic",
             "family",
+            "ledger",
             "registration",
             "roster-link",
-            "payment",
             "pricing",
             "product",
             "session",
@@ -71,9 +71,9 @@ class Usctdp_Mgmt_Model
             new Usctdp_Mgmt_Activity_Table(),
             new Usctdp_Mgmt_Clinic_Table(),
             new Usctdp_Mgmt_Family_Table(),
+            new Usctdp_Mgmt_Ledger_Table(),
             new Usctdp_Mgmt_Registration_Table(),
             new Usctdp_Mgmt_Roster_Link_Table(),
-            new Usctdp_Mgmt_Payment_Table(),
             new Usctdp_Mgmt_Pricing_Table(),
             new Usctdp_Mgmt_Product_Table(),
             new Usctdp_Mgmt_Session_Table(),
@@ -92,7 +92,8 @@ class Usctdp_Mgmt_Model
         }
     }
 
-    private static function get_one($obj, $id) {
+    private static function get_one($obj, $id)
+    {
         $query = new $obj(['id' => $id, 'number' => 1]);
         if (empty($query->items)) {
             return null;
@@ -100,11 +101,13 @@ class Usctdp_Mgmt_Model
         return $query->items[0];
     }
 
-    public static function get_activity($id) {
+    public static function get_activity($id)
+    {
         return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Activity_Query', $id);
     }
 
-    public static function get_expanded_activity($id) {
+    public static function get_expanded_activity($id)
+    {
         $query = new Usctdp_Mgmt_Activity_Query();
         $result = $query->get_activity_data(['id' => $id]);
         error_log(print_r($result, true));
@@ -114,19 +117,23 @@ class Usctdp_Mgmt_Model
         return $result['data'][0];
     }
 
-    public static function get_student($id) {
+    public static function get_student($id)
+    {
         return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Student_Query', $id);
     }
 
-    public static function get_family($id) {
+    public static function get_family($id)
+    {
         return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Family_Query', $id);
     }
 
-    public static function get_product($id) {
+    public static function get_product($id)
+    {
         return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Product_Query', $id);
     }
 
-    public static function get_session($id) {
+    public static function get_session($id)
+    {
         return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Session_Query', $id);
     }
 }

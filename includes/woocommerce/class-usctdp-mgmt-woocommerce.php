@@ -75,14 +75,14 @@ class Usctdp_Mgmt_Woocommerce
         }
     }
 
-    public function create_woocommerce_order($family_id, $order_items, $payment_method)
+    public function create_woocommerce_order($family_id, $line_items, $payment_method, $check_number = null)
     {
         // Validate the registrations in the order. 
         // All registrations should have a valid registration id.
-        foreach ($order_data as $order_item) {
-            if ($order_item["type"] == "registration") {
-                $registration_id = $order_item["registration_id"];
-                $line_item_id = $order_item["line_item_id"];
+        foreach ($line_items as $line_item) {
+            if ($line_item["type"] == "registration") {
+                $registration_id = $line_item["registration_id"];
+                $line_item_id = $line_item["line_item_id"];
                 if (empty($registration_id)) {
                     $error_message = "Registration ID missing for line item $line_item_id.";
                     throw new Usctdp_Woocommerce_Exception($error_message);
@@ -108,35 +108,35 @@ class Usctdp_Mgmt_Woocommerce
             $error_message = 'Failed to create woocommerce order.';
             throw new Usctdp_Woocommerce_Exception($error_message);
         }
-        
+
         try {
             $total = 0;
-            foreach ($order_data as $order_item) {
-                $student_id = $order_item["student_id"];
+            foreach ($line_items as $line_item) {
+                $student_id = $line_item["student_id"];
                 $student = Usctdp_Mgmt_Model::get_student($student_id);
                 if (!$student) {
                     $error_message = "Student with ID $student_id not found.";
                     throw new Usctdp_Woocommerce_Exception($error_message);
                 }
 
-                $custom_price = floatval($order_item["credit"]);
+                $custom_price = floatval($line_item["credit"]);
                 $total += $custom_price;
 
-                if ($order_item["type"] == "equipment") {
-                    $product_code = $order_item["product_code"];
+                if ($line_item["type"] == "equipment") {
+                    $product_code = $line_item["product_code"];
                     $woo_product = $this->get_woo_product_by_code($product_code);
                     $item_id = $order->add_product($woo_product, 1);
                     $item = $order->get_item($item_id);
                     $item->add_meta_data('Student', $student->title);
                     $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
                     $item->save();
-                } else if ($order_item["type"] == "registration") {
-                    $session_id = $order_item["session_id"];
+                } else if ($line_item["type"] == "registration") {
+                    $session_id = $line_item["session_id"];
                     $session = Usctdp_Mgmt_Model::get_session($session_id);
                     if (!$session) {
                         throw new Usctdp_Woocommerce_Exception("Session with ID $session_id not found.");
                     }
-                    $activity_id = $order_item["activity_id"];
+                    $activity_id = $line_item["activity_id"];
                     $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
                     if (!$activity) {
                         throw new Usctdp_Woocommerce_Exception("Activity with ID $activity_id not found.");
@@ -144,7 +144,7 @@ class Usctdp_Mgmt_Woocommerce
                     $product_id = $activity->product_id;
                     $variation_ids = $this->find_variations_for_session($product_id, $session_id);
                     if (empty($variation_ids)) {
-                        $error_ressage = "No variations found for product $product_id and session $session_id";
+                        $error_message = "No variations found for product $product_id and session $session_id";
                         throw new Usctdp_Woocommerce_Exception($error_message);
                     }
                     $variation_id = $variation_ids[0];
@@ -189,7 +189,6 @@ class Usctdp_Mgmt_Woocommerce
                     $order->delete(true);
                 } catch (Throwable $e) {
                     Usctdp_Mgmt::logger()->log_exception('Error cleaning up order', $e);
-                    Usctdp_Mgmt::logger()->log_critical('Trace: ' . $e->getTraceAsString());
                 }
             }
         }

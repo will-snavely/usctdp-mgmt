@@ -7,7 +7,7 @@
         const paymentSettings = {
             checkoutButton: true,
             allowPayLater: true,
-            registrationMode: "create",
+            paymentMode: "create",
             submitButtonText: "Submit"
         };
         const paymentTable = new USCTDP_Admin.RegistrationPaymentTable(
@@ -48,7 +48,6 @@
                 $ignoreBtn.addClass('button');
                 $ignoreBtn.text('Proceed Anyway');
                 $notification.append($ignoreBtn);
-
                 $ignoreBtn.click(function () {
                     togglePreorderDetails(true);
                 });

@@ -229,6 +229,23 @@
                 this.trigger('modify', {});
             });
 
+            this.container.on('click', '.transfer-one', (event) => {
+                const $row = $(event.currentTarget).closest('tr');
+                const debit = $row.find('.debit-input').val();
+                $row.find('.credit-input').val(debit);
+                this.updatePaymentTotals();
+            });
+
+            this.container.on('click', '.transfer-all', (event) => {
+                const $rows = $(event.currentTarget).closest('table').find('tbody tr');
+                $rows.each((i, row) => {
+                    const $row = $(row);
+                    const debit = $row.find('.debit-input').val();
+                    $row.find('.credit-input').val(debit);
+                });
+                this.updatePaymentTotals();
+            });
+
             this.container.on('change', `#${this.getId('payment_method')}`, (event) => {
                 const value = event.currentTarget.value;
                 this.container.find(".payment-option").addClass('hidden');
@@ -266,13 +283,16 @@
                 const orderData = this.getOrderData();
                 this.submitPayment(orderData)
                     .then((response) => {
-                        const payment_method = $('#' + this.getId('payment_method')).val();
-                        if(payment_method == 'card' || redirectOnComplete) {
+                        if (orderData.payment_method == 'card' || redirectOnComplete) {
                             const regIds = Object.values(response.registrations);
-                            $('#' + this.getId('submit_user_id')).val(response.order.user_id);
-                            $('#' + this.getId('submit_family_id')).val(response.order.family_id);
-                            $('#' + this.getId('submit_payment_method')).val(payment_method);
-                            $('#' + this.getId('submit_payment_url')).val(response.order.payment_url);
+                            const orderUrl = response.order ? response.order.order_url : '';
+                            const paymentUrl = response.order ? response.order.payment_url : '';
+                            const userId = response.order ? response.order.user_id : '';
+                            $('#' + this.getId('submit_user_id')).val(userId);
+                            $('#' + this.getId('submit_payment_url')).val(paymentUrl);
+                            $('#' + this.getId('submit_order_url')).val(orderUrl);
+                            $('#' + this.getId('submit_family_id')).val(orderData.family_id);
+                            $('#' + this.getId('submit_payment_method')).val(orderData.payment_method);
                             $('#' + this.getId('submit_registrations')).val(JSON.stringify(regIds));
                             form[0].submit();
                         }
@@ -294,15 +314,31 @@
         }
 
         getOrderData() {
-            const paymentMethodId = this.getId('payment_method')
-            const paymentMethod = $('#' + paymentMethodId).val();
             const $rows = this.container.find('.payment-table tbody tr');
-            const orderData = [];
+            const paymentMethod = $('#' + this.getId('payment_method')).val();
+
+            let checkNumber = null;
+            if (paymentMethod === 'check') {
+                checkNumber = this.container.find("#" + this.getId('check_number')).val();
+            }
+            var familyId = null;
+            var lineItems = [];
             let lineItemId = 0;
+            let totalDebit = parseFloat($('#' + this.getId('total_debit')).val());
+            let totalCredit = parseFloat($('#' + this.getId('total_credit')).val());
+
             $rows.each(function () {
                 const $row = $(this);
                 const type = $row.data('type');
+                const currentFamilyId = $row.data('family_id');
+                if (familyId === null) {
+                    familyId = currentFamilyId;
+                } else if (currentFamilyId !== familyId) {
+                    throw new Error('All orders must be for the same family.');
+                }
+
                 lineItemId++;
+
                 if (type === 'registration') {
                     const debit = parseFloat($row.find('.debit-input').val()).toFixed(2);
                     var credit = parseFloat($row.find('.credit-input').val()).toFixed(2);
@@ -311,20 +347,20 @@
                     }
                     const registration = {
                         registration_id: $row.data('registration_id'),
+                        family_id: $row.data('family_id'),
                         student_id: $row.data('student_id'),
                         session_id: $row.data('session_id'),
                         activity_id: $row.data('activity_id'),
                         student_level: $row.data('student_level'),
-                        family_id: $row.data('family_id'),
                         notes: $row.data('notes'),
                         credit: parseFloat(credit),
                         debit: parseFloat(debit),
                         type: 'registration',
                         line_item_id: lineItemId,
                     };
-                    orderData.push(registration);
+                    lineItems.push(registration);
                 } else if (type == "equipment") {
-                    orderData.push({
+                    lineItems.push({
                         product_code: $row.data('product_code'),
                         student_id: $row.data('student_id'),
                         family_id: $row.data('family_id'),
@@ -335,24 +371,33 @@
                     });
                 }
             });
-            return orderData;
+            return {
+                family_id: familyId,
+                payment_method: paymentMethod,
+                total_debit: totalDebit,
+                total_credit: totalCredit,
+                total_balance: totalDebit - totalCredit,
+                check_number: checkNumber,
+                line_items: lineItems,
+            };
         }
 
         async createRegistrations(orderData) {
             try {
+                const registrations = orderData.line_items.filter(item => item.type === 'registration');
                 const response = await $.ajax({
                     url: usctdp_mgmt_admin.ajax_url,
                     method: 'POST',
                     data: {
                         action: usctdp_mgmt_admin.commit_registrations_action,
                         security: usctdp_mgmt_admin.commit_registrations_nonce,
-                        registration_data: orderData.filter(item => item.type === 'registration'),
+                        registration_data: registrations,
                     }
                 });
                 if (response.success) {
                     return response.data.ids;
                 } else {
-                    throw new Error(response.data || 'PHP logic error');
+                    throw new Error(response.data || 'Server error');
                 }
             } catch (error) {
                 console.error('Registration Commit Failed:', error.statusText || error.message);
@@ -362,27 +407,22 @@
 
         async createWooCommerceOrder(orderData) {
             try {
-                const paymentMethod = this.container.find("#" + this.getId('payment_method')).val();
-                var checkNumber = '';
-                if (paymentMethod === 'check') {
-                    checkNumber = this.container.find("#" + this.getId('check_number')).val();
-                }
                 const response = await $.ajax({
                     url: usctdp_mgmt_admin.ajax_url,
                     method: 'POST',
                     data: {
                         action: usctdp_mgmt_admin.create_woocommerce_order_action,
                         security: usctdp_mgmt_admin.create_woocommerce_order_nonce,
-                        order_data: orderData,
-                        payment_method: paymentMethod,
-                        check_number: checkNumber
+                        line_items: orderData.line_items,
+                        payment_method: orderData.payment_method,
+                        check_number: orderData.check_number
                     }
                 });
 
                 if (response.success) {
                     return response.data;
                 } else {
-                    throw new Error(response.data || 'PHP logic error');
+                    throw new Error(response.data || 'Server error');
                 }
 
             } catch (error) {
@@ -391,47 +431,147 @@
             }
         }
 
-        async saveRegistrationFields(id, fields) {
-            const response = await $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.save_registration_fields_action,
-                    security: usctdp_mgmt_admin.save_registration_fields_nonce,
-                    registration_id: id,
-                    ...fields
+        async submitLedgerEntries(ledger) {
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.create_ledger_entries_action,
+                        security: usctdp_mgmt_admin.create_ledger_entries_nonce,
+                        entries: ledger,
+                    }
+                });
+                if (response.success) {
+                    return response.data;
+                } else {
+                    throw new Error(response.data || 'Server error');
                 }
-            });     
-            return response;
-        } 
+
+            } catch (error) {
+                console.error('Ledger Entry Creation Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
+        buildLedgerEntries(args) {
+            const { lineItem, orderId, eventId, event, paymentMethod, checkNumber, isNew } = args;
+            var result = [];
+            var ledgerBase = {
+                family_id: lineItem.family_id,
+                student_id: lineItem.student_id,
+                registration_id: lineItem.registration_id ?? null,
+                order_id: orderId,
+                event_id: eventId,
+                event: event
+            }
+            if (isNew) {
+                result.push({
+                    ...ledgerBase,
+                    account: lineItem.type + "_fees",
+                    credit: parseFloat(0).toFixed(2),
+                    debit: parseFloat(lineItem.debit).toFixed(2)
+                });
+
+                result.push({
+                    ...ledgerBase,
+                    account: "revenue",
+                    credit: parseFloat(lineItem.debit).toFixed(2),
+                    debit: parseFloat(0).toFixed(2)
+                });
+
+                if (lineItem.credit > 0) {
+                    result.push({
+                        ...ledgerBase,
+                        account: "payment_" + paymentMethod,
+                        payment_method: paymentMethod,
+                        reference_id: checkNumber ?? null,
+                        credit: parseFloat(0).toFixed(2),
+                        debit: parseFloat(lineItem.debit).toFixed(2)
+                    });
+
+                    result.push({
+                        ...ledgerBase,
+                        account: lineItem.type + "_fees",
+                        payment_method: paymentMethod,
+                        reference_id: checkNumber ?? null,
+                        credit: parseFloat(lineItem.credit).toFixed(2),
+                        debit: parseFloat(0).toFixed(2)
+                    });
+                }
+            }
+            return result;
+        }
 
         async submitPayment(orderData) {
-            const payment_method = $('#' + this.getId('payment_method')).val();
-            const { registrationMode = "update" } = this.settings;
+            const { paymentMode = "update" } = this.settings;
             try {
                 var ids = [];
-                if (registrationMode === "create") {
+                const lineItems = orderData.line_items;
+
+                if (paymentMode === "create") {
                     ids = await this.createRegistrations(orderData);
-                    for (var i = 0; i < orderData.length; i++) {
-                        const line_item_id = orderData[i].line_item_id;
+                    for (var i = 0; i < lineItems.length; i++) {
+                        const line_item_id = lineItems[i].line_item_id;
                         if (line_item_id in ids) {
-                            orderData[i].registration_id = ids[line_item_id];
+                            lineItems[i].registration_id = ids[line_item_id];
                         } else {
                             console.log("Line item id " + line_item_id + " not found in created registrations.");
                         }
                     }
-                } else {
-                    for (var i = 0; i < orderData.length; i++) {
-                    }
- 
                 }
 
-                const order = await this.createWooCommerceOrder(orderData);
+                var order = null;
+                var eventId = null;
+                if (orderData.payment_method != "pay_later") {
+                    order = await this.createWooCommerceOrder(orderData);
+                    eventId = "order_" + order.order_id;
+                } else {
+                    eventId = "order_pay_later";
+                }
+
+                var event = '';
+                if (paymentMode === "create") {
+                    const isPartialPayment = orderData.total_balance > 0;
+                    const partialNote = isPartialPayment ? " (Partial)" : "";
+                    if (orderData.payment_method == "check") {
+                        event = "Purchase w/ Check #" + orderData.check_number + partialNote;
+                    } else if (orderData.payment_method == "cash") {
+                        event = "Purchase w/ Cash" + partialNote;
+                    } else if (orderData.payment_method == "card") {
+                        event = "Order Initiated, Card Details Pending" + partialNote;
+                    } else {
+                        event = "Order Initiated, Payment Pending";
+                    }
+                } else {
+                    if (orderData.payment_method == "check") {
+                        event = "Payment Made w/ Check #" + orderData.check_number;
+                    } else if (orderData.payment_method == "cash") {
+                        event = "Payment Made w/ Cash";
+                    } else if (orderData.payment_method == "card") {
+                        event = "Payment Initiated, Card Details Pending";
+                    }
+                }
+
+                var ledger = [];
+                for (var i = 0; i < lineItems.length; i++) {
+                    var entries = this.buildLedgerEntries({
+                        lineItem: lineItems[i],
+                        orderId: order ? order.order_id : null,
+                        eventId: eventId,
+                        paymentMethod: orderData.payment_method,
+                        checkNumber: orderData.check_number,
+                        isNew: paymentMode === "create",
+                        event: event
+                    });
+                    ledger.push(...entries);
+                }
+                const ledgerEntries = await this.submitLedgerEntries(ledger);
 
                 return {
                     order: order,
-                    registrations: ids
+                    registrations: ids,
+                    ledger_entries: ledgerEntries
                 };
             } catch (error) {
                 console.error('Submission failed:', error);
@@ -482,6 +622,17 @@
                                     <th>Session</th>
                                     <th>Item</th>
                                     <th>Balance</th>
+                                    <th>
+                                        <div class="transfer-column">
+                                            <button class="transfer-btn transfer-all">
+                                                <div class="transfer-arrows">
+                                                    <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
+                                                    <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
+                                                    <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </th>
                                     <th>Payment</th>
                                     <th>Actions</th>
                                 </tr>
@@ -512,11 +663,14 @@
                             <label for="${this.getId('payment_method')}">Payment Method</label>
                             <select name="payment_method" id="${this.getId('payment_method')}" autocomplete="off">
                                 <option value="">Select...</option>
-                                <option value="card">Card</option>
-                                <option value="check">Check</option>
-                                <option value="cash">Cash</option>
+                                <option value="card" disabled>Card</option>
+                                <option value="check" disabled>Check</option>
+                                <option value="cash" disabled>Cash</option>
                                 ${payLaterHtml}
                             </select>
+                            <div class="payment-method-note">
+                                <span></span>
+                            </div>
                         </div>
                         <div class="check-fields payment-option hidden">
                             <div class="check-number-field checkout-field">
@@ -527,14 +681,6 @@
                                 <label for="${this.getId('check_received_date')}">Date Received</label>
                                 <input type="date" name="check_received_date" id="${this.getId('check_received_date')}">
                             </div>
-                        </div>
-                        <div class="pay-later-fields payment-option payment-note hidden">
-                            <h3> Note </h3>
-                            <p>
-                                By selecting <b>Pay Later</b>, the credit amount for every line item
-                                will be set to 0 (regardless of the payment amount entered above). 
-                                Payment can be posted later on the <b>Registration History</b> page.
-                            </p>
                         </div>
                         <div class="card-fields payment-option payment-note hidden">
                             <h3> Note </h3>
@@ -585,12 +731,36 @@
                 debit_total += this.parsePaymentField($row, '.debit-input');
                 credit_total += this.parsePaymentField($row, '.credit-input');
             });
+
+            let balance = debit_total - credit_total;
             this.container.find(".debit-summary .total")
                 .text(USCTDP_Admin.formatUsd(debit_total));
             this.container.find(".credit-summary .total")
                 .text(USCTDP_Admin.formatUsd(credit_total));
             this.container.find(".balance-summary .total")
-                .text(USCTDP_Admin.formatUsd(debit_total - credit_total));
+                .text(USCTDP_Admin.formatUsd(balance));
+
+            if (credit_total > 0) {
+                let paymentMethod = $('#' + this.getId('payment_method'));
+                let selectedValue = paymentMethod.val();
+                paymentMethod.find("option").prop('disabled', false);
+                paymentMethod.find("option[value='pay_later']").prop('disabled', true);
+                if (selectedValue === 'pay_later') {
+                    paymentMethod.val('').trigger('change');
+                }
+                this.container.find(".payment-method-note span")
+                    .text("Note: since there is a payment balance, 'Pay Later' cannot be selected");
+            } else {
+                let paymentMethod = $('#' + this.getId('payment_method'));
+                let selectedValue = paymentMethod.val();
+                paymentMethod.find("option").prop('disabled', true);
+                paymentMethod.find("option[value='pay_later']").prop('disabled', false);
+                if (selectedValue !== 'pay_later') {
+                    paymentMethod.val('pay_later').trigger('change');
+                }
+                this.container.find(".payment-method-note span")
+                    .text("Note: since there is no payment balance, 'Pay Later' must be selected");
+            }
         }
 
         addOrderRow(options) {
@@ -602,6 +772,16 @@
                     <td class="cart-item">${item}</td>
                     <td class="cart-debit"> 
                         <input class="price-input debit-input" type="number" name="debit" value="${debit}">
+                    </td>
+                    <td>
+                        <div class="transfer-column">
+                            <button class="transfer-btn transfer-one">
+                                <div class="transfer-arrows">
+                                    <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
+                                    <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
+                                </div>
+                            </button>
+                        </div>
                     </td>
                     <td class="cart-credit"> 
                         <input class="price-input credit-input" type="number" name="credit" value="${credit}">
@@ -654,7 +834,7 @@
         }
 
         addExistingRegistration(registration) {
-            if(!registration.registration_id) {
+            if (!registration.registration_id) {
                 throw new Error("Tried to add existing registration with no id.");
             }
             const debit = registration.registration_debit;

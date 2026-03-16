@@ -26,44 +26,46 @@ class Usctdp_Mgmt_Admin
         'families' => [
             'title' => 'Families',
             'ajax' => [
-                'get_family_fields',
-                'save_family_fields',
+                'get_family',
                 'student_datatable',
                 'select2_search',
                 'create_family',
                 'create_student',
+                'update_family',
             ],
             'context' => ['family-id']
         ],
         'session-rosters' => [
-            'title' => 'Session Rosters', 
+            'title' => 'Session Rosters',
             'ajax' => ['gen_roster', 'session_rosters_datatable']
         ],
         'clinic-rosters' => [
-            'title' => 'Clinic Rosters', 
+            'title' => 'Clinic Rosters',
             'ajax' => ['clinic_datatable', 'select2_search']
         ],
-        'register' => [ 
-            'title' => 'Registration', 
+        'register' => [
+            'title' => 'Registration',
             'ajax' => [
                 'select2_search',
                 'activity_preregistration',
                 'registrations_datatable',
                 'create_woocommerce_order',
                 'commit_registrations',
+                'create_ledger_entries',
             ],
-            'post' => ['payment_checkout'], 
-            'context' => ['activity_id', 'student_id'] 
+            'post' => ['payment_checkout'],
+            'context' => ['activity_id', 'student_id']
         ],
         'history' => [
             'title' => 'Registration History',
             'ajax' => [
                 'select2_search',
                 'registration_history_datatable',
-                'payment_datatable',
-                'save_registration_fields',
+                'update_registration',
                 'get_family_balance',
                 'create_woocommerce_order',
+                'ledger_datatable',
+                'ledger_events_datatable',
             ],
             'post' => ['payment_checkout'],
             'context' => ['family_id', 'student_id']
@@ -159,15 +161,16 @@ class Usctdp_Mgmt_Admin
         return admin_url('admin.php?page=' . $page_slug);
     }
 
-    private function load_admin_page($slug, $ajax_handlers, $post_handlers, $preloads) {
-       $js_data = [
+    private function load_admin_page($slug, $ajax_handlers, $post_handlers, $preloads)
+    {
+        $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
             'post_url' => admin_url('admin-post.php')
         ];
 
         foreach ($ajax_handlers as $key) {
-            if(!isset(Usctdp_Mgmt_Admin_Ajax::$ajax_handlers[$key])) {
-               throw new Exception("No handler found for key: $key");
+            if (!isset(Usctdp_Mgmt_Admin_Ajax::$ajax_handlers[$key])) {
+                throw new Exception("No handler found for key: $key");
             }
             $js_data[$key . "_action"] = $key;
             $js_data[$key . "_nonce"] = wp_create_nonce($key . "_nonce");
@@ -180,17 +183,21 @@ class Usctdp_Mgmt_Admin
             $js_data[$key . "_nonce_id"] = $handler['nonce_name'];
         }
 
+        if (isset($_GET['new_registrations'])) {
+            $js_data['new_registrations'] = json_decode($_GET['new_registrations'], true);
+        }
+
         $js_data['preload'] = $this->load_page_context($preloads);
         wp_localize_script($this->usctdp_script_id($slug), 'usctdp_mgmt_admin', $js_data);
     }
 
     private function add_usctdp_submenu(
-            $slug,
-            $title,
-            $ajax_handlers,
-            $post_handlers=[],
-            $preloads=[])
-    {
+        $slug,
+        $title,
+        $ajax_handlers,
+        $post_handlers = [],
+        $preloads = []
+    ) {
         $capability = 'manage_options';
         $menu_slug = 'usctdp-admin-' . $slug;
         $hook = add_submenu_page(
@@ -226,7 +233,7 @@ class Usctdp_Mgmt_Admin
                 $this->echo_admin_page($main_display);
             }
         );
-    
+
         add_action('load-' . $main_menu_page, function () {
             $this->enqueue_usctdp_page_script('main');
             $this->enqueue_usctdp_page_style('main');
@@ -234,15 +241,15 @@ class Usctdp_Mgmt_Admin
             $this->load_admin_page('main', $main_ajax, [], []);
         });
 
-        foreach(Usctdp_Mgmt_Admin::$submenu_config as $slug => $cfg) {
+        foreach (Usctdp_Mgmt_Admin::$submenu_config as $slug => $cfg) {
             $this->add_usctdp_submenu(
                 $slug,
                 $cfg['title'],
-                $cfg['ajax'] ?? [], 
+                $cfg['ajax'] ?? [],
                 $cfg['post'] ?? [],
                 $cfg['context'] ?? []
             );
-        } 
+        }
     }
 
     private function echo_admin_page($path)
@@ -362,26 +369,22 @@ class Usctdp_Mgmt_Admin
             $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : 0;
             $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : "";
             $payment_url = isset($_POST['payment_url']) ? sanitize_url($_POST['payment_url']) : '';
-            $order_url = isset($_POST['order_url']) ? sanitize_url($_POST['order_url']) : '';
             $registrations = isset($_POST['registrations']) ? json_decode($_POST['registrations'], true) : [];
 
-            if ($user_id === 0) {
-                throw new Web_Request_Exception('User ID is not set or invalid.');
-            }
             if ($family_id === 0) {
                 throw new Web_Request_Exception('Family ID is not set or invalid.');
-            }
-            if (empty($payment_url)) {
-                throw new Web_Request_Exception('Payment URL is not set.');
-            }
-            if (empty($order_url)) {
-                throw new Web_Request_Exception('Order URL is not set.');
             }
             if (empty($payment_method)) {
                 throw new Web_Request_Exception('Payment method is not set.');
             }
 
             if ($payment_method === 'card') {
+                if ($user_id === 0) {
+                    throw new Web_Request_Exception('User ID is not set or invalid.');
+                }
+                if (empty($payment_url)) {
+                    throw new Web_Request_Exception('Payment URL is not set.');
+                }
                 if (function_exists('WC') && WC()->session === null) {
                     $session_class = apply_filters('woocommerce_session_handler', 'WC_Session_Handler');
                     WC()->session = new $session_class();
@@ -404,7 +407,7 @@ class Usctdp_Mgmt_Admin
                     'family_id' => $family_id,
                     'new_registrations' => json_encode($registrations)
                 ], $this->get_redirect_url('usctdp-admin-history'));
-                $message = "Registrations completed successfully!";
+                $message = "Registration(s) completed successfully!";
                 $transient_data = [
                     'type' => 'success',
                     'message' => $message
@@ -415,12 +418,10 @@ class Usctdp_Mgmt_Admin
             }
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception("payment_checkout_handler", $e);
-
             $user_message = $e->getMessage();
             if (!($e instanceof Web_Request_Exception)) {
                 $user_message = 'A system error occurred. Please try again.';
             }
-
             $redirect_url = add_query_arg([
                 'usctdp_token' => $unique_token,
             ], $this->get_redirect_url('usctdp-admin-register'));

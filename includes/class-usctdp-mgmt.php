@@ -57,19 +57,23 @@ class Usctdp_Mgmt
         $this->define_woocommerce_hooks();
     }
 
-    public static function woocommerce() {
+    public static function woocommerce()
+    {
         return self::get('Usctdp_Mgmt_Woocommerce');
     }
 
-    public static function select2() {
+    public static function select2()
+    {
         return self::get('Usctdp_Mgmt_Select2');
     }
 
-    public static function logger() {
+    public static function logger()
+    {
         return self::get('Usctdp_Mgmt_Logger');
-    }  
+    }
 
-    private static function get($class) {
+    private static function get($class)
+    {
         if (!isset(self::$service_instances[$class])) {
             self::$service_instances[$class] = new $class();
         }

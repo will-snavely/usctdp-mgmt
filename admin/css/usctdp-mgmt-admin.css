@@ -218,6 +218,18 @@ div.dt-length select {
     width: 150px;
 }
 
+.payment-method-note {
+    border-left: 2px solid #868585;
+    padding-left: 5px;
+    margin-left: 10px;
+}
+
+.payment-method-note span {
+    font-size: 0.85rem;
+    color: #666;
+    max-width: 450px;
+}
+
 .payment-note {
     border-left: 1px solid #868585;
     margin-left: 20px;
