@@ -126,7 +126,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
                 MAX(payment_method) as method,
                 SUM(debit) as charge_amount,
                 SUM(credit) as payment_amount,
-                (SUM(debit) - SUM(credit)) as net_change
+                (SUM(debit) - SUM(credit)) as balance
             FROM {$wpdb->prefix}usctdp_ledger
             {$where_clause}
             GROUP BY event_id

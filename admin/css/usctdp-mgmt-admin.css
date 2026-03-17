@@ -219,7 +219,7 @@ div.dt-length select {
 }
 
 .payment-method-note {
-    border-left: 2px solid #868585;
+    border-left: 4px solid #f1cd18;
     padding-left: 5px;
     margin-left: 10px;
 }
@@ -341,4 +341,59 @@ dialog .modal_field label {
 dialog .modal_field input {
     grid-area: sel;
     width: 100%;
+}
+
+
+.transfer-column {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.transfer-column {
+    margin-left: -10px;
+    margin-right: -10px;
+}
+
+.transfer-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #1d7300;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 5px 10px;
+}
+
+.transfer-btn:hover {
+    background-color: #31c200;
+}
+
+.transfer-one {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #358719;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 5px 10px;
+}
+
+.transfer-one {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.transfer-arrows {
+    display: flex;
+    flex-direction: row;
+    margin-left: -10px;
+}
+
+.transfer-arrow {
+    margin-right: -10px;
 }

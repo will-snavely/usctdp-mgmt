@@ -20,60 +20,6 @@
     grid-auto-rows: minmax(30px, auto);
 }
 
-.transfer-column {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-}
-
-.transfer-column {
-    margin-left: -10px;
-    margin-right: -10px;
-}
-
-.transfer-btn {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    background-color: #1d7300;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 5px 10px;
-}
-
-.transfer-btn:hover {
-    background-color: #31c200;
-}
-
-.transfer-one {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    background-color: #358719;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 5px 10px;
-}
-
-.transfer-one {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-}
-
-.transfer-arrows {
-    display: flex;
-    flex-direction: row;
-    margin-left: -10px;
-}
-
-.transfer-arrow {
-    margin-right: -10px;
-}
-
 .context-selector-label {
     font-weight: bold;
     text-align: right;

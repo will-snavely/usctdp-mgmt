@@ -12,8 +12,10 @@
             paymentMode: "update",
             redirectOnComplete: false,
         };
+
+        const paymentTableId = "registration-payment-table";
         const paymentTable =
-            new USCTDP_Admin.RegistrationPaymentTable("registration-payment-table", paymentSettings);
+            new USCTDP_Admin.RegistrationPaymentTable(paymentTableId, paymentSettings);
 
         function refreshFamilyBalance(family_id, student_id) {
             $.ajax({
@@ -215,11 +217,13 @@
                         <div class="payment-actions">
                             <select id="payment-action-${idx}" class="payment-action-select">
                                 <option value=""></option>
-                                <option value="payment">Post Payment</option>
-                                <option value="refund">Post Refund</option>
-                                <option value="credit">Issue House Credit</option>
+                                <option value="post-payment">Post Payment</option>
+                                <option value="post-refund">Post Refund</option>
+                                <option value="issue-credit">Issue House Credit</option>
                             </select>
-                            <button id="post-payment-${idx}" class="button ledger-action" disabled>Go</button>
+                            <button id="ledger-action-${idx}" class="button ledger-action" disabled>
+                                Go
+                            </button>
                         </div>
                     </div>
                     <div class="notes-wrap activity-field">
@@ -435,12 +439,18 @@
         function openPostPaymentModal(registrations) {
             console.log(registrations);
             paymentTable.clear();
+            let count = 0;
             for (const reg of registrations) {
                 if (parseFloat(reg.registration_credit) < parseFloat(reg.registration_debit)) {
                     paymentTable.addExistingRegistration(reg);
+                    count++;
                 }
             }
-            postPaymentModal.showModal();
+            if (count > 0) {
+                postPaymentModal.showModal();
+            } else {
+                alert("The selected registration(s) are already paid in full!");
+            }
         }
 
         function openPaymentHistoryModal(registrationId) {
@@ -535,7 +545,12 @@
 
         $('#history-table tbody').on('click', '.ledger-action', function () {
             const $row = $(this).closest('tr');
-            console.log("here");
+            const $select = $row.find('.payment-action-select');
+            const action = $select.val();
+            if (action === 'post-payment') {
+                const rowData = historyTable.row($row).data();
+                openPostPaymentModal([rowData]);
+            }
         });
 
         $('#history-table tbody').on('change', '.session-select', function () {
@@ -596,17 +611,15 @@
             }
         });
 
+        $(`#${paymentTableId}`).on('payment:complete;', function () {
+            paymentHistoryModal.close();
+        });
+
         $('#history-table tbody').on('click', 'button.payment-history', function (e) {
             const $row = $(this).closest('tr');
             var rowData = historyTable.row($row).data();
             const registrationId = rowData.registration_id;
             openPaymentHistoryModal(registrationId);
-        });
-
-        $('#history-table tbody').on('click', 'button.post-payment', function (e) {
-            const $row = $(this).closest('tr');
-            var rowData = historyTable.row($row).data();
-            openPostPaymentModal([rowData]);
         });
 
         function load_registration_history(title, family_id, student_id) {

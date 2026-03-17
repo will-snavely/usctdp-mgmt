@@ -412,8 +412,8 @@ class Usctdp_Mgmt_Admin_Ajax
             global $wpdb;
             $query = $wpdb->prepare(
                 "   SELECT
-                    SUM(credit) as total_credits,
-                    SUM(debit) as total_debits
+                    0 as total_credits,
+                    0 as total_debits
                 FROM {$wpdb->prefix}usctdp_registration AS reg
                 JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id
                 WHERE " . implode(' AND ', $conditions),

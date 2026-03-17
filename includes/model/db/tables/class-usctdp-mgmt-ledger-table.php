@@ -32,7 +32,7 @@ class Usctdp_Mgmt_Ledger_Table extends Table
             created_by bigint(20) NOT NULL,
             created_at datetime NOT NULL,
             PRIMARY KEY (id),
-            INDEX idx_registration (registration_id),
+            INDEX idx_ref_account_amount (registration_id, account, debit, credit),
             INDEX idx_family_account (family_id, account),
             INDEX idx_ref (reference_id),
             INDEX idx_method (payment_method)

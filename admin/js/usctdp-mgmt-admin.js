@@ -296,6 +296,7 @@
                             $('#' + this.getId('submit_registrations')).val(JSON.stringify(regIds));
                             form[0].submit();
                         }
+                        this.trigger('complete', {});
                     })
                     .catch((error) => {
                         const submitBtnText = this.settings.submitButtonText ?? "Submit Payment";
@@ -479,26 +480,27 @@
                     credit: parseFloat(lineItem.debit).toFixed(2),
                     debit: parseFloat(0).toFixed(2)
                 });
+            }
 
-                if (lineItem.credit > 0) {
-                    result.push({
-                        ...ledgerBase,
-                        account: "payment_" + paymentMethod,
-                        payment_method: paymentMethod,
-                        reference_id: checkNumber ?? null,
-                        credit: parseFloat(0).toFixed(2),
-                        debit: parseFloat(lineItem.debit).toFixed(2)
-                    });
+            if (lineItem.credit > 0) {
+                result.push({
+                    ...ledgerBase,
+                    account: "payment_" + paymentMethod,
+                    payment_method: paymentMethod,
+                    reference_id: checkNumber ?? null,
+                    credit: parseFloat(0).toFixed(2),
+                    debit: parseFloat(lineItem.debit).toFixed(2)
+                });
 
-                    result.push({
-                        ...ledgerBase,
-                        account: lineItem.type + "_fees",
-                        payment_method: paymentMethod,
-                        reference_id: checkNumber ?? null,
-                        credit: parseFloat(lineItem.credit).toFixed(2),
-                        debit: parseFloat(0).toFixed(2)
-                    });
-                }
+                result.push({
+                    ...ledgerBase,
+                    account: lineItem.type + "_fees",
+                    payment_method: paymentMethod,
+                    reference_id: checkNumber ?? null,
+                    credit: parseFloat(lineItem.credit).toFixed(2),
+                    debit: parseFloat(0).toFixed(2)
+                });
+
             }
             return result;
         }
@@ -723,6 +725,10 @@
         }
 
         updatePaymentTotals() {
+            const {
+                allowPayLater = false,
+            } = this.settings;
+
             const $rows = this.container.find('table tbody tr');
             let debit_total = 0;
             let credit_total = 0;
@@ -748,8 +754,12 @@
                 if (selectedValue === 'pay_later') {
                     paymentMethod.val('').trigger('change');
                 }
-                this.container.find(".payment-method-note span")
-                    .text("Note: since there is a payment balance, 'Pay Later' cannot be selected");
+                if (allowPayLater) {
+                    this.container.find(".payment-method-note span")
+                        .text("Because the payment balance is greater than zero, 'Pay Later' cannot be selected.");
+                } else {
+                    this.container.find(".payment-method-note span").text("");
+                }
             } else {
                 let paymentMethod = $('#' + this.getId('payment_method'));
                 let selectedValue = paymentMethod.val();
@@ -758,8 +768,13 @@
                 if (selectedValue !== 'pay_later') {
                     paymentMethod.val('pay_later').trigger('change');
                 }
-                this.container.find(".payment-method-note span")
-                    .text("Note: since there is no payment balance, 'Pay Later' must be selected");
+                if (allowPayLater) {
+                    this.container.find(".payment-method-note span")
+                        .text("Payment balance is currently zero, 'Pay Later' must be selected.");
+                } else {
+                    this.container.find(".payment-method-note span")
+                        .text("Payment balance is currently zero. Please input a payment amount above to proceed.");
+                }
             }
         }
 

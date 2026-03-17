@@ -16,10 +16,7 @@ class Usctdp_Mgmt_Registration_Row extends Row
         $this->student_id = (int) $this->student_id;
         $this->tracking_id = (string) $this->tracking_id;
         $this->student_level = (string) $this->student_level;
-        $this->credit = (string) $this->credit;
-        $this->debit = (string) $this->debit;
         $this->notes = (string) $this->notes;
-        $this->status = (int) $this->status;
         $this->created_at = (string) $this->created_at;
         $this->created_by = (int) $this->created_by;
         $this->last_modified_at = (string) $this->last_modified_at;

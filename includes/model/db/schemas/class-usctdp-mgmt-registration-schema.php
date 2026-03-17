@@ -36,28 +36,9 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'name' => 'student_level',
             'type' => 'tinytext',
         ],
-        'credit' => [
-            'name' => 'credit',
-            'type' => 'decimal',
-            'length' => '10,2',
-            'default' => '0.00',
-            'unsigned' => false,
-        ],
-        'debit' => [
-            'name' => 'debit',
-            'type' => 'decimal',
-            'length' => '10,2',
-            'default' => '0.00',
-            'unsigned' => false,
-        ],
         'notes' => [
             'name' => 'notes',
             'type' => 'text',
-        ],
-        'status' => [
-            'name' => 'status',
-            'type' => 'tinyint',
-            'unsigned' => true,
         ],
         'created_at' => [
             'name' => 'created_at',

@@ -71,9 +71,9 @@ class Usctdp_Mgmt_Registration_Query extends Query
             "   SELECT
                     reg.id as registration_id,
                     reg.student_level as registration_student_level,
-                    reg.credit as registration_credit,
-                    reg.debit as registration_debit,
                     reg.notes as registration_notes,
+                    ledger.total_debit as registration_debit,
+                    ledger.total_credit as registration_credit,
                     stud.id as student_id, stud.family_id as family_id,
                     stud.first as student_first,
                     stud.last as student_last,
@@ -87,6 +87,15 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
+                LEFT JOIN (
+                    SELECT 
+                        registration_id,
+                        SUM(debit) as total_debit,
+                        SUM(credit) as total_credit
+                    FROM {$wpdb->prefix}usctdp_ledger
+                    WHERE account = 'registration_fees'
+                    GROUP BY registration_id
+                ) AS ledger ON ledger.registration_id = reg.id
                 {$where_clause}
                 ORDER BY reg.id DESC
                 {$limit_clause}",

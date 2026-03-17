@@ -66,6 +66,7 @@ class Usctdp_Mgmt_Admin
                 'create_woocommerce_order',
                 'ledger_datatable',
                 'ledger_events_datatable',
+                'create_ledger_entries',
             ],
             'post' => ['payment_checkout'],
             'context' => ['family_id', 'student_id']
