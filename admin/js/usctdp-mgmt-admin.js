@@ -36,6 +36,7 @@
             nonce = usctdp_mgmt_admin.select2_search_nonce,
             minimumInputLength = 0,
             filter = () => ({}),
+            pinnedOptions = [],
             ...extraOptions
         } = options;
 
@@ -55,9 +56,11 @@
                         ...filter()
                     };
                 },
-                processResults: function (data) {
+                processResults: function (data, params) {
+                    const isSearching = params.term && params.term.length > 0;
+                    const finalResults = isSearching ? data.items : pinnedOptions.concat(data.items);
                     return {
-                        results: data.items || [],
+                        results: finalResults
                     };
                 },
                 cache: true
@@ -119,7 +122,8 @@
                     placeholder: `Select ${settings.label}...`,
                     allowClear: true,
                     target: settings.target,
-                    filter: settings.filter
+                    filter: settings.filter,
+                    pinnedOptions: settings.pinnedOptions
                 })
             );
         }

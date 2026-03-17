@@ -23,7 +23,9 @@
             if (visible) {
                 $('.preorder-subtype').addClass('hidden');
                 $('#preorder-details').removeClass('hidden');
-                $('#' + subtype).removeClass('hidden');
+                if (subtype) {
+                    $('#' + subtype).removeClass('hidden');
+                }
             } else {
                 $('#preorder-details').addClass('hidden');
                 $('.preorder-subtype').addClass('hidden');
@@ -34,7 +36,7 @@
             $("#payment-table-section").toggleClass("hidden", !visible);
         }
 
-        function set_notification(slug, message, ignoreable = false) {
+        function set_notification(slug, message, ignoreable = false, ignore_action = null) {
             var $notification = $("<div></div>");
             $notification.addClass('notification');
             var $message = $("<p></p>");
@@ -49,7 +51,9 @@
                 $ignoreBtn.text('Proceed Anyway');
                 $notification.append($ignoreBtn);
                 $ignoreBtn.click(function () {
-                    togglePreorderDetails(true);
+                    if (ignore_action) {
+                        ignore_action();
+                    }
                 });
             }
             $('#notifications-section').append($notification);
@@ -102,10 +106,12 @@
                     set_notification(
                         'activity-full',
                         'This activity is currently full.',
-                        true
+                        true,
+                        function () {
+                            togglePreorderDetails(true, "clinic-preorder");
+                        }
                     );
                 } else {
-                    togglePreorderDetails(true, "clinic-preorder");
                 }
             } catch (error) {
                 console.log("Error: ", error);
@@ -245,7 +251,18 @@
                 name: 'session_id',
                 label: 'Session',
                 target: 'session',
-                next: 'activity-selector',
+                branches: ['activity-selector'],
+                next: function (value) {
+                    if (value === 'merch_only' || value === 'new_session') {
+                        return null;
+                    } else {
+                        return 'activity-selector';
+                    }
+                },
+                pinnedOptions: [
+                    { id: 'merch_only', text: '🎾 Merchandise Only' },
+                    { id: 'new_session', text: '🆕 New Special Session' }
+                ]
             },
             'activity-selector': {
                 name: 'activity_id',
@@ -267,6 +284,7 @@
             clearNotifications();
             togglePreorderDetails(false);
             if (complete && value) {
+                $('#preorder-details .preorder-subtype').addClass('hidden');
                 if (selectorId === 'activity-selector') {
                     const activityId = value;
                     const studentId = $('#student-selector').val()
@@ -275,6 +293,10 @@
                         const activityType = activityData.type;
                         loadActivityRegistration(activityId, activityType, studentId);
                     }
+                } else if (value === 'merch_only') {
+                    togglePreorderDetails(true, "merch-preorder");
+                } else if (value === 'new_session') {
+                    togglePreorderDetails(true, "new-session-preorder");
                 }
             }
         });

@@ -50,6 +50,38 @@
                         </button>
                     </div>
                 </div>
+                <div id="new-session-preorder" class="preorder-subtype">
+                    <div id="new-session-preorder-fields" class="preorder-fields">
+                        <div id="new-session-name-field" class="registration-field">
+                            <label for="new-session-name">Session Name</label>
+                            <input type="text" name="new-session-name" id="new-session-name">
+                        </div>
+                        <div id="new-session-price-field" class="registration-field">
+                            <label for="new-session-price">Session Price</label>
+                            <input type="number" name="new-session-price" id="new-session-price">
+                        </div>
+                        <div id="new-session-start-date-field" class="registration-field">
+                            <label for="new-session-start-date">Start Date</label>
+                            <input type="date" name="new-session-start-date" id="new-session-start-date">
+                        </div>
+                        <div id="new-session-end-date-field" class="registration-field">
+                            <label for="new-session-end-date">End Date</label>
+                            <input type="date" name="new-session-end-date" id="new-session-end-date">
+                        </div>
+                    </div>
+                    <div id="add-item-wrap">
+                        <button id="add-new-session-registration" class="button button-primary">
+                            Create Session and Register
+                        </button>
+                    </div>
+                </div>
+                <div id="merch-preorder" class="preorder-subtype">
+                    <div id="add-item-wrap">
+                        <button id="add-merchandise-registration" class="button button-primary">
+                            Add Merchandise
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="payment-table-section" class="hidden"></div>
