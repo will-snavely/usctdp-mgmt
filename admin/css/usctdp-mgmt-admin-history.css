@@ -382,12 +382,20 @@ textarea[readonly] {
     font-weight: 700;
 }
 
+#payment-history-table-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
 /* Table styling */
 .usctdp-table.dataTable {
     border-collapse: collapse !important;
 }
 
 .usctdp-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background: #f0f0f1;
     color: #2c3338;
     padding: 12px !important;

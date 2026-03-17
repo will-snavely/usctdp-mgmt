@@ -36,7 +36,7 @@
                 </table>
             </div>
             <div class="actions-footer">
-                <button type="button" class="button" id="close-payment-history-modal">Cancel</button>
+                <button type="button" class="button" id="close-payment-history-modal">Close</button>
             </div>
         </dialog>
 

@@ -252,10 +252,13 @@
                 this.container.find('.submit-payment-wrap').toggleClass('hidden', value === "");
 
                 if (value === 'check') {
+                    this.container.find('.check-fields input').val('');
                     this.container.find('.check-fields').removeClass('hidden');
                 } else if (value === 'pay_later') {
+                    this.container.find('.pay-later-fields input').val('');
                     this.container.find('.pay-later-fields').removeClass('hidden');
                 } else if (value === 'card') {
+                    this.container.find('.card-fields input').val('');
                     this.container.find('.card-fields').removeClass('hidden');
                 }
             });
@@ -296,13 +299,15 @@
                             $('#' + this.getId('submit_registrations')).val(JSON.stringify(regIds));
                             form[0].submit();
                         }
-                        this.trigger('complete', {});
                     })
                     .catch((error) => {
-                        const submitBtnText = this.settings.submitButtonText ?? "Submit Payment";
                         console.error("Order creation failed:", error);
-                        $submitBtn.prop('disabled', false).val(submitBtnText);
                         alert('There was an error. Please try again, or inform a developer.');
+                    })
+                    .finally(() => {
+                        const submitBtnText = this.settings.submitButtonText ?? "Submit Payment";
+                        $submitBtn.prop('disabled', false).val(submitBtnText);
+                        this.trigger('complete', {});
                     });
             });
         }
@@ -325,8 +330,11 @@
             var familyId = null;
             var lineItems = [];
             let lineItemId = 0;
-            let totalDebit = parseFloat($('#' + this.getId('total_debit')).val());
-            let totalCredit = parseFloat($('#' + this.getId('total_credit')).val());
+
+            let rawDebit = this.container.find('.debit-summary .total').data('value');
+            let totalDebit = parseFloat(rawDebit);
+            let rawCredit = this.container.find('.credit-summary .total').data('value');
+            let totalCredit = parseFloat(rawCredit);
 
             $rows.each(function () {
                 const $row = $(this);
@@ -360,7 +368,7 @@
                         line_item_id: lineItemId,
                     };
                     lineItems.push(registration);
-                } else if (type == "equipment") {
+                } else if (type === "equipment") {
                     lineItems.push({
                         product_code: $row.data('product_code'),
                         student_id: $row.data('student_id'),
@@ -536,22 +544,24 @@
                 if (paymentMode === "create") {
                     const isPartialPayment = orderData.total_balance > 0;
                     const partialNote = isPartialPayment ? " (Partial)" : "";
-                    if (orderData.payment_method == "check") {
+                    if (orderData.payment_method === "check") {
                         event = "Purchase w/ Check #" + orderData.check_number + partialNote;
-                    } else if (orderData.payment_method == "cash") {
+                    } else if (orderData.payment_method === "cash") {
                         event = "Purchase w/ Cash" + partialNote;
-                    } else if (orderData.payment_method == "card") {
+                    } else if (orderData.payment_method === "card") {
                         event = "Order Initiated, Card Details Pending" + partialNote;
                     } else {
                         event = "Order Initiated, Payment Pending";
                     }
                 } else {
-                    if (orderData.payment_method == "check") {
-                        event = "Payment Made w/ Check #" + orderData.check_number;
-                    } else if (orderData.payment_method == "cash") {
-                        event = "Payment Made w/ Cash";
-                    } else if (orderData.payment_method == "card") {
-                        event = "Payment Initiated, Card Details Pending";
+                    const isPartialPayment = orderData.total_balance > 0;
+                    const partialNote = isPartialPayment ? " (Partial)" : "";
+                    if (orderData.payment_method === "check") {
+                        event = "Payment Made w/ Check #" + orderData.check_number + partialNote;
+                    } else if (orderData.payment_method === "cash") {
+                        event = "Payment Made w/ Cash" + partialNote;
+                    } else if (orderData.payment_method === "card") {
+                        event = "Payment Initiated, Card Details Pending" + partialNote;
                     }
                 }
 
@@ -740,11 +750,14 @@
 
             let balance = debit_total - credit_total;
             this.container.find(".debit-summary .total")
-                .text(USCTDP_Admin.formatUsd(debit_total));
+                .text(USCTDP_Admin.formatUsd(debit_total))
+                .data('value', debit_total);
             this.container.find(".credit-summary .total")
-                .text(USCTDP_Admin.formatUsd(credit_total));
+                .text(USCTDP_Admin.formatUsd(credit_total))
+                .data('value', credit_total);
             this.container.find(".balance-summary .total")
-                .text(USCTDP_Admin.formatUsd(balance));
+                .text(USCTDP_Admin.formatUsd(balance))
+                .data('value', balance);
 
             if (credit_total > 0) {
                 let paymentMethod = $('#' + this.getId('payment_method'));

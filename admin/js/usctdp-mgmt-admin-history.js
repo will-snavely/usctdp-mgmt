@@ -252,6 +252,7 @@
                     d.security = usctdp_mgmt_admin.ledger_events_datatable_nonce;
                     d.registration_id = registrationId;
                     d.account = 'registration_fees';
+                    d.length = -1;
                 },
                 dataSrc: "data"
             },
@@ -611,8 +612,9 @@
             }
         });
 
-        $(`#${paymentTableId}`).on('payment:complete;', function () {
-            paymentHistoryModal.close();
+        $(`#${paymentTableId}`).on('payment:complete', function () {
+            postPaymentModal.close();
+            historyTable.ajax.reload();
         });
 
         $('#history-table tbody').on('click', 'button.payment-history', function (e) {

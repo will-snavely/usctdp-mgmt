@@ -84,7 +84,6 @@ class Usctdp_Mgmt_Ledger_Query extends Query
             'count' => $count
         ];
     }
-
     public function get_ledger_events($args)
     {
         global $wpdb;
@@ -110,14 +109,16 @@ class Usctdp_Mgmt_Ledger_Query extends Query
 
         $limit_clause = '';
         $limit_args = [];
-        if (isset($args["number"])) {
+        if (isset($args["number"]) && $args["number"] > 0) {
             $limit_clause = "LIMIT %d";
             $limit_args[] = $args['number'];
+
+            if (isset($args["offset"])) {
+                $limit_clause .= " OFFSET %d";
+                $limit_args[] = $args['offset'];
+            }
         }
-        if (isset($args["offset"])) {
-            $limit_clause .= " OFFSET %d";
-            $limit_args[] = $args['offset'];
-        }
+
         $query = $wpdb->prepare(
             "SELECT 
                 event_id,
@@ -130,7 +131,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
             FROM {$wpdb->prefix}usctdp_ledger
             {$where_clause}
             GROUP BY event_id
-            ORDER BY event_date DESC
+            ORDER BY event_date ASC
             {$limit_clause}",
             array_merge($where_args, $limit_args)
         );

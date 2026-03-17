@@ -17,7 +17,6 @@ class Usctdp_Mgmt_Admin
             'callback' => 'payment_checkout_handler'
         ],
     ];
-
     public static $submenu_config = [
         'clinics' => [
             'title' => 'Clinics',
@@ -104,14 +103,14 @@ class Usctdp_Mgmt_Admin
         wp_enqueue_script(
             'usctdp-primary-js',
             plugin_dir_url(__FILE__) . 'js/usctdp-mgmt-admin.js',
-            ['jquery'],
+        ['jquery'],
             $this->version,
             true
         );
         wp_enqueue_script(
             'usctdp-vendor-js',
             USCTDP_DIR_PATH . 'dist/js/usctdp-mgmt-admin-vendor.js',
-            ['jquery'],
+        ['jquery'],
             '4.1.0',
             true
         );
@@ -135,7 +134,7 @@ class Usctdp_Mgmt_Admin
         wp_enqueue_style(
             'usctdp-primary-css',
             plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin.css',
-            [],
+        [],
             $this->version,
             'all'
         );
@@ -198,7 +197,8 @@ class Usctdp_Mgmt_Admin
         $ajax_handlers,
         $post_handlers = [],
         $preloads = []
-    ) {
+        )
+    {
         $capability = 'manage_options';
         $menu_slug = 'usctdp-admin-' . $slug;
         $hook = add_submenu_page(
@@ -208,10 +208,10 @@ class Usctdp_Mgmt_Admin
             $capability,
             $menu_slug,
             function () use ($slug) {
-                $admin_dir = plugin_dir_path(__FILE__);
-                $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-' . $slug . '.php';
-                $this->echo_admin_page($main_display);
-            }
+            $admin_dir = plugin_dir_path(__FILE__);
+            $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-' . $slug . '.php';
+            $this->echo_admin_page($main_display);
+        }
         );
         add_action('load-' . $hook, function () use ($slug, $ajax_handlers, $post_handlers, $preloads) {
             $this->enqueue_usctdp_page_script($slug);
@@ -229,10 +229,10 @@ class Usctdp_Mgmt_Admin
             'manage_options',
             'usctdp-admin-main',
             function () {
-                $admin_dir = plugin_dir_path(__FILE__);
-                $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-main.php';
-                $this->echo_admin_page($main_display);
-            }
+            $admin_dir = plugin_dir_path(__FILE__);
+            $main_display = $admin_dir . 'partials/usctdp-mgmt-admin-main.php';
+            $this->echo_admin_page($main_display);
+        }
         );
 
         add_action('load-' . $main_menu_page, function () {
@@ -257,7 +257,8 @@ class Usctdp_Mgmt_Admin
     {
         if (file_exists($path)) {
             require_once($path);
-        } else {
+        }
+        else {
             echo '<div class="notice notice-error"><p>Admin view file not found.</p></div>';
         }
     }
@@ -285,44 +286,44 @@ class Usctdp_Mgmt_Admin
         $result = [];
         $query_map = [
             'session_id' => function ($id) {
-                return $this->db_id_query('Usctdp_Mgmt_Session_Query', $id);
-            },
+            return $this->db_id_query('Usctdp_Mgmt_Session_Query', $id);
+        },
             'clinic_id' => function ($id) {
-                $clinic_query = new Usctdp_Mgmt_Clinic_Query([]);
-                $result = $clinic_query->get_clinic_data([
+            $clinic_query = new Usctdp_Mgmt_Clinic_Query([]);
+            $result = $clinic_query->get_clinic_data([
                     'id' => $id,
                     'number' => 1
                 ]);
-                if (!empty($result['data'])) {
-                    return $result['data'][0];
-                }
-                return null;
-            },
-            'activity_id' => function ($id) {
-                $activity_query = new Usctdp_Mgmt_Activity_Query([]);
-                $result = $activity_query->get_activity_data([
-                    'id' => $id,
-                    'number' => 1
-                ]);
-                if (!empty($result['data'])) {
-                    return $result['data'][0];
-                }
-                return null;
-            },
-            'student_id' => function ($id) {
-                $student_query = new Usctdp_Mgmt_Student_Query([]);
-                $result = $student_query->get_student_data([
-                    'id' => $id,
-                    'number' => 1
-                ]);
-                if (!empty($result['data'])) {
-                    return $result['data'][0];
-                }
-                return null;
-            },
-            'family_id' => function ($id) {
-                return $this->db_id_query('Usctdp_Mgmt_Family_Query', $id);
+            if (!empty($result['data'])) {
+                return $result['data'][0];
             }
+            return null;
+        },
+            'activity_id' => function ($id) {
+            $activity_query = new Usctdp_Mgmt_Activity_Query([]);
+            $result = $activity_query->get_activity_data([
+                    'id' => $id,
+                    'number' => 1
+                ]);
+            if (!empty($result['data'])) {
+                return $result['data'][0];
+            }
+            return null;
+        },
+            'student_id' => function ($id) {
+            $student_query = new Usctdp_Mgmt_Student_Query([]);
+            $result = $student_query->get_student_data([
+                    'id' => $id,
+                    'number' => 1
+                ]);
+            if (!empty($result['data'])) {
+                return $result['data'][0];
+            }
+            return null;
+        },
+            'family_id' => function ($id) {
+            return $this->db_id_query('Usctdp_Mgmt_Family_Query', $id);
+        }
         ];
         foreach ($expected_params as $key) {
             if (isset($_GET[$key]) && is_numeric($_GET[$key]) && isset($query_map[$key])) {
@@ -396,13 +397,15 @@ class Usctdp_Mgmt_Admin
                     if (ob_get_length())
                         ob_clean();
                     switch_to_user($user_id);
-                } else {
+                }
+                else {
                     throw new Web_Request_Exception('User switching not enabled.');
                 }
                 Usctdp_Mgmt::logger()->log_info("Redirecting to payment URL: " . $payment_url);
                 wp_redirect($payment_url);
                 exit;
-            } else {
+            }
+            else {
                 $redirect_url = add_query_arg([
                     'usctdp_token' => $unique_token,
                     'family_id' => $family_id,
@@ -417,7 +420,8 @@ class Usctdp_Mgmt_Admin
                 wp_redirect($redirect_url);
                 exit;
             }
-        } catch (Throwable $e) {
+        }
+        catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception("payment_checkout_handler", $e);
             $user_message = $e->getMessage();
             if (!($e instanceof Web_Request_Exception)) {
