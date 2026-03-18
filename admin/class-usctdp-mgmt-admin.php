@@ -69,6 +69,18 @@ class Usctdp_Mgmt_Admin
             ],
             'post' => ['payment_checkout'],
             'context' => ['family_id', 'student_id']
+        ],
+        'balances' => [
+            'title' => 'Outstanding Balances',
+            'ajax' => [
+                'select2_search',
+                'datatable_balances',
+                'datatable_balances_detail',
+                'ledger_datatable',
+                'ledger_events_datatable',
+            ],
+            'post' => ['payment_checkout'],
+            'context' => ['family_id', 'student_id']
         ]
     ];
 

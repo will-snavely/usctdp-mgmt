@@ -870,36 +870,49 @@ class Usctdp_Mgmt_Admin_Ajax
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT 
-                    fam.title as family_name,
-                    fam.id as family_id,
-                    SUM(reg.debit - reg.credit) AS total_family_balance,
-                    COUNT(*) OVER() AS grand_total
-                FROM {$wpdb->prefix}usctdp_registration AS reg 
-                JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id 
-                JOIN {$wpdb->prefix}usctdp_family AS fam ON fam.id = stu.family_id
-                WHERE (reg.debit > reg.credit) AND (reg.debit - reg.credit) > %d
-                GROUP BY fam.id, fam.title
-                ORDER BY total_family_balance DESC
-                LIMIT %d OFFSET %d",
+                    family_id,
+                    MAX(fam.title) as family_name,
+                    SUM(ledger.debit) as total_charges,
+                    SUM(ledger.credit) as total_payments,
+                    (SUM(ledger.debit) - SUM(credit)) as balance_due
+                FROM {$wpdb->prefix}usctdp_ledger AS ledger
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON ledger.family_id = fam.id
+                WHERE account = 'registration_fees'
+                GROUP BY ledger.family_id
+                HAVING balance_due > %d
+                ORDER BY balance_due DESC
+                LIMIT %d 
+                OFFSET %d",
             $min_balance,
             $length,
             $start
         );
 
+        $count_query = $wpdb->prepare(
+            "   SELECT COUNT(*) FROM (
+                    SELECT family_id
+                    FROM {$wpdb->prefix}usctdp_ledger
+                    WHERE account = 'registration_fees'
+                    GROUP BY family_id
+                    HAVING (SUM(debit) - SUM(credit)) > %d
+                ) AS temp_table",
+            $min_balance
+        );
+
         $query_results = $wpdb->get_results($query);
         $output_data = [];
-        $grand_total = 0;
+
         if ($query_results) {
-            $grand_total = $query_results[0]->grand_total;
             foreach ($query_results as $result) {
                 $output_data[] = [
                     "family_id" => $result->family_id,
                     "family_name" => $result->family_name,
-                    "total_balance" => $amount_fmt->format($result->total_family_balance),
+                    "total_balance" => $amount_fmt->format($result->balance_due),
                 ];
             }
         }
 
+        $grand_total = $wpdb->get_var($count_query);
         $response = array(
             "draw" => $draw,
             "recordsTotal" => $grand_total,
@@ -928,19 +941,31 @@ class Usctdp_Mgmt_Admin_Ajax
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT 
+                    reg.registration_id as registration_id,
                     act.title as activity_name,
-                    stu.title as student_name,
                     sesh.title as session_name,
-                    reg.credit as credit,
-                    reg.debit as debit,
-                    (reg.debit - reg.credit) as balance,
+                    stud.first as student_first,
+                    stud.last as student_last,
+                    ledger_sums.total_debit,
+                    ledger_sums.total_credit,
+                    (ledger_sums.total_debit - ledger_sums.total_credit) as balance_due,
                     COUNT(*) OVER() as grand_total
-                FROM {$wpdb->prefix}usctdp_registration AS reg 
-                JOIN {$wpdb->prefix}usctdp_student AS stu ON reg.student_id = stu.id
+                FROM {$wpdb->prefix}usctdp_registration AS reg
+                JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                WHERE stu.family_id = %d AND reg.debit > reg.credit
-                ORDER BY balance DESC
+                INNER JOIN (
+                    SELECT 
+                        registration_id,
+                        SUM(debit) as total_debit,
+                        SUM(credit) as total_credit
+                    FROM {$wpdb->prefix}usctdp_ledger
+                    WHERE account = 'registration_fees'
+                    GROUP BY registration_id
+                    HAVING (SUM(debit) - SUM(credit)) > 0
+                ) AS ledger_sums ON ledger_sums.registration_id = reg.registration_id
+                WHERE stud.family_id = %d
+                ORDER BY reg.registration_id ASC
                 LIMIT %d OFFSET %d",
             $family_id,
             $length,
@@ -955,11 +980,11 @@ class Usctdp_Mgmt_Admin_Ajax
             foreach ($query_results as $result) {
                 $output_data[] = [
                     "activity_name" => $result->activity_name,
-                    "student_name" => $result->student_name,
+                    "student_name" => $result->student_first . ' ' . $result->student_last,
                     "session_name" => $result->session_name,
-                    "credit" => $amount_fmt->format($result->credit),
-                    "debit" => $amount_fmt->format($result->debit),
-                    "balance" => $amount_fmt->format($result->debit - $result->credit)
+                    "credit" => $amount_fmt->format($result->total_credit),
+                    "debit" => $amount_fmt->format($result->total_debit),
+                    "balance" => $amount_fmt->format($result->balance_due)
                 ];
             }
         }

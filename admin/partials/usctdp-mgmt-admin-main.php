@@ -1,11 +1,13 @@
 <?php
 global $wpdb;
 
-$balance_query = "
-    SELECT COUNT(id) as total_count, SUM(debit - credit) as total_balance 
-    FROM {$wpdb->prefix}usctdp_registration 
-    WHERE debit > credit
-";
+
+$balance_query =
+    "   SELECT 
+            COUNT(id) as total_count,
+            SUM(debit) - SUM(credit) as total_balance
+        FROM {$wpdb->prefix}usctdp_ledger
+        WHERE account in ('registration_fees')";
 
 $balance_results = $wpdb->get_row($balance_query);
 if ($balance_results) {
