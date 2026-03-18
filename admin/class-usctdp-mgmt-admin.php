@@ -32,7 +32,7 @@ class Usctdp_Mgmt_Admin
                 'create_student',
                 'update_family',
             ],
-            'context' => ['family-id']
+            'context' => ['family_id']
         ],
         'session-rosters' => [
             'title' => 'Session Rosters',
@@ -177,7 +177,9 @@ class Usctdp_Mgmt_Admin
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
-            'post_url' => admin_url('admin-post.php')
+            'post_url' => admin_url('admin-post.php'),
+            'admin_url' => admin_url('admin.php'),
+            'family_url' => admin_url('admin.php?page=usctdp-admin-families')
         ];
 
         foreach ($ajax_handlers as $key) {

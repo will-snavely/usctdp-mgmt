@@ -32,8 +32,8 @@
                 method: 'GET',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.get_family_fields_action,
-                    security: usctdp_mgmt_admin.get_family_fields_nonce,
+                    action: usctdp_mgmt_admin.get_family_action,
+                    security: usctdp_mgmt_admin.get_family_nonce,
                     family_id: family_id
                 }
             });
