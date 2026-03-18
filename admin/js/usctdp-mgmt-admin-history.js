@@ -615,6 +615,11 @@
         $(`#${paymentTableId}`).on('payment:complete', function () {
             postPaymentModal.close();
             historyTable.ajax.reload();
+            var studentId = null;
+            if (preloadedData['student-selector']) {
+                studentId = preloadedData['student-selector']["id"];
+            }
+            refreshFamilyBalance($('#family-selector').val(), studentId);
         });
 
         $('#history-table tbody').on('click', 'button.payment-history', function (e) {

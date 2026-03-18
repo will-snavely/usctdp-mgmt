@@ -112,6 +112,7 @@
                         }
                     );
                 } else {
+                    togglePreorderDetails(true, "clinic-preorder");
                 }
             } catch (error) {
                 console.log("Error: ", error);
@@ -163,10 +164,11 @@
                 racketFee = parseFloat(fixedFee);
             }
             const studentData = $("#student-selector").select2('data')[0];
+            const activityData = $("#activity-selector").select2('data')[0];
             const registration = {
                 activity_id: $('#activity-selector').val(),
                 activity_name: displayActivityName,
-                add_racket: addRacket,
+                product_id: activityData.product_id,
                 student_id: $('#student-selector').val(),
                 family_id: $('#family-selector').val(),
                 student_first: studentData.first,
@@ -261,7 +263,7 @@
                 },
                 pinnedOptions: [
                     { id: 'merch_only', text: '🎾 Merchandise Only' },
-                    { id: 'new_session', text: '🆕 New Special Session' }
+                    { id: 'new_session', text: '➕ New Special Session' }
                 ]
             },
             'activity-selector': {

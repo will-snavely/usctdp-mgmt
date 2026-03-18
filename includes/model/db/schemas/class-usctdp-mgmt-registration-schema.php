@@ -5,12 +5,11 @@ use BerlinDB\Database\Schema;
 class Usctdp_Mgmt_Registration_Schema extends Schema
 {
     public $columns = [
-        'id' => [
-            'name' => 'id',
+        'registration_id' => [
+            'name' => 'registration_id',
             'type' => 'bigint',
             'length' => '20',
             'unsigned' => true,
-            'extra' => 'auto_increment',
             'primary' => true,
             'sortable' => true,
         ],
@@ -28,10 +27,6 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
-        'tracking_id' => [
-            'name' => 'tracking_id',
-            'type' => 'tinytext',
-        ],
         'student_level' => [
             'name' => 'student_level',
             'type' => 'tinytext',
@@ -39,26 +34,6 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
         'notes' => [
             'name' => 'notes',
             'type' => 'text',
-        ],
-        'created_at' => [
-            'name' => 'created_at',
-            'type' => 'datetime',
-        ],
-        'created_by' => [
-            'name' => 'created_by',
-            'type' => 'bigint',
-            'length' => '20',
-            'unsigned' => true,
-        ],
-        'last_modified_at' => [
-            'name' => 'last_modified_at',
-            'type' => 'datetime',
-        ],
-        'last_modified_by' => [
-            'name' => 'last_modified_by',
-            'type' => 'bigint',
-            'length' => '20',
-            'unsigned' => true,
         ],
     ];
 }

@@ -4,7 +4,7 @@ class Select2_Search_Exception extends Exception
 {
 }
 
-class Usctdp_Mgmt_Select2 
+class Usctdp_Mgmt_Select2
 {
     private $select2_search_targets;
 
@@ -44,13 +44,14 @@ class Usctdp_Mgmt_Select2
         ];
     }
 
-    public function is_valid_target($target) {
+    public function is_valid_target($target)
+    {
         return array_key_exists($target, $this->select2_search_targets);
     }
 
     public function search($target, $search, $filters)
     {
-        if($this->is_valid_target($target)) {
+        if ($this->is_valid_target($target)) {
             $search_target = $this->select2_search_targets[$target];
             return $search_target['callback']($search, $filters);
         } else {
@@ -58,8 +59,9 @@ class Usctdp_Mgmt_Select2
         }
     }
 
-    public function get_filters($target) {
-        if($this->is_valid_target($target)) {
+    public function get_filters($target)
+    {
+        if ($this->is_valid_target($target)) {
             return $this->select2_search_targets[$target]['filters'];
         } else {
             return [];
@@ -96,7 +98,9 @@ class Usctdp_Mgmt_Select2
                 $results[] = array(
                     'id' => $result->id,
                     'text' => $result->title,
-                    'type' => intval($result->type)
+                    'type' => intval($result->type),
+                    'session_id' => intval($result->session_id),
+                    'product_id' => intval($result->product_id),
                 );
             }
         }

@@ -364,6 +364,7 @@
                         student_id: $row.data('student_id'),
                         session_id: $row.data('session_id'),
                         activity_id: $row.data('activity_id'),
+                        product_id: $row.data('product_id'),
                         student_level: $row.data('student_level'),
                         notes: $row.data('notes'),
                         credit: parseFloat(credit),

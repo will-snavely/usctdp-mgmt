@@ -33,7 +33,8 @@ class Usctdp_Mgmt_Admin_Ajax
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
             'student_id' => $student_id,
-            'activity_id' => $activity_id
+            'activity_id' => $activity_id,
+            'number' => 1
         ]);
         return !empty($reg_query->items);
     }
@@ -81,9 +82,9 @@ class Usctdp_Mgmt_Admin_Ajax
         return $query->add_item($args);
     }
 
-    private function save_entity($entity_id, $source, $query_object, $fields)
+    private function save_entity($entity_id, $source, $query_object, $fields, $id_field = 'id')
     {
-        $query = new $query_object(['id' => $entity_id, 'number' => 1]);
+        $query = new $query_object([$id_field => $entity_id, 'number' => 1]);
         if (empty($query->items)) {
             throw new Web_Request_Exception("Entity with id $entity_id not found.");
         }
@@ -107,8 +108,7 @@ class Usctdp_Mgmt_Admin_Ajax
         if ($result) {
             $query = new $query_object(['id' => $entity_id, 'number' => 1]);
             return $query->items[0];
-        }
-        else {
+        } else {
             throw new Web_Request_Exception("Updating entity $entity_id failed.");
         }
     }
@@ -147,8 +147,8 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         $pricing = $pricing_query->items[0];
-        $capacity = (int)$activity->activity_capacity;
-        $found_posts = (int)$this->get_activity_registration_count($activity_id);
+        $capacity = (int) $activity->activity_capacity;
+        $found_posts = (int) $this->get_activity_registration_count($activity_id);
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
 
         wp_send_json_success([
@@ -181,8 +181,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'title' => $activity->title,
                 'type' => $activity->type,
             ];
-        }
-        else if (!empty($session_id)) {
+        } else if (!empty($session_id)) {
             $session = Usctdp_Mgmt_Model::get_session($session_id);
             if (!$session) {
                 wp_send_json_error('Session with ID "' . $session_id . '" not found.', 404);
@@ -202,8 +201,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $document = null;
             if ($target['type'] === Usctdp_Activity_Type::Clinic) {
                 $document = $doc_gen->generate_clinic_roster($target['id']);
-            }
-            elseif ($target['type'] === 'session') {
+            } elseif ($target['type'] === 'session') {
                 $document = $doc_gen->generate_session_roster($target['id']);
             }
             if (!$document) {
@@ -215,8 +213,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'doc_id' => $drive_file->id,
                 'doc_url' => $drive_file->webViewLink
             ]);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
             wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
         }
@@ -237,8 +234,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 wp_send_json_error("No family found with id: $family_id", 400);
             }
             wp_send_json_success($family);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_family', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
@@ -341,8 +337,8 @@ class Usctdp_Mgmt_Admin_Ajax
             'credit' => sanitize_text_field(...),
             'debit' => sanitize_text_field(...),
             'notes' => function ($value) {
-            return sanitize_textarea_field(stripslashes($value));
-        },
+                return sanitize_textarea_field(stripslashes($value));
+            },
         ];
 
         try {
@@ -350,11 +346,11 @@ class Usctdp_Mgmt_Admin_Ajax
                 $entity_id,
                 $_POST,
                 'Usctdp_Mgmt_Registration_Query',
-                $post_fields
+                $post_fields,
+                'registration_id'
             );
             wp_send_json_success($result);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_registration', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
@@ -376,8 +372,8 @@ class Usctdp_Mgmt_Admin_Ajax
             'state' => sanitize_text_field(...),
             'zip' => sanitize_text_field(...),
             'notes' => function ($value) {
-            return sanitize_textarea_field(stripslashes($value));
-        },
+                return sanitize_textarea_field(stripslashes($value));
+            },
             'phone_numbers' => json_encode(...)
         ];
 
@@ -389,8 +385,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 $post_fields
             );
             wp_send_json_success($result);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_family', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
@@ -401,7 +396,6 @@ class Usctdp_Mgmt_Admin_Ajax
         $this->check_nonce('get_family_balance');
 
         try {
-
             $conditions = [];
             $args = [];
 
@@ -418,6 +412,9 @@ class Usctdp_Mgmt_Admin_Ajax
                 $args[] = $student_id;
             }
 
+            $conditions[] = "account in (%s)";
+            $args[] = 'registration_fees';
+
             global $wpdb;
             $query = $wpdb->prepare(
                 "   SELECT 
@@ -430,8 +427,7 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_success([
                 'balance' => $results->total_balance_due
             ]);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_family_balance', $e);
             wp_send_json_error('An unexpected server error occurred during family balance retrieval.', 500);
         }
@@ -451,17 +447,17 @@ class Usctdp_Mgmt_Admin_Ajax
                 'zip' => sanitize_text_field(...),
                 'phone_numbers' => json_encode(...),
                 'title' => function ($raw) {
-                $phone = trim($this->get_sanitized_post_field_text('phone'));
-                $last_four = substr($phone, -4);
-                $last_name = sanitize_text_field($raw);
-                return $last_name . ' ' . $last_four;
-            },
+                    $phone = trim($this->get_sanitized_post_field_text('phone'));
+                    $last_four = substr($phone, -4);
+                    $last_name = sanitize_text_field($raw);
+                    return $last_name . ' ' . $last_four;
+                },
                 'search_term' => function ($raw) {
-                $phone = trim($this->get_sanitized_post_field_text('phone'));
-                $last_four = substr($phone, -4);
-                $last_name = sanitize_text_field($raw);
-                return Usctdp_Mgmt_Model::append_token_suffix($last_name . ' ' . $last_four);
-            },
+                    $phone = trim($this->get_sanitized_post_field_text('phone'));
+                    $last_four = substr($phone, -4);
+                    $last_name = sanitize_text_field($raw);
+                    return Usctdp_Mgmt_Model::append_token_suffix($last_name . ' ' . $last_four);
+                },
             ];
             $family_id = $this->create_entity($_POST, 'Usctdp_Mgmt_Family_Query', $fields);
             if (!$family_id) {
@@ -490,22 +486,20 @@ class Usctdp_Mgmt_Admin_Ajax
                 throw new Web_Request_Exception(
                     $user_id->get_error_message(),
                     500
-                    );
+                );
             }
             wp_send_json_success([
                 'user_id' => $user_id,
                 'family_id' => $family_id
             ], 200);
-        }
-        catch (Web_Request_Exception $e) {
+        } catch (Web_Request_Exception $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_create_family', $e);
             if ($family_id) {
                 $family_query = new Usctdp_Mgmt_Family_Query([]);
                 $family_query->delete_item($family_id);
             }
             wp_send_json_error($e->getMessage(), $e->getCode());
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_create_family', $e);
             if ($family_id) {
                 $family_query = new Usctdp_Mgmt_Family_Query([]);
@@ -526,35 +520,33 @@ class Usctdp_Mgmt_Admin_Ajax
                 'last' => sanitize_text_field(...),
                 'level' => sanitize_text_field(...),
                 'title' => function ($raw) {
-                $first_name = $this->get_sanitized_post_field_text('first');
-                $last_name = $this->get_sanitized_post_field_text('last');
-                return $first_name . ' ' . $last_name;
-            },
+                    $first_name = $this->get_sanitized_post_field_text('first');
+                    $last_name = $this->get_sanitized_post_field_text('last');
+                    return $first_name . ' ' . $last_name;
+                },
                 'search_term' => function () {
-                $first_name = $this->get_sanitized_post_field_text('first');
-                $last_name = $this->get_sanitized_post_field_text('last');
-                return Usctdp_Mgmt_Model::append_token_suffix($first_name . ' ' . $last_name);
-            },
+                    $first_name = $this->get_sanitized_post_field_text('first');
+                    $last_name = $this->get_sanitized_post_field_text('last');
+                    return Usctdp_Mgmt_Model::append_token_suffix($first_name . ' ' . $last_name);
+                },
                 'birth_date' => function ($raw) {
-                if (empty($raw)) {
-                    return null;
-                }
-                $date = new DateTime($raw);
-                return $date->format('Y-m-d');
-            },
+                    if (empty($raw)) {
+                        return null;
+                    }
+                    $date = new DateTime($raw);
+                    return $date->format('Y-m-d');
+                },
             ];
 
             $student_id = $this->create_entity($_POST, 'Usctdp_Mgmt_Student_Query', $fields);
             if (!$student_id) {
                 wp_send_json_error('Failed to create student.', 500);
-            }
-            else {
+            } else {
                 wp_send_json_success([
                     'student_id' => $student_id
                 ], 200);
             }
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_create_student', $e);
             wp_send_json_error('An unexpected server error occurred during student creation.', 500);
         }
@@ -576,11 +568,11 @@ class Usctdp_Mgmt_Admin_Ajax
             'reference_id' => sanitize_text_field(...),
             'notes' => sanitize_text_field(...),
             'created_by' => function ($raw) {
-            return get_current_user_id();
-        },
+                return get_current_user_id();
+            },
             'created_at' => function ($raw) {
-            return current_time('mysql');
-        },
+                return current_time('mysql');
+            },
         ];
         return $this->create_entity($source, 'Usctdp_Mgmt_Ledger_Query', $fields);
     }
@@ -600,16 +592,14 @@ class Usctdp_Mgmt_Admin_Ajax
                 $result = $this->create_ledger_entry($entry);
                 if ($result) {
                     $ids[] = $result;
-                }
-                else {
+                } else {
                     $wpdb->query('ROLLBACK');
                     wp_send_json_error('Failed to create ledger entry.', 500);
                 }
             }
             $wpdb->query('COMMIT');
             wp_send_json_success($ids);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             Usctdp_Mgmt::logger()->log_exception('ajax_create_ledger_entries', $e);
             wp_send_json_error('An unexpected server error occurred during ledger entry creation.', 500);
@@ -638,8 +628,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 $filters[$key] = isset($_GET[$key]) ? $parser($_GET[$key]) : null;
             }
             $results = Usctdp_Mgmt::select2()->search($target, $search, $filters);
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_select2_search', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
@@ -654,8 +643,7 @@ class Usctdp_Mgmt_Admin_Ajax
         try {
             $query = new Usctdp_Mgmt_Session_Query();
             $query_results = $query->get_active_session_rosters();
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_session_rosters', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
@@ -707,8 +695,7 @@ class Usctdp_Mgmt_Admin_Ajax
             if (!$query_results) {
                 wp_send_json_error('Failed to update session active status due to an unexpected server error.', 500);
             }
-        }
-        catch (Throwable $e) {
+        } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_toggle_session_active', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
@@ -992,8 +979,7 @@ class Usctdp_Mgmt_Admin_Ajax
         foreach ($line_items as $line_item) {
             if ($family_id === null) {
                 $family_id = $line_item['family_id'];
-            }
-            else if ($family_id !== $line_item['family_id']) {
+            } else if ($family_id !== $line_item['family_id']) {
                 return false;
             }
         }
@@ -1051,6 +1037,12 @@ class Usctdp_Mgmt_Admin_Ajax
         if (!isset($data['student_id'])) {
             throw new Web_Request_Exception('Student ID missing from registration data.');
         }
+        if (!isset($data['product_id'])) {
+            throw new Web_Request_Exception('Product ID missing from registration data.');
+        }
+        if (!is_numeric($data['product_id'])) {
+            throw new Web_Request_Exception('Product ID is not a number.');
+        }
         if (!is_numeric($data['activity_id'])) {
             throw new Web_Request_Exception('Activity ID is not a number.');
         }
@@ -1058,10 +1050,23 @@ class Usctdp_Mgmt_Admin_Ajax
             throw new Web_Request_Exception('Student ID is not a number.');
         }
 
+
         $activity_id = $data['activity_id'];
         $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
         if (!$activity) {
             throw new Web_Request_Exception('Activity with ID ' . $activity_id . ' not found.');
+        }
+
+        $product_id = $data['product_id'];
+        $product = Usctdp_Mgmt_Model::get_product($product_id);
+        if (!$product) {
+            throw new Web_Request_Exception('Product with ID ' . $product_id . ' not found.');
+        }
+
+        $family_id = $data['family_id'];
+        $family = Usctdp_Mgmt_Model::get_family($family_id);
+        if (!$family) {
+            throw new Web_Request_Exception('Family with ID ' . $family_id . ' not found.');
         }
 
         $student_id = $data['student_id'];
@@ -1083,16 +1088,6 @@ class Usctdp_Mgmt_Admin_Ajax
             $notes = sanitize_textarea_field(stripslashes($data['notes']));
         }
 
-        $credit = 0;
-        if (isset($data['credit'])) {
-            $credit = sanitize_text_field($data['credit']);
-        }
-
-        $debit = 0;
-        if (isset($data['debit'])) {
-            $debit = sanitize_text_field($data['debit']);
-        }
-
         $line_item_id = 0;
         if (isset($data['line_item_id'])) {
             $line_item_id = sanitize_text_field($data['line_item_id']);
@@ -1101,13 +1096,14 @@ class Usctdp_Mgmt_Admin_Ajax
         return [
             "student" => $student,
             "activity" => $activity,
+            "product" => $product,
             "line_item_id" => $line_item_id,
             "sql_args" => [
                 'activity_id' => $activity_id,
+                'product_id' => $product_id,
+                'family_id' => $family_id,
                 'student_id' => $student_id,
                 'student_level' => $student_level,
-                'credit' => $credit,
-                'debit' => $debit,
                 'notes' => $notes
             ]
         ];
@@ -1141,17 +1137,22 @@ class Usctdp_Mgmt_Admin_Ajax
 
             $wpdb->query('START TRANSACTION');
             $transaction_started = true;
-            $registration_query = new Usctdp_Mgmt_Registration_Query([]);
-            foreach ($registration_records as $record) {
-                $wpdb->get_row(
+            $registration_query = new Usctdp_Mgmt_Registration_Query();
+
+            $activity_ids = array_map(function ($record) {
+                return (int) $record["activity"]->id;
+            }, $registration_records);
+
+            if (!empty($activity_ids)) {
+                $placeholders = implode(',', array_fill(0, count($activity_ids), '%d'));
+                $wpdb->get_results(
                     $wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id = %d FOR UPDATE",
-                    $record["activity"]->id,
-                )
+                        "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id IN ($placeholders) FOR UPDATE",
+                        $activity_ids
+                    )
                 );
             }
 
-            $current_user = get_current_user_id();
             foreach ($registration_records as &$record) {
                 $args = $record['sql_args'];
                 $line_item_id = $record['line_item_id'];
@@ -1165,12 +1166,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
                 }
 
-                $current_time = current_time('mysql');
-                $args['created_at'] = $current_time;
-                $args['created_by'] = $current_user;
-                $args['last_modified_at'] = $current_time;
-                $args['last_modified_by'] = $current_user;
-                $registration_id = $registration_query->add_item($args);
+                $registration_id = $registration_query->create_registration($args);
                 if (!$registration_id) {
                     throw new Web_Request_Exception('Failed to create registration.');
                 }
@@ -1178,16 +1174,13 @@ class Usctdp_Mgmt_Admin_Ajax
             }
             $wpdb->query('COMMIT');
             $transaction_completed = true;
-        }
-        catch (Web_Request_Exception $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
+        } catch (Web_Request_Exception $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
             $response_message = $e->getMessage();
-        }
-        catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
             $response_message = 'A system error occurred. Please try again.';
-        }
-        finally {
+        } finally {
             if (!$transaction_completed) {
                 if ($transaction_started) {
                     $wpdb->query('ROLLBACK');
@@ -1196,8 +1189,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     $response_message = 'A system error occurred. Please try again.';
                 }
                 wp_send_json_error($response_message, 500);
-            }
-            else {
+            } else {
                 wp_send_json_success([
                     "ids" => $registration_ids
                 ]);
