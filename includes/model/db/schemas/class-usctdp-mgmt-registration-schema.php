@@ -5,8 +5,8 @@ use BerlinDB\Database\Schema;
 class Usctdp_Mgmt_Registration_Schema extends Schema
 {
     public $columns = [
-        'registration_id' => [
-            'name' => 'registration_id',
+        'id' => [
+            'name' => 'id',
             'type' => 'bigint',
             'length' => '20',
             'unsigned' => true,

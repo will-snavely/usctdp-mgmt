@@ -26,7 +26,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
         if (isset($args["registration_ids"])) {
             $ids = $args["registration_ids"];
             $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
-            $conditions[] = "reg.registration_id IN ($placeholders)";
+            $conditions[] = "reg.id IN ($placeholders)";
             $where_args = array_merge($where_args, $ids);
         }
         if (isset($args["activity_id"])) {
@@ -69,7 +69,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
 
         $query = $wpdb->prepare(
             "   SELECT
-                    reg.registration_id as registration_id,
+                    reg.id as registration_id,
                     reg.student_level as registration_student_level,
                     reg.notes as registration_notes,
                     ledger.total_debit as registration_debit,
@@ -84,7 +84,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     sesh.title as session_name,
                     sesh.id as session_id
                 FROM {$wpdb->prefix}usctdp_purchase AS pur
-                JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.registration_id
+                JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.id
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
@@ -96,9 +96,9 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account = 'registration_fees'
                     GROUP BY registration_id
-                ) AS ledger ON ledger.registration_id = reg.registration_id
+                ) AS ledger ON ledger.registration_id = reg.id
                 {$where_clause}
-                ORDER BY reg.registration_id DESC
+                ORDER BY reg.id DESC
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
@@ -116,7 +116,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account = 'registration_fees'
                     GROUP BY registration_id
-                ) AS ledger ON ledger.registration_id = reg.registration_id
+                ) AS ledger ON ledger.registration_id = reg.id
                 {$where_clause}";
         $count_query = $count_sql;
         if (!empty($where_args)) {
@@ -144,7 +144,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
         $purchase_id = $purchase_query->add_item($purchase_args);
         error_log("purchase id" . print_r($purchase_id, true));
         $registration_args = [
-            'registration_id' => $purchase_id,
+            'id' => $purchase_id,
             'activity_id' => $args['activity_id'],
             'student_id' => $args['student_id'],
             'student_level' => $args['student_level'],

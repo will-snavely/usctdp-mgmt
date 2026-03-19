@@ -21,7 +21,7 @@ class Usctdp_Mgmt_Clinic_Query extends Query
         $sql = "SELECT * FROM";
         $sql .= " {$wpdb->prefix}usctdp_activity as act";
         $sql .= " JOIN {$wpdb->prefix}{$this->table_name} as uclin";
-        $sql .= " ON act.id = uclin.activity_id";
+        $sql .= " ON act.id = uclin.id";
         $args = [];
         $conditions = [];
         if ($query) {
@@ -91,7 +91,7 @@ class Usctdp_Mgmt_Clinic_Query extends Query
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
                     prod.title as product_name, prod.id as product_id, prod.age_group as product_age_group 
                 FROM {$wpdb->prefix}usctdp_activity AS act
-                JOIN {$wpdb->prefix}usctdp_clinic AS clin ON act.id = clin.activity_id
+                JOIN {$wpdb->prefix}usctdp_clinic AS clin ON act.id = clin.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}
@@ -103,7 +103,7 @@ class Usctdp_Mgmt_Clinic_Query extends Query
 
         $count_sql = "SELECT COUNT(*) as count
                 FROM {$wpdb->prefix}usctdp_activity AS act
-                JOIN {$wpdb->prefix}usctdp_clinic AS clin ON act.id = clin.activity_id
+                JOIN {$wpdb->prefix}usctdp_clinic AS clin ON act.id = clin.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}";

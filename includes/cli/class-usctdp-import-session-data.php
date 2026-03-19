@@ -264,13 +264,13 @@ class Usctdp_Import_Session_Data
                     ]);
 
                     $clinic_query = new Usctdp_Mgmt_Clinic_Query([
-                        "activity_id" => $activity_id
+                        "id" => $activity_id
                     ]);
                     if (!empty($clinic_query->items)) {
                         WP_CLI::log("Unexpected: class already exists (id=$activity_id)");
                     } else {
                         $clinic_query->add_item([
-                            "activity_id" => $activity_id,
+                            "id" => $activity_id,
                             "day_of_week" => $day_of_week,
                             "start_time" => $start_time->format("H:i:s"),
                             "end_time" => $end_time->format("H:i:s"),

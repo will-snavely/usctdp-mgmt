@@ -2,7 +2,7 @@
 
 use BerlinDB\Database\Table;
 
-if (! defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -24,11 +24,11 @@ class Usctdp_Mgmt_Clinic_Table extends Table
     public function set_schema()
     {
         $this->schema = "
-            activity_id bigint(20) unsigned NOT NULL,
+            id bigint(20) unsigned NOT NULL,
             day_of_week tinyint unsigned,
             start_time time,
             end_time time,
-            PRIMARY KEY (activity_id)
+            PRIMARY KEY (id)
         ";
     }
 }

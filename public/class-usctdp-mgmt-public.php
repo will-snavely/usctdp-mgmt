@@ -185,7 +185,7 @@ class Usctdp_Mgmt_Public
 
         $clinic_query = $wpdb->prepare(
             "SELECT * FROM $activity_table as act
-            JOIN $clinic_table as clin ON act.id = clin.activity_id
+            JOIN $clinic_table as clin ON act.id = clin.id
             WHERE act.session_id = %d AND act.product_id = %d",
             $session_id,
             $product_id
@@ -194,7 +194,7 @@ class Usctdp_Mgmt_Public
         $registration_query = $wpdb->prepare(
             "SELECT act.id, COUNT(reg.id) as enrolled_count 
             FROM $activity_table as act
-            JOIN $clinic_table as clin ON act.id = clin.activity_id
+            JOIN $clinic_table as clin ON act.id = clin.id
             LEFT JOIN $registration_table as reg ON act.id = reg.activity_id
             WHERE act.session_id = %d AND act.product_id = %d
             GROUP BY act.id",

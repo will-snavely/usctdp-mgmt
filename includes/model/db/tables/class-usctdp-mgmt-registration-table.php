@@ -17,12 +17,12 @@ class Usctdp_Mgmt_Registration_Table extends Table
     public function set_schema()
     {
         $this->schema = "
-            registration_id bigint(20) unsigned NOT NULL,
+            id bigint(20) unsigned NOT NULL,
             activity_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned NOT NULL,
             student_level tinytext,
             notes text,
-            PRIMARY KEY (registration_id),
+            PRIMARY KEY (id),
             KEY activity_id (activity_id),
             KEY student_id (student_id)
         ";

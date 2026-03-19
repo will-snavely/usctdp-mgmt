@@ -5,7 +5,7 @@ use BerlinDB\Database\Schema;
 class Usctdp_Mgmt_Tournament_Schema extends Schema
 {
     public $columns = [
-        'activity_id' => [
+        'id' => [
             'name' => 'id',
             'type' => 'bigint',
             'length' => '20',

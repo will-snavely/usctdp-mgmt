@@ -117,7 +117,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     private function get_clinic_display($activity_id)
     {
         $clinic_query = new Usctdp_Mgmt_Clinic_Query([
-            'activity_id' => $activity_id,
+            'id' => $activity_id,
             'number' => 1,
         ]);
         $clinic = $clinic_query->items[0];

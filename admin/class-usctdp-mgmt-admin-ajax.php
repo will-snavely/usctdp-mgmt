@@ -346,8 +346,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 $entity_id,
                 $_POST,
                 'Usctdp_Mgmt_Registration_Query',
-                $post_fields,
-                'registration_id'
+                $post_fields
             );
             wp_send_json_success($result);
         } catch (Throwable $e) {
@@ -941,7 +940,7 @@ class Usctdp_Mgmt_Admin_Ajax
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT 
-                    reg.registration_id as registration_id,
+                    reg.id as registration_id,
                     act.title as activity_name,
                     sesh.title as session_name,
                     stud.first as student_first,
@@ -963,9 +962,9 @@ class Usctdp_Mgmt_Admin_Ajax
                     WHERE account = 'registration_fees'
                     GROUP BY registration_id
                     HAVING (SUM(debit) - SUM(credit)) > 0
-                ) AS ledger_sums ON ledger_sums.registration_id = reg.registration_id
+                ) AS ledger_sums ON ledger_sums.registration_id = reg.id
                 WHERE stud.family_id = %d
-                ORDER BY reg.registration_id ASC
+                ORDER BY reg.id ASC
                 LIMIT %d OFFSET %d",
             $family_id,
             $length,
