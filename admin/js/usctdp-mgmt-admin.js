@@ -841,6 +841,7 @@
                 .data('notes', eq.notes)
                 .data('type', 'equipment');
             this.container.find('table tbody').append($row);
+            this.trigger('cart:add', { row: $row });
             this.updatePaymentTotals();
         }
 
@@ -863,21 +864,41 @@
                 .data('notes', registration.notes)
                 .data('type', 'registration');
             this.container.find('table tbody').append($row);
+            this.trigger('cart:add', { row: $row });
             this.updatePaymentTotals();
+            return { success: true };
         }
 
         addExistingRegistration(registration) {
             if (!registration.registration_id) {
                 throw new Error("Tried to add existing registration with no id.");
             }
+            const $rows = this.container.find('table tbody tr').toArray();
+            const isDuplicate = $rows.some(row => {
+                const $row = $(row);
+                return $row.data('registration_id') === registration.registration_id;
+            });
+            if (isDuplicate) {
+                return { success: false, error: 'DUPLICATE_ITEM', message: "Item already in cart." };
+            }
             const debit = registration.registration_debit;
             const credit = registration.registration_credit;
             var outstanding = debit - credit;
-            this.addRegistration(registration, outstanding, null);
+            return this.addRegistration(registration, outstanding, null);
         }
 
         addNewRegistration(registration, price) {
-            this.addRegistration(registration, price, null);
+            const $rows = this.container.find('table tbody tr').toArray();
+            const isDuplicate = $rows.some(row => {
+                const $row = $(row);
+                return $row.data('student_id') === registration.student_id &&
+                    $row.data('session_id') === registration.session_id &&
+                    $row.data('activity_id') === registration.activity_id;
+            });
+            if (isDuplicate) {
+                return { success: false, error: 'DUPLICATE_ITEM', message: "Item already in cart." };
+            }
+            return this.addRegistration(registration, price, null);
         }
     };
 })(jQuery);

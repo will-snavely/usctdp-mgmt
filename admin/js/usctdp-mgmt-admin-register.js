@@ -186,7 +186,11 @@
                 one_day_price,
                 diff
             );
-            paymentTable.addNewRegistration(registration, priceEstimate);
+            const result = paymentTable.addNewRegistration(registration, priceEstimate);
+            if (!result.success) {
+                alert("Failed to add item: " + result.message);
+                return;
+            }
             if (addRacket) {
                 const equipment = {
                     product_code: 'racket',
@@ -215,6 +219,21 @@
             }
         });
 
+        $('#payment-table-section').on('payment:cart:add', function () {
+
+            const editNode = `
+            <div class="edit-note">
+                <span> 
+                    <strong>NOTE:</strong> All purchases must come from one family.
+                </span>
+            </div>
+            `;
+            if ($('#context-selection').find('.edit-note').length === 0) {
+                $('#context-selection').prepend(editNode);
+            }
+            $('#family-selector').prop('disabled', true);
+        });
+
         $('#payment-table-section').on('payment:checkout', function () {
             clearNotifications();
             togglePreorderDetails(false);
@@ -228,6 +247,8 @@
 
         $('#payment-table-section').on('payment:empty', function () {
             togglePaymentTable(false);
+            $('#family-selector').prop('disabled', false);
+            $('#context-selection .edit-note').remove();
         });
 
         const selectorConfig = {
