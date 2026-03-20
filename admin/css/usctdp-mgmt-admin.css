@@ -80,30 +80,31 @@ div.dt-length select {
 
 .context-selector-section {
     display: flex;
-    flex-direction: row;
-    gap: 10px;
-    align-items: center;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-start;
 }
 
-.content-selector-wrap {
-    width: 400px;
+.context-selector-wrap {
+    width: 370px;
 }
 
 .context-selector-label {
     font-weight: bold;
-    text-align: right;
-    min-width: 80px;
+    text-align: left;
     font-size: 0.9rem;
     text-transform: uppercase;
 }
 
 .payment-wrap {
+    width: fit-content;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
 .payment-table-wrap {
+    width: fit-content;
     max-height: 320px;
     overflow-y: auto;
     border: 1px solid #ddd;

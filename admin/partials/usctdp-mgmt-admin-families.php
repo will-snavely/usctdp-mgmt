@@ -1,14 +1,3 @@
-<?php
-$family_fields = [
-    'email' => ['E-mail', "text"],
-    'address' => ['Address', "text"],
-    'city' => ['City', "text"],
-    'state' => ['State', "text"],
-    'zip' => ['Zip', "text"],
-    'phone' => ['Phone (One per line)', "textarea"]
-];
-?>
-
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     <div class="main-content">

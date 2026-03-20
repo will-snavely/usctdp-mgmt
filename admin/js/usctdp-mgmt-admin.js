@@ -105,8 +105,10 @@
             const isVisible = settings.isRoot ? '' : 'hidden';
             const html = `
                 <div id="${id}-section" class="context-selector-section ${isVisible}">
-                    <label for="${id}" class="context-selector-label">${settings.label}</label>
-                    <div class="content-selector-wrap">
+                    <div class="context-selector-label-wrap">
+                        <label for="${id}" class="context-selector-label">${settings.label}</label>
+                    </div>
+                    <div class="context-selector-wrap">
                         <select id="${id}" name="${settings.name}" class="context-selector" style="width:100%">
                         </select>
                     </div>

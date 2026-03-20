@@ -3,10 +3,16 @@
     <div id="registration-container">
         <div id="registration-info">
             <div id="context-selection">
+                <div id="context-selection-header">
+                    <h2>Select Item</h2>
+                </div>
                 <div id="context-selectors"></div>
-                <div id="notifications-section"></div>
+                <div id="notifications-section" class="hidden"></div>
             </div>
             <div id="preorder-details" class="hidden">
+                <div id="preorder-details-header">
+                    <h2>Item Details</h2>
+                </div>
                 <div id="clinic-preorder" class="preorder-subtype">
                     <div id="clinic-info">
                         <div id="clinic-info-capacity" class="clinic-info-item">

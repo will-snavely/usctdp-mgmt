@@ -228,8 +228,9 @@
                 </span>
             </div>
             `;
-            if ($('#context-selection').find('.edit-note').length === 0) {
-                $('#context-selection').prepend(editNode);
+            const $labelWrap = $('#family-selector-section .context-selector-label-wrap');
+            if ($labelWrap.find('.edit-note').length === 0) {
+                $labelWrap.append(editNode);
             }
             $('#family-selector').prop('disabled', true);
         });
@@ -237,18 +238,18 @@
         $('#payment-table-section').on('payment:checkout', function () {
             clearNotifications();
             togglePreorderDetails(false);
-            $('#context-selection').addClass('hidden');
+            $('#registration-info').addClass('hidden');
         });
 
         $('#payment-table-section').on('payment:modify', function () {
             $('#activity-selector').val(null).trigger('change');
-            $('#context-selection').removeClass('hidden');
+            $('#registration-info').removeClass('hidden');
         });
 
         $('#payment-table-section').on('payment:empty', function () {
             togglePaymentTable(false);
             $('#family-selector').prop('disabled', false);
-            $('#context-selection .edit-note').remove();
+            $('#family-selector-section .context-selector-label-wrap .edit-note').remove();
         });
 
         const selectorConfig = {

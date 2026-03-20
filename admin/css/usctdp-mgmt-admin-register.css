@@ -1,39 +1,71 @@
+/* Container Overhaul */
 #registration-container {
+    display: grid;
+    /* Left column is fixed/contained, right column takes the rest */
+    grid-template-columns: 450px auto;
+    gap: 15px;
+    align-items: start;
+}
+
+#registration-info,
+#payment-table-section {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+#payment-table-section {
+    width: fit-content;
+}
+
+#registration-info {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 20px;
 }
 
-#context-selection {
+#context-selection-header,
+#preorder-details-header {
+    border-bottom: 1px solid #4f30fd;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+}
+
+/* Subtle Widget H2 */
+#registration-info h2 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #666;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+/* Fix Sizing on Inputs */
+.context-selector,
+.registration-field input,
+.registration-field select {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#context-selectors {
     padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 5px;
+    margin-left: 10px;
 }
 
-#context-selectors {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 10px 10px;
+.context-selector-label-wrap {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
     align-items: center;
-    grid-auto-rows: minmax(30px, auto);
-}
-
-.context-selector-label {
-    font-weight: bold;
-    text-align: right;
-    min-width: 80px;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-}
-
-.context-selector {
-    width: 320px;
-}
-
-.context-selector-section {
-    display: contents;
 }
 
 #order-details {
@@ -290,11 +322,49 @@
 
 .edit-note {
     border-left: 4px solid #f1cd18;
-    margin-left: 90px;
     padding-left: 5px;
 }
 
 .edit-note span {
     font-size: 0.85rem;
     color: #666;
+}
+
+.payment-table {
+    width: max-content;
+    max-width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+.payment-table th:nth-child(1) {
+    width: 80px;
+}
+
+.payment-table th:nth-child(2) {
+    width: 150px;
+}
+
+.payment-table th:nth-child(3) {
+    width: 200px;
+}
+
+.payment-table th:nth-child(4),
+.payment-table th:nth-child(6) {
+    width: 80px;
+}
+
+.payment-table th:nth-child(5) {
+    width: 45px;
+}
+
+.price-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.cart-item {
+    white-space: normal !important;
+    font-size: 0.85rem;
+    line-height: 1.2;
 }
