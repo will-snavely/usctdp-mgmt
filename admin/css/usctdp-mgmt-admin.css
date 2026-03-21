@@ -97,14 +97,12 @@ div.dt-length select {
 }
 
 .payment-wrap {
-    width: fit-content;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
 .payment-table-wrap {
-    width: fit-content;
     max-height: 320px;
     overflow-y: auto;
     border: 1px solid #ddd;
@@ -129,13 +127,13 @@ div.dt-length select {
     text-transform: uppercase;
     font-size: 12px;
     letter-spacing: 0.5px;
-    padding: 16px;
+    padding: 10px;
     text-align: left;
     border-bottom: 2px solid #000;
 }
 
 .payment-table td {
-    padding: 16px;
+    padding: 10px;
     border-top: 1px solid #000000;
     background-color: #e3eef2;
     color: #333;
@@ -183,8 +181,19 @@ div.dt-length select {
     border-color: #005670;
 }
 
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    /* display: none; <- Crashes Chrome on hover */
+    -webkit-appearance: none;
+    margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+}
+
+input[type=number] {
+    -moz-appearance:textfield; /* Firefox */
+}
+
 .price-input {
-    width: 80px;
+    width: 60px;
 }
 
 .order-summary {
@@ -352,8 +361,8 @@ dialog .modal_field input {
 }
 
 .transfer-column {
-    margin-left: -10px;
-    margin-right: -10px;
+    padding: 0;
+    margin: 0;
 }
 
 .transfer-btn {

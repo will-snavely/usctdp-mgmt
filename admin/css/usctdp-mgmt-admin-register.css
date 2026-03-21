@@ -331,9 +331,7 @@
 }
 
 .payment-table {
-    width: max-content;
-    max-width: 100%;
-    table-layout: fixed;
+    width: 100%;
     border-collapse: collapse;
 }
 
@@ -342,20 +340,23 @@
 }
 
 .payment-table th:nth-child(2) {
-    width: 150px;
+    width: auto;
+    min-width: 150px;
 }
 
-.payment-table th:nth-child(3) {
-    width: 200px;
-}
-
-.payment-table th:nth-child(4),
-.payment-table th:nth-child(6) {
-    width: 80px;
-}
-
+.payment-table th:nth-child(3),
 .payment-table th:nth-child(5) {
-    width: 45px;
+    width: 60px;
+}
+
+.payment-table th:nth-child(4) {
+    width: auto;
+    padding: 0;
+    margin: 0;
+}
+
+.payment-table th:nth-child(6) {
+    width: 50px;
 }
 
 .price-input {

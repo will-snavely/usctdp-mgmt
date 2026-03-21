@@ -638,14 +638,12 @@
                             <thead>
                                 <tr>
                                     <th>Student</th>
-                                    <th>Session</th>
                                     <th>Item</th>
                                     <th>Balance</th>
                                     <th>
                                         <div class="transfer-column">
                                             <button class="transfer-btn transfer-all">
                                                 <div class="transfer-arrows">
-                                                    <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
                                                     <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
                                                     <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
                                                 </div>
@@ -799,11 +797,10 @@
         }
 
         addOrderRow(options) {
-            const { student, session, item, credit, debit } = options;
+            const { student, item, credit, debit } = options;
             return `
                 <tr> 
                     <td class="cart-student-name">${student ?? '--'}</td>
-                    <td class="cart-session">${session ?? '--'}</td>
                     <td class="cart-item">${item}</td>
                     <td class="cart-debit"> 
                         <input class="price-input debit-input" type="number" name="debit" value="${debit}">
@@ -812,7 +809,6 @@
                         <div class="transfer-column">
                             <button class="transfer-btn transfer-one">
                                 <div class="transfer-arrows">
-                                    <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
                                     <span class="transfer-arrow dashicons dashicons-arrow-right-alt2"></span>
                                 </div>
                             </button>
@@ -849,10 +845,10 @@
 
         addRegistration(registration, debit, credit) {
             const studentName = `${registration.student_first} ${registration.student_last}`
+            var item = registration.session_name + ": " + registration.activity_name;
             var $row = $(this.addOrderRow({
                 student: studentName,
-                session: registration.session_name,
-                item: registration.activity_name,
+                item: item,
                 debit: debit ?? "",
                 credit: credit ?? ""
             }));
