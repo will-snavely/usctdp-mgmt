@@ -224,6 +224,7 @@
                 this.container.find('.checkout-btn-wrap').addClass('hidden');
                 this.container.find('.modify-btn-wrap').removeClass('hidden');
                 this.container.find('.checkout-section').removeClass('hidden');
+                this.container.find('.remove-btn').prop('disabled', true);
                 this.trigger('checkout', {});
             });
 
@@ -232,6 +233,7 @@
                 this.container.find('.checkout-btn-wrap').removeClass('hidden');
                 this.container.find('.modify-btn-wrap').addClass('hidden');
                 this.container.find('.checkout-section').addClass('hidden');
+                this.container.find('.remove-btn').prop('disabled', false);
                 this.trigger('modify', {});
             });
 

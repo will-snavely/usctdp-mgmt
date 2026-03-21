@@ -9,6 +9,24 @@
             </div>
         </dialog>
 
+        <dialog id="post-refund-modal">
+            <h2>Post Refund</h2>
+            <div id="refund-fields">
+                <div class="modal_field">
+                    <label for="refund-amount">Amount:</label>
+                    <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0">
+                </div>
+                <div class="modal_field">
+                    <label for="refund-reason">Reason:</label>
+                    <textarea id="refund-reason" name="refund-reason"></textarea>
+                </div>
+            </div>
+            <div class="actions-footer">
+                <button type="button" class="button" id="post-refund-btn">Post Refund</button>
+                <button type="button" class="button" id="close-refund-modal">Cancel</button>
+            </div>
+        </dialog>
+
         <dialog id="payment-history-modal">
             <h2>Payment History</h2>
             <div class="usctdp-ledger-summary">

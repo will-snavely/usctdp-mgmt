@@ -1,6 +1,6 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    <div id="registration-container">
+    <div id="registration-container" class="edit-order-mode">
         <div id="registration-info">
             <div id="context-selection">
                 <div id="context-selection-header">

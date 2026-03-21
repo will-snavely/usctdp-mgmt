@@ -57,6 +57,7 @@
                 });
             }
             $('#notifications-section').append($notification);
+            $('#notifications-section').removeClass('hidden');
         }
 
         async function getPreregistrationInfo(activity_id, student_id) {
@@ -239,11 +240,17 @@
             clearNotifications();
             togglePreorderDetails(false);
             $('#registration-info').addClass('hidden');
+            $('#notifications-section').addClass('hidden');
+            $('#registration-container').removeClass('edit-order-mode');
+            $('#registration-container').addClass('checkout-mode');
+
         });
 
         $('#payment-table-section').on('payment:modify', function () {
             $('#activity-selector').val(null).trigger('change');
             $('#registration-info').removeClass('hidden');
+            $('#registration-container').removeClass('checkout-mode');
+            $('#registration-container').addClass('edit-order-mode');
         });
 
         $('#payment-table-section').on('payment:empty', function () {

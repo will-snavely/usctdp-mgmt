@@ -1,10 +1,15 @@
 /* Container Overhaul */
-#registration-container {
+.edit-order-mode {
     display: grid;
-    /* Left column is fixed/contained, right column takes the rest */
     grid-template-columns: 450px auto;
     gap: 15px;
     align-items: start;
+}
+
+.checkout-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 #registration-info,
@@ -28,7 +33,7 @@
 
 #context-selection-header,
 #preorder-details-header {
-    border-bottom: 1px solid #4f30fd;
+    border-bottom: 1px solid #8d8d8d;
     margin-bottom: 15px;
     padding-bottom: 8px;
 }
