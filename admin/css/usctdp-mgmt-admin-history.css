@@ -431,3 +431,7 @@ textarea[readonly] {
 .text-right {
     text-align: right;
 }
+
+dialog .modal_field input {
+    width: 100px;
+}

@@ -322,13 +322,10 @@ dialog form {
     gap: 15px;
 }
 
-dialog .actions-footer {
+dialog .modal_field_group {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    border-top: 2px solid #f0f0f0;
-    padding-top: 10px;
-    margin-top: 10px;
+    flex-direction: column;
+    gap: 15px;
 }
 
 dialog .modal_field {
@@ -351,6 +348,15 @@ dialog .modal_field label {
 dialog .modal_field input {
     grid-area: sel;
     width: 100%;
+}
+
+dialog .actions-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 2px solid #f0f0f0;
+    padding-top: 10px;
+    margin-top: 10px;
 }
 
 .transfer-column {

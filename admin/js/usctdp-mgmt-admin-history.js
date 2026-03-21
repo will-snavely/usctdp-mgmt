@@ -6,6 +6,7 @@
         var newRegistrations = null;
         const paymentHistoryModal = document.querySelector('#payment-history-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
+        const postRefundModal = document.querySelector('#post-refund-modal');
         const paymentSettings = {
             checkoutButton: false,
             allowPayLater: false,
@@ -438,7 +439,6 @@
         }
 
         function openPostPaymentModal(registrations) {
-            console.log(registrations);
             paymentTable.clear();
             let count = 0;
             for (const reg of registrations) {
@@ -452,6 +452,10 @@
             } else {
                 alert("The selected registration(s) are already paid in full!");
             }
+        }
+
+        function openPostRefundModal(row) {
+            postRefundModal.showModal();
         }
 
         function openPaymentHistoryModal(registrationId) {
@@ -546,11 +550,14 @@
 
         $('#history-table tbody').on('click', '.ledger-action', function () {
             const $row = $(this).closest('tr');
+            const rowData = historyTable.row($row).data();
             const $select = $row.find('.payment-action-select');
             const action = $select.val();
             if (action === 'post-payment') {
-                const rowData = historyTable.row($row).data();
+
                 openPostPaymentModal([rowData]);
+            } else if (action === 'post-refund') {
+                openPostRefundModal();
             }
         });
 
