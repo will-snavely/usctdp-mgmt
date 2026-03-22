@@ -24,9 +24,9 @@
                     <input type="text" id="student_modal_level" name="level" required>
                 </div>
 
-                <div class="actions">
-                    <button type="button" class="button" id="close-student-modal">Cancel</button>
+                <div class="actions-footer">
                     <button type="submit" class="button" id="save-student-modal">Save Student</button>
+                    <button type="button" class="button" id="close-student-modal">Cancel</button>
                 </div>
             </form>
         </dialog>
@@ -69,9 +69,9 @@
                     <input type="text" id="family_modal_phone" name="phone" required>
                 </div>
 
-                <div class="actions">
-                    <button type="button" class="button" id="close-family-modal">Cancel</button>
+                <div class="actions-footer">
                     <button type="submit" class="button" id="save-family-modal">Save Family</button>
+                    <button type="button" class="button" id="close-family-modal">Cancel</button>
                 </div>
             </form>
         </dialog>

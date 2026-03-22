@@ -6,7 +6,7 @@
 
 #selection-section {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 10px;
 }
 
@@ -19,7 +19,6 @@
     flex-direction: column;
     gap: 10px;
 }
-
 
 #fields-panel {
     font-family: 'Inter', system-ui, sans-serif;
@@ -47,13 +46,13 @@
 
 .field-group.is-dirty label::after {
     content: " *";
-    color: #e67e22; 
+    color: #e67e22;
     font-weight: bold;
 }
 
 .db-input.is-dirty {
-    background-color: #fff9f0; 
-    border-left: 4px solid #e67e22; 
+    background-color: #fff9f0;
+    border-left: 4px solid #e67e22;
 }
 
 /* Keep fields in a row */
@@ -63,13 +62,14 @@
 
 .field-list {
     display: flex;
-    flex-wrap: wrap; 
+    flex-wrap: wrap;
     gap: 16px;
     align-items: flex-start;
 }
 
 .field-group {
-    flex: 1; /* Makes all fields share width equally */
+    flex: 1;
+    /* Makes all fields share width equally */
     min-width: 150px;
     display: flex;
     flex-direction: column;
@@ -162,14 +162,16 @@ label {
 .phone-row {
     display: flex;
     align-items: center;
-    gap: 0; /* We'll use borders to join them */
+    gap: 0;
+    /* We'll use borders to join them */
 }
 
 .phone-input {
     flex: 1;
     padding: 10px 12px;
     border: 1px solid #ddd;
-    border-radius: 6px 0 0 6px; /* Rounded on the left only */
+    border-radius: 6px 0 0 6px;
+    /* Rounded on the left only */
     font-size: 14px;
     transition: border-color 0.2s;
 }
@@ -177,18 +179,21 @@ label {
 .phone-input:focus {
     outline: none;
     border-color: #3498db;
-    z-index: 1; /* Keeps the blue border on top of the button */
+    z-index: 1;
+    /* Keeps the blue border on top of the button */
 }
 
 /* The Remove (X) Button */
 .remove-phone {
     background: #f8f9fa;
     border: 1px solid #ddd;
-    border-left: none; /* Merge with input */
-    border-radius: 0 6px 6px 0; /* Rounded on the right only */
+    border-left: none;
+    /* Merge with input */
+    border-radius: 0 6px 6px 0;
+    /* Rounded on the right only */
     color: #e74c3c;
     padding: 0 10px;
-    height: 38px; 
+    height: 38px;
     cursor: pointer;
     font-size: 18px;
     line-height: 1;
@@ -219,4 +224,8 @@ label {
 #add-phone:hover {
     background: #ebf5fb;
     border-style: solid;
+}
+
+dialog#new-family-modal input {
+    width: 250px;
 }

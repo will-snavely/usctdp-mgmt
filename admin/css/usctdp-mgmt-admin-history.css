@@ -432,6 +432,14 @@ textarea[readonly] {
     text-align: right;
 }
 
-dialog .modal_field input {
-    width: 100px;
+dialog#post-refund-modal {
+    max-width: 500px;
+}
+
+dialog#post-refund-modal #refund-amount {
+    width: 80px;
+}
+
+dialog#post-refund-modal #refund-reason {
+    width: 300px;
 }

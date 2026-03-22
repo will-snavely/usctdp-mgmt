@@ -88,39 +88,6 @@
             return response;
         }
 
-        function activityDisplayName(name) {
-            const replacements = [
-                [/^Adult/, ""],
-                [/Monday,/, "Mon"],
-                [/Tuesday,/, "Tues"],
-                [/Wednesday,/, "Wed"],
-                [/Thursday,/, "Thurs"],
-                [/Friday,/, "Fri"],
-                [/Saturday,/, "Sat"],
-                [/Sunday,/, "Sun"],
-            ];
-            return USCTDP_Admin.applyReplacements(name, replacements);
-        }
-
-        function createCartRow(options) {
-            const { student, session, item, credit, debit } = options;
-            return `
-                <tr> 
-                    <td class="cart-student-name">${student ?? '--'}</td>
-                    <td class="cart-session">${session ?? '--'}</td>
-                    <td class="cart-item">${item}</td>
-                    <td class="cart-debit"> 
-                        <input class="price-input debit-input" name="debit" value="${debit}">
-                    </td>
-                    <td class="cart-credit"> 
-                        <input class="price-input credit-input" name="credit" value="${credit}">
-                    </td>
-                    <td>
-                        <button class="button remove-btn">Remove</button> 
-                    </td>
-                </tr>`
-        }
-
         function renderActivityDetails(data, idx) {
             const {
                 studentFirst, studentLast, studentAge,
@@ -531,6 +498,20 @@
 
         $('#close-payment-modal').on('click', () => {
             postPaymentModal.close();
+        });
+
+        $('#refund-form').on('submit', function (e) {
+            const form = $('#refund-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+            console.log("refund form submitted");
+        });
+
+        $('#close-refund-modal').on('click', () => {
+            postRefundModal.close();
         });
 
         $('#close-payment-history-modal').on('click', () => {

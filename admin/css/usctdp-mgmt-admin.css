@@ -185,11 +185,13 @@ input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     /* display: none; <- Crashes Chrome on hover */
     -webkit-appearance: none;
-    margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+    margin: 0;
+    /* <-- Apparently some margin are still there even though it's hidden */
 }
 
 input[type=number] {
-    -moz-appearance:textfield; /* Firefox */
+    -moz-appearance: textfield;
+    /* Firefox */
 }
 
 .price-input {
@@ -279,8 +281,6 @@ dialog {
     border: none;
     border-radius: 12px;
     padding: 24px;
-    width: 100%;
-    max-width: 850px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
     background-color: #ffffff;
     margin: auto;
@@ -330,7 +330,7 @@ dialog .modal_field_group {
 
 dialog .modal_field {
     display: grid;
-    grid-template-columns: 1fr 2fr;
+    grid-template-columns: 100px 1fr;
     grid-template-rows: auto;
     grid-template-areas:
         "lab sel";

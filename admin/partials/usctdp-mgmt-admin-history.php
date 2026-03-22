@@ -11,20 +11,22 @@
 
         <dialog id="post-refund-modal">
             <h2>Post Refund</h2>
-            <div id="refund-fields" class="modal_field_group">
-                <div class="modal_field">
-                    <label for="refund-amount">Amount</label>
-                    <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0">
+            <form id="refund-form">
+                <div id="refund-fields" class="modal_field_group">
+                    <div class="modal_field">
+                        <label for="refund-amount">Amount</label>
+                        <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0" required>
+                    </div>
+                    <div class="modal_field">
+                        <label for="refund-reason">Reason</label>
+                        <input type="text" id="refund-reason" name="refund-reason" required>
+                    </div>
                 </div>
-                <div class="modal_field">
-                    <label for="refund-reason">Reason</label>
-                    <input type="text" id="refund-reason" name="refund-reason">
+                <div class="actions-footer">
+                    <button type="submit" class="button" id="post-refund-btn">Post Refund</button>
+                    <button type="button" class="button" id="close-refund-modal">Cancel</button>
                 </div>
-            </div>
-            <div class="actions-footer">
-                <button type="button" class="button" id="post-refund-btn">Post Refund</button>
-                <button type="button" class="button" id="close-refund-modal">Cancel</button>
-            </div>
+            </form>
         </dialog>
 
         <dialog id="payment-history-modal">

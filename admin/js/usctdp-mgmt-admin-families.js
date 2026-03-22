@@ -156,37 +156,12 @@
             }).join('');
         }
 
-        $(document).on('input', '.phone-input', function () {
-            const allPhones = $('.phone-input').map(function () {
-                return $(this).val();
-            }).get();
-            pendingChanges['phone_numbers'] = allPhones;
-            $(this).closest('.field-group').addClass('is-dirty');
-            $('#save-btn')
-                .prop('disabled', false)
-                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
-        });
-
-        $(document).on('click', '.remove-phone', function () {
-            const indexToRemove = $(this).data('index');
-            if (!pendingChanges.hasOwnProperty('phone_numbers')) {
-                var phones = queryClient.getQueryData(['family', currentId]).phone_numbers;
-                pendingChanges['phone_numbers'] = [...phones];
-            }
-            pendingChanges['phone_numbers'].splice(indexToRemove, 1);
-            renderUI(queryClient.getQueryData(['family', currentId]));
-            $('#save-btn')
-                .prop('disabled', false)
-                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
-        });
-
         $(document).on('input', '.db-input', function () {
             const key = $(this).data('key');
             const val = $(this).val();
-            const $parent = $(this).parent().addClass('is-dirty');
+            $(this).parent().addClass('is-dirty');
             $(this).addClass('is-dirty');
             pendingChanges[key] = val;
-            $(this).pprent
             $('#save-btn')
                 .prop('disabled', false)
                 .text(`Save ${Object.keys(pendingChanges).length} Changes`);
@@ -202,12 +177,42 @@
             renderUI(queryClient.getQueryData(['family', currentId]));
         });
 
+        $(document).on('click', '.remove-phone', function () {
+            const indexToRemove = $(this).data('index');
+            if (!pendingChanges.hasOwnProperty('phone_numbers')) {
+                var phones = queryClient.getQueryData(['family', currentId]).phone_numbers;
+                pendingChanges['phone_numbers'] = [...phones];
+            }
+            pendingChanges['phone_numbers'].splice(indexToRemove, 1);
+            if (pendingChanges['phone_numbers'].length === 0) {
+                pendingChanges['phone_numbers'] = [];
+            }
+            renderUI(queryClient.getQueryData(['family', currentId]));
+            $('#save-btn')
+                .prop('disabled', false)
+                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
+        });
+
+        $(document).on('input', '.phone-input', function () {
+            const allPhones = $('.phone-input').map(function () {
+                return $(this).val();
+            }).get();
+            pendingChanges['phone_numbers'] = allPhones;
+            $(this).closest('.field-group').addClass('is-dirty');
+            $('#save-btn')
+                .prop('disabled', false)
+                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
+        });
+
         // 4. The Batch Save Function
         async function handleBatchSave() {
             if (Object.keys(pendingChanges).length === 0) return;
 
             const observer = new window.TSMutationObserver(queryClient, {
                 mutationFn: async (batch) => {
+                    if (pendingChanges['phone_numbers'] && pendingChanges['phone_numbers'].length === 0) {
+                        batch['phone_numbers'] = '';
+                    }
                     const response = await updateFamilyFields(currentId, batch);
                     if (!response) throw new Error("Server error");
                     return response;
