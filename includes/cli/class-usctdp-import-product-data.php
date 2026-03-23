@@ -184,9 +184,9 @@ class Usctdp_Import_Product_Data
             "title" => $title,
             "search_term" => $search_term,
             "code" => $tournament['code'],
-            "type" => Usctdp_Product_Type::Tournament->value,
+            "type" => "tournament",
             "session_category" => $this->get_category_int($tournament['session_category']),
-            "age_group" => $this->get_age_group_int($tournament['age_group']),
+            "age_group" => strtolower($tournament['age_group']),
         ]);
     }
 
@@ -212,15 +212,15 @@ class Usctdp_Import_Product_Data
             "title" => $title,
             "search_term" => $search_term,
             "code" => $clinic['code'],
-            "type" => Usctdp_Product_Type::Clinic->value,
+            "type" => "clinic",
             "session_category" => $this->get_category_int($clinic['session_category']),
-            "age_group" => $this->get_age_group_int($clinic['age_group']),
+            "age_group" => strtolower($clinic['age_group']),
         ]);
     }
 
-    private function create_equipment($equipment, $product_id)
+    private function create_merchandise($merchandise, $product_id)
     {
-        $title = 'Equipment - ' . $equipment['name'];
+        $title = 'Merchandise - ' . $merchandise['name'];
         $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
         $query = new Usctdp_Mgmt_Product_Query([
             'title' => $title,
@@ -228,21 +228,21 @@ class Usctdp_Import_Product_Data
         ]);
         if (!empty($query->items)) {
             $id = $query->items[0]->id;
-            WP_CLI::log("Existing equipment $title found with id $id");
+            WP_CLI::log("Existing product $title found with id $id");
             $query->update_item($id, [
                 "woocommerce_id" => $product_id,
             ]);
             return $id;
         }
-        WP_CLI::log("Creating equipment $title");
+        WP_CLI::log("Creating product $title");
         return $query->add_item([
             "woocommerce_id" => $product_id,
             "title" => $title,
             "search_term" => $search_term,
-            "code" => $equipment['code'],
-            "type" => Usctdp_Product_Type::Equipment->value,
+            "code" => $merchandise['code'],
+            "type" => 'merch',
             "session_category" => 0,
-            "age_group" => 0
+            "age_group" => '',
         ]);
     }
 
@@ -324,11 +324,25 @@ class Usctdp_Import_Product_Data
         }
 
         $menu_order = 0;
-        foreach ($data["equipment"] as $tournament) {
-            $product_id = $this->create_equipment_woo_product($tournament, $menu_order);
-            $tournament_id = $this->create_equipment($tournament, $product_id);
+        foreach ($data["merchandise"] as $merchandise) {
+            $product_id = $this->create_equipment_woo_product($merchandise, $menu_order);
+            $merchandise_id = $this->create_merchandise($merchandise, $product_id);
             $menu_order += 10;
+            $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+                "product_id" => $merchandise_id,
+                "number" => 1,
+            ]);
+            if (!empty($pricing_query->items)) {
+                $target = $pricing_query->items[0]->id;
+                $pricing_query->update_item($target, [
+                    "pricing" => json_encode($merchandise["price"]),
+                ]);
+            } else {
+                $pricing_query->add_item([
+                    "product_id" => $merchandise_id,
+                    "pricing" => json_encode($merchandise["price"]),
+                ]);
+            }
         }
-
     }
 }

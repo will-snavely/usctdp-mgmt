@@ -28,7 +28,7 @@ class Usctdp_Mgmt_Select2
             'product' => [
                 'callback' => $this->select2_product_search(...),
                 'filters' => [
-                    'type' => intval(...)
+                    'type' => sanitize_text_field(...)
                 ]
             ],
             'family' => [
@@ -112,8 +112,7 @@ class Usctdp_Mgmt_Select2
         $results = [];
         $query = new Usctdp_Mgmt_Product_Query();
         $activity_type = $filters['type'] ?? null;
-        $type_enum = Usctdp_Product_Type::tryFrom($activity_type);
-        $query_results = $query->search_products($search, $type_enum, 10);
+        $query_results = $query->search_products($search, $activity_type, 10);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(

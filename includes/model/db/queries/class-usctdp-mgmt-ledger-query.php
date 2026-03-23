@@ -42,9 +42,9 @@ class Usctdp_Mgmt_Ledger_Query extends Query
             $conditions[] = "ulgr.order_id = %d";
             $where_args[] = $args['order_id'];
         }
-        if (isset($args["registration_id"])) {
-            $conditions[] = "ulgr.registration_id = %d";
-            $where_args[] = $args['registration_id'];
+        if (isset($args["purchase_id"])) {
+            $conditions[] = "ulgr.purchase_id = %d";
+            $where_args[] = $args['purchase_id'];
         }
         if ($conditions) {
             $where_clause = "WHERE " . implode(" AND ", $conditions);
@@ -95,9 +95,9 @@ class Usctdp_Mgmt_Ledger_Query extends Query
             $conditions[] = "family_id = %d";
             $where_args[] = $args['family_id'];
         }
-        if (isset($args["registration_id"])) {
-            $conditions[] = "registration_id = %d";
-            $where_args[] = $args['registration_id'];
+        if (isset($args["purchase_id"])) {
+            $conditions[] = "purchase_id = %d";
+            $where_args[] = $args['purchase_id'];
         }
         if (isset($args["account"])) {
             $conditions[] = "account = %s";

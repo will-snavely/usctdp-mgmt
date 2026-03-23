@@ -437,9 +437,18 @@ dialog#post-refund-modal {
 }
 
 dialog#post-refund-modal #refund-amount {
-    width: 80px;
+    width: 150px;
+}
+
+dialog#post-refund-modal #refund-method {
+    width: 150px;
 }
 
 dialog#post-refund-modal #refund-reason {
     width: 300px;
+}
+
+dialog#payment-history-modal {
+    width: 100%;
+    max-width: 800px;
 }

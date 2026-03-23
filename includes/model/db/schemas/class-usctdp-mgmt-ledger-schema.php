@@ -14,8 +14,8 @@ class Usctdp_Mgmt_Ledger_Schema extends Schema
             'primary' => true,
             'sortable' => true,
         ],
-        'registration_id' => [
-            'name' => 'registration_id',
+        'purchase_id' => [
+            'name' => 'purchase_id',
             'type' => 'bigint',
             'unsigned' => true,
             'index' => true,

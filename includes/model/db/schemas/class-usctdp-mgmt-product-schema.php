@@ -38,11 +38,13 @@ class Usctdp_Mgmt_Product_Schema extends Schema
         ],
         'type' => [
             'name' => 'type',
-            'type' => 'tinyint',
+            'type' => 'varchar',
+            'length' => '50',
         ],
         'age_group' => [
             'name' => 'age_group',
-            'type' => 'tinyint',
+            'type' => 'varchar',
+            'length' => '50',
         ],
         'session_category' => [
             'name' => 'session_category',

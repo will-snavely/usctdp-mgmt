@@ -18,6 +18,16 @@
                         <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0" required>
                     </div>
                     <div class="modal_field">
+                        <label for="refund-method">Payment Method</label>
+                        <select id="refund-method" name="refund-method" required>
+                            <option value="">Select Method</option>
+                            <option value="house_credit">House Credit</option>
+                            <option value="cash">Cash</option>
+                            <option value="check">Check</option>
+                            <option value="card">Card</option>
+                        </select>
+                    </div>
+                    <div class="modal_field">
                         <label for="refund-reason">Reason</label>
                         <input type="text" id="refund-reason" name="refund-reason" required>
                     </div>

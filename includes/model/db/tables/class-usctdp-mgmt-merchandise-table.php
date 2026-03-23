@@ -17,9 +17,12 @@ class Usctdp_Mgmt_Merchandise_Table extends Table
     public function set_schema()
     {
         $this->schema = "
-            merchandise_id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            id bigint(20) unsigned NOT NULL,
+            product_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned default NULL,
-            PRIMARY KEY (merchandise_id)
+            PRIMARY KEY (id),
+            KEY product_id (product_id),
+            KEY student_id (student_id)
         ";
     }
 }

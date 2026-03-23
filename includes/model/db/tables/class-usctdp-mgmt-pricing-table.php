@@ -18,7 +18,7 @@ class Usctdp_Mgmt_Pricing_Table extends Table
     {
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            session_id bigint(20) unsigned NOT NULL,
+            session_id bigint(20) unsigned,
             product_id bigint(20) unsigned NOT NULL,
             pricing json,
             PRIMARY KEY (id),

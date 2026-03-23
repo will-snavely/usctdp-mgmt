@@ -421,15 +421,34 @@
             }
         }
 
-        function openPostRefundModal(row) {
-            postRefundModal.showModal();
-        }
-
         function openPaymentHistoryModal(registrationId) {
             $('#payment-history-modal').data("registrationId", registrationId);
             paymentHistoryTable.ajax.reload();
             paymentHistoryModal.showModal();
         }
+
+        function openPostRefundModal(row) {
+            if (row.registration_credit > 0) {
+                $('#refund-form').data("registrationId", row.registration_id);
+                postRefundModal.showModal();
+            } else {
+                alert("The selected registration has no credit to refund!");
+            }
+        }
+
+        $('#refund-form').on('submit', function (e) {
+            const form = $('#refund-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+            const formData = new FormData(form);
+        });
+
+        $('#close-refund-modal').on('click', () => {
+            postRefundModal.close();
+        });
 
         $('#bulk-action-selector').on('change', function () {
             updateBulkUI();
@@ -500,20 +519,6 @@
             postPaymentModal.close();
         });
 
-        $('#refund-form').on('submit', function (e) {
-            const form = $('#refund-form')[0];
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
-            e.preventDefault();
-            console.log("refund form submitted");
-        });
-
-        $('#close-refund-modal').on('click', () => {
-            postRefundModal.close();
-        });
-
         $('#close-payment-history-modal').on('click', () => {
             paymentHistoryModal.close();
         });
@@ -535,10 +540,9 @@
             const $select = $row.find('.payment-action-select');
             const action = $select.val();
             if (action === 'post-payment') {
-
                 openPostPaymentModal([rowData]);
             } else if (action === 'post-refund') {
-                openPostRefundModal();
+                openPostRefundModal(rowData);
             }
         });
 

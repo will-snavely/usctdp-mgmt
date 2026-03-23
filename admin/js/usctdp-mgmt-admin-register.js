@@ -209,6 +209,40 @@
             $('#activity-selector').val(null).trigger('change');
         });
 
+        $('#add-merchandise').on('click', function () {
+            const merchandiseName = $('#merchandise-selector option:selected').text();
+            const studentData = $("#student-selector").select2('data')[0];
+            const merchandiseData = $("#merchandise-selector").select2('data')[0];
+            const registration = {
+                product_id: merchandiseData.product_id,
+                student_id: $('#student-selector').val(),
+                family_id: $('#family-selector').val(),
+                student_first: studentData.first,
+                student_last: studentData.last,
+            };
+
+            const result = paymentTable.addNewRegistration(registration, priceEstimate);
+            if (!result.success) {
+                alert("Failed to add item: " + result.message);
+                return;
+            }
+            if (addRacket) {
+                const equipment = {
+                    product_code: 'racket',
+                    product_name: 'Wilson Tennis Racket',
+                    student_id: $('#student-selector').val(),
+                    student_first: studentData.first,
+                    student_last: studentData.last,
+                };
+                const price = racketFee;
+                paymentTable.addEquipment(equipment, price);
+            }
+            clearNotifications();
+            togglePreorderDetails(false);
+            togglePaymentTable(true);
+            $('#activity-selector').val(null).trigger('change');
+        });
+
         $('#add_racket').on('change', function () {
             const addRacket = $('#add_racket').is(':checked');
             if (addRacket) {
@@ -221,7 +255,6 @@
         });
 
         $('#payment-table-section').on('payment:cart:add', function () {
-
             const editNode = `
             <div class="edit-note">
                 <span> 
@@ -282,9 +315,11 @@
                 name: 'session_id',
                 label: 'Session',
                 target: 'session',
-                branches: ['activity-selector'],
+                branches: ['activity-selector', 'merchandise-selector'],
                 next: function (value) {
-                    if (value === 'merch_only' || value === 'new_session') {
+                    if (value === 'merch_only') {
+                        return 'merchandise-selector';
+                    } else if (value === 'new_session') {
                         return null;
                     } else {
                         return 'activity-selector';
@@ -306,6 +341,17 @@
                     };
                 }
             },
+            'merchandise-selector': {
+                name: 'merchandise_id',
+                label: 'Merchandise',
+                target: 'product',
+                next: null,
+                filter: function () {
+                    return {
+                        type: 'merch',
+                    };
+                }
+            },
         };
 
         const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
@@ -324,9 +370,9 @@
                         const activityType = activityData.type;
                         loadActivityRegistration(activityId, activityType, studentId);
                     }
-                } else if (value === 'merch_only') {
+                } else if (selectorId === 'merchandise-selector') {
                     togglePreorderDetails(true, "merch-preorder");
-                } else if (value === 'new_session') {
+                } else if (selectorId === 'session-selector' && value === 'new_session') {
                     togglePreorderDetails(true, "new-session-preorder");
                 }
             }

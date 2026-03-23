@@ -6,6 +6,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'activity_preregistration' => 'ajax_activity_preregistration',
         'clinic_datatable' => 'ajax_clinic_datatable',
         'commit_registrations' => 'ajax_commit_registrations',
+        'commit_merchandise' => 'ajax_commit_merchandise',
         'create_family' => 'ajax_create_family',
         'create_ledger_entry' => 'ajax_create_ledger_entry',
         'create_ledger_entries' => 'ajax_create_ledger_entries',
@@ -16,6 +17,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'gen_roster' => 'ajax_gen_roster',
         'get_family' => 'ajax_get_family',
         'get_family_balance' => 'ajax_get_family_balance',
+        'get_pricing' => 'ajax_get_pricing',
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
         'registration_history_datatable' => 'ajax_registration_history_datatable',
@@ -219,6 +221,29 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    public function ajax_get_pricing()
+    {
+        $this->check_nonce('get_pricing');
+        try {
+            $product_id = isset($_GET['product_id']) ? intval($_GET['product_id']) : null;
+            $product_code = isset($_GET['product_code']) ? sanitize_text_field($_GET['product_code']) : null;
+            if (!$product_id && !$product_code) {
+                wp_send_json_error('Missing required parameter product_id or product_code', 400);
+            }
+            $session_id = isset($_GET['session_id']) ? intval($_GET['session_id']) : null;
+
+            $query = new Usctdp_Mgmt_Product_Query();
+            $result = $query->get_product_pricing($session_id, $product_id, $product_code);
+            if (!$result) {
+                wp_send_json_error('No pricing found.', 404);
+            }
+            wp_send_json_success($result);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_pricing', $e);
+            wp_send_json_error('An unexpected server error occurred while retrieving pricing information.', 500);
+        }
+    }
+
     public function ajax_get_family()
     {
         $this->check_nonce('get_family');
@@ -271,7 +296,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $args['order_id'] = $order_id;
         }
         if ($registration_id) {
-            $args['registration_id'] = $registration_id;
+            $args['purchase_id'] = $registration_id;
         }
 
         $ledger_query = new Usctdp_Mgmt_Ledger_Query();
@@ -308,7 +333,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $args['account'] = $account;
         }
         if ($registration_id) {
-            $args['registration_id'] = $registration_id;
+            $args['purchase_id'] = $registration_id;
         }
 
         $ledger_query = new Usctdp_Mgmt_Ledger_Query();
@@ -560,7 +585,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'event_id' => sanitize_text_field(...),
             'event' => sanitize_text_field(...),
             'account' => sanitize_text_field(...),
-            'registration_id' => intval(...),
+            'purchase_id' => intval(...),
             'debit' => sanitize_text_field(...),
             'credit' => sanitize_text_field(...),
             'payment_method' => sanitize_text_field(...),
@@ -955,14 +980,14 @@ class Usctdp_Mgmt_Admin_Ajax
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
                 INNER JOIN (
                     SELECT 
-                        registration_id,
+                        purchase_id,
                         SUM(debit) as total_debit,
                         SUM(credit) as total_credit
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account = 'registration_fees'
-                    GROUP BY registration_id
+                    GROUP BY purchase_id
                     HAVING (SUM(debit) - SUM(credit)) > 0
-                ) AS ledger_sums ON ledger_sums.registration_id = reg.id
+                ) AS ledger_sums ON ledger_sums.purchase_id = reg.id
                 WHERE stud.family_id = %d
                 ORDER BY reg.id ASC
                 LIMIT %d OFFSET %d",
@@ -1131,6 +1156,16 @@ class Usctdp_Mgmt_Admin_Ajax
                 'notes' => $notes
             ]
         ];
+    }
+
+    public function ajax_commit_merchandise() {
+        $this->check_nonce('commit_merchandise');
+        $merchandise_data = isset($_POST['merchandise_data']) ? $_POST['merchandise_data'] : [];
+        if (empty($merchandise_data)) {
+            throw new Web_Request_Exception('No merchandise data provided.');
+        }
+
+        
     }
 
     public function ajax_commit_registrations()

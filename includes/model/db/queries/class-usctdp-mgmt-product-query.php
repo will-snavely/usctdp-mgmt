@@ -31,8 +31,8 @@ class Usctdp_Mgmt_Product_Query extends Query
             $args[] = implode(" ", $query_terms);
         }
         if ($type !== null) {
-            $conditions[] = "type = %d";
-            $args[] = $type->value;
+            $conditions[] = "type = %s";
+            $args[] = $type;
         }
         if ($conditions) {
             $sql .= " WHERE " . implode(" AND ", $conditions);
@@ -41,5 +41,46 @@ class Usctdp_Mgmt_Product_Query extends Query
         $args[] = $limit;
         $query = $wpdb->prepare($sql, $args);
         return $wpdb->get_results($query);
+    }
+
+    public function get_product_pricing($session_id, $product_id, $product_code)
+    {
+        global $wpdb;
+
+        $where_args = [];
+        $join_args = [];
+        $conditions = [];
+        $join_clause = "";
+
+        if ($product_id !== null) {
+            $conditions[] = "product_id = %d";
+            $where_args[] = $product_id;
+        }
+        if ($product_code !== null) {
+            $conditions[] = "code = %s";
+            $where_args[] = $product_code;
+        }
+        if ($session_id !== null) {
+            $join_clause = "JOIN {$wpdb->prefix}usctdp_pricing as price 
+                            ON prod.id = price.product_id 
+                            AND price.session_id = %d";
+            $join_args[] = $session_id;
+            $conditions[] = "prod.session_id = %d";
+            $where_args[] = $session_id;
+        } else {
+            $join_clause = "JOIN {$wpdb->prefix}usctdp_pricing as price 
+                            ON prod.id = price.product_id";
+        }
+
+        if ($conditions) {
+            $where_clause = " WHERE " . implode(" AND ", $conditions);
+        }
+
+        $sql = "SELECT prod.id, price.pricing as pricing
+                FROM {$wpdb->prefix}{$this->table_name} as prod
+                {$join_clause} {$where_clause} LIMIT 1";
+
+        $query = $wpdb->prepare($sql, array_merge($join_args, $where_args));
+        return $wpdb->get_row($query);
     }
 }

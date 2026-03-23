@@ -83,7 +83,7 @@
                 </div>
                 <div id="merch-preorder" class="preorder-subtype">
                     <div id="add-item-wrap">
-                        <button id="add-merchandise-registration" class="button button-primary">
+                        <button id="add-merchandise" class="button button-primary">
                             Add Merchandise
                         </button>
                     </div>

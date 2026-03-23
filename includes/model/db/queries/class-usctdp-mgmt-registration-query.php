@@ -90,13 +90,13 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
                 LEFT JOIN (
                     SELECT 
-                        registration_id,
+                        purchase_id,
                         SUM(debit) as total_debit,
                         SUM(credit) as total_credit
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account = 'registration_fees'
-                    GROUP BY registration_id
-                ) AS ledger ON ledger.registration_id = reg.id
+                    GROUP BY purchase_id
+                ) AS ledger ON ledger.purchase_id = pur.id
                 {$where_clause}
                 ORDER BY reg.id DESC
                 {$limit_clause}",
@@ -110,13 +110,13 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
                 LEFT JOIN (
                     SELECT 
-                        registration_id,
+                        purchase_id,
                         SUM(debit) as total_debit,
                         SUM(credit) as total_credit
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account = 'registration_fees'
-                    GROUP BY registration_id
-                ) AS ledger ON ledger.registration_id = reg.id
+                    GROUP BY purchase_id
+                ) AS ledger ON ledger.purchase_id = reg.id
                 {$where_clause}";
         $count_query = $count_sql;
         if (!empty($where_args)) {

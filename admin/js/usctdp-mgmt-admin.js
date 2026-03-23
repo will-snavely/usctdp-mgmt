@@ -1,6 +1,98 @@
 (function ($) {
     window.USCTDP_Admin = window.USCTDP_Admin || {};
 
+
+    USCTDP_Admin.submitLedgerEntries = async function (entries) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.create_ledger_entries_action,
+                    security: usctdp_mgmt_admin.create_ledger_entries_nonce,
+                    entries: entries,
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+
+        } catch (error) {
+            console.error('Ledger Entry Creation Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.getProductPricing = async function (product_id, product_code, session_id) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'GET',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.get_pricing_action,
+                product_id: product_id,
+                product_code: product_code,
+                session_id: session_id,
+                security: usctdp_mgmt_admin.get_pricing_nonce,
+            }
+        });
+        if (response.success) {
+            return response.data;
+        } else {
+            throw new Error(response.data || 'Unknown error');
+        }
+    }
+
+    USCTDP_Admin.createRefundEntries = function (args) {
+        const { amount, method, reason, family_id, student_id, purchase_id } = args;
+        var results = [];
+        var ledgerBase = {
+            family_id: family_id,
+            student_id: student_id,
+            purchase_id: purchase_id ?? null,
+            order_id: null,
+            event_id: "account_refund",
+            event: "Refund, " + method + ", " + reason
+        }
+
+        const amtFormatted = parseFloat(amount).toFixed(2);
+        results.push({
+            ...ledgerBase,
+            account: "registration_fees",
+            debit: parseFloat(0).toFixed(2),
+            credit: amtFormatted
+        });
+
+        results.push({
+            ...ledgerBase,
+            account: "revenue",
+            debit: amtFormatted,
+            credit: parseFloat(0).toFixed(2)
+        });
+
+        results.push({
+            ...ledgerBase,
+            account: "payment_" + method,
+            payment_method: method,
+            reference_id: null,
+            debit: parseFloat(0).toFixed(2),
+            credit: amtFormatted
+        });
+
+        results.push({
+            ...ledgerBase,
+            account: "refund_contra",
+            payment_method: method,
+            reference_id: null,
+            debit: amtFormatted,
+            credit: parseFloat(0).toFixed(2)
+        });
+
+        return results;
+    }
+
     USCTDP_Admin.displayTime = function (dateObj) {
         const options = {
             hour: 'numeric',
@@ -377,14 +469,14 @@
                         line_item_id: lineItemId,
                     };
                     lineItems.push(registration);
-                } else if (type === "equipment") {
+                } else if (type === 'merchandise') {
                     lineItems.push({
                         product_code: $row.data('product_code'),
                         student_id: $row.data('student_id'),
                         family_id: $row.data('family_id'),
                         credit: parseFloat(credit),
                         debit: parseFloat(debit),
-                        type: 'equipment',
+                        type: 'merchandise',
                         line_item_id: lineItemId,
                     });
                 }
@@ -423,6 +515,29 @@
             }
         }
 
+        async createMerchandise(orderData) {
+            try {
+                const merchandise = orderData.line_items.filter(item => item.type === 'merchandise');
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.create_merchandise_action,
+                        security: usctdp_mgmt_admin.create_merchandise_nonce,
+                        merchandise_data: merchandise,
+                    }
+                });
+                if (response.success) {
+                    return response.data.ids;
+                } else {
+                    throw new Error(response.data || 'Server error');
+                }
+            } catch (error) {
+                console.error('Merchandise Commit Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
         async createWooCommerceOrder(orderData) {
             try {
                 const response = await $.ajax({
@@ -449,36 +564,13 @@
             }
         }
 
-        async submitLedgerEntries(ledger) {
-            try {
-                const response = await $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    data: {
-                        action: usctdp_mgmt_admin.create_ledger_entries_action,
-                        security: usctdp_mgmt_admin.create_ledger_entries_nonce,
-                        entries: ledger,
-                    }
-                });
-                if (response.success) {
-                    return response.data;
-                } else {
-                    throw new Error(response.data || 'Server error');
-                }
-
-            } catch (error) {
-                console.error('Ledger Entry Creation Failed:', error.statusText || error.message);
-                throw error;
-            }
-        }
-
         buildLedgerEntries(args) {
             const { lineItem, orderId, eventId, event, paymentMethod, checkNumber, isNew } = args;
             var result = [];
             var ledgerBase = {
                 family_id: lineItem.family_id,
                 student_id: lineItem.student_id,
-                registration_id: lineItem.registration_id ?? null,
+                purchase_id: lineItem.registration_id ?? null,
                 order_id: orderId,
                 event_id: eventId,
                 event: event
@@ -487,15 +579,15 @@
                 result.push({
                     ...ledgerBase,
                     account: lineItem.type + "_fees",
-                    credit: parseFloat(0).toFixed(2),
-                    debit: parseFloat(lineItem.debit).toFixed(2)
+                    debit: parseFloat(lineItem.debit).toFixed(2),
+                    credit: parseFloat(0).toFixed(2)
                 });
 
                 result.push({
                     ...ledgerBase,
                     account: "revenue",
-                    credit: parseFloat(lineItem.debit).toFixed(2),
-                    debit: parseFloat(0).toFixed(2)
+                    debit: parseFloat(0).toFixed(2),
+                    credit: parseFloat(lineItem.debit).toFixed(2)
                 });
             }
 
@@ -505,8 +597,8 @@
                     account: "payment_" + paymentMethod,
                     payment_method: paymentMethod,
                     reference_id: checkNumber ?? null,
-                    credit: parseFloat(0).toFixed(2),
-                    debit: parseFloat(lineItem.debit).toFixed(2)
+                    debit: parseFloat(lineItem.debit).toFixed(2),
+                    credit: parseFloat(0).toFixed(2)
                 });
 
                 result.push({
@@ -514,10 +606,9 @@
                     account: lineItem.type + "_fees",
                     payment_method: paymentMethod,
                     reference_id: checkNumber ?? null,
-                    credit: parseFloat(lineItem.credit).toFixed(2),
-                    debit: parseFloat(0).toFixed(2)
+                    debit: parseFloat(0).toFixed(2),
+                    credit: parseFloat(lineItem.credit).toFixed(2)
                 });
-
             }
             return result;
         }
@@ -525,19 +616,31 @@
         async submitPayment(orderData) {
             const { paymentMode = "update" } = this.settings;
             try {
-                var ids = [];
+                var registrationIds = [];
+                var merchandiseIds = [];
                 const lineItems = orderData.line_items;
 
                 if (paymentMode === "create") {
-                    ids = await this.createRegistrations(orderData);
+                    registrationIds = await this.createRegistrations(orderData);
                     for (var i = 0; i < lineItems.length; i++) {
                         const line_item_id = lineItems[i].line_item_id;
-                        if (line_item_id in ids) {
-                            lineItems[i].registration_id = ids[line_item_id];
+                        if (line_item_id in registrationIds) {
+                            lineItems[i].registration_id = registrationIds[line_item_id];
                         } else {
                             console.log("Line item id " + line_item_id + " not found in created registrations.");
                         }
                     }
+
+                    merchandiseIds = await this.createMerchandise(orderData);
+                    for (var i = 0; i < lineItems.length; i++) {
+                        const line_item_id = lineItems[i].line_item_id;
+                        if (line_item_id in merchandiseIds) {
+                            lineItems[i].merchandise_id = merchandiseIds[line_item_id];
+                        } else {
+                            console.log("Line item id " + line_item_id + " not found in created merchandise.");
+                        }
+                    }
+
                 }
 
                 var order = null;
@@ -574,7 +677,7 @@
                     }
                 }
 
-                var ledger = [];
+                var ledgerEntries = [];
                 for (var i = 0; i < lineItems.length; i++) {
                     var entries = this.buildLedgerEntries({
                         lineItem: lineItems[i],
@@ -585,14 +688,14 @@
                         isNew: paymentMode === "create",
                         event: event
                     });
-                    ledger.push(...entries);
+                    ledgerEntries.push(...entries);
                 }
-                const ledgerEntries = await this.submitLedgerEntries(ledger);
+                const result = await USCTDP_Admin.submitLedgerEntries(ledgerEntries);
 
                 return {
                     order: order,
                     registrations: ids,
-                    ledger_entries: ledgerEntries
+                    ledger_entries: result
                 };
             } catch (error) {
                 console.error('Submission failed:', error);
@@ -825,21 +928,21 @@
                 </tr>`
         }
 
-        addEquipment(eq, price) {
-            const studentName = `${eq.student_first} ${eq.student_last}`
+        addMerchandise(merch, price) {
+            const studentName = `${merch.student_first} ${merch.student_last}`
             var $row = $(this.addOrderRow({
                 student: studentName,
-                item: eq.product_name,
+                item: merch.product_name,
                 debit: price,
                 credit: price
             }));
-            $row.data('product_code', eq.product_code)
-                .data('product_name', eq.product_name)
-                .data('student_name', eq.student_name)
-                .data('student_id', eq.student_id)
-                .data('family_id', eq.family_id)
-                .data('notes', eq.notes)
-                .data('type', 'equipment');
+            $row.data('product_code', merch.product_code)
+                .data('product_name', merch.product_name)
+                .data('student_name', merch.student_name)
+                .data('student_id', merch.student_id)
+                .data('family_id', merch.family_id)
+                .data('notes', merch.notes)
+                .data('type', 'merchandise');
             this.container.find('table tbody').append($row);
             this.trigger('cart:add', { row: $row });
             this.updatePaymentTotals();
@@ -854,7 +957,7 @@
                 debit: debit ?? "",
                 credit: credit ?? ""
             }));
-            $row.data('registration_id', registration.registration_id)
+            $row.data('purchase_id', registration.registration_id)
                 .data('student_id', registration.student_id)
                 .data('session_id', registration.session_id)
                 .data('activity_id', registration.activity_id)
@@ -876,7 +979,7 @@
             const $rows = this.container.find('table tbody tr').toArray();
             const isDuplicate = $rows.some(row => {
                 const $row = $(row);
-                return $row.data('registration_id') === registration.registration_id;
+                return $row.data('purchase_id') === registration.registration_id;
             });
             if (isDuplicate) {
                 return { success: false, error: 'DUPLICATE_ITEM', message: "Item already in cart." };

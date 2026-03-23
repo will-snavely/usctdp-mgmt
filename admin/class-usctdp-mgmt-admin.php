@@ -56,10 +56,10 @@ class Usctdp_Mgmt_Admin
             'context' => ['activity_id', 'student_id']
         ],
         'history' => [
-            'title' => 'Registration History',
+            'title' => 'Purchase History',
             'ajax' => [
                 'select2_search',
-                'registration_history_datatable',
+                'purchase_history_datatable',
                 'update_registration',
                 'get_family_balance',
                 'create_woocommerce_order',
