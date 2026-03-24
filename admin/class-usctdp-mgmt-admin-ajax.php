@@ -1099,7 +1099,6 @@ class Usctdp_Mgmt_Admin_Ajax
             throw new Web_Request_Exception('Student ID is not a number.');
         }
 
-
         $activity_id = $data['activity_id'];
         $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
         if (!$activity) {
@@ -1158,14 +1157,15 @@ class Usctdp_Mgmt_Admin_Ajax
         ];
     }
 
-    public function ajax_commit_merchandise() {
+    public function ajax_commit_merchandise()
+    {
         $this->check_nonce('commit_merchandise');
         $merchandise_data = isset($_POST['merchandise_data']) ? $_POST['merchandise_data'] : [];
         if (empty($merchandise_data)) {
             throw new Web_Request_Exception('No merchandise data provided.');
         }
 
-        
+
     }
 
     public function ajax_commit_registrations()

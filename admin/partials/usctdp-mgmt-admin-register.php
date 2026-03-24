@@ -14,22 +14,21 @@
                     <h2>Item Details</h2>
                 </div>
                 <div id="clinic-preorder" class="preorder-subtype">
-                    <div id="clinic-info">
-                        <div id="clinic-info-capacity" class="clinic-info-item">
-                            <label>Capacity</label>
+                    <div id="clinic-info-capacity" class="clinic-info-item">
+                        <div id="capacity-header">
+                            <h3>Capacity</h3>
+                        </div>
+                        <div id="capacity-body">
                             <span class="clinic-info-value">
                                 <span id="clinic-current-size"></span>
                                 <span class="clinic-capacity-separator">out of</span>
                                 <span id="clinic-max-size"></span>
                             </span>
-                        </div>
-                        <div id="clinic-info-one-day-price" class="clinic-info-item">
-                            <label>One Day $</label>
-                            <span class="clinic-info-value neutral" id="clinic-one-day-price"></span>
-                        </div>
-                        <div id="clinic-info-two-day-price" class="clinic-info-item">
-                            <label>Two Day $</label>
-                            <span class="clinic-info-value neutral" id="clinic-two-day-price"></span>
+                            <div id="view-roster-wrap">
+                                <button id="view-roster" class="button button-secondary">
+                                    View Roster
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div id="clinic-preorder-fields" class="preorder-fields">
@@ -37,13 +36,34 @@
                             <label for="student-level">Student Level</label>
                             <input type="text" name="student-level" id="student-level">
                         </div>
-                        <div id="add-racket-field" class="registration-field">
-                            <label for="add_racket">Add Racket</label>
-                            <input type="checkbox" name="add_racket" id="add_racket">
-                        </div>
-                        <div id="racket-fee-field" class="registration-field hidden">
-                            <label for="racket_fee">Racket Fee</label>
-                            <input type="number" name="racket_fee" id="racket_fee">
+                        <div id="price-setting">
+                            <div id="sale-price-field">
+                                <label for="sale_price">Sale Price</label>
+                                <input type="number" name="sale_price" id="sale_price">
+                            </div>
+                            <div id="clinic-discounts">
+                                <h2>Discounts</h2>
+                                <div class="discount-field">
+                                    <input type="checkbox" name="discount-additional-day" id="discount-additional-day">
+                                    <label for="discount-additional-day">Additional Day</label>
+                                </div>
+                                <div class="discount-field">
+                                    <input type="checkbox" name="discount-sibling" id="discount-sibling">
+                                    <label for="discount-sibling">Sibling Discount</label>
+                                    <input type="number" name="discount-sibling-percent" id="discount-sibling-percent">
+                                </div>
+                            </div>
+                            <div id="clinic-addons">
+                                <h2>Add-ons</h2>
+                                <div id="add-racket-field">
+                                    <input type="checkbox" name="add_racket" id="add_racket">
+                                    <label for="add_racket">Add Racket</label>
+                                </div>
+                                <div id="add-tshirt-field">
+                                    <input type="checkbox" name="add_tshirt" id="add_tshirt">
+                                    <label for="add_tshirt">Add T-Shirt</label>
+                                </div>
+                            </div>
                         </div>
                         <div id="clinic-notes-section" class="notes-section">
                             <label for="clinic-notes">Notes</label>

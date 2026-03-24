@@ -1,8 +1,7 @@
 (function ($) {
     window.USCTDP_Admin = window.USCTDP_Admin || {};
 
-
-    USCTDP_Admin.submitLedgerEntries = async function (entries) {
+    USCTDP_Admin.ajax_submitLedgerEntries = async function (entries) {
         try {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -25,7 +24,7 @@
         }
     }
 
-    USCTDP_Admin.getProductPricing = async function (product_id, product_code, session_id) {
+    USCTDP_Admin.ajax_getProductPricing = async function (product_id, product_code, session_id) {
         const response = await $.ajax({
             url: usctdp_mgmt_admin.ajax_url,
             method: 'GET',
@@ -690,7 +689,7 @@
                     });
                     ledgerEntries.push(...entries);
                 }
-                const result = await USCTDP_Admin.submitLedgerEntries(ledgerEntries);
+                const result = await USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries);
 
                 return {
                     order: order,

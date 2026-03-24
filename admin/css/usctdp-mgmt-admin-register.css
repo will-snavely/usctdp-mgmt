@@ -86,42 +86,6 @@
     padding: 0px 10px;
 }
 
-.preorder-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 0 10px;
-}
-
-.registration-field {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-    align-items: center;
-}
-
-#student-level {
-    width: 60px;
-    height: 28px;
-}
-
-#racket_fee {
-    width: 80px;
-    height: 28px;
-}
-
-.registration-field label {
-    min-width: 120px;
-    font-weight: bold;
-    text-align: right;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-}
-
-.registration-field select {
-    width: 80px;
-}
-
 .notes-section {
     display: flex;
     flex-direction: column;
@@ -283,34 +247,10 @@
     vertical-align: middle;
 }
 
-#clinic-info {
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-    justify-content: center;
-}
-
-.clinic-info-item {
+#clinic-preorder {
     display: flex;
     flex-direction: column;
-    align-items: center;
-}
-
-.clinic-info-item label {
-    font-weight: bold;
-    text-align: right;
-}
-
-.clinic-info-value {
-    font-size: 0.85rem;
-    border: none;
-    color: black;
-    padding: 4px 10px 8px 10px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    margin: 2px 1px;
-    border-radius: 20px;
+    gap: 20px;
 }
 
 .full {
@@ -373,4 +313,125 @@
     white-space: normal !important;
     font-size: 0.85rem;
     line-height: 1.2;
+}
+
+/* Clinic Info / Capacity Bar */
+#clinic-info-capacity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+#capacity-header h3 {
+    margin: 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+}
+
+#capacity-body {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+}
+
+#clinic-info-capacity .clinic-info-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 2px;
+}
+
+#clinic-info-capacity .clinic-capacity-separator {
+    font-size: 14px;
+    font-weight: 400;
+    color: #94a3b8;
+    margin: 0 4px;
+}
+
+/* Form Fields Layout */
+.preorder-fields {
+    padding: 0 24px 24px;
+}
+
+.registration-field,
+#sale-price-field,
+.notes-section {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #4a4a4a;
+}
+
+input[type="text"],
+input[type="number"],
+textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d8e0;
+    border-radius: 6px;
+    box-sizing: border-box;
+    /* Essential for width */
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+input:focus,
+textarea:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+/* Discounts & Add-ons Grid */
+#clinic-discounts,
+#clinic-addons {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dashed #eef0f2;
+}
+
+#clinic-discounts h2,
+#clinic-addons h2 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #95a5a6;
+    margin-bottom: 12px;
+}
+
+.discount-field,
+#add-racket-field,
+#add-tshirt-field {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+
+.discount-field input[type="checkbox"],
+#clinic-addons input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.discount-field label,
+#clinic-addons label {
+    margin-bottom: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+/* Buttons */
+#add-item-wrap {
+    padding: 16px 24px 24px;
 }

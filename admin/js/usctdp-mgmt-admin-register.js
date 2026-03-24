@@ -121,11 +121,18 @@
             }
         }
 
-        function loadActivityRegistration(activityId, activityType, studentId) {
+        async function loadActivityRegistration(activityId, activityType, studentId) {
             $('#notifications-section').children().remove();
             if (activityType === 1) { // Clinic
-                loadClinicRegistration(activityId, studentId);
+                await loadClinicRegistration(activityId, studentId);
             }
+        }
+
+        async function loadMerchandiseRegistration(merchandiseId, studentId) {
+            $('#notifications-section').children().remove();
+            const pricing = await USCTDP_Admin.ajax_getProductPricing(merchandiseId, null, null);
+
+            togglePreorderDetails(true, "merch-preorder");
         }
 
         $('#payment-method').on('change', function () {
@@ -264,6 +271,7 @@
             `;
             const $labelWrap = $('#family-selector-section .context-selector-label-wrap');
             if ($labelWrap.find('.edit-note').length === 0) {
+                ``
                 $labelWrap.append(editNode);
             }
             $('#family-selector').prop('disabled', true);
@@ -371,7 +379,7 @@
                         loadActivityRegistration(activityId, activityType, studentId);
                     }
                 } else if (selectorId === 'merchandise-selector') {
-                    togglePreorderDetails(true, "merch-preorder");
+                    loadMerchandiseRegistration();
                 } else if (selectorId === 'session-selector' && value === 'new_session') {
                     togglePreorderDetails(true, "new-session-preorder");
                 }

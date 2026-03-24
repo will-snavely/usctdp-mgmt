@@ -47,6 +47,7 @@ class Usctdp_Mgmt_Admin
             'ajax' => [
                 'select2_search',
                 'activity_preregistration',
+                'get_pricing',
                 'registrations_datatable',
                 'create_woocommerce_order',
                 'commit_registrations',
