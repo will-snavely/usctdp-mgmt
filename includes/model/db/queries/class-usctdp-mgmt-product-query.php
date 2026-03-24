@@ -65,8 +65,6 @@ class Usctdp_Mgmt_Product_Query extends Query
                             ON prod.id = price.product_id 
                             AND price.session_id = %d";
             $join_args[] = $session_id;
-            $conditions[] = "prod.session_id = %d";
-            $where_args[] = $session_id;
         } else {
             $join_clause = "JOIN {$wpdb->prefix}usctdp_pricing as price 
                             ON prod.id = price.product_id";
@@ -76,7 +74,7 @@ class Usctdp_Mgmt_Product_Query extends Query
             $where_clause = " WHERE " . implode(" AND ", $conditions);
         }
 
-        $sql = "SELECT prod.id, price.pricing as pricing
+        $sql = "SELECT prod.id as product_id, price.pricing as pricing
                 FROM {$wpdb->prefix}{$this->table_name} as prod
                 {$join_clause} {$where_clause} LIMIT 1";
 

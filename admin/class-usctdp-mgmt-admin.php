@@ -17,80 +17,80 @@ class Usctdp_Mgmt_Admin
             'callback' => 'payment_checkout_handler'
         ],
     ];
-    public static $submenu_config = [
-        'clinics' => [
-            'title' => 'Clinics',
-            'ajax' => ['clinic_datatable', 'select2_search']
-        ],
-        'families' => [
-            'title' => 'Families',
-            'ajax' => [
-                'get_family',
-                'student_datatable',
-                'select2_search',
-                'create_family',
-                'create_student',
-                'update_family',
-            ],
-            'context' => ['family_id']
-        ],
-        'session-rosters' => [
-            'title' => 'Session Rosters',
-            'ajax' => ['gen_roster', 'session_rosters_datatable']
-        ],
-        'clinic-rosters' => [
-            'title' => 'Clinic Rosters',
-            'ajax' => ['clinic_datatable', 'select2_search']
-        ],
-        'register' => [
-            'title' => 'Registration',
-            'ajax' => [
-                'select2_search',
-                'activity_preregistration',
-                'get_pricing',
-                'registrations_datatable',
-                'create_woocommerce_order',
-                'commit_registrations',
-                'create_ledger_entries',
-            ],
-            'post' => ['payment_checkout'],
-            'context' => ['activity_id', 'student_id']
-        ],
-        'history' => [
-            'title' => 'Purchase History',
-            'ajax' => [
-                'select2_search',
-                'purchase_history_datatable',
-                'update_registration',
-                'get_family_balance',
-                'create_woocommerce_order',
-                'ledger_datatable',
-                'ledger_events_datatable',
-                'create_ledger_entries',
-            ],
-            'post' => ['payment_checkout'],
-            'context' => ['family_id', 'student_id']
-        ],
-        'balances' => [
-            'title' => 'Outstanding Balances',
-            'ajax' => [
-                'select2_search',
-                'datatable_balances',
-                'datatable_balances_detail',
-                'ledger_datatable',
-                'ledger_events_datatable',
-            ],
-            'post' => ['payment_checkout'],
-            'context' => ['family_id', 'student_id']
-        ]
-    ];
 
     public static $transient_prefix = 'usctdp_admin_transient';
+    private $submenu_config;
 
     public function __construct($plugin_name, $version)
     {
         $this->plugin_name = $plugin_name;
         $this->version = $version;
+        $this->submenu_config = [
+            'clinics' => [
+                'title' => 'Clinics',
+                'ajax' => ['clinic_datatable', 'select2_search']
+            ],
+            'families' => [
+                'title' => 'Families',
+                'ajax' => [
+                    'get_family',
+                    'student_datatable',
+                    'select2_search',
+                    'create_family',
+                    'create_student',
+                    'update_family',
+                ],
+                'context' => ['family_id']
+            ],
+            'session-rosters' => [
+                'title' => 'Session Rosters',
+                'ajax' => ['gen_roster', 'session_rosters_datatable']
+            ],
+            'clinic-rosters' => [
+                'title' => 'Clinic Rosters',
+                'ajax' => ['clinic_datatable', 'select2_search']
+            ],
+            'register' => [
+                'title' => 'Registration',
+                'ajax' => [
+                    'select2_search',
+                    'activity_preregistration',
+                    'registrations_datatable',
+                    'create_woocommerce_order',
+                    'commit_registrations',
+                    'create_ledger_entries',
+                ],
+                'post' => ['payment_checkout'],
+                'context' => ['activity_id', 'student_id'],
+                'on_localize' => $this->localize_register_page_script(...)
+            ],
+            'history' => [
+                'title' => 'Purchase History',
+                'ajax' => [
+                    'select2_search',
+                    'purchase_history_datatable',
+                    'update_registration',
+                    'get_family_balance',
+                    'create_woocommerce_order',
+                    'ledger_datatable',
+                    'ledger_events_datatable',
+                    'create_ledger_entries',
+                ],
+                'post' => ['payment_checkout'],
+                'context' => ['family_id', 'student_id']
+            ],
+            'balances' => [
+                'title' => 'Outstanding Balances',
+                'ajax' => [
+                    'select2_search',
+                    'datatable_balances',
+                    'datatable_balances_detail',
+                    'ledger_datatable',
+                    'ledger_events_datatable',
+                ],
+                'context' => ['family_id', 'student_id']
+            ]
+        ];
     }
 
     public function enqueue_styles()
@@ -174,7 +174,17 @@ class Usctdp_Mgmt_Admin
         return admin_url('admin.php?page=' . $page_slug);
     }
 
-    private function load_admin_page($slug, $ajax_handlers, $post_handlers, $preloads)
+    private function localize_register_page_script(&$js_data)
+    {
+        $product_query = new Usctdp_Mgmt_Product_Query();
+        $racket_pricing = $product_query->get_product_pricing(null, null, 'racket');
+        $tshirt_pricing = $product_query->get_product_pricing(null, null, 'tshirt');
+        $js_data['racket_product_id'] = $racket_pricing->product_id;
+        $js_data['tshirt_product_id'] = $tshirt_pricing->product_id;
+        $js_data['racket_pricing'] = $racket_pricing->pricing;
+        $js_data['tshirt_pricing'] = $tshirt_pricing->pricing;
+    }
+    private function load_admin_page($slug, $ajax_handlers, $post_handlers, $preloads, $on_localize = null)
     {
         $js_data = [
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -203,6 +213,11 @@ class Usctdp_Mgmt_Admin
         }
 
         $js_data['preload'] = $this->load_page_context($preloads);
+
+        if ($on_localize) {
+            $on_localize($js_data);
+        }
+
         wp_localize_script($this->usctdp_script_id($slug), 'usctdp_mgmt_admin', $js_data);
     }
 
@@ -211,7 +226,8 @@ class Usctdp_Mgmt_Admin
         $title,
         $ajax_handlers,
         $post_handlers = [],
-        $preloads = []
+        $preloads = [],
+        $on_localize = null
     ) {
         $capability = 'manage_options';
         $menu_slug = 'usctdp-admin-' . $slug;
@@ -227,10 +243,10 @@ class Usctdp_Mgmt_Admin
                 $this->echo_admin_page($main_display);
             }
         );
-        add_action('load-' . $hook, function () use ($slug, $ajax_handlers, $post_handlers, $preloads) {
+        add_action('load-' . $hook, function () use ($slug, $ajax_handlers, $post_handlers, $preloads, $on_localize) {
             $this->enqueue_usctdp_page_script($slug);
             $this->enqueue_usctdp_page_style($slug);
-            $this->load_admin_page($slug, $ajax_handlers, $post_handlers, $preloads);
+            $this->load_admin_page($slug, $ajax_handlers, $post_handlers, $preloads, $on_localize);
         });
         return $hook;
     }
@@ -256,13 +272,14 @@ class Usctdp_Mgmt_Admin
             $this->load_admin_page('main', $main_ajax, [], []);
         });
 
-        foreach (Usctdp_Mgmt_Admin::$submenu_config as $slug => $cfg) {
+        foreach ($this->submenu_config as $slug => $cfg) {
             $this->add_usctdp_submenu(
                 $slug,
                 $cfg['title'],
                 $cfg['ajax'] ?? [],
                 $cfg['post'] ?? [],
-                $cfg['context'] ?? []
+                $cfg['context'] ?? [],
+                $cfg['on_localize'] ?? null
             );
         }
     }

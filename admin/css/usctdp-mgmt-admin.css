@@ -1,3 +1,9 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 .badge {
     background-color: #83cdf5;
     color: #000;
@@ -411,4 +417,43 @@ dialog .actions-footer {
 
 .transfer-arrow {
     margin-right: -10px;
+}
+
+.field-row {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    min-height: 25px;
+    max-height: 25px;
+}
+
+.flex-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.flex-row {
+    display: flex;
+    flex-direction: row;
+}
+
+.gap-5 {
+    gap: 5px;
+}
+
+.gap-10 {
+    gap: 10px;
+}
+
+.gap-20 {
+    gap: 20px;
+}
+
+.align-center {
+    align-items: center;
+}
+
+.justify-center {
+    justify-content: center;
 }

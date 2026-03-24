@@ -24,26 +24,6 @@
         }
     }
 
-    USCTDP_Admin.ajax_getProductPricing = async function (product_id, product_code, session_id) {
-        const response = await $.ajax({
-            url: usctdp_mgmt_admin.ajax_url,
-            method: 'GET',
-            dataType: 'json',
-            data: {
-                action: usctdp_mgmt_admin.get_pricing_action,
-                product_id: product_id,
-                product_code: product_code,
-                session_id: session_id,
-                security: usctdp_mgmt_admin.get_pricing_nonce,
-            }
-        });
-        if (response.success) {
-            return response.data;
-        } else {
-            throw new Error(response.data || 'Unknown error');
-        }
-    }
-
     USCTDP_Admin.createRefundEntries = function (args) {
         const { amount, method, reason, family_id, student_id, purchase_id } = args;
         var results = [];
@@ -933,11 +913,10 @@
                 student: studentName,
                 item: merch.product_name,
                 debit: price,
-                credit: price
+                credit: ""
             }));
             $row.data('product_code', merch.product_code)
                 .data('product_name', merch.product_name)
-                .data('student_name', merch.student_name)
                 .data('student_id', merch.student_id)
                 .data('family_id', merch.family_id)
                 .data('notes', merch.notes)
