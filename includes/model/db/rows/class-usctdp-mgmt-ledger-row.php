@@ -16,6 +16,7 @@ class Usctdp_Mgmt_Ledger_Row extends Row
         $this->order_id = (int) $this->order_id;
         $this->event_id = (string) $this->event_id;
         $this->event = (string) $this->event;
+        $this->entry_type = (string) $this->entry_type;
         $this->account = (string) $this->account;
         $this->purchase_id = (int) $this->purchase_id;
         $this->debit = (string) $this->debit;

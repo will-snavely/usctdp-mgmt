@@ -101,45 +101,50 @@
             return response;
         }
 
-        function renderFinancialSection(idx, debit, credit) {
-            const total = debit - credit;
-            const debitDisplay = USCTDP_Admin.formatUsd(debit);
-            const creditDisplay = USCTDP_Admin.formatUsd(credit);
-            const totalDisplay = USCTDP_Admin.formatUsd(total);
-            const totalClass = total > 0 ? "balance-red" : "balance-green";
+        function renderFinancialSection(idx, fees, adjustments, payments, payouts, houseCredits) {
+            const feesDisplay = USCTDP_Admin.formatUsd(fees);
+            const paymentsDisplay = USCTDP_Admin.formatUsd(payments);
+            const payoutsDisplay = USCTDP_Admin.formatUsd(payouts);
+            const houseCreditsDisplay = USCTDP_Admin.formatUsd(houseCredits);
             return `
                 <div class="flex-col gap-10 align-end">
                     <div class="payment-info">
-                        <div class="debit-wrap activity-field align-center">
-                            <label>Debit</label>
-                            <span id="debit-input-${idx}" class="debit-amt amt-badge balance-red">
-                                ${debitDisplay}
+                        <div class="fees-wrap activity-field align-center">
+                            <label>Fees</label>
+                            <span id="fees-${idx}" class="fees-amt amt-badge balance-red">
+                                ${feesDisplay}
                             </span>
                         </div>
-                        <div class="credit-wrap activity-field align-center">
-                            <label>Credit</label>
-                            <span id="credit-input-${idx}" class="credit-amt amt-badge balance-green">
-                                ${creditDisplay}
+                        <div class="payments-wrap activity-field align-center">
+                            <label>Payments</label>
+                            <span id="payments-${idx}" class="payments-amt amt-badge balance-green">
+                                ${paymentsDisplay}
                             </span>
                         </div>
-                        <div class="balance-wrap activity-field align-center">
-                            <label>Balance</label>
-                            <span id="balance-amt-${idx}" class="balance-amt amt-badge ${totalClass}">
-                                ${totalDisplay}
+                        <div class="refunds-wrap activity-field align-center">
+                            <label>Payouts</label>
+                            <span id="payouts-${idx}" class="payouts-amt amt-badge balance-green">
+                                ${payoutsDisplay}
                             </span>
                         </div>
+                        <div class="house-credits-wrap activity-field align-center">
+                            <label>House Cr.</label>
+                            <span id="house-credits-${idx}" class="house-credits-amt amt-badge balance-green">
+                                ${houseCreditsDisplay}
+                            </span>
+                        </div>
+
+                    </div>
+                    <div class="flex-row gap-10">
                         <div class="payment-history-button">
                             <button id="payment-history-${idx}" class="button payment-history">
                                 Payment History
                             </button>
                         </div>
-                    </div>
-                    <div class="flex-row gap-10">
                         <select id="payment-action-${idx}" class="payment-action-select">
                             <option value=""></option>
                             <option value="post-payment">Post Payment</option>
                             <option value="post-refund">Post Refund</option>
-                            <option value="issue-credit">Issue House Credit</option>
                         </select>
                         <button id="ledger-action-${idx}" class="button ledger-action" disabled>
                             Go
@@ -172,10 +177,9 @@
         function renderRegistrationRow(data, idx) {
             const {
                 studentFirst, studentLast, studentAge,
-                createdDate, sessionName, sessionId,
-                activityName, activityId,
-                registrationId,
-                level, debit, credit, notes
+                sessionName, sessionId, activityName, activityId,
+                registrationId, level, createdDate, notes,
+                fees, adjustments, payments, payouts, houseCredits
             } = data;
             const sessionSelectId = `session-selector-${idx}`;
             const activitySelectId = `activity-selector-${idx}`;
@@ -237,7 +241,7 @@
                     </div>
                 </div>
                 <div class="flex-row gap-10 w-100">
-                    ${renderFinancialSection(idx, debit, credit)}
+                    ${renderFinancialSection(idx, fees, adjustments, payments, payouts, houseCredits)}
                     ${renderNotesSection(notes, idx)}
                 </div>
             </div>`;
@@ -245,8 +249,8 @@
 
         function renderMerchandiseRow(data, idx) {
             const {
-                studentFirst, studentLast, studentAge,
-                createdDate, debit, credit, notes,
+                studentFirst, studentLast, studentAge, createdDate, notes,
+                fees, adjustments, payments, payouts, houseCredits,
                 purchaseId, productName
             } = data;
             var newPurchaseBadge = '';
@@ -288,7 +292,7 @@
                 </div>
 
                 <div class="flex-row gap-10 w-100">
-                    ${renderFinancialSection(idx, debit, credit)}
+                    ${renderFinancialSection(idx, fees, adjustments, payments, payouts, houseCredits)}
                     ${renderNotesSection(notes, idx)}
                 </div>
             </div>`;
@@ -333,6 +337,7 @@
             },
             columns: [
                 { data: 'event_date' },
+                { data: 'entry_type' },
                 { data: 'event_description' },
                 {
                     data: 'charge_amount',
@@ -438,8 +443,11 @@
                                         activityId: row.activity_id,
                                         registrationId: row.registration_id,
                                         level: row.registration_student_level,
-                                        debit: row.total_debit,
-                                        credit: row.total_credit,
+                                        fees: row.total_fees,
+                                        adjustments: row.total_adjustments,
+                                        payments: row.total_payments,
+                                        payouts: row.total_payouts,
+                                        houseCredits: row.total_house_credits,
                                         notes: row.purchase_notes
                                     };
                                     return renderRegistrationRow(activityData, meta.row);
@@ -451,8 +459,11 @@
                                         studentAge: row.student_age,
                                         productName: row.product_name,
                                         productId: row.product_id,
-                                        debit: row.total_debit,
-                                        credit: row.total_credit,
+                                        fees: row.total_fees,
+                                        adjustments: row.total_adjustments,
+                                        payments: row.total_payments,
+                                        payouts: row.total_payouts,
+                                        houseCredits: row.total_house_credits,
                                         notes: row.purchase_notes
                                     };
                                     return renderMerchandiseRow(merchandiseData, meta.row);
@@ -530,11 +541,22 @@
             }
         }
 
+        function openPaymentHistoryModal(purchaseId, account) {
+            $('#payment-history-modal').data("purchaseId", purchaseId);
+            $('#payment-history-modal').data("account", account);
+            paymentHistoryTable.ajax.reload();
+            paymentHistoryModal.showModal();
+        }
+
         function openPostPaymentModal(purchases) {
             paymentTable.clear();
             let count = 0;
             for (const purchase of purchases) {
-                if (parseFloat(purchase.total_credit) < parseFloat(purchase.total_debit)) {
+                const payments = parseFloat(purchase.total_payments);
+                const fees = parseFloat(purchase.total_fees);
+                const adjustments = parseFloat(purchase.total_adjustments);
+                const net_fee = fees - adjustments;
+                if (net_fee > payments) {
                     if (purchase.purchase_type === 'registration') {
                         paymentTable.addExistingRegistration(purchase);
                         count++;
@@ -551,16 +573,16 @@
             }
         }
 
-        function openPaymentHistoryModal(purchaseId, account) {
-            $('#payment-history-modal').data("purchaseId", purchaseId);
-            $('#payment-history-modal').data("account", account);
-            paymentHistoryTable.ajax.reload();
-            paymentHistoryModal.showModal();
-        }
-
         function openPostRefundModal(row) {
-            if (row.total_credit > 0) {
-                $('#refund-form').data("registrationId", row.registration_id);
+            const refunds = parseFloat(row.total_payouts) + parseFloat(row.total_house_credits);
+            const payments = parseFloat(row.total_payments);
+            if (payments > 0 && refunds < payments) {
+                $('#refund-form input').val('');
+                $('#refund-form select').val('');
+                $('#refund-form').data("purchaseId", row.purchase_id);
+                $('#refund-form').data("purchaseType", row.purchase_type);
+                $('#refund-form').data("studentId", row.student_id);
+                $('#refund-form').data("familyId", row.family_id);
                 postRefundModal.showModal();
             } else {
                 alert("The selected registration has no credit to refund!");
@@ -574,7 +596,36 @@
                 return;
             }
             e.preventDefault();
-            const formData = new FormData(form);
+            const amount = $('#refund-amount').val();
+            const method = $('#refund-method').val();
+            const reason = $('#refund-reason').val();
+            const purchaseId = $('#refund-form').data("purchaseId");
+            const purchaseType = $('#refund-form').data("purchaseType");
+            const studentId = $('#refund-form').data("studentId");
+            const familyId = $('#refund-form').data("familyId");
+            const entries = USCTDP_Admin.createRefundEntries({
+                amount: amount,
+                method: method,
+                reason: reason,
+                purchase_id: purchaseId,
+                purchase_type: purchaseType,
+                student_id: studentId,
+                family_id: familyId
+            });
+
+            USCTDP_Admin.ajax_submitLedgerEntries(entries)
+                .then(() => {
+                    var studentId = null;
+                    if (preloadedData['student-selector']) {
+                        studentId = preloadedData['student-selector']["id"];
+                    }
+                    postRefundModal.close();
+                    historyTable.ajax.reload();
+                    refreshFamilyBalance(familyId, studentId);
+                })
+                .catch((error) => {
+                    alert("Failed to post refund: " + error.message);
+                });
         });
 
         $('#close-refund-modal').on('click', () => {
@@ -730,6 +781,14 @@
                 $row.find('input').prop('readonly', false);
                 $row.find('textarea').prop('readonly', false);
             } else {
+                const activityId = $row.find('.activity-select').first().val();
+                const studentLevel = $row.find('.level-input').first().val();
+
+                if (!activityId) {
+                    alert("Please select an activity before saving.");
+                    return;
+                }
+
                 $button.text("Edit");
                 $button.data("state", "edit");
                 $button.removeClass('save-btn');
@@ -740,11 +799,8 @@
                 $button.prop('disabled', true);
 
                 var update = {
-                    activity_id: $row.find('.activity-select').first().val(),
-                    student_level: $row.find('.level-input').first().val(),
-                    debit: $row.find('.debit-input').first().val(),
-                    credit: $row.find('.credit-input').first().val(),
-                    notes: $row.find('.notes-input').first().val()
+                    activity_id: activityId,
+                    student_level: studentLevel
                 }
 
                 saveRegistrationFields(rowData.registration_id, update)

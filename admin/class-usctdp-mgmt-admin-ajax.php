@@ -595,6 +595,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'order_id' => intval(...),
             'event_id' => sanitize_text_field(...),
             'event' => sanitize_text_field(...),
+            'entry_type' => sanitize_text_field(...),
             'account' => sanitize_text_field(...),
             'purchase_id' => intval(...),
             'debit' => sanitize_text_field(...),

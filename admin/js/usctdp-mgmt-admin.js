@@ -25,48 +25,70 @@
     }
 
     USCTDP_Admin.createRefundEntries = function (args) {
-        const { amount, method, reason, family_id, student_id, purchase_id } = args;
+        const {
+            amount, method, reason, purchase_type,
+            family_id, student_id, purchase_id,
+        } = args;
         var results = [];
         var ledgerBase = {
             family_id: family_id,
             student_id: student_id,
-            purchase_id: purchase_id ?? null,
+            purchase_id: purchase_id,
             order_id: null,
             event_id: "account_refund",
             event: "Refund, " + method + ", " + reason
         }
-
         const amtFormatted = parseFloat(amount).toFixed(2);
-        results.push({
-            ...ledgerBase,
-            account: "registration_fees",
-            debit: parseFloat(0).toFixed(2),
-            credit: amtFormatted
-        });
-
-        results.push({
-            ...ledgerBase,
-            account: "revenue",
-            debit: amtFormatted,
-            credit: parseFloat(0).toFixed(2)
-        });
-
-        results.push({
-            ...ledgerBase,
-            account: "payment_" + method,
-            payment_method: method,
-            reference_id: null,
-            debit: parseFloat(0).toFixed(2),
-            credit: amtFormatted
-        });
 
         results.push({
             ...ledgerBase,
             account: "refund_contra",
-            payment_method: method,
-            reference_id: null,
             debit: amtFormatted,
-            credit: parseFloat(0).toFixed(2)
+            credit: parseFloat(0).toFixed(2),
+            entry_type: "adjustment"
+        });
+        results.push({
+            ...ledgerBase,
+            account: purchase_type + "_fees",
+            debit: parseFloat(0).toFixed(2),
+            credit: amtFormatted,
+            entry_type: "adjustment"
+        });
+        results.push({
+            ...ledgerBase,
+            account: "revenue",
+            debit: amtFormatted,
+            credit: parseFloat(0).toFixed(2),
+            entry_type: "adjustment"
+        });
+        results.push({
+            ...ledgerBase,
+            account: "refund_contra",
+            payment_method: method,
+            debit: parseFloat(0).toFixed(2),
+            credit: amtFormatted,
+            entry_type: "adjustment"
+        });
+
+        var refundType = "payout";
+        if (method == "house_credit") {
+            refundType = "house_credit";
+        }
+        results.push({
+            ...ledgerBase,
+            account: purchase_type + "_fees",
+            payment_method: method,
+            debit: amtFormatted,
+            credit: parseFloat(0).toFixed(2),
+            entry_type: refundType
+        });
+        results.push({
+            ...ledgerBase,
+            account: "payment_" + method,
+            payment_method: method,
+            debit: parseFloat(0).toFixed(2),
+            credit: amtFormatted,
+            entry_type: refundType
         });
 
         return results;
@@ -670,14 +692,16 @@
                     ...ledgerBase,
                     account: lineItem.type + "_fees",
                     debit: parseFloat(lineItem.debit).toFixed(2),
-                    credit: parseFloat(0).toFixed(2)
+                    credit: parseFloat(0).toFixed(2),
+                    entry_type: "charge"
                 });
 
                 result.push({
                     ...ledgerBase,
                     account: "revenue",
                     debit: parseFloat(0).toFixed(2),
-                    credit: parseFloat(lineItem.debit).toFixed(2)
+                    credit: parseFloat(lineItem.debit).toFixed(2),
+                    entry_type: "charge"
                 });
             }
 
@@ -688,7 +712,8 @@
                     payment_method: paymentMethod,
                     reference_id: checkNumber ?? null,
                     debit: parseFloat(lineItem.debit).toFixed(2),
-                    credit: parseFloat(0).toFixed(2)
+                    credit: parseFloat(0).toFixed(2),
+                    entry_type: "payment"
                 });
 
                 result.push({
@@ -697,7 +722,8 @@
                     payment_method: paymentMethod,
                     reference_id: checkNumber ?? null,
                     debit: parseFloat(0).toFixed(2),
-                    credit: parseFloat(lineItem.credit).toFixed(2)
+                    credit: parseFloat(lineItem.credit).toFixed(2),
+                    entry_type: "payment"
                 });
             }
             return result;

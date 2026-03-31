@@ -24,6 +24,7 @@ class Usctdp_Mgmt_Ledger_Table extends Table
             event_id varchar(50) NOT NULL,
             event varchar(50) NOT NULL,
             account varchar(50) NOT NULL,
+            entry_type varchar(20) DEFAULT NULL,
             payment_method varchar(20) DEFAULT NULL,
             reference_id varchar(100) DEFAULT NULL,
             debit decimal(10,2) NOT NULL DEFAULT 0.00,

@@ -122,17 +122,15 @@ class Usctdp_Mgmt_Ledger_Query extends Query
 
         $query = $wpdb->prepare(
             "SELECT 
-                event_id,
-                MAX(created_at) as event_date,
-                MAX(event) as event_description,
-                MAX(payment_method) as method,
-                SUM(debit) as charge_amount,
-                SUM(credit) as payment_amount,
-                (SUM(debit) - SUM(credit)) as balance
+                id,
+                created_at as event_date,
+                entry_type,
+                event as event_description,
+                debit as charge_amount,
+                credit as payment_amount
             FROM {$wpdb->prefix}usctdp_ledger
             {$where_clause}
-            GROUP BY event_id
-            ORDER BY event_date ASC
+            ORDER BY created_at, entry_type ASC
             {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
@@ -140,10 +138,9 @@ class Usctdp_Mgmt_Ledger_Query extends Query
         $window = $wpdb->get_results($query);
 
         $count_sql =
-            "SELECT count(event_id)
+            "SELECT count(id)
             FROM {$wpdb->prefix}usctdp_ledger
-            {$where_clause}
-            GROUP BY event_id";
+            {$where_clause}";
         $count_query = $count_sql;
         if (!empty($where_args)) {
             $count_query = $wpdb->prepare($count_sql, $where_args);

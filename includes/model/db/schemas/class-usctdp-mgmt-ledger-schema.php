@@ -43,6 +43,12 @@ class Usctdp_Mgmt_Ledger_Schema extends Schema
             'type' => 'varchar',
             'length' => 50,
         ],
+        'entry_type' => [
+            'name' => 'entry_type',
+            'type' => 'varchar',
+            'length' => 20,
+            'default' => ''
+        ],
         'payment_method' => [
             'name' => 'payment_method',
             'type' => 'varchar',

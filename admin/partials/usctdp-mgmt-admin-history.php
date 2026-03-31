@@ -56,6 +56,7 @@
                     <thead>
                         <tr>
                             <th>Date</th>
+                            <th>Type</th>
                             <th>Event</th>
                             <th>Charge</th>
                             <th>Payment</th>

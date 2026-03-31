@@ -44,7 +44,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $where_args[] = $args['student_id'];
         }
         if (isset($args["owes"])) {
-            $conditions[] = "ledger.total_debit > ledger.total_credit";
+            $conditions[] = "(ledger.total_fees - ledger.total_adjustments) > ledger.total_payments";
         }
         if (isset($args["type"])) {
             $conditions[] = "pur.type = %s";
@@ -73,8 +73,11 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     pur.created_by as purchase_created_by,
                     pur.notes as purchase_notes,
                     prod.title as product_name, prod.id as product_id,
-                    ledger.total_debit as total_debit,
-                    ledger.total_credit as total_credit,
+                    ledger.total_fees as total_fees,
+                    ledger.total_adjustments as total_adjustments,
+                    ledger.total_payments as total_payments,
+                    ledger.total_payouts as total_payouts,
+                    ledger.total_house as total_house_credits,
                     stud.id as student_id, stud.family_id as family_id,
                     stud.first as student_first,
                     stud.last as student_last,
@@ -95,8 +98,11 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                 LEFT JOIN (
                     SELECT 
                         purchase_id,
-                        SUM(debit) as total_debit,
-                        SUM(credit) as total_credit
+                        SUM(CASE WHEN entry_type = 'charge' THEN debit ELSE 0 END) as total_fees,
+                        SUM(CASE WHEN entry_type = 'adjustment' THEN credit ELSE 0 END) as total_adjustments,
+                        SUM(CASE WHEN entry_type = 'payment' THEN credit ELSE 0 END) as total_payments,
+                        SUM(CASE WHEN entry_type = 'house_credit' THEN debit ELSE 0 END) as total_house,
+                        SUM(CASE WHEN entry_type = 'payout' THEN debit ELSE 0 END) as total_payouts
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account IN ('registration_fees', 'merchandise_fees')
                     GROUP BY purchase_id
