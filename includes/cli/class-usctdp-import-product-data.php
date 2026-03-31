@@ -220,7 +220,7 @@ class Usctdp_Import_Product_Data
 
     private function create_merchandise($merchandise, $product_id)
     {
-        $title = 'Merchandise - ' . $merchandise['name'];
+        $title = $merchandise['name'];
         $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
         $query = new Usctdp_Mgmt_Product_Query([
             'title' => $title,

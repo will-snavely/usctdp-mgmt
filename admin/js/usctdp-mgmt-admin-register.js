@@ -4,11 +4,16 @@
     $(document).ready(function () {
         var preloadedData = {};
 
+        const MERCHANDISE_PRICING = {
+            'tshirt': usctdp_mgmt_admin.tshirt_pricing,
+            'racket': usctdp_mgmt_admin.racket_pricing
+        };
         const paymentSettings = {
             checkoutButton: true,
             allowPayLater: true,
             paymentMode: "create",
-            submitButtonText: "Submit"
+            submitButtonText: "Submit",
+            redirectOnComplete: true
         };
         const paymentTable = new USCTDP_Admin.RegistrationPaymentTable(
             "payment-table-section",
@@ -80,29 +85,38 @@
         }
 
         function bind_clinic_info(info) {
-            const full = info.registered >= info.capacity;
-            const one_day_price = parseFloat(info.pricing['One']);
-            const two_day_price = parseFloat(info.pricing['Two']);
+            const { registered, capacity, pricing, student_level } = info;
+            const full = registered >= capacity;
+            const one_day_price = parseFloat(pricing['One']);
+            const two_day_price = parseFloat(pricing['Two']);
             const diff = two_day_price - one_day_price;
             const discount = one_day_price - diff;
             $('#clinic-preorder input[type="checkbox"]').prop('checked', false);
             $('#clinic-preorder input[type="text"]').val('');
-            $('#clinic-current-size').text(info.registered);
-            $('#clinic-max-size').text(info.capacity);
+            $('#clinic-current-size').text(registered);
+            $('#clinic-max-size').text(capacity);
             $('#clinic-capacity .clinic-capacity-value').removeClass('full available');
             $('#clinic-capacity .clinic-capacity-value').addClass(full ? 'full' : 'available');
-            $('#student-level').val(info.student_level);
-            $('#base_price').val(one_day_price.toFixed(2));
+            $('#student-level').val(student_level);
+            $('#clinic_base_price').val(one_day_price.toFixed(2));
             $('#discount-additional-day-value').text('($' + discount.toFixed(2) + ')');
             $("#clinic-preorder").removeData();
-            $("#clinic-preorder").data('pricing', info.pricing);
+            $("#clinic-preorder").data('pricing', pricing);
             $("#clinic-preorder").data('additional_day_discount', discount);
+        }
+
+        function bind_merchandise_info(info) {
+            const { pricing, product_id, product_code } = info;
+            $('#merch_base_price').val(parseFloat(pricing).toFixed(2));
+            $("#merch-preorder").removeData();
+            $("#merch-preorder").data('pricing', pricing);
+            $("#merch-preorder").data('product_id', product_id);
+            $("#merch-preorder").data('product_code', product_code);
         }
 
         async function loadClinicRegistration(clinicId, studentId) {
             try {
                 const info = await getPreregistrationInfo(clinicId, studentId);
-                $('#clinic-preorder').removeData();
                 bind_clinic_info(info);
 
                 if (info.student_registered) {
@@ -136,10 +150,13 @@
             }
         }
 
-        async function loadMerchandiseRegistration(merchandiseId, studentId) {
+        async function loadMerchandiseRegistration(productId, productCode) {
             $('#notifications-section').children().remove();
-            const pricing = await USCTDP_Admin.ajax_getProductPricing(merchandiseId, null, null);
-
+            bind_merchandise_info({
+                pricing: MERCHANDISE_PRICING[productCode],
+                product_id: productId,
+                product_code: productCode
+            });
             togglePreorderDetails(true, "merch-preorder");
         }
 
@@ -155,12 +172,13 @@
             var displayActivityName = checkoutActivityName(activityName);
             const studentData = $("#student-selector").select2('data')[0];
             const activityData = $("#activity-selector").select2('data')[0];
+            const familyId = $("#family-selector").val();
             const registration = {
                 activity_id: $('#activity-selector').val(),
                 activity_name: displayActivityName,
                 product_id: activityData.product_id,
                 student_id: $('#student-selector').val(),
-                family_id: $('#family-selector').val(),
+                family_id: familyId,
                 student_first: studentData.first,
                 student_last: studentData.last,
                 student_level: $('#student-level').val(),
@@ -169,7 +187,7 @@
                 notes: $('#clinic-notes').val()
             };
 
-            const base_price = parseFloat($('#base_price').val());
+            const base_price = parseFloat($('#clinic_base_price').val());
             let computed_price = base_price;
             if ($('#discount-additional-day').is(':checked')) {
                 computed_price -= $('#clinic-preorder').data('additional_day_discount');
@@ -190,24 +208,26 @@
             if (addRacket) {
                 const racket_pricing = parseFloat(usctdp_mgmt_admin.racket_pricing);
                 const merch = {
-                    product_code: 'racket',
+                    product_id: usctdp_mgmt_admin.racket_product_id,
                     product_name: 'Wilson Tennis Racket',
                     student_id: $('#student-selector').val(),
+                    family_id: familyId,
                     student_first: studentData.first,
                     student_last: studentData.last,
                 };
-                paymentTable.addMerchandise(merch, racket_pricing);
+                paymentTable.addMerchandise(merch, racket_pricing, null);
             }
             if (addTshirt) {
                 const tshirt_pricing = parseFloat(usctdp_mgmt_admin.tshirt_pricing);
                 const merch = {
-                    product_code: 'tshirt',
+                    product_id: usctdp_mgmt_admin.tshirt_product_id,
                     product_name: 'USCTDP T-Shirt',
                     student_id: $('#student-selector').val(),
+                    family_id: familyId,
                     student_first: studentData.first,
                     student_last: studentData.last,
                 };
-                paymentTable.addMerchandise(merch, tshirt_pricing);
+                paymentTable.addMerchandise(merch, tshirt_pricing, null);
             }
             clearNotifications();
             togglePreorderDetails(false);
@@ -224,50 +244,29 @@
         });
 
         $('#add-merchandise').on('click', function () {
-            const merchandiseName = $('#merchandise-selector option:selected').text();
             const studentData = $("#student-selector").select2('data')[0];
             const merchandiseData = $("#merchandise-selector").select2('data')[0];
-            const registration = {
-                product_id: merchandiseData.product_id,
+            const merchandiseName = $('#merchandise-selector option:selected').text();
+            const merch = {
+                product_id: merchandiseData.id,
+                product_name: merchandiseName,
                 student_id: $('#student-selector').val(),
-                family_id: $('#family-selector').val(),
                 student_first: studentData.first,
                 student_last: studentData.last,
             };
 
-            const result = paymentTable.addNewRegistration(registration, priceEstimate);
+            var pricing = MERCHANDISE_PRICING[merchandiseData.code];
+            const result = paymentTable.addMerchandise(merch, pricing, null);
             if (!result.success) {
                 alert("Failed to add item: " + result.message);
                 return;
             }
-            if (addRacket) {
-                const equipment = {
-                    product_code: 'racket',
-                    product_name: 'Wilson Tennis Racket',
-                    student_id: $('#student-selector').val(),
-                    student_first: studentData.first,
-                    student_last: studentData.last,
-                };
-                const price = racketFee;
-                paymentTable.addEquipment(equipment, price);
-            }
+
             clearNotifications();
             togglePreorderDetails(false);
             togglePaymentTable(true);
-            $('#activity-selector').val(null).trigger('change');
+            $('#merchandise-selector').val(null).trigger('change');
         });
-
-        $('#add_racket').on('change', function () {
-            const addRacket = $('#add_racket').is(':checked');
-            if (addRacket) {
-                $('#racket_fee').val(50);
-                $('#racket-fee-field').removeClass('hidden');
-            } else {
-                $('#racket_fee').val('');
-                $('#racket-fee-field').addClass('hidden');
-            }
-        });
-
 
         $('#payment-method').on('change', function () {
             if (this.value === 'check') {
@@ -287,7 +286,6 @@
             `;
             const $labelWrap = $('#family-selector-section .context-selector-label-wrap');
             if ($labelWrap.find('.edit-note').length === 0) {
-                ``
                 $labelWrap.append(editNode);
             }
             $('#family-selector').prop('disabled', true);
@@ -395,7 +393,10 @@
                         loadActivityRegistration(activityId, activityType, studentId);
                     }
                 } else if (selectorId === 'merchandise-selector') {
-                    loadMerchandiseRegistration();
+                    const merchandiseId = value;
+                    const merchandiseData = $("#merchandise-selector").select2('data')[0];
+                    const merchandiseCode = merchandiseData.code;
+                    loadMerchandiseRegistration(merchandiseId, merchandiseCode);
                 } else if (selectorId === 'session-selector' && value === 'new_session') {
                     togglePreorderDetails(true, "new-session-preorder");
                 }

@@ -118,6 +118,7 @@ class Usctdp_Mgmt_Select2
                 $results[] = array(
                     'id' => $result->id,
                     'text' => $result->title,
+                    'code' => $result->code,
                     'category' => intval($result->session_category),
                     'type' => intval($result->type)
                 );

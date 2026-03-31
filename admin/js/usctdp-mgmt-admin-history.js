@@ -3,7 +3,7 @@
 
     $(document).ready(function () {
         var preloadedData = {};
-        var newRegistrations = null;
+        var newPurchases = null;
         const paymentHistoryModal = document.querySelector('#payment-history-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
         const postRefundModal = document.querySelector('#post-refund-modal');
@@ -88,7 +88,90 @@
             return response;
         }
 
-        function renderActivityDetails(data, idx) {
+        async function savePurchaseFields(id, fields) {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.update_purchase_action,
+                    security: usctdp_mgmt_admin.update_purchase_nonce,
+                    purchase_id: id,
+                    ...fields
+                }
+            });
+            return response;
+        }
+
+        function renderFinancialSection(idx, debit, credit) {
+            const total = debit - credit;
+            const debitDisplay = USCTDP_Admin.formatUsd(debit);
+            const creditDisplay = USCTDP_Admin.formatUsd(credit);
+            const totalDisplay = USCTDP_Admin.formatUsd(total);
+            const totalClass = total > 0 ? "balance-red" : "balance-green";
+            return `
+                <div class="flex-col gap-10 align-end">
+                    <div class="payment-info">
+                        <div class="debit-wrap activity-field align-center">
+                            <label>Debit</label>
+                            <span id="debit-input-${idx}" class="debit-amt amt-badge balance-red">
+                                ${debitDisplay}
+                            </span>
+                        </div>
+                        <div class="credit-wrap activity-field align-center">
+                            <label>Credit</label>
+                            <span id="credit-input-${idx}" class="credit-amt amt-badge balance-green">
+                                ${creditDisplay}
+                            </span>
+                        </div>
+                        <div class="balance-wrap activity-field align-center">
+                            <label>Balance</label>
+                            <span id="balance-amt-${idx}" class="balance-amt amt-badge ${totalClass}">
+                                ${totalDisplay}
+                            </span>
+                        </div>
+                        <div class="payment-history-button">
+                            <button id="payment-history-${idx}" class="button payment-history">
+                                Payment History
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex-row gap-10">
+                        <select id="payment-action-${idx}" class="payment-action-select">
+                            <option value=""></option>
+                            <option value="post-payment">Post Payment</option>
+                            <option value="post-refund">Post Refund</option>
+                            <option value="issue-credit">Issue House Credit</option>
+                        </select>
+                        <button id="ledger-action-${idx}" class="button ledger-action" disabled>
+                            Go
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        function renderNotesSection(notes, idx) {
+            return `
+                <div class="notes-wrap activity-field">
+                    <div class="flex-row gap-10 align-end">
+                        <label>Notes</label>
+                        <button id="save-notes-${idx}" class="button button-small save-notes" disabled>Save</button>
+                    </div>
+                    <textarea rows=3 id="notes-input-${idx}" class="notes-input">${notes}</textarea>
+                </div>`;
+        }
+
+        function renderStudentInfo(studentFirst, studentLast, studentAge) {
+            return `
+                <div class="student-name-wrap">
+                    <span class="student-name">${studentFirst} ${studentLast}</span>
+                </div>
+                <div class="student-age-wrap">
+                    <span class="student-age">Age: ${studentAge}</span>
+                </div>`;
+        }
+
+        function renderRegistrationRow(data, idx) {
             const {
                 studentFirst, studentLast, studentAge,
                 sessionName, sessionId,
@@ -96,42 +179,34 @@
                 registrationId,
                 level, debit, credit, notes
             } = data;
-            const total = debit - credit;
-            const debitDisplay = USCTDP_Admin.formatUsd(debit);
-            const creditDisplay = USCTDP_Admin.formatUsd(credit);
-            const totalDisplay = USCTDP_Admin.formatUsd(total);
-            const totalClass = total > 0 ? "balance-red" : "balance-green";
             const sessionSelectId = `session-selector-${idx}`;
             const activitySelectId = `activity-selector-${idx}`;
 
-            var newRegBadge = '';
-            if (newRegistrations) {
+            var newPurchaseBadge = '';
+            if (newPurchases) {
                 const regId = parseInt(registrationId);
-                newRegBadge = newRegistrations.has(regId) ? '<span class="new-registration">New!</span>' : '';
+                newPurchaseBadge = newPurchases.has(regId) ? `
+                    <div class="new-purchase-badge">
+                        <span class="new-purchase">New!</span>
+                    </div>` : '';
             }
             return `
-              <div class="registration-card edit-disabled">
-                <div class="basic-info">
+              <div class="purchase-card edit-disabled">
+                <div class="flex-row gap-10 align-baseline">
                     <div class="checkbox-wrap">
                         <input type="checkbox" class="row-check" value="${registrationId}">
                     </div>
-                    <div class="student-name-wrap">
-                        <span class="student-name">${studentFirst} ${studentLast}</span>
-                    </div>
-                    <div class="student-age-wrap">
-                        <span class="student-age">Age: ${studentAge}</span>
-                    </div>
-                    <div class="new-registration-badge">
-                        ${newRegBadge}
-                    </div>
-                    <div class="registration-actions">
-                        <button id="edit-activity-${idx}" class="button edit-activity" data-state="edit">
-                            Edit
+                    ${renderStudentInfo(studentFirst, studentLast, studentAge)}
+                    <div class="purchase-actions flex-row gap-10 align-center">
+                        <span class="registration-badge">Registration</span>
+                        ${newPurchaseBadge}
+                        <button id="edit-activity-${idx}" class="button button-small edit-activity" data-state="edit">
+                            Modify
                         </button>
                     </div>
                 </div>
 
-                <div class="fields-row">
+                <div class="flex-row gap-10 w-100">
                     <div class="session-selector-wrap activity-field">
                         <label>Session</label>
                         <div id="session-selector-wrap-${idx}">
@@ -155,52 +230,52 @@
                         <input id="level-input-${idx}" class="level-input" value="${level}" readonly>
                     </div>
                 </div>
-                <div class="fields-row">
-                    <div class="financials">
-                        <div class="payment-info">
-                            <div class="debit-wrap activity-field centered">
-                                <label>Debit</label>
-                                <span id="debit-input-${idx}" class="debit-amt amt-badge balance-red">
-                                    ${debitDisplay}
-                                </span>
-                            </div>
-                            <div class="credit-wrap activity-field centered">
-                                <label>Credit</label>
-                                <span id="credit-input-${idx}" class="credit-amt amt-badge balance-green">
-                                    ${creditDisplay}
-                                </span>
-                            </div>
-                            <div class="balance-wrap activity-field centered">
-                                <label>Balance</label>
-                                <span id="balance-amt-${idx}" class="balance-amt amt-badge ${totalClass}">
-                                    ${totalDisplay}
-                                </span>
-                            </div>
-                            <div class="payment-history-button">
-                                <button id="payment-history-${idx}" class="button payment-history">
-                                    Payment History
-                                </button>
-                            </div>
-                        </div>
-                        <div class="payment-actions">
-                            <select id="payment-action-${idx}" class="payment-action-select">
-                                <option value=""></option>
-                                <option value="post-payment">Post Payment</option>
-                                <option value="post-refund">Post Refund</option>
-                                <option value="issue-credit">Issue House Credit</option>
-                            </select>
-                            <button id="ledger-action-${idx}" class="button ledger-action" disabled>
-                                Go
-                            </button>
-                        </div>
-                    </div>
-                    <div class="notes-wrap activity-field">
-                        <label>Notes</label>
-                        <textarea readonly rows=3 id="notes-input-${idx}" class="notes-input">${notes}</textarea>
-                    </div>
+                <div class="flex-row gap-10 w-100">
+                    ${renderFinancialSection(idx, debit, credit)}
+                    ${renderNotesSection(notes, idx)}
                 </div>
             </div>`;
         }
+
+        function renderMerchandiseRow(data, idx) {
+            const {
+                studentFirst, studentLast, studentAge,
+                debit, credit, notes,
+                purchaseId, productName
+            } = data;
+            const newBadge = '';
+
+            return `
+              <div class="purchase-card edit-disabled">
+                <div class="flex-row gap-10 align-baseline">
+                    <div class="checkbox-wrap">
+                        <input type="checkbox" class="row-check" value="${purchaseId}">
+                    </div>
+                    <div class="student-name-wrap">
+                        <span class="student-name">${studentFirst} ${studentLast}</span>
+                    </div>
+                    <div class="student-age-wrap">
+                        <span class="student-age">Age: ${studentAge}</span>
+                    </div>
+                    <div class="purchase-actions flex-row gap-10 align-center">
+                        <span class="merchandise-badge">Merchandise</span>
+                        <div class="product-wrap">
+                            <span class="product-name">${productName}</span>
+                        </div>
+                        <div class="new-purchase-badge">    
+                            ${newBadge}
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="flex-row gap-10 w-100">
+                    ${renderFinancialSection(idx, debit, credit)}
+                    ${renderNotesSection(notes, idx)}
+                </div>
+            </div>`;
+        }
+
 
         var paymentHistoryTable = $('#payment-history-table').DataTable({
             processing: true,
@@ -215,14 +290,28 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    var registrationId = $('#payment-history-modal').data("registrationId");
                     d.action = usctdp_mgmt_admin.ledger_events_datatable_action;
                     d.security = usctdp_mgmt_admin.ledger_events_datatable_nonce;
-                    d.registration_id = registrationId;
-                    d.account = 'registration_fees';
+                    d.purchase_id = $('#payment-history-modal').data("purchaseId");
+                    d.account = $('#payment-history-modal').data("account");
                     d.length = -1;
                 },
-                dataSrc: "data"
+                dataSrc: function (json) {
+                    var runningBalance = 0;
+                    for (var i = 0; i < json.data.length; i++) {
+                        var charge = parseFloat(json.data[i].charge_amount) || 0;
+                        var payment = parseFloat(json.data[i].payment_amount) || 0;
+                        runningBalance += (charge - payment);
+                        json.data[i].calculated_balance = runningBalance;
+                    }
+                    return json.data;
+                },
+                beforeSend: function (jqXHR, settings) {
+                    var pId = $('#payment-history-modal').data("purchaseId");
+                    if (!pId) {
+                        return false; // This cancels the Ajax request
+                    }
+                },
             },
             columns: [
                 { data: 'event_date' },
@@ -242,16 +331,10 @@
                     className: 'num-col text-green'
                 },
                 {
-                    data: null,
+                    data: 'calculated_balance',
                     className: 'num-col balance-col',
-                    render: function (data, type, row, meta) {
-                        var api = new $.fn.dataTable.Api(meta.settings);
-                        var balance = 0;
-                        for (var i = 0; i <= meta.row; i++) {
-                            var r = api.row(i).data();
-                            balance += (parseFloat(r.charge_amount) - parseFloat(r.payment_amount));
-                        }
-                        return USCTDP_Admin.formatUsd(balance);
+                    render: function (data) {
+                        return USCTDP_Admin.formatUsd(data);
                     }
                 }
             ],
@@ -289,8 +372,8 @@
                 type: 'POST',
                 data: function (d) {
                     var familyId = $('#family-selector').val();
-                    d.action = usctdp_mgmt_admin.registration_history_datatable_action;
-                    d.security = usctdp_mgmt_admin.registration_history_datatable_nonce;
+                    d.action = usctdp_mgmt_admin.purchase_history_datatable_action;
+                    d.security = usctdp_mgmt_admin.purchase_history_datatable_nonce;
                     d.family_id = familyId;
 
                     if (preloadedData.student) {
@@ -307,6 +390,11 @@
                         d.session_id = sessionFilterValue;
                     }
 
+                    var typeFilterValue = $('#type-filter').val();
+                    if (typeFilterValue) {
+                        d.type = typeFilterValue;
+                    }
+
                     if ($('#owes-filter').is(':checked')) {
                         d.owes = 1;
                     } else {
@@ -320,21 +408,35 @@
                     render: function (data, type, row, meta) {
                         if (type === 'display') {
                             try {
-                                const activityData = {
-                                    studentFirst: row.student_first,
-                                    studentLast: row.student_last,
-                                    studentAge: row.student_age,
-                                    sessionName: row.session_name,
-                                    sessionId: row.session_id,
-                                    activityName: row.activity_name,
-                                    activityId: row.activity_id,
-                                    registrationId: row.registration_id,
-                                    level: row.registration_student_level,
-                                    debit: row.registration_debit,
-                                    credit: row.registration_credit,
-                                    notes: row.registration_notes
-                                };
-                                return renderActivityDetails(activityData, meta.row);
+                                if (row.purchase_type === 'registration') {
+                                    const activityData = {
+                                        studentFirst: row.student_first,
+                                        studentLast: row.student_last,
+                                        studentAge: row.student_age,
+                                        sessionName: row.session_name,
+                                        sessionId: row.session_id,
+                                        activityName: row.activity_name,
+                                        activityId: row.activity_id,
+                                        registrationId: row.registration_id,
+                                        level: row.registration_student_level,
+                                        debit: row.total_debit,
+                                        credit: row.total_credit,
+                                        notes: row.purchase_notes
+                                    };
+                                    return renderRegistrationRow(activityData, meta.row);
+                                } else if (row.purchase_type == 'merchandise') {
+                                    const merchandiseData = {
+                                        studentFirst: row.student_first,
+                                        studentLast: row.student_last,
+                                        studentAge: row.student_age,
+                                        productName: row.product_title,
+                                        productId: row.product_id,
+                                        debit: row.total_debit,
+                                        credit: row.total_credit,
+                                        notes: row.purchase_notes
+                                    };
+                                    return renderMerchandiseRow(merchandiseData, meta.row);
+                                }
                             } catch (error) {
                                 console.error(error);
                                 return '';
@@ -352,6 +454,9 @@
                     $first_row.after(filter_row);
                     $('#table-filters').appendTo('#table-filter-row');
                     $('#session-filter, #student-filter').on('change', function () {
+                        historyTable.ajax.reload();
+                    });
+                    $("#type-filter").on('change', function () {
                         historyTable.ajax.reload();
                     });
                     $("#owes-filter").on('change', function () {
@@ -409,7 +514,7 @@
             paymentTable.clear();
             let count = 0;
             for (const reg of registrations) {
-                if (parseFloat(reg.registration_credit) < parseFloat(reg.registration_debit)) {
+                if (parseFloat(reg.total_credit) < parseFloat(reg.total_debit)) {
                     paymentTable.addExistingRegistration(reg);
                     count++;
                 }
@@ -421,14 +526,15 @@
             }
         }
 
-        function openPaymentHistoryModal(registrationId) {
-            $('#payment-history-modal').data("registrationId", registrationId);
+        function openPaymentHistoryModal(purchaseId, account) {
+            $('#payment-history-modal').data("purchaseId", purchaseId);
+            $('#payment-history-modal').data("account", account);
             paymentHistoryTable.ajax.reload();
             paymentHistoryModal.showModal();
         }
 
         function openPostRefundModal(row) {
-            if (row.registration_credit > 0) {
+            if (row.total_credit > 0) {
                 $('#refund-form').data("registrationId", row.registration_id);
                 postRefundModal.showModal();
             } else {
@@ -476,6 +582,29 @@
             updateBulkUI();
         });
 
+
+        $('#history-table tbody').on('input', '.notes-input', function () {
+            const $row = $(this).closest('tr');
+            $row.find('.notes-wrap').addClass('is-dirty');
+            $row.find('.save-notes').prop('disabled', false);
+        });
+
+        $('#history-table tbody').on('click', '.save-notes', function () {
+            const $row = $(this).closest('tr');
+            $row.find('.save-notes').prop('disabled', true);
+            var rowData = historyTable.row($row).data();
+            var update = {
+                notes: $row.find('.notes-input').first().val()
+            }
+            savePurchaseFields(rowData.purchase_id, update)
+                .then(() => {
+                    $row.find('.notes-wrap').removeClass('is-dirty');
+                })
+                .catch((error) => {
+                    alert("Saving notes failed! " + error);
+                });
+        });
+
         $('#bulk-action-selector').select2({
             placeholder: "Select a bulk action...",
             allowClear: true,
@@ -492,6 +621,11 @@
             if (action === 'post-payments') {
                 openPostPaymentModal(registrations);
             }
+        });
+
+        $('#type-filter').select2({
+            placeholder: "Filter by type...",
+            allowClear: true
         });
 
         $('#student-filter').select2(
@@ -566,7 +700,7 @@
                 $button.text("Save");
                 $button.data("state", "save");
                 $button.addClass('save-btn');
-                $row.find('.registration-card').addClass('editing');
+                $row.find('.purchase-card').addClass('editing');
                 $row.find(".ledger-action").prop('disabled', true);
                 $row.find('select').prop('disabled', false);
                 $row.find('input').prop('readonly', false);
@@ -575,7 +709,7 @@
                 $button.text("Edit");
                 $button.data("state", "edit");
                 $button.removeClass('save-btn');
-                $row.find('.registration-card').removeClass('editing');
+                $row.find('.purchase-card').removeClass('editing');
                 $row.find('select').prop('disabled', true);
                 $row.find('input').prop('readonly', true);
                 $row.find('textarea').prop('readonly', true);
@@ -597,9 +731,7 @@
                         $button.text("Processing..");
                         $button.data("state", "edit");
                         refreshFamilyBalance(familyId, studentId);
-                        setTimeout(() => {
-                            historyTable.ajax.reload();
-                        }, 400);
+                        historyTable.ajax.reload();
                     });
             }
         });
@@ -617,8 +749,9 @@
         $('#history-table tbody').on('click', 'button.payment-history', function (e) {
             const $row = $(this).closest('tr');
             var rowData = historyTable.row($row).data();
-            const registrationId = rowData.registration_id;
-            openPaymentHistoryModal(registrationId);
+            const purchaseId = rowData.purchase_id;
+            const account = rowData.purchase_type + "_fees";
+            openPaymentHistoryModal(purchaseId, account);
         });
 
         function load_registration_history(title, family_id, student_id) {
@@ -659,8 +792,8 @@
             }
         });
 
-        if (usctdp_mgmt_admin.new_registrations) {
-            newRegistrations = new Set(usctdp_mgmt_admin.new_registrations)
+        if (usctdp_mgmt_admin.new_purchases) {
+            newPurchases = new Set(usctdp_mgmt_admin.new_purchases)
         }
 
         if (usctdp_mgmt_admin.preload) {

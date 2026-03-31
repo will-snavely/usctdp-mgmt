@@ -80,6 +80,7 @@ class Usctdp_Mgmt_Woocommerce
         // Validate the registrations in the order. 
         // All registrations should have a valid registration id.
         foreach ($line_items as $line_item) {
+            error_log("Line item: " . print_r($line_item, true));
             if ($line_item["type"] == "registration") {
                 $registration_id = $line_item["registration_id"];
                 $line_item_id = $line_item["line_item_id"];

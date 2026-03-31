@@ -39,9 +39,9 @@
 
                     <div id="price-setting" class="flex-col gap-10">
                         <h3>Pricing</h3>
-                        <div id="base-price-field" class="field-row">
-                            <label for="base_price">Base Price</label>
-                            <input type="number" name="base_price" id="base_price">
+                        <div id="clinic-base-price-field" class="field-row">
+                            <label for="clinic_base_price">Base Price</label>
+                            <input type="number" name="clinic_base_price" id="clinic_base_price">
                         </div>
                         <div id="clinic-discounts" class="flex-col gap-5">
                             <h4>Discounts</h4>
@@ -109,7 +109,14 @@
                         </button>
                     </div>
                 </div>
-                <div id="merch-preorder" class="preorder-subtype">
+                <div id="merch-preorder" class="preorder-subtype flex-col gap-20">
+                    <div id="price-setting" class="flex-col gap-10">
+                        <h3>Pricing</h3>
+                        <div id="merch-base-price-field" class="field-row">
+                            <label for="merch_base_price">Base Price</label>
+                            <input type="number" name="merch_base_price" id="merch_base_price">
+                        </div>
+                    </div>
                     <div class="add-item-wrap">
                         <button id="add-merchandise" class="button button-primary">
                             Add Merchandise

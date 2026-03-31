@@ -1,6 +1,4 @@
 * {
-    margin: 0;
-    padding: 0;
     box-sizing: border-box;
 }
 
@@ -450,8 +448,24 @@ dialog .actions-footer {
     gap: 20px;
 }
 
+.w-100 {
+    width: 100%;
+}
+
 .align-center {
     align-items: center;
+}
+
+.align-end {
+    align-items: flex-end;
+}
+
+.align-start {
+    align-items: flex-start;
+}
+
+.align-baseline {
+    align-items: baseline;
 }
 
 .justify-center {

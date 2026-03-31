@@ -84,7 +84,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     sesh.title as session_name,
                     sesh.id as session_id
                 FROM {$wpdb->prefix}usctdp_purchase AS pur
-                JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.id
+                JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.purchase_id
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
@@ -127,31 +127,5 @@ class Usctdp_Mgmt_Registration_Query extends Query
             'data' => $window,
             'count' => $count
         ];
-    }
-
-    public function create_registration($args)
-    {
-        $created_by = get_current_user_id();
-        $created_at = current_time('mysql');
-        $purchase_query = new Usctdp_Mgmt_Purchase_Query();
-        $purchase_args = [
-            'product_id' => $args['product_id'],
-            'family_id' => $args['family_id'],
-            'type' => 'registration',
-            'created_at' => $created_at,
-            'created_by' => $created_by,
-        ];
-        $purchase_id = $purchase_query->add_item($purchase_args);
-        error_log("purchase id" . print_r($purchase_id, true));
-        $registration_args = [
-            'id' => $purchase_id,
-            'activity_id' => $args['activity_id'],
-            'student_id' => $args['student_id'],
-            'student_level' => $args['student_level'],
-            'notes' => $args['notes'],
-        ];
-        $registration_id = $this->add_item($registration_args);
-        error_log("registration id" . print_r($registration_id, true));
-        return $purchase_id;
     }
 }

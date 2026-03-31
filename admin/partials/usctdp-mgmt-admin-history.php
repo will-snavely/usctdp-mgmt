@@ -1,6 +1,6 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    <div id="main-content">
+    <div id="main-content" class="flex-col gap-10">
         <dialog id="post-payment-modal">
             <h2>Post Payment</h2>
             <div id="registration-payment-table"></div>
@@ -73,7 +73,7 @@
         <div id="context-selectors">
         </div>
         <div id="history-container" class="hidden">
-            <h2>Registration History for <span id="family-name"></span></h2>
+            <h2>Purchase History for <span id="family-name"></span></h2>
             <div id="family-balance">
                 <label>Balance</label>
                 <span id="family-total-balance"></span>
@@ -85,6 +85,13 @@
                     </div>
                     <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
                         <select id="session-filter"></select>
+                    </div>
+                    <div id="type-filter-section" class="dt-layout-cell dt-layout-start">
+                        <select id="type-filter">
+                            <option value=""></option>
+                            <option value="registration">Registration</option>
+                            <option value="merchandise">Merchandise</option>
+                        </select>
                     </div>
                     <div id="owes-filter-section" class="dt-layout-cell dt-layout-start">
                         <label for="owes-filter">Owes Money:</label>

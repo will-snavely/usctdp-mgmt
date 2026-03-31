@@ -57,7 +57,7 @@ class Usctdp_Mgmt_Admin
                     'activity_preregistration',
                     'registrations_datatable',
                     'create_woocommerce_order',
-                    'commit_registrations',
+                    'commit_order',
                     'create_ledger_entries',
                 ],
                 'post' => ['payment_checkout'],
@@ -70,6 +70,7 @@ class Usctdp_Mgmt_Admin
                     'select2_search',
                     'purchase_history_datatable',
                     'update_registration',
+                    'update_purchase',
                     'get_family_balance',
                     'create_woocommerce_order',
                     'ledger_datatable',
@@ -179,10 +180,14 @@ class Usctdp_Mgmt_Admin
         $product_query = new Usctdp_Mgmt_Product_Query();
         $racket_pricing = $product_query->get_product_pricing(null, null, 'racket');
         $tshirt_pricing = $product_query->get_product_pricing(null, null, 'tshirt');
-        $js_data['racket_product_id'] = $racket_pricing->product_id;
-        $js_data['tshirt_product_id'] = $tshirt_pricing->product_id;
-        $js_data['racket_pricing'] = $racket_pricing->pricing;
-        $js_data['tshirt_pricing'] = $tshirt_pricing->pricing;
+        if ($racket_pricing) {
+            $js_data['racket_product_id'] = $racket_pricing->product_id;
+            $js_data['racket_pricing'] = $racket_pricing->pricing;
+        }
+        if ($tshirt_pricing) {
+            $js_data['tshirt_product_id'] = $tshirt_pricing->product_id;
+            $js_data['tshirt_pricing'] = $tshirt_pricing->pricing;
+        }
     }
     private function load_admin_page($slug, $ajax_handlers, $post_handlers, $preloads, $on_localize = null)
     {

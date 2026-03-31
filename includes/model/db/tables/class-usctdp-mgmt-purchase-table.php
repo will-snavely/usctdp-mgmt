@@ -20,13 +20,16 @@ class Usctdp_Mgmt_Purchase_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             product_id bigint(20) unsigned NOT NULL,
             family_id bigint(20) unsigned NOT NULL,
+            student_id bigint(20) unsigned DEFAULT NULL,
             tracking_id varchar(255) DEFAULT NULL,
             type varchar(50) NOT NULL,
             created_at datetime NOT NULL,
             created_by bigint(20) unsigned NOT NULL,
+            notes text DEFAULT NULL,
             PRIMARY KEY (id),
             KEY product_id (product_id),
             KEY family_id (family_id),
+            KEY student_id (student_id),
             KEY tracking_id (tracking_id)
         ";
     }

@@ -5,8 +5,9 @@ class Usctdp_Mgmt_Admin_Ajax
     public static $ajax_handlers = [
         'activity_preregistration' => 'ajax_activity_preregistration',
         'clinic_datatable' => 'ajax_clinic_datatable',
-        'commit_registrations' => 'ajax_commit_registrations',
+        'commit_order' => 'ajax_commit_order',
         'commit_merchandise' => 'ajax_commit_merchandise',
+        'commit_registrations' => 'ajax_commit_registrations',
         'create_family' => 'ajax_create_family',
         'create_ledger_entry' => 'ajax_create_ledger_entry',
         'create_ledger_entries' => 'ajax_create_ledger_entries',
@@ -19,7 +20,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'get_family_balance' => 'ajax_get_family_balance',
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
-        'registration_history_datatable' => 'ajax_registration_history_datatable',
+        'purchase_history_datatable' => 'ajax_purchase_history_datatable',
         'registrations_datatable' => 'registrations_datatable',
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
@@ -28,6 +29,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'toggle_session_active' => 'ajax_toggle_session_active',
         'update_family' => 'ajax_update_family',
         'update_registration' => 'ajax_update_registration',
+        'update_purchase' => 'ajax_update_purchase',
     ];
 
     private function is_student_enrolled($student_id, $activity_id)
@@ -248,7 +250,7 @@ class Usctdp_Mgmt_Admin_Ajax
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
         $account = isset($_POST['account']) ? sanitize_text_field($_POST['account']) : null;
         $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : null;
-        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : null;
+        $purchase_id = isset($_POST['purchase_id']) ? intval($_POST['purchase_id']) : null;
 
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
@@ -270,8 +272,8 @@ class Usctdp_Mgmt_Admin_Ajax
         if ($order_id) {
             $args['order_id'] = $order_id;
         }
-        if ($registration_id) {
-            $args['purchase_id'] = $registration_id;
+        if ($purchase_id) {
+            $args['purchase_id'] = $purchase_id;
         }
 
         $ledger_query = new Usctdp_Mgmt_Ledger_Query();
@@ -291,7 +293,7 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
         $account = isset($_POST['account']) ? sanitize_text_field($_POST['account']) : null;
-        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : null;
+        $purchase_id = isset($_POST['purchase_id']) ? intval($_POST['purchase_id']) : null;
 
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
@@ -307,8 +309,12 @@ class Usctdp_Mgmt_Admin_Ajax
         if ($account) {
             $args['account'] = $account;
         }
-        if ($registration_id) {
-            $args['purchase_id'] = $registration_id;
+        if ($purchase_id) {
+            $args['purchase_id'] = $purchase_id;
+        }
+
+        if(!$purchase_id) {
+            wp_send_json_error('Missing required parameter purchase_id or account', 400);
         }
 
         $ledger_query = new Usctdp_Mgmt_Ledger_Query();
@@ -386,6 +392,35 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_success($result);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_family', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    public function ajax_update_purchase()
+    {
+        $this->check_nonce('update_purchase');
+
+        $entity_id = isset($_POST['purchase_id']) ? intval($_POST['purchase_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter purchase_id', 400);
+        }
+
+        $post_fields = [
+            'notes' => function ($value) {
+                return sanitize_textarea_field(stripslashes($value));
+            },
+        ];
+
+        try {
+            $result = $this->save_entity(
+                $entity_id,
+                $_POST,
+                'Usctdp_Mgmt_Purchase_Query',
+                $post_fields
+            );
+            wp_send_json_success($result);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_purchase', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
@@ -783,14 +818,15 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
-    public function ajax_registration_history_datatable()
+    public function ajax_purchase_history_datatable()
     {
-        $this->check_nonce('registration_history_datatable');
+        $this->check_nonce('purchase_history_datatable');
 
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
         $owes = isset($_POST['owes']) ? intval($_POST['owes']) : null;
+        $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : null;
 
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
@@ -812,9 +848,12 @@ class Usctdp_Mgmt_Admin_Ajax
         if ($owes == 1) {
             $args['owes'] = $owes;
         }
+        if ($type) {
+            $args['type'] = $type;
+        }
 
-        $reg_query = new Usctdp_Mgmt_Registration_Query([]);
-        $results = $reg_query->get_registration_data($args);
+        $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);
+        $results = $purchase_query->get_purchase_data($args);
         $response = array(
             "draw" => $draw,
             "recordsTotal" => $results['count'],
@@ -1010,6 +1049,419 @@ class Usctdp_Mgmt_Admin_Ajax
         return $family_id;
     }
 
+    private function raw_id_to_entity($data, $key, $getter, $entity_name)
+    {
+        if (!isset($data[$key])) {
+            throw new Web_Request_Exception($entity_name . ' ID missing from registration data.');
+        }
+        $raw_id = $data[$key];
+        if (!is_numeric($raw_id)) {
+            throw new Web_Request_Exception($entity_name . ' ID is not a number.');
+        }
+        $entity = $getter($raw_id);
+        if (!$entity) {
+            throw new Web_Request_Exception($entity_name . ' with ID ' . $raw_id . ' not found.');
+        }
+        return [
+            'id' => $raw_id,
+            'entity' => $entity
+        ];
+    }
+
+    private function parse_registration_data($data)
+    {
+        $activity = $this->raw_id_to_entity($data, 'activity_id', 'Usctdp_Mgmt_Model::get_activity', 'Activity');
+        $family = $this->raw_id_to_entity($data, 'family_id', 'Usctdp_Mgmt_Model::get_family', 'Family');
+        $student = $this->raw_id_to_entity($data, 'student_id', 'Usctdp_Mgmt_Model::get_student', 'Student');
+        $product = $this->raw_id_to_entity($data, 'product_id', 'Usctdp_Mgmt_Model::get_product', 'Product');
+
+        $student_level = '';
+        if (isset($data['student_level'])) {
+            $student_level = sanitize_text_field($data['student_level']);
+        }
+        if (empty($student_level)) {
+            $student_level = $student['entity']->level;
+        }
+
+        $notes = '';
+        if (isset($data['notes'])) {
+            $notes = sanitize_textarea_field(stripslashes($data['notes']));
+        }
+
+        $line_item_id = 0;
+        if (isset($data['line_item_id'])) {
+            $line_item_id = sanitize_text_field($data['line_item_id']);
+        }
+
+        return [
+            "student" => $student['entity'],
+            "family" => $family['entity'],
+            "activity" => $activity['entity'],
+            "product" => $product['entity'],
+            "line_item_id" => $line_item_id,
+            "type" => "registration",
+            "sql_args" => [
+                'activity_id' => $activity['id'],
+                'product_id' => $product['id'],
+                'family_id' => $family['id'],
+                'student_id' => $student['id'],
+                'student_level' => $student_level,
+                'notes' => $notes
+            ]
+        ];
+    }
+
+    private function parse_merchandise_data($data)
+    {
+        $family = $this->raw_id_to_entity($data, 'family_id', 'Usctdp_Mgmt_Model::get_family', 'Family');
+        $student = $this->raw_id_to_entity($data, 'student_id', 'Usctdp_Mgmt_Model::get_student', 'Student');
+        $product = $this->raw_id_to_entity($data, 'product_id', 'Usctdp_Mgmt_Model::get_product', 'Product');
+
+        $line_item_id = 0;
+        if (isset($data['line_item_id'])) {
+            $line_item_id = sanitize_text_field($data['line_item_id']);
+        }
+
+        return [
+            "student" => $student['entity'],
+            "family" => $family['entity'],
+            "product" => $product['entity'],
+            "line_item_id" => $line_item_id,
+            "type" => "merchandise",
+            "sql_args" => [
+                'product_id' => $product['id'],
+                'family_id' => $family['id'],
+                'student_id' => $student['id'],
+            ]
+        ];
+    }
+
+    private function parse_order_data($data)
+    {
+        $type = isset($data['type']) ? sanitize_text_field($data['type']) : null;
+        if($type === 'registration') {
+            return $this->parse_registration_data($data);
+        } elseif($type === 'merchandise') {
+            return $this->parse_merchandise_data($data);
+        } else {
+            throw new Web_Request_Exception('Invalid order type: ' . $type);
+        }
+    }   
+
+    private function create_merchandise_order($record) {
+        $query = new Usctdp_Mgmt_Purchase_Query();
+        $purchase_id = $query->add_item([
+            'product_id' => $record['product']->id,
+            'family_id' => $record['family']->id,   
+            'student_id' => $record['student']->id,
+            'type' => 'merchandise',
+            'created_at' => current_time('mysql'),
+            'created_by' => get_current_user_id(),
+        ]);
+        if (!$purchase_id) {
+            throw new Web_Request_Exception('Failed to create merchandise.');
+        }
+        return $purchase_id;  
+    }
+
+    private function lock_registrations($registration_records) {
+        global $wpdb;
+        $activity_ids = array_map(function ($record) {
+            return (int) $record["activity"]->id;
+        }, $registration_records);
+
+        if (!empty($activity_ids)) {
+            $placeholders = implode(',', array_fill(0, count($activity_ids), '%d'));
+            $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id IN ($placeholders) FOR UPDATE",
+                    $activity_ids
+                )
+            );
+        }
+    }
+    private function create_purchase_and_registration($args)
+    {
+        $created_by = get_current_user_id();
+        $created_at = current_time('mysql');
+        $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+        $purchase_args = [
+            'product_id' => $args['product_id'],
+            'family_id' => $args['family_id'],
+            'student_id' => $args['student_id'],
+            'type' => 'registration',
+            'created_at' => $created_at,
+            'created_by' => $created_by,
+        ];
+        $purchase_id = $purchase_query->add_item($purchase_args);
+        if (!$purchase_id) {
+            throw new Web_Request_Exception('Failed to create purchase.');
+        }
+        
+        $registration_args = [
+            'purchase_id' => $purchase_id,
+            'activity_id' => $args['activity_id'],
+            'student_id' => $args['student_id'],
+            'student_level' => $args['student_level'],
+            'notes' => $args['notes'],
+            'created_at' => $created_at,
+            'created_by' => $created_by,
+            'modified_at' => $created_at,
+            'modified_by' => $created_by,
+        ];
+
+        $registration_query = new Usctdp_Mgmt_Registration_Query();
+        $registration_id = $registration_query->add_item($registration_args);
+        if (!$registration_id) {
+            throw new Web_Request_Exception('Failed to create registration.');
+        }
+
+        return [
+            'purchase_id' => $purchase_id,
+            'registration_id' => $registration_id
+        ];
+    }
+
+    public function ajax_commit_order()
+    {
+        $this->check_nonce('commit_order');
+
+        global $wpdb;
+        $transaction_started = false;
+        $transaction_completed = false;
+        $response_message = '';
+        $results = [];
+
+        $line_items = isset($_POST['line_items']) ? $_POST['line_items'] : [];
+        if (empty($line_items)) {
+            throw new Web_Request_Exception('No line items provided.');
+        }
+
+        $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
+
+        $order_records = [];
+        foreach ($line_items as $line_item) {
+            $order_records[] = $this->parse_order_data($line_item);
+        }
+
+        $merchandise_records = array_filter($order_records, function($record) {
+            return $record['type'] === 'merchandise';
+        });
+
+        $registration_records = array_filter($order_records, function($record) {
+            return $record['type'] === 'registration';
+        });
+
+        try {
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+
+            // Handle merchandise orders
+            foreach ($merchandise_records as $record) {
+                $line_item_id = $record['line_item_id'];
+                $results[$line_item_id] = [
+                    'purchase_id' => $this->create_merchandise_order($record),
+                ];
+            }
+
+            // Handle registration orders
+            $this->lock_registrations($registration_records);
+            foreach ($registration_records as $record) {
+                $args = $record['sql_args'];
+                $line_item_id = $record['line_item_id'];
+                if ($this->is_student_enrolled($args['student_id'], $args['activity_id'])) {
+                    throw new Web_Request_Exception('Student is already enrolled in activity: ' . $record['activity']->title);
+                }
+
+                $capacity = $this->get_activity_capacity($args['activity_id']);
+                $registrations = $this->get_activity_registration_count($args['activity_id']);
+                if (!$ignore_full && $registrations >= $capacity) {
+                    throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
+                }
+
+                $ids = $this->create_purchase_and_registration($args);
+                if (!$ids) {
+                    throw new Web_Request_Exception('Failed to create registration.');
+                }
+                $results[$line_item_id] = $ids;
+            }
+
+            $wpdb->query('COMMIT');
+            $transaction_completed = true;
+        } catch (Web_Request_Exception $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_order', $e);
+            $response_message = $e->getMessage();
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_order', $e);
+            $response_message = 'A system error occurred. Please try again.';
+        } finally {
+            if (!$transaction_completed) {
+                if ($transaction_started) {
+                    $wpdb->query('ROLLBACK');
+                }
+                if ($response_message === '') {
+                    $response_message = 'A system error occurred. Please try again.';
+                }
+                wp_send_json_error($response_message, 500);
+            } else {
+                wp_send_json_success([
+                    "purchases" => $results
+                ]);
+            }
+        }
+    }
+
+    public function ajax_commit_merchandise()
+    {
+        $this->check_nonce('commit_merchandise');
+
+        global $wpdb;
+        $transaction_started = false;
+        $transaction_completed = false;
+        $response_message = '';
+        $purchase_ids = [];
+
+        $merchandise_data = isset($_POST['merchandise_data']) ? $_POST['merchandise_data'] : [];
+        if (empty($merchandise_data)) {
+            throw new Web_Request_Exception('No merchandise data provided.');
+        }
+
+        $merchandise_records = [];
+        foreach ($merchandise_data as $merchandise) {
+            $merchandise_records[] = $this->parse_merchandise_data($merchandise);
+        }
+
+        try {
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+            foreach ($merchandise_records as $record) {
+                $line_item_id = $record['line_item_id'];
+                $query = new Usctdp_Mgmt_Purchase_Query();
+                $purchase_id = $query->add_item([
+                    'product_id' => $record['product']->id,
+                    'family_id' => $record['family']->id,
+                    'student_id' => $record['student']->id,
+                    'type' => 'merchandise',
+                    'created_at' => current_time('mysql'),
+                    'created_by' => get_current_user_id(),
+                ]);
+                if (!$purchase_id) {
+                    throw new Web_Request_Exception('Failed to create merchandise.');
+                }
+                $purchase_ids[$line_item_id] = $purchase_id;
+            }
+            $wpdb->query('COMMIT');
+            $transaction_completed = true;
+        } catch (Web_Request_Exception $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_merchandise', $e);
+            $response_message = $e->getMessage();
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_merchandise', $e);
+            $response_message = 'A system error occurred. Please try again.';
+        } finally {
+            if (!$transaction_completed) {
+                if ($transaction_started) {
+                    $wpdb->query('ROLLBACK');
+                }
+                if ($response_message === '') {
+                    $response_message = 'A system error occurred. Please try again.';
+                }
+                wp_send_json_error($response_message, 500);
+            } else {
+                wp_send_json_success([
+                    "ids" => $purchase_ids
+                ]);
+            }
+        }
+    }
+    public function ajax_commit_registrations()
+    {
+        $this->check_nonce('commit_registrations');
+
+        $transaction_started = false;
+        $transaction_completed = false;
+        $response_message = '';
+        $registration_ids = [];
+        global $wpdb;
+
+        try {
+            if (!current_user_can('manage_options')) {
+                throw new Web_Request_Exception('You do not have permission to perform this action.');
+            }
+
+            $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
+            $registration_data = isset($_POST['registration_data']) ? $_POST['registration_data'] : [];
+            if (empty($registration_data)) {
+                throw new Web_Request_Exception('No registrations provided.');
+            }
+
+            $registration_records = [];
+            foreach ($registration_data as $registration) {
+                $registration_records[] = $this->parse_registration_data($registration);
+            }
+
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+
+            $activity_ids = array_map(function ($record) {
+                return (int) $record["activity"]->id;
+            }, $registration_records);
+
+            if (!empty($activity_ids)) {
+                $placeholders = implode(',', array_fill(0, count($activity_ids), '%d'));
+                $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id IN ($placeholders) FOR UPDATE",
+                        $activity_ids
+                    )
+                );
+            }
+
+            foreach ($registration_records as &$record) {
+                $args = $record['sql_args'];
+                $line_item_id = $record['line_item_id'];
+                if ($this->is_student_enrolled($args['student_id'], $args['activity_id'])) {
+                    throw new Web_Request_Exception('Student is already enrolled in activity: ' . $record['activity']->title);
+                }
+
+                $capacity = $this->get_activity_capacity($args['activity_id']);
+                $registrations = $this->get_activity_registration_count($args['activity_id']);
+                if (!$ignore_full && $registrations >= $capacity) {
+                    throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
+                }
+
+                $ids = $this->create_purchase_and_registration($args);
+                if (!$ids) {
+                    throw new Web_Request_Exception('Failed to create registration.');
+                }
+                $registration_ids[$line_item_id] = $ids;
+            }
+            $wpdb->query('COMMIT');
+            $transaction_completed = true;
+        } catch (Web_Request_Exception $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
+            $response_message = $e->getMessage();
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
+            $response_message = 'A system error occurred. Please try again.';
+        } finally {
+            if (!$transaction_completed) {
+                if ($transaction_started) {
+                    $wpdb->query('ROLLBACK');
+                }
+                if ($response_message === '') {
+                    $response_message = 'A system error occurred. Please try again.';
+                }
+                wp_send_json_error($response_message, 500);
+            } else {
+                wp_send_json_success([
+                    "ids" => $registration_ids
+                ]);
+            }
+        }
+    }
+
+    
     public function ajax_create_woocommerce_order()
     {
         $this->check_nonce('create_woocommerce_order');
@@ -1053,181 +1505,4 @@ class Usctdp_Mgmt_Admin_Ajax
         ]);
     }
 
-    private function parse_registration_data($data)
-    {
-        if (!isset($data['activity_id'])) {
-            throw new Web_Request_Exception('Activity ID missing from registration data.');
-        }
-        if (!isset($data['student_id'])) {
-            throw new Web_Request_Exception('Student ID missing from registration data.');
-        }
-        if (!isset($data['product_id'])) {
-            throw new Web_Request_Exception('Product ID missing from registration data.');
-        }
-        if (!is_numeric($data['product_id'])) {
-            throw new Web_Request_Exception('Product ID is not a number.');
-        }
-        if (!is_numeric($data['activity_id'])) {
-            throw new Web_Request_Exception('Activity ID is not a number.');
-        }
-        if (!is_numeric($data['student_id'])) {
-            throw new Web_Request_Exception('Student ID is not a number.');
-        }
-
-        $activity_id = $data['activity_id'];
-        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
-        if (!$activity) {
-            throw new Web_Request_Exception('Activity with ID ' . $activity_id . ' not found.');
-        }
-
-        $product_id = $data['product_id'];
-        $product = Usctdp_Mgmt_Model::get_product($product_id);
-        if (!$product) {
-            throw new Web_Request_Exception('Product with ID ' . $product_id . ' not found.');
-        }
-
-        $family_id = $data['family_id'];
-        $family = Usctdp_Mgmt_Model::get_family($family_id);
-        if (!$family) {
-            throw new Web_Request_Exception('Family with ID ' . $family_id . ' not found.');
-        }
-
-        $student_id = $data['student_id'];
-        $student = Usctdp_Mgmt_Model::get_student($student_id);
-        if (!$student) {
-            throw new Web_Request_Exception('Student with ID ' . $student_id . ' not found.');
-        }
-
-        $student_level = '';
-        if (isset($data['student_level'])) {
-            $student_level = sanitize_text_field($data['student_level']);
-        }
-        if (empty($student_level)) {
-            $student_level = $student->level;
-        }
-
-        $notes = '';
-        if (isset($data['notes'])) {
-            $notes = sanitize_textarea_field(stripslashes($data['notes']));
-        }
-
-        $line_item_id = 0;
-        if (isset($data['line_item_id'])) {
-            $line_item_id = sanitize_text_field($data['line_item_id']);
-        }
-
-        return [
-            "student" => $student,
-            "activity" => $activity,
-            "product" => $product,
-            "line_item_id" => $line_item_id,
-            "sql_args" => [
-                'activity_id' => $activity_id,
-                'product_id' => $product_id,
-                'family_id' => $family_id,
-                'student_id' => $student_id,
-                'student_level' => $student_level,
-                'notes' => $notes
-            ]
-        ];
-    }
-
-    public function ajax_commit_merchandise()
-    {
-        $this->check_nonce('commit_merchandise');
-        $merchandise_data = isset($_POST['merchandise_data']) ? $_POST['merchandise_data'] : [];
-        if (empty($merchandise_data)) {
-            throw new Web_Request_Exception('No merchandise data provided.');
-        }
-
-
-    }
-
-    public function ajax_commit_registrations()
-    {
-        $this->check_nonce('commit_registrations');
-
-        $transaction_started = false;
-        $transaction_completed = false;
-        $response_message = '';
-        $registration_ids = [];
-        global $wpdb;
-
-        try {
-            if (!current_user_can('manage_options')) {
-                throw new Web_Request_Exception('You do not have permission to perform this action.');
-            }
-
-            $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
-            $registration_data = isset($_POST['registration_data']) ? $_POST['registration_data'] : [];
-            if (empty($registration_data)) {
-                throw new Web_Request_Exception('No registrations provided.');
-            }
-
-            $registration_records = [];
-            foreach ($registration_data as $registration) {
-                $registration_records[] = $this->parse_registration_data($registration);
-            }
-
-            $wpdb->query('START TRANSACTION');
-            $transaction_started = true;
-            $registration_query = new Usctdp_Mgmt_Registration_Query();
-
-            $activity_ids = array_map(function ($record) {
-                return (int) $record["activity"]->id;
-            }, $registration_records);
-
-            if (!empty($activity_ids)) {
-                $placeholders = implode(',', array_fill(0, count($activity_ids), '%d'));
-                $wpdb->get_results(
-                    $wpdb->prepare(
-                        "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id IN ($placeholders) FOR UPDATE",
-                        $activity_ids
-                    )
-                );
-            }
-
-            foreach ($registration_records as &$record) {
-                $args = $record['sql_args'];
-                $line_item_id = $record['line_item_id'];
-                if ($this->is_student_enrolled($args['student_id'], $args['activity_id'])) {
-                    throw new Web_Request_Exception('Student is already enrolled in activity: ' . $record['activity']->title);
-                }
-
-                $capacity = $this->get_activity_capacity($args['activity_id']);
-                $registrations = $this->get_activity_registration_count($args['activity_id']);
-                if (!$ignore_full && $registrations >= $capacity) {
-                    throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
-                }
-
-                $registration_id = $registration_query->create_registration($args);
-                if (!$registration_id) {
-                    throw new Web_Request_Exception('Failed to create registration.');
-                }
-                $registration_ids[$line_item_id] = $registration_id;
-            }
-            $wpdb->query('COMMIT');
-            $transaction_completed = true;
-        } catch (Web_Request_Exception $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
-            $response_message = $e->getMessage();
-        } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
-            $response_message = 'A system error occurred. Please try again.';
-        } finally {
-            if (!$transaction_completed) {
-                if ($transaction_started) {
-                    $wpdb->query('ROLLBACK');
-                }
-                if ($response_message === '') {
-                    $response_message = 'A system error occurred. Please try again.';
-                }
-                wp_send_json_error($response_message, 500);
-            } else {
-                wp_send_json_success([
-                    "ids" => $registration_ids
-                ]);
-            }
-        }
-    }
 }
