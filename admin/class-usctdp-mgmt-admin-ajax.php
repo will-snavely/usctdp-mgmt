@@ -446,8 +446,9 @@ class Usctdp_Mgmt_Admin_Ajax
                 $args[] = $student_id;
             }
 
-            $conditions[] = "account in (%s)";
+            $conditions[] = "account in (%s, %s)";
             $args[] = 'registration_fees';
+            $args[] = 'merchandise_fees';
 
             global $wpdb;
             $query = $wpdb->prepare(

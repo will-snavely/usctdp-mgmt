@@ -2,11 +2,11 @@
 
 class Usctdp_Mgmt_Woocommerce
 {
-    private function get_woo_product_by_code($product_code)
+    private function get_woo_product_by_id($product_id)
     {
         $product = Usctdp_Mgmt_Model::get_product($product_id);
         if (!$product) {
-            throw new Usctdp_Woocommerce_Exception("Product with code '$product_code' not found.");
+            throw new Usctdp_Woocommerce_Exception("Product with ID '$product_id' not found.");
         }
         return wc_get_product($product->woocommerce_id);
     }
@@ -123,9 +123,9 @@ class Usctdp_Mgmt_Woocommerce
                 $custom_price = floatval($line_item["credit"]);
                 $total += $custom_price;
 
-                if ($line_item["type"] == "equipment") {
-                    $product_code = $line_item["product_code"];
-                    $woo_product = $this->get_woo_product_by_code($product_code);
+                if ($line_item["type"] == "merchandise") {
+                    $product_id = $line_item["product_id"];
+                    $woo_product = $this->get_woo_product_by_id($product_id);
                     $item_id = $order->add_product($woo_product, 1);
                     $item = $order->get_item($item_id);
                     $item->add_meta_data('Student', $student->title);

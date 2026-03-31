@@ -574,6 +574,7 @@
                 const $form = $(e.currentTarget);
                 const orderData = this.getOrderData();
                 const response = await this.submitPayment(orderData);
+                this.trigger('complete', { response });
                 if (orderData.payment_method === 'card' || this.settings.redirectOnComplete) {
                     this.finalizeFormRedirect($form, response, orderData);
                 }

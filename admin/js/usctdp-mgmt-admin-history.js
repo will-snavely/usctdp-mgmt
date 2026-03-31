@@ -13,10 +13,8 @@
             paymentMode: "update",
             redirectOnComplete: false,
         };
-
         const paymentTableId = "registration-payment-table";
-        const paymentTable =
-            new USCTDP_Admin.RegistrationPaymentTable(paymentTableId, paymentSettings);
+        const paymentTable = new USCTDP_Admin.RegistrationPaymentTable(paymentTableId, paymentSettings);
 
         function refreshFamilyBalance(family_id, student_id) {
             $.ajax({
@@ -30,7 +28,7 @@
                 },
                 success: function (response) {
                     $('#family-total-balance').text(USCTDP_Admin.formatUsd(response.data.balance));
-                    if (response.data.balance >= 0) {
+                    if (response.data.balance > 0) {
                         $('#family-total-balance').addClass('balance-red');
                         $('#family-total-balance').removeClass('balance-green');
                     } else {
@@ -174,7 +172,7 @@
         function renderRegistrationRow(data, idx) {
             const {
                 studentFirst, studentLast, studentAge,
-                sessionName, sessionId,
+                createdDate, sessionName, sessionId,
                 activityName, activityId,
                 registrationId,
                 level, debit, credit, notes
@@ -197,16 +195,24 @@
                         <input type="checkbox" class="row-check" value="${registrationId}">
                     </div>
                     ${renderStudentInfo(studentFirst, studentLast, studentAge)}
-                    <div class="purchase-actions flex-row gap-10 align-center">
-                        <span class="registration-badge">Registration</span>
-                        ${newPurchaseBadge}
-                        <button id="edit-activity-${idx}" class="button button-small edit-activity" data-state="edit">
-                            Modify
-                        </button>
+                    <div class="border-left">
+                        <div class="purchase-actions flex-row gap-10 align-center">
+                            <span class="registration-badge">Registration</span>
+                            ${newPurchaseBadge}
+                            <button id="edit-activity-${idx}" class="button button-small edit-activity" data-state="edit">
+                                Modify
+                            </button>
+                        </div>  
+                    </div>
+                    <div class="border-left">
+                        <div class="created-date flex-row gap-5 align-center">
+                            <label>Created At:</label>
+                            <span id="created-date-${idx}" class="created-date-value">${createdDate}</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="flex-row gap-10 w-100">
+                <div class="registration-fields flex-row gap-10">
                     <div class="session-selector-wrap activity-field">
                         <label>Session</label>
                         <div id="session-selector-wrap-${idx}">
@@ -240,10 +246,17 @@
         function renderMerchandiseRow(data, idx) {
             const {
                 studentFirst, studentLast, studentAge,
-                debit, credit, notes,
+                createdDate, debit, credit, notes,
                 purchaseId, productName
             } = data;
-            const newBadge = '';
+            var newPurchaseBadge = '';
+            if (newPurchases) {
+                const regId = parseInt(purchaseId);
+                newPurchaseBadge = newPurchases.has(regId) ? `
+                    <div class="new-purchase-badge">
+                        <span class="new-purchase">New!</span>
+                    </div>` : '';
+            }
 
             return `
               <div class="purchase-card edit-disabled">
@@ -257,17 +270,22 @@
                     <div class="student-age-wrap">
                         <span class="student-age">Age: ${studentAge}</span>
                     </div>
-                    <div class="purchase-actions flex-row gap-10 align-center">
-                        <span class="merchandise-badge">Merchandise</span>
-                        <div class="product-wrap">
-                            <span class="product-name">${productName}</span>
+                    <div class="border-left">
+                        <div class="purchase-actions flex-row gap-5 align-center">
+                            <span class="merchandise-badge">Merchandise</span>
+                            <div class="product-wrap">
+                                <span class="product-name">${productName}</span>
+                            </div>
+                            ${newPurchaseBadge}
                         </div>
-                        <div class="new-purchase-badge">    
-                            ${newBadge}
+                    </div>
+                    <div class="border-left">
+                        <div class="created-date flex-row gap-5 align-center">
+                            <label>Created At:</label>
+                            <span id="created-date-${idx}" class="created-date-value">${createdDate}</span>
                         </div>
                     </div>
                 </div>
-
 
                 <div class="flex-row gap-10 w-100">
                     ${renderFinancialSection(idx, debit, credit)}
@@ -410,6 +428,7 @@
                             try {
                                 if (row.purchase_type === 'registration') {
                                     const activityData = {
+                                        createdDate: new Date(row.purchase_created_at).toLocaleString(),
                                         studentFirst: row.student_first,
                                         studentLast: row.student_last,
                                         studentAge: row.student_age,
@@ -426,6 +445,7 @@
                                     return renderRegistrationRow(activityData, meta.row);
                                 } else if (row.purchase_type == 'merchandise') {
                                     const merchandiseData = {
+                                        createdDate: new Date(row.purchase_created_at).toLocaleString(),
                                         studentFirst: row.student_first,
                                         studentLast: row.student_last,
                                         studentAge: row.student_age,
@@ -569,13 +589,13 @@
         $('#cb-select-all').on('click', function () {
             var isChecked = $(this).prop('checked');
             $('#history-table tbody .row-check').prop('checked', isChecked);
-            $('#history-table tbody tr .registration-card').toggleClass('selected', isChecked);
+            $('#history-table tbody tr .purchase-card').toggleClass('selected', isChecked);
             updateBulkUI();
         });
 
         // Individual Row Click
         $('#history-table tbody').on('change', '.row-check', function () {
-            $(this).closest('.registration-card').toggleClass('selected', this.checked);
+            $(this).closest('.purchase-card').toggleClass('selected', this.checked);
             if (!this.checked) {
                 $('#cb-select-all').prop('checked', false);
             }
@@ -586,7 +606,6 @@
             }
             updateBulkUI();
         });
-
 
         $('#history-table tbody').on('input', '.notes-input', function () {
             const $row = $(this).closest('tr');
@@ -705,7 +724,7 @@
                 $button.text("Save");
                 $button.data("state", "save");
                 $button.addClass('save-btn');
-                $row.find('.purchase-card').addClass('editing');
+                $row.find('.purchase-card .registration-fields').addClass('editing');
                 $row.find(".ledger-action").prop('disabled', true);
                 $row.find('select').prop('disabled', false);
                 $row.find('input').prop('readonly', false);
@@ -714,7 +733,7 @@
                 $button.text("Edit");
                 $button.data("state", "edit");
                 $button.removeClass('save-btn');
-                $row.find('.purchase-card').removeClass('editing');
+                $row.find('.purchase-card .registration-fields').removeClass('editing');
                 $row.find('select').prop('disabled', true);
                 $row.find('input').prop('readonly', true);
                 $row.find('textarea').prop('readonly', true);
