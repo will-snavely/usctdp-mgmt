@@ -429,7 +429,7 @@
                                         studentFirst: row.student_first,
                                         studentLast: row.student_last,
                                         studentAge: row.student_age,
-                                        productName: row.product_title,
+                                        productName: row.product_name,
                                         productId: row.product_id,
                                         debit: row.total_debit,
                                         credit: row.total_credit,
@@ -510,13 +510,18 @@
             }
         }
 
-        function openPostPaymentModal(registrations) {
+        function openPostPaymentModal(purchases) {
             paymentTable.clear();
             let count = 0;
-            for (const reg of registrations) {
-                if (parseFloat(reg.total_credit) < parseFloat(reg.total_debit)) {
-                    paymentTable.addExistingRegistration(reg);
-                    count++;
+            for (const purchase of purchases) {
+                if (parseFloat(purchase.total_credit) < parseFloat(purchase.total_debit)) {
+                    if (purchase.purchase_type === 'registration') {
+                        paymentTable.addExistingRegistration(purchase);
+                        count++;
+                    } else if (purchase.purchase_type === 'merchandise') {
+                        paymentTable.addExistingMerchandise(purchase);
+                        count++;
+                    }
                 }
             }
             if (count > 0) {
@@ -613,13 +618,13 @@
 
         $('#apply-bulk-btn').on('click', function () {
             const action = $('#bulk-action-selector').val();
-            const registrations = $('.row-check:checked').map(function () {
+            const purchases = $('.row-check:checked').map(function () {
                 const $row = $(this).closest("tr");
                 return historyTable.row($row).data();
             }).get();
 
             if (action === 'post-payments') {
-                openPostPaymentModal(registrations);
+                openPostPaymentModal(purchases);
             }
         });
 

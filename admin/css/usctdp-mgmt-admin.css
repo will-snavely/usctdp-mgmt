@@ -93,6 +93,13 @@ div.dt-length select {
     width: 370px;
 }
 
+.context-selector-label-wrap {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+}
+
 .context-selector-label {
     font-weight: bold;
     text-align: left;
@@ -113,10 +120,11 @@ div.dt-length select {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     border-radius: 8px;
     background-color: #b3b3b3;
+    width: fit-content;
 }
 
 .payment-table {
-    width: 100%;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -142,6 +150,29 @@ div.dt-length select {
     background-color: #e3eef2;
     color: #333;
     vertical-align: middle;
+}
+
+.payment-table th:nth-child(1) {
+    width: 80px;
+}
+
+.payment-table th:nth-child(2) {
+    width: 300px;
+}
+
+.payment-table th:nth-child(3),
+.payment-table th:nth-child(5) {
+    width: 60px;
+}
+
+.payment-table th:nth-child(4) {
+    width: 50px;
+    padding: 0;
+    margin: 0;
+}
+
+.payment-table th:nth-child(6) {
+    width: 50px;
 }
 
 .payment-footer {
@@ -220,12 +251,6 @@ input[type=number] {
     text-transform: uppercase;
 }
 
-.checkout-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
 .checkout-section label {
     font-weight: bold;
     text-align: right;
@@ -237,7 +262,6 @@ input[type=number] {
 .payment-method-note {
     border-left: 4px solid #f1cd18;
     padding-left: 5px;
-    margin-left: 10px;
 }
 
 .payment-method-note span {

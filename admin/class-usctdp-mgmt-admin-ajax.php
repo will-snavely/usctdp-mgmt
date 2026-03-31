@@ -21,7 +21,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
-        'registrations_datatable' => 'registrations_datatable',
+        'registrations_datatable' => 'ajax_registrations_datatable',
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
@@ -313,7 +313,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $args['purchase_id'] = $purchase_id;
         }
 
-        if(!$purchase_id) {
+        if (!$purchase_id) {
             wp_send_json_error('Missing required parameter purchase_id or account', 400);
         }
 
@@ -788,6 +788,7 @@ class Usctdp_Mgmt_Admin_Ajax
 
     public function ajax_clinic_datatable()
     {
+        error_log('ajax_clinic_datatable');
         $this->check_nonce('clinic_datatable');
 
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
@@ -1139,20 +1140,21 @@ class Usctdp_Mgmt_Admin_Ajax
     private function parse_order_data($data)
     {
         $type = isset($data['type']) ? sanitize_text_field($data['type']) : null;
-        if($type === 'registration') {
+        if ($type === 'registration') {
             return $this->parse_registration_data($data);
-        } elseif($type === 'merchandise') {
+        } elseif ($type === 'merchandise') {
             return $this->parse_merchandise_data($data);
         } else {
             throw new Web_Request_Exception('Invalid order type: ' . $type);
         }
-    }   
+    }
 
-    private function create_merchandise_order($record) {
+    private function create_merchandise_order($record)
+    {
         $query = new Usctdp_Mgmt_Purchase_Query();
         $purchase_id = $query->add_item([
             'product_id' => $record['product']->id,
-            'family_id' => $record['family']->id,   
+            'family_id' => $record['family']->id,
             'student_id' => $record['student']->id,
             'type' => 'merchandise',
             'created_at' => current_time('mysql'),
@@ -1161,10 +1163,11 @@ class Usctdp_Mgmt_Admin_Ajax
         if (!$purchase_id) {
             throw new Web_Request_Exception('Failed to create merchandise.');
         }
-        return $purchase_id;  
+        return $purchase_id;
     }
 
-    private function lock_registrations($registration_records) {
+    private function lock_registrations($registration_records)
+    {
         global $wpdb;
         $activity_ids = array_map(function ($record) {
             return (int) $record["activity"]->id;
@@ -1197,7 +1200,7 @@ class Usctdp_Mgmt_Admin_Ajax
         if (!$purchase_id) {
             throw new Web_Request_Exception('Failed to create purchase.');
         }
-        
+
         $registration_args = [
             'purchase_id' => $purchase_id,
             'activity_id' => $args['activity_id'],
@@ -1244,11 +1247,11 @@ class Usctdp_Mgmt_Admin_Ajax
             $order_records[] = $this->parse_order_data($line_item);
         }
 
-        $merchandise_records = array_filter($order_records, function($record) {
+        $merchandise_records = array_filter($order_records, function ($record) {
             return $record['type'] === 'merchandise';
         });
 
-        $registration_records = array_filter($order_records, function($record) {
+        $registration_records = array_filter($order_records, function ($record) {
             return $record['type'] === 'registration';
         });
 
@@ -1461,7 +1464,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    
+
     public function ajax_create_woocommerce_order()
     {
         $this->check_nonce('create_woocommerce_order');

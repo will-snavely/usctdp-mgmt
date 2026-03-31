@@ -48,7 +48,13 @@ class Usctdp_Mgmt_Admin
             ],
             'clinic-rosters' => [
                 'title' => 'Clinic Rosters',
-                'ajax' => ['clinic_datatable', 'select2_search']
+                'ajax' => [
+                    'registrations_datatable',
+                    'clinic_datatable',
+                    'select2_search',
+                    'gen_roster'
+                ],
+                'context' => ['activity_id']
             ],
             'register' => [
                 'title' => 'Registration',
@@ -59,6 +65,7 @@ class Usctdp_Mgmt_Admin
                     'create_woocommerce_order',
                     'commit_order',
                     'create_ledger_entries',
+                    'registrations_datatable'
                 ],
                 'post' => ['payment_checkout'],
                 'context' => ['activity_id', 'student_id'],

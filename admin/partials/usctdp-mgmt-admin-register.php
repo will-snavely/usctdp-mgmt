@@ -1,6 +1,28 @@
 <div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+    <h1>
+        <?php echo esc_html(get_admin_page_title()); ?>
+    </h1>
     <div id="registration-container" class="edit-order-mode">
+        <dialog id="view-roster-modal">
+            <h2>Roster For: <span id="roster-clinic-name"></span></h2>
+            <div id="view-roster-table-wrap">
+                <table id="view-roster-table" class="usctdp-datatable">
+                    <thead>
+                        <tr>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Age</th>
+                            <th>Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+            <div class="actions-footer">
+                <button type="button" class="button" id="close-view-roster-modal">Close</button>
+            </div>
+        </dialog>
         <div id="registration-info" class="flex-col gap-20">
             <div id="context-selection">
                 <div id="context-selection-header" class="section-header">
@@ -24,7 +46,7 @@
                                 <span id="clinic-max-size"></span>
                             </span>
                             <div id="view-roster-wrap">
-                                <button id="view-roster" class="button button-secondary">
+                                <button id="view-roster-btn" class="button button-secondary">
                                     View Roster
                                 </button>
                             </div>
@@ -60,6 +82,11 @@
                                     <option value="10">10%</option>
                                     <option value="20">20%</option>
                                 </select>
+                            </div>
+
+                            <div id="sale-price-wrap" class="flex-row gap-10 align-center">
+                                <span class="sale-price-label">Sale Price:</span>
+                                <span id="sale-price-value"></span>
                             </div>
                         </div>
                         <div id="clinic-addons" class="flex-col gap-5">

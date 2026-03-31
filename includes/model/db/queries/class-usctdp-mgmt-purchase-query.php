@@ -72,7 +72,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     pur.created_at as purchase_created_at,
                     pur.created_by as purchase_created_by,
                     pur.notes as purchase_notes,
-                    prod.title as product_title, prod.id as product_id,
+                    prod.title as product_name, prod.id as product_id,
                     ledger.total_debit as total_debit,
                     ledger.total_credit as total_credit,
                     stud.id as student_id, stud.family_id as family_id,

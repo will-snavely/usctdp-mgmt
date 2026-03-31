@@ -19,6 +19,7 @@
             "payment-table-section",
             paymentSettings
         );
+        const viewRosterModal = document.querySelector('#view-roster-modal');
 
         function clearNotifications() {
             $('#notifications-section').children().remove();
@@ -84,6 +85,20 @@
             }
         }
 
+        function update_clinic_sale_price() {
+            let computed_price = parseFloat($('#clinic_base_price').val());
+            if ($('#discount-additional-day').is(':checked')) {
+                computed_price -= $('#clinic-preorder').data('additional_day_discount');
+            }
+            if ($('#discount-sibling').is(':checked') && $('#discount-sibling-percent').val()) {
+                const sibling_discount = parseFloat($('#discount-sibling-percent').val());
+                computed_price -= computed_price * (sibling_discount / 100.0);
+            }
+            computed_price = parseFloat(computed_price.toFixed(2));
+            $('#sale-price-value').text(computed_price.toFixed(2));
+            $('#sale-price-value').data('sale_price', computed_price);
+        }
+
         function bind_clinic_info(info) {
             const { registered, capacity, pricing, student_level } = info;
             const full = registered >= capacity;
@@ -100,10 +115,28 @@
             $('#student-level').val(student_level);
             $('#clinic_base_price').val(one_day_price.toFixed(2));
             $('#discount-additional-day-value').text('($' + discount.toFixed(2) + ')');
+            $('#discount-additional-day').data('discount_value', discount);
+            update_clinic_sale_price();
             $("#clinic-preorder").removeData();
             $("#clinic-preorder").data('pricing', pricing);
             $("#clinic-preorder").data('additional_day_discount', discount);
         }
+
+        $('#clinic_base_price').on('change', function () {
+            update_clinic_sale_price();
+        });
+
+        $('#discount-additional-day').on('change', function () {
+            update_clinic_sale_price();
+        });
+
+        $('#discount-sibling').on('change', function () {
+            update_clinic_sale_price();
+        });
+
+        $('#discount-sibling-percent').on('change', function () {
+            update_clinic_sale_price();
+        });
 
         function bind_merchandise_info(info) {
             const { pricing, product_id, product_code } = info;
@@ -167,6 +200,7 @@
             return USCTDP_Admin.applyReplacements(name, replacements);
         }
 
+
         $('#add-clinic-registration').on('click', function () {
             const activityName = $('#activity-selector option:selected').text();
             var displayActivityName = checkoutActivityName(activityName);
@@ -187,17 +221,8 @@
                 notes: $('#clinic-notes').val()
             };
 
-            const base_price = parseFloat($('#clinic_base_price').val());
-            let computed_price = base_price;
-            if ($('#discount-additional-day').is(':checked')) {
-                computed_price -= $('#clinic-preorder').data('additional_day_discount');
-            }
-            if ($('#discount-sibling').is(':checked')) {
-                const sibling_discount = parseFloat($('#discount-sibling-percent').val());
-                computed_price -= base_price * (sibling_discount / 100.0);
-            }
-            computed_price = parseFloat(computed_price.toFixed(2));
-            const result = paymentTable.addNewRegistration(registration, computed_price);
+            const price = $('#sale-price-value').data('sale_price');
+            const result = paymentTable.addNewRegistration(registration, price);
             if (!result.success) {
                 alert("Failed to add item: " + result.message);
                 return;
@@ -215,7 +240,7 @@
                     student_first: studentData.first,
                     student_last: studentData.last,
                 };
-                paymentTable.addMerchandise(merch, racket_pricing, null);
+                paymentTable.addNewMerchandise(merch, racket_pricing);
             }
             if (addTshirt) {
                 const tshirt_pricing = parseFloat(usctdp_mgmt_admin.tshirt_pricing);
@@ -227,7 +252,7 @@
                     student_first: studentData.first,
                     student_last: studentData.last,
                 };
-                paymentTable.addMerchandise(merch, tshirt_pricing, null);
+                paymentTable.addNewMerchandise(merch, tshirt_pricing);
             }
             clearNotifications();
             togglePreorderDetails(false);
@@ -251,12 +276,13 @@
                 product_id: merchandiseData.id,
                 product_name: merchandiseName,
                 student_id: $('#student-selector').val(),
+                family_id: $("#family-selector").val(),
                 student_first: studentData.first,
                 student_last: studentData.last,
             };
 
             var pricing = MERCHANDISE_PRICING[merchandiseData.code];
-            const result = paymentTable.addMerchandise(merch, pricing, null);
+            const result = paymentTable.addNewMerchandise(merch, pricing);
             if (!result.success) {
                 alert("Failed to add item: " + result.message);
                 return;
@@ -291,6 +317,13 @@
             $('#family-selector').prop('disabled', true);
         });
 
+
+        $('#payment-table-section').on('payment:cart:empty', function () {
+            togglePaymentTable(false);
+            $('#family-selector').prop('disabled', false);
+            $('#family-selector-section .context-selector-label-wrap .edit-note').remove();
+        });
+
         $('#payment-table-section').on('payment:checkout', function () {
             clearNotifications();
             togglePreorderDetails(false);
@@ -306,12 +339,6 @@
             $('#registration-info').removeClass('hidden');
             $('#registration-container').removeClass('checkout-mode');
             $('#registration-container').addClass('edit-order-mode');
-        });
-
-        $('#payment-table-section').on('payment:empty', function () {
-            togglePaymentTable(false);
-            $('#family-selector').prop('disabled', false);
-            $('#family-selector-section .context-selector-label-wrap .edit-note').remove();
         });
 
         const selectorConfig = {
@@ -401,6 +428,41 @@
                     togglePreorderDetails(true, "new-session-preorder");
                 }
             }
+        });
+
+        var viewRosterTable = $('#view-roster-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            searching: false,
+            paging: true,
+            deferLoading: 0,
+
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    var activityFilterValue = $('#activity-selector').val();
+                    d.action = usctdp_mgmt_admin.registrations_datatable_action;
+                    d.security = usctdp_mgmt_admin.registrations_datatable_nonce;
+                    d.activity_id = activityFilterValue;
+                }
+            },
+            columns: [
+                { data: 'student_first' },
+                { data: 'student_last' },
+                { data: 'student_age' },
+                { data: 'registration_student_level' },
+            ]
+        });
+        $('#view-roster-btn').on('click', function () {
+            const activityData = $("#activity-selector").select2('data')[0];
+            $('#roster-clinic-name').text(activityData.text);
+            viewRosterModal.showModal();
+            viewRosterTable.ajax.reload();
+        });
+        $('#close-view-roster-modal').on('click', function () {
+            viewRosterModal.close();
         });
 
         if (usctdp_mgmt_admin.preload) {
