@@ -24,6 +24,10 @@
         }
     }
 
+    USCTDP_Admin.safeParseFloat = function (value) {
+        return parseFloat(value) || 0;
+    }
+
     USCTDP_Admin.createRefundEntries = function (args) {
         const {
             amount, method, reason, purchase_type,
@@ -70,7 +74,7 @@
             entry_type: "adjustment"
         });
 
-        var refundType = "payout";
+        var refundType = "refund";
         if (method == "house_credit") {
             refundType = "house_credit";
         }
@@ -540,15 +544,21 @@
             return this.addItem(data, price, 0);
         }
 
+
         addExistingRegistration(data) {
             const isDuplicate = this.items.some(item =>
                 item.registration_id === data.registration_id);
             if (isDuplicate) {
                 return { success: false, error: 'DUPLICATE_ITEM', message: "Item already in cart." };
             }
-            const debit = data.total_debit;
-            const credit = data.total_credit;
-            var outstanding = debit - credit;
+            const fees = USCTDP_Admin.safeParseFloat(data.total_fees);
+            const adjustments = USCTDP_Admin.safeParseFloat(data.total_adjustments);
+            const payments = USCTDP_Admin.safeParseFloat(data.total_payments);
+            const refunds = USCTDP_Admin.safeParseFloat(data.total_refunds);
+            const houseCredits = USCTDP_Admin.safeParseFloat(data.total_house_credits);
+            var netFees = fees - adjustments;
+            var netPayments = payments - refunds - houseCredits;
+            var outstanding = netFees - netPayments;
             data.type = 'registration';
             return this.addItem(data, outstanding, 0);
         }

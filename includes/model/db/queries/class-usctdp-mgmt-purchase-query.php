@@ -76,7 +76,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     ledger.total_fees as total_fees,
                     ledger.total_adjustments as total_adjustments,
                     ledger.total_payments as total_payments,
-                    ledger.total_payouts as total_payouts,
+                    ledger.total_refunds as total_refunds,
                     ledger.total_house as total_house_credits,
                     stud.id as student_id, stud.family_id as family_id,
                     stud.first as student_first,
@@ -102,7 +102,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                         SUM(CASE WHEN entry_type = 'adjustment' THEN credit ELSE 0 END) as total_adjustments,
                         SUM(CASE WHEN entry_type = 'payment' THEN credit ELSE 0 END) as total_payments,
                         SUM(CASE WHEN entry_type = 'house_credit' THEN debit ELSE 0 END) as total_house,
-                        SUM(CASE WHEN entry_type = 'payout' THEN debit ELSE 0 END) as total_payouts
+                        SUM(CASE WHEN entry_type = 'refund' THEN debit ELSE 0 END) as total_refunds
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account IN ('registration_fees', 'merchandise_fees')
                     GROUP BY purchase_id
@@ -123,8 +123,11 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                 LEFT JOIN (
                     SELECT 
                         purchase_id,
-                        SUM(debit) as total_debit,
-                        SUM(credit) as total_credit
+                        SUM(CASE WHEN entry_type = 'charge' THEN debit ELSE 0 END) as total_fees,
+                        SUM(CASE WHEN entry_type = 'adjustment' THEN credit ELSE 0 END) as total_adjustments,
+                        SUM(CASE WHEN entry_type = 'payment' THEN credit ELSE 0 END) as total_payments,
+                        SUM(CASE WHEN entry_type = 'house_credit' THEN debit ELSE 0 END) as total_house,
+                        SUM(CASE WHEN entry_type = 'refund' THEN debit ELSE 0 END) as total_refunds
                     FROM {$wpdb->prefix}usctdp_ledger
                     WHERE account IN ('registration_fees', 'merchandise_fees')
                     GROUP BY purchase_id

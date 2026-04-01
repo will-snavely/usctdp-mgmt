@@ -101,30 +101,32 @@
             return response;
         }
 
-        function renderFinancialSection(idx, fees, adjustments, payments, payouts, houseCredits) {
-            const feesDisplay = USCTDP_Admin.formatUsd(fees);
-            const paymentsDisplay = USCTDP_Admin.formatUsd(payments);
-            const payoutsDisplay = USCTDP_Admin.formatUsd(payouts);
+        function renderFinancialSection(idx, fees, adjustments, payments, refunds, houseCredits) {
+            const netFees = fees - adjustments;
+            const netFeesDisplay = USCTDP_Admin.formatUsd(netFees);
+            const netPayments = payments - (refunds + houseCredits);
+            const netPaymentsDisplay = USCTDP_Admin.formatUsd(netPayments);
+            const refundsDisplay = USCTDP_Admin.formatUsd(refunds);
             const houseCreditsDisplay = USCTDP_Admin.formatUsd(houseCredits);
             return `
                 <div class="flex-col gap-10 align-end">
                     <div class="payment-info">
                         <div class="fees-wrap activity-field align-center">
-                            <label>Fees</label>
+                            <label>Net Fees</label>
                             <span id="fees-${idx}" class="fees-amt amt-badge balance-red">
-                                ${feesDisplay}
+                                ${netFeesDisplay}
                             </span>
                         </div>
                         <div class="payments-wrap activity-field align-center">
-                            <label>Payments</label>
+                            <label>Net Paid</label>
                             <span id="payments-${idx}" class="payments-amt amt-badge balance-green">
-                                ${paymentsDisplay}
+                                ${netPaymentsDisplay}
                             </span>
                         </div>
                         <div class="refunds-wrap activity-field align-center">
-                            <label>Payouts</label>
-                            <span id="payouts-${idx}" class="payouts-amt amt-badge balance-green">
-                                ${payoutsDisplay}
+                            <label>Refunds</label>  
+                            <span id="refunds-${idx}" class="refunds-amt amt-badge balance-green">
+                                ${refundsDisplay}
                             </span>
                         </div>
                         <div class="house-credits-wrap activity-field align-center">
@@ -133,7 +135,6 @@
                                 ${houseCreditsDisplay}
                             </span>
                         </div>
-
                     </div>
                     <div class="flex-row gap-10">
                         <div class="payment-history-button">
@@ -179,7 +180,7 @@
                 studentFirst, studentLast, studentAge,
                 sessionName, sessionId, activityName, activityId,
                 registrationId, level, createdDate, notes,
-                fees, adjustments, payments, payouts, houseCredits
+                fees, adjustments, payments, refunds, houseCredits
             } = data;
             const sessionSelectId = `session-selector-${idx}`;
             const activitySelectId = `activity-selector-${idx}`;
@@ -241,7 +242,7 @@
                     </div>
                 </div>
                 <div class="flex-row gap-10 w-100">
-                    ${renderFinancialSection(idx, fees, adjustments, payments, payouts, houseCredits)}
+                    ${renderFinancialSection(idx, fees, adjustments, payments, refunds, houseCredits)}
                     ${renderNotesSection(notes, idx)}
                 </div>
             </div>`;
@@ -250,7 +251,7 @@
         function renderMerchandiseRow(data, idx) {
             const {
                 studentFirst, studentLast, studentAge, createdDate, notes,
-                fees, adjustments, payments, payouts, houseCredits,
+                fees, adjustments, payments, refunds, houseCredits,
                 purchaseId, productName
             } = data;
             var newPurchaseBadge = '';
@@ -292,7 +293,7 @@
                 </div>
 
                 <div class="flex-row gap-10 w-100">
-                    ${renderFinancialSection(idx, fees, adjustments, payments, payouts, houseCredits)}
+                    ${renderFinancialSection(idx, fees, adjustments, payments, refunds, houseCredits)}
                     ${renderNotesSection(notes, idx)}
                 </div>
             </div>`;
@@ -321,8 +322,8 @@
                 dataSrc: function (json) {
                     var runningBalance = 0;
                     for (var i = 0; i < json.data.length; i++) {
-                        var charge = parseFloat(json.data[i].charge_amount) || 0;
-                        var payment = parseFloat(json.data[i].payment_amount) || 0;
+                        var charge = USCTDP_Admin.safeParseFloat(json.data[i].charge_amount);
+                        var payment = USCTDP_Admin.safeParseFloat(json.data[i].payment_amount);
                         runningBalance += (charge - payment);
                         json.data[i].calculated_balance = runningBalance;
                     }
@@ -368,7 +369,7 @@
 
                 api.rows().every(function () {
                     var d = this.data();
-                    totalBalance += (parseFloat(d.charge_amount) - parseFloat(d.payment_amount));
+                    totalBalance += (safeParseFloat(d.charge_amount) - USCTDP_Admin.safeParseFloat(d.payment_amount));
                 });
 
                 $('#ledger-total-balance').text(USCTDP_Admin.formatUsd(totalBalance));
@@ -443,11 +444,11 @@
                                         activityId: row.activity_id,
                                         registrationId: row.registration_id,
                                         level: row.registration_student_level,
-                                        fees: row.total_fees,
-                                        adjustments: row.total_adjustments,
-                                        payments: row.total_payments,
-                                        payouts: row.total_payouts,
-                                        houseCredits: row.total_house_credits,
+                                        fees: USCTDP_Admin.safeParseFloat(row.total_fees),
+                                        adjustments: USCTDP_Admin.safeParseFloat(row.total_adjustments),
+                                        payments: USCTDP_Admin.safeParseFloat(row.total_payments),
+                                        refunds: USCTDP_Admin.safeParseFloat(row.total_refunds),
+                                        houseCredits: USCTDP_Admin.safeParseFloat(row.total_house_credits),
                                         notes: row.purchase_notes
                                     };
                                     return renderRegistrationRow(activityData, meta.row);
@@ -459,11 +460,11 @@
                                         studentAge: row.student_age,
                                         productName: row.product_name,
                                         productId: row.product_id,
-                                        fees: row.total_fees,
-                                        adjustments: row.total_adjustments,
-                                        payments: row.total_payments,
-                                        payouts: row.total_payouts,
-                                        houseCredits: row.total_house_credits,
+                                        fees: USCTDP_Admin.safeParseFloat(row.total_fees),
+                                        adjustments: USCTDP_Admin.safeParseFloat(row.total_adjustments),
+                                        payments: USCTDP_Admin.safeParseFloat(row.total_payments),
+                                        refunds: USCTDP_Admin.safeParseFloat(row.total_refunds),
+                                        houseCredits: USCTDP_Admin.safeParseFloat(row.total_house_credits),
                                         notes: row.purchase_notes
                                     };
                                     return renderMerchandiseRow(merchandiseData, meta.row);
@@ -552,9 +553,9 @@
             paymentTable.clear();
             let count = 0;
             for (const purchase of purchases) {
-                const payments = parseFloat(purchase.total_payments);
-                const fees = parseFloat(purchase.total_fees);
-                const adjustments = parseFloat(purchase.total_adjustments);
+                const payments = USCTDP_Admin.safeParseFloat(purchase.total_payments);
+                const fees = USCTDP_Admin.safeParseFloat(purchase.total_fees);
+                const adjustments = USCTDP_Admin.safeParseFloat(purchase.total_adjustments);
                 const net_fee = fees - adjustments;
                 if (net_fee > payments) {
                     if (purchase.purchase_type === 'registration') {
@@ -574,8 +575,8 @@
         }
 
         function openPostRefundModal(row) {
-            const refunds = parseFloat(row.total_payouts) + parseFloat(row.total_house_credits);
-            const payments = parseFloat(row.total_payments);
+            const refunds = USCTDP_Admin.safeParseFloat(row.total_refunds) + USCTDP_Admin.safeParseFloat(row.total_house_credits);
+            const payments = USCTDP_Admin.safeParseFloat(row.total_payments);
             if (payments > 0 && refunds < payments) {
                 $('#refund-form input').val('');
                 $('#refund-form select').val('');
