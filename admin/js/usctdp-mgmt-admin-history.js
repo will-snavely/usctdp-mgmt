@@ -101,40 +101,32 @@
             return response;
         }
 
+        function renderAmountBadge(label, value, classes = []) {
+            return `
+                <div class="flex-col gap-5 align-center amount-badge">
+                    <label class="upper-heavy">${label}</label>
+                    <span class="badge ${classes.join(' ')}">${value}</span>
+                </div>
+            `;
+        }
+
         function renderFinancialSection(idx, fees, adjustments, payments, refunds, houseCredits) {
             const netFees = fees - adjustments;
             const netFeesDisplay = USCTDP_Admin.formatUsd(netFees);
             const netPayments = payments - (refunds + houseCredits);
             const netPaymentsDisplay = USCTDP_Admin.formatUsd(netPayments);
+            const owed = netFees - netPayments;
+            const owedDisplay = USCTDP_Admin.formatUsd(owed);
             const refundsDisplay = USCTDP_Admin.formatUsd(refunds);
             const houseCreditsDisplay = USCTDP_Admin.formatUsd(houseCredits);
             return `
                 <div class="flex-col gap-10 align-end">
                     <div class="payment-info">
-                        <div class="fees-wrap activity-field align-center">
-                            <label>Net Fees</label>
-                            <span id="fees-${idx}" class="fees-amt amt-badge balance-red">
-                                ${netFeesDisplay}
-                            </span>
-                        </div>
-                        <div class="payments-wrap activity-field align-center">
-                            <label>Net Paid</label>
-                            <span id="payments-${idx}" class="payments-amt amt-badge balance-green">
-                                ${netPaymentsDisplay}
-                            </span>
-                        </div>
-                        <div class="refunds-wrap activity-field align-center">
-                            <label>Refunds</label>  
-                            <span id="refunds-${idx}" class="refunds-amt amt-badge balance-green">
-                                ${refundsDisplay}
-                            </span>
-                        </div>
-                        <div class="house-credits-wrap activity-field align-center">
-                            <label>House Cr.</label>
-                            <span id="house-credits-${idx}" class="house-credits-amt amt-badge balance-green">
-                                ${houseCreditsDisplay}
-                            </span>
-                        </div>
+                        ${renderAmountBadge('Net Fees', netFeesDisplay, ['red-bg'])}
+                        ${renderAmountBadge('Net Paid', netPaymentsDisplay, ['green-bg'])}
+                        ${renderAmountBadge('Owed', owedDisplay, ['red-bg'])}
+                        ${renderAmountBadge('Refunds', refundsDisplay, ['red-bg'])}
+                        ${renderAmountBadge('House Cr.', houseCreditsDisplay, ['red-bg'])}
                     </div>
                     <div class="flex-row gap-10">
                         <div class="payment-history-button">
@@ -156,9 +148,9 @@
 
         function renderNotesSection(notes, idx) {
             return `
-                <div class="notes-wrap activity-field">
+                <div class="notes-wrap flex-col gap-5">
                     <div class="flex-row gap-10 align-end">
-                        <label>Notes</label>
+                        <label class="upper-heavy">Notes</label>
                         <button id="save-notes-${idx}" class="button button-small save-notes" disabled>Save</button>
                     </div>
                     <textarea rows=3 id="notes-input-${idx}" class="notes-input">${notes}</textarea>
@@ -211,15 +203,15 @@
                     </div>
                     <div class="border-left">
                         <div class="created-date flex-row gap-5 align-center">
-                            <label>Created At:</label>
+                            <label class="upper-heavy">Created At</label>
                             <span id="created-date-${idx}" class="created-date-value">${createdDate}</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="registration-fields flex-row gap-10">
-                    <div class="session-selector-wrap activity-field">
-                        <label>Session</label>
+                    <div class="session-selector-wrap flex-col gap-5">
+                        <label class="upper-heavy">Session</label>
                         <div id="session-selector-wrap-${idx}">
                             <select id="${sessionSelectId}" class="session-select" data-orig-value="${sessionId}"
                                 data-orig-text="${sessionName}" data-activity-selector-id="${activitySelectId}" disabled>
@@ -227,8 +219,8 @@
                             </select>
                         </div>
                     </div>
-                    <div class="activity-selector-wrap activity-field">
-                        <label>Activity</label>
+                    <div class="activity-selector-wrap flex-col gap-5">
+                        <label class="upper-heavy">Activity</label>
                         <div id="activity-selector-wrap-${idx}">
                             <select id="${activitySelectId}" class="activity-select" data-orig-value="${activityId}"
                                 data-orig-text="${activityName}" data-session-selector-id="${sessionSelectId}" disabled>
@@ -236,8 +228,8 @@
                             </select>
                         </div>
                     </div>
-                    <div class="level-wrap activity-field">
-                        <label>Level</label>
+                    <div class="level-wrap flex-col gap-5">
+                        <label class="upper-heavy">Level</label>
                         <input id="level-input-${idx}" class="level-input" value="${level}" readonly>
                     </div>
                 </div>
@@ -286,7 +278,7 @@
                     </div>
                     <div class="border-left">
                         <div class="created-date flex-row gap-5 align-center">
-                            <label>Created At:</label>
+                            <label class="upper-heavy">Created At</label>
                             <span id="created-date-${idx}" class="created-date-value">${createdDate}</span>
                         </div>
                     </div>

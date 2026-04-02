@@ -107,12 +107,6 @@ table td {
     width: 100px;
 }
 
-.notes-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
 .purchase-card {
     display: flex;
     width: fit-content;
@@ -156,14 +150,8 @@ table td {
     background-color: #d2fad7;
 }
 
-.activity-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.activity-field label {
-    font-size: 0.75rem;
+.upper-heavy {
+    font-size: 0.7rem;
     font-weight: 700;
     color: #1a1a1a;
     text-transform: uppercase;
@@ -171,11 +159,11 @@ table td {
 }
 
 .session-select {
-    width: 390px;
+    width: 400px;
 }
 
 .activity-select {
-    width: 390px;
+    width: 400px;
 }
 
 .payment-action-select {
@@ -185,19 +173,18 @@ table td {
 .payment-info {
     display: flex;
     flex-direction: row;
-    align-items: flex-end;
     justify-content: flex-end;
-    gap: 30px;
-    width: 400px;
+    gap: 20px;
+    width: 410px;
+    padding-right: 10px;
+}
+
+.amount-badge {
+    align-items: flex-start;
 }
 
 .level-wrap {
     width: 50px;
-}
-
-.debit-wrap,
-.credit-wrap {
-    width: 70px;
 }
 
 .save-notes {
@@ -208,7 +195,7 @@ table td {
 }
 
 .notes-wrap {
-    width: 470px;
+    width: 460px;
 }
 
 input.edit-mode,
@@ -227,7 +214,6 @@ select.edit-mode {
     resize: none;
     transition: border-color 0.2s;
 }
-
 
 .notes-wrap.is-dirty label::after {
     content: " *";
