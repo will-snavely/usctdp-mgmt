@@ -140,4 +140,21 @@ class Usctdp_Mgmt_Model
     {
         return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Session_Query', $id);
     }
+    public static function get_registration($id)
+    {
+        return Usctdp_Mgmt_Model::get_one('Usctdp_Mgmt_Registration_Query', $id);
+    }
+
+    public static function get_activity_pricing($activity)
+    {
+        $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+            'session_id' => $activity->session_id,
+            'product_id' => $activity->product_id,
+            'number' => 1
+        ]);
+        if (empty($pricing_query->items)) {
+            return null;
+        }
+        return $pricing_query->items[0];
+    }
 }

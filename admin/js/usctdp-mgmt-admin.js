@@ -28,6 +28,40 @@
         return parseFloat(value) || 0;
     }
 
+    USCTDP_Admin.createPriceAdjustmentLedger = function (args) {
+        const {
+            family_id, student_id, purchase_id,
+            amount, reason, purchase_type
+        } = args;
+        var results = [];
+        var ledgerBase = {
+            family_id: family_id,
+            student_id: student_id,
+            purchase_id: purchase_id,
+            order_id: null,
+            event_id: "price_adjustment",
+            event: "Price Adjustment, " + reason
+        }
+        const zero = parseFloat(0).toFixed(2);
+        const amt = parseFloat(amount);
+        const amtDisplay = Math.abs(amt).toFixed(2);
+        results.push({
+            ...ledgerBase,
+            account: purchase_type + "_fees",
+            debit: amt > 0 ? amtDisplay : zero,
+            credit: amt > 0 ? zero : amtDisplay,
+            entry_type: "adjustment"
+        });
+        results.push({
+            ...ledgerBase,
+            account: "revenue",
+            debit: amt > 0 ? zero : amtDisplay,
+            credit: amt > 0 ? amtDisplay : zero,
+            entry_type: "adjustment"
+        });
+        return results;
+    }
+
     USCTDP_Admin.createRefundEntries = function (args) {
         const {
             amount, method, reason, purchase_type,

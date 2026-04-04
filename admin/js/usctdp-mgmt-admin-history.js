@@ -125,8 +125,8 @@
                         ${renderAmountBadge('Net Fees', netFeesDisplay, ['red-bg'])}
                         ${renderAmountBadge('Net Paid', netPaymentsDisplay, ['green-bg'])}
                         ${renderAmountBadge('Owed', owedDisplay, ['red-bg'])}
-                        ${renderAmountBadge('Refunds', refundsDisplay, ['red-bg'])}
-                        ${renderAmountBadge('House Cr.', houseCreditsDisplay, ['red-bg'])}
+                        ${renderAmountBadge('Refunds', refundsDisplay, ['blue-bg'])}
+                        ${renderAmountBadge('House Cr.', houseCreditsDisplay, ['blue-bg'])}
                     </div>
                     <div class="flex-row gap-10">
                         <div class="payment-history-button">
@@ -171,7 +171,7 @@
             const {
                 studentFirst, studentLast, studentAge,
                 sessionName, sessionId, activityName, activityId,
-                registrationId, level, createdDate, notes,
+                purchaseId, registrationId, level, createdDate, notes,
                 fees, adjustments, payments, refunds, houseCredits
             } = data;
             const sessionSelectId = `session-selector-${idx}`;
@@ -179,22 +179,21 @@
 
             var newPurchaseBadge = '';
             if (newPurchases) {
-                const regId = parseInt(registrationId);
-                newPurchaseBadge = newPurchases.has(regId) ? `
+                newPurchaseBadge = newPurchases.has(parseInt(purchaseId)) ? `
                     <div class="new-purchase-badge">
                         <span class="new-purchase">New!</span>
                     </div>` : '';
             }
             return `
               <div class="purchase-card edit-disabled">
-                <div class="flex-row gap-10 align-baseline">
+                <div class="flex-row gap-10 align-center">
                     <div class="checkbox-wrap">
                         <input type="checkbox" class="row-check" value="${registrationId}">
                     </div>
                     ${renderStudentInfo(studentFirst, studentLast, studentAge)}
                     <div class="border-left">
                         <div class="purchase-actions flex-row gap-10 align-center">
-                            <span class="registration-badge">Registration</span>
+                            <span class="registration-badge blue-bg upper-heavy">Registration</span>
                             ${newPurchaseBadge}
                             <button id="edit-activity-${idx}" class="button button-small edit-activity" data-state="edit">
                                 Modify
@@ -361,7 +360,7 @@
 
                 api.rows().every(function () {
                     var d = this.data();
-                    totalBalance += (safeParseFloat(d.charge_amount) - USCTDP_Admin.safeParseFloat(d.payment_amount));
+                    totalBalance += (USCTDP_Admin.safeParseFloat(d.charge_amount) - USCTDP_Admin.safeParseFloat(d.payment_amount));
                 });
 
                 $('#ledger-total-balance').text(USCTDP_Admin.formatUsd(totalBalance));
@@ -797,6 +796,58 @@
                 }
 
                 saveRegistrationFields(rowData.registration_id, update)
+                    .then(response => {
+                        console.log(response);
+                        if (response.success) {
+                            if (response.data.price_change && response.data.price_change.delta != 0) {
+                                var oldPrice = parseFloat(response.data.price_change.old_price);
+                                oldPrice = oldPrice.toFixed(2);
+                                var newPrice = parseFloat(response.data.price_change.new_price);
+                                newPrice = newPrice.toFixed(2);
+                                var delta = parseFloat(response.data.price_change.delta);
+                                delta = delta.toFixed(2);
+                                window.Swal.fire({
+                                    title: "Price Change",
+                                    html: `
+                                    The selected activity has a different price:
+                                    <ul>
+                                        <li>Original Price: ${oldPrice}</li>
+                                        <li>New Price: ${newPrice}</li>
+                                    </ul>
+                                    Would you like to apply this adjustment to the registration price?
+                                    `,
+                                    showDenyButton: true,
+                                    confirmButtonText: "Yes",
+                                    denyButtonText: `No`
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        const ledgerEntries = USCTDP_Admin.createPriceAdjustmentLedger({
+                                            family_id: familyId,
+                                            student_id: studentId,
+                                            purchase_id: rowData.purchase_id,
+                                            amount: delta,
+                                            reason: "Registration Change",
+                                            purchase_type: rowData.purchase_type
+                                        });
+                                        USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries)
+                                            .then(response => {
+                                                Swal.fire("Saved!", "Price adjustment applied.", "success");
+                                                historyTable.ajax.reload();
+                                            })
+                                            .catch(error => {
+                                                Swal.fire(
+                                                    "Error!",
+                                                    "Price adjustment could not be applied. Inform a developer.",
+                                                    "error"
+                                                );
+                                            });
+                                    } else if (result.isDenied) {
+                                        Swal.fire("Skipped!", "Adjustment not applied.", "info");
+                                    }
+                                });
+                            }
+                        }
+                    })
                     .catch((error) => {
                         alert("Update failed! " + error);
                     })

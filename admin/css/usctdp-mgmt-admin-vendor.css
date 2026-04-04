@@ -3,3 +3,6 @@
 
 /* 2. Import Select2 Styling */
 @import 'select2/dist/css/select2.min.css';
+
+/* 3. Import SweetAlert2 Styling */
+@import 'sweetalert2/dist/sweetalert2.min.css';

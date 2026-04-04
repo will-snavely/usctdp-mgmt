@@ -224,13 +224,11 @@ class Usctdp_Mgmt_Admin_Ajax
     public function ajax_get_family()
     {
         $this->check_nonce('get_family');
-
         try {
             $family_id = isset($_GET['family_id']) ? intval($_GET['family_id']) : null;
             if (!$family_id) {
                 wp_send_json_error('Missing required parameter family_id', 400);
             }
-
             $family = Usctdp_Mgmt_Model::get_family($family_id);
             if (!$family) {
                 wp_send_json_error("No family found with id: $family_id", 400);
@@ -287,6 +285,33 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
+    private function get_price_change($current_activity_id, $new_activity_id) {
+        $current_activity = Usctdp_Mgmt_Model::get_activity($current_activity_id);
+        if(!$current_activity) {
+            return null;
+        }
+        $current_pricing = Usctdp_Mgmt_Model::get_activity_pricing($current_activity);
+        if(!$current_pricing) {
+            return null;
+        }
+        $current_base_price = round(floatval($current_pricing->pricing['One']), 2);
+
+        $new_activity = Usctdp_Mgmt_Model::get_activity($new_activity_id);
+        if (!$new_activity) {
+            return null;
+        }
+        $new_pricing = Usctdp_Mgmt_Model::get_activity_pricing($new_activity);
+        if (!$new_pricing) {
+            return null;
+        }
+        $new_base_price = round(floatval($new_pricing->pricing['One']), 2);
+        return [
+            'delta' => round($new_base_price - $current_base_price, 2),
+            'old_price' => $current_base_price,
+            'new_price' => $new_base_price,
+        ];
+    }
+
     public function ajax_ledger_events_datatable()
     {
         $this->check_nonce('ledger_events_datatable');
@@ -340,12 +365,19 @@ class Usctdp_Mgmt_Admin_Ajax
         $post_fields = [
             'student_level' => sanitize_text_field(...),
             'activity_id' => intval(...),
-            'credit' => sanitize_text_field(...),
-            'debit' => sanitize_text_field(...),
-            'notes' => function ($value) {
-                return sanitize_textarea_field(stripslashes($value));
-            },
         ];
+
+        $registration = Usctdp_Mgmt_Model::get_registration($entity_id);
+        if (!$registration) {
+            wp_send_json_error('No registration found with id: ' . $entity_id, 400);
+        }
+
+        $price_change = 0;
+        if(isset($_POST['activity_id'])) {
+            $current_activity = $registration->activity_id;
+            $new_activity = intval($_POST['activity_id']);
+            $price_change = $this->get_price_change($current_activity, $new_activity);
+        }
 
         try {
             $result = $this->save_entity(
@@ -354,7 +386,10 @@ class Usctdp_Mgmt_Admin_Ajax
                 'Usctdp_Mgmt_Registration_Query',
                 $post_fields
             );
-            wp_send_json_success($result);
+            wp_send_json_success([
+                'updated' => $result,
+                'price_change'=> $price_change,
+            ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_registration', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);

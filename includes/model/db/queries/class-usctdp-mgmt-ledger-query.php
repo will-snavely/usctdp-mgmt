@@ -130,7 +130,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
                 credit as payment_amount
             FROM {$wpdb->prefix}usctdp_ledger
             {$where_clause}
-            ORDER BY created_at, entry_type ASC
+            ORDER BY created_at, id ASC
             {$limit_clause}",
             array_merge($where_args, $limit_args)
         );
