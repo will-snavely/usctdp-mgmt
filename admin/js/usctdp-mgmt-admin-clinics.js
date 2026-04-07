@@ -110,7 +110,7 @@
                 target: 'product',
                 filter: function () {
                     return {
-                        'type': 1 // 1 == Clinic
+                        'type': 'clinic'
                     }
                 }
             }));

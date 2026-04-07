@@ -30,6 +30,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'update_family' => 'ajax_update_family',
         'update_registration' => 'ajax_update_registration',
         'update_purchase' => 'ajax_update_purchase',
+        'waitlist_datatable' => 'ajax_waitlist_datatable',
     ];
 
     private function is_student_enrolled($student_id, $activity_id)
@@ -460,42 +461,78 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    private function get_family_balance($family_id, $student_id = null)
+    {
+        $conditions = [];
+        $args = [];
+
+        $conditions[] = "family_id = %d";
+        $args[] = $family_id;
+        if ($student_id) {
+            $conditions[] = "student_id = %d";
+            $args[] = $student_id;
+        }
+
+        $conditions[] = "account in (%s, %s)";
+        $args[] = 'registration_fees';
+        $args[] = 'merchandise_fees';
+
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT 
+                    SUM(debit) - SUM(credit) as total_balance_due
+                FROM {$wpdb->prefix}usctdp_ledger
+                WHERE " . implode(' AND ', $conditions),
+            $args
+        );
+        error_log($query);
+        $result = $wpdb->get_row($query);
+        return $result->total_balance_due;
+    }
+
+    private function get_house_credit_balance($family_id, $student_id = null)
+    {
+        $conditions = [];
+        $args = [];
+
+        $conditions[] = "family_id = %d";
+        $args[] = $family_id;
+        if ($student_id) {
+            $conditions[] = "student_id = %d";
+            $args[] = $student_id;
+        }
+
+        $conditions[] = "account = %s";
+        $args[] = 'payment_house_credit';
+
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT 
+                    SUM(credit) - SUM(debit) as house_credit_balance
+                FROM {$wpdb->prefix}usctdp_ledger
+                WHERE " . implode(' AND ', $conditions),
+            $args
+        );
+        error_log($query);
+        $result = $wpdb->get_row($query);
+        return $result->house_credit_balance;
+    }
+
     public function ajax_get_family_balance()
     {
         $this->check_nonce('get_family_balance');
-
         try {
-            $conditions = [];
-            $args = [];
-
+            $student_id = $this->get_sanitized_post_field_int('student_id');
             $family_id = $this->get_sanitized_post_field_int('family_id');
             if ($family_id === null || $family_id === 0) {
                 wp_send_json_error('Family ID is required.', 400);
             }
-            $conditions[] = "family_id = %d";
-            $args[] = $family_id;
 
-            $student_id = $this->get_sanitized_post_field_int('student_id');
-            if ($student_id !== null && $student_id !== 0) {
-                $conditions[] = "student_id = %d";
-                $args[] = $student_id;
-            }
-
-            $conditions[] = "account in (%s, %s)";
-            $args[] = 'registration_fees';
-            $args[] = 'merchandise_fees';
-
-            global $wpdb;
-            $query = $wpdb->prepare(
-                "   SELECT 
-                        SUM(debit) - SUM(credit) as total_balance_due
-                    FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE " . implode(' AND ', $conditions),
-                $args
-            );
-            $results = $wpdb->get_row($query);
+            $balance = $this->get_family_balance($family_id, $student_id);
+            $house_credit = $this->get_house_credit_balance($family_id, $student_id);
             wp_send_json_success([
-                'balance' => $results->total_balance_due
+                'balance' => $balance,
+                'house_credit' => $house_credit
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_family_balance', $e);
@@ -953,7 +990,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     (SUM(ledger.debit) - SUM(credit)) as balance_due
                 FROM {$wpdb->prefix}usctdp_ledger AS ledger
                 JOIN {$wpdb->prefix}usctdp_family AS fam ON ledger.family_id = fam.id
-                WHERE account = 'registration_fees'
+                WHERE account in ('registration_fees', 'merchandise_fees')
                 GROUP BY ledger.family_id
                 HAVING balance_due > %d
                 ORDER BY balance_due DESC
@@ -1036,7 +1073,7 @@ class Usctdp_Mgmt_Admin_Ajax
                         SUM(debit) as total_debit,
                         SUM(credit) as total_credit
                     FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE account = 'registration_fees'
+                    WHERE account in ('registration_fees', 'merchandise_fees')
                     GROUP BY purchase_id
                     HAVING (SUM(debit) - SUM(credit)) > 0
                 ) AS ledger_sums ON ledger_sums.purchase_id = reg.id
@@ -1550,6 +1587,33 @@ class Usctdp_Mgmt_Admin_Ajax
             'payment_url' => $order->get_checkout_payment_url(),
             'user_id' => $result['user_id'],
         ]);
+    }
+    public function ajax_waitlist_datatable()
+    {
+        $this->check_nonce('waitlist_datatable');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : null;
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = [
+            'number' => $length,
+            'offset' => $start,
+        ];
+        if ($activity_id) {
+            $args['activity_id'] = $activity_id;
+        }
+
+        $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([]);
+        $result = $waitlist_query->get_waitlist_data($args);
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $result['count'],
+            "recordsFiltered" => $result['count'],
+            "data" => $result['data'],
+        );
+        wp_send_json($response);
     }
 
 }

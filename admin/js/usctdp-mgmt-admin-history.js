@@ -36,6 +36,16 @@
                         $('#family-total-balance').addClass('balance-green');
                         $('#family-total-balance').removeClass('balance-red');
                     }
+
+                    $('#family-total-house-credit').text(USCTDP_Admin.formatUsd(response.data.house_credit));
+                    if (response.data.house_credit > 0) {
+                        $('#family-total-house-credit').addClass('balance-green');
+                        $('#family-total-house-credit').removeClass('balance-red');
+                    } else {
+                        $('#family-total-house-credit').addClass('balance-red');
+                        $('#family-total-house-credit').removeClass('balance-green');
+                    }
+
                 }
             });
         }

@@ -68,7 +68,7 @@
                     <div id="ledger-status-text" class="summary-value status-pending">Loading...</div>
                 </div>
                 <div class="summary-group text-right">
-                    <span class="summary-label">Current Balance</span>
+                    <span class="summary-label">Balance</span>
                     <div id="ledger-total-balance" class="summary-value balance-amount">$0.00</div>
                 </div>
             </div>
@@ -96,9 +96,15 @@
         </div>
         <div id="history-container" class="hidden">
             <h2>Purchase History for <span id="family-name"></span></h2>
-            <div id="family-balance">
-                <label>Balance</label>
-                <span id="family-total-balance"></span>
+            <div id="family-balance-section" class="flex-row gap-10">
+                <div class="family-balance">
+                    <label>Balance</label>
+                    <span id="family-total-balance" class="balance-amt"></span>
+                </div>
+                <div class="family-balance">
+                    <label>House<br>Credit</label>
+                    <span id="family-total-house-credit" class="balance-amt"></span>
+                </div>
             </div>
             <div id="history-table-wrap">
                 <div id="table-filters">

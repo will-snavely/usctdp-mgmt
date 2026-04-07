@@ -50,6 +50,7 @@ class Usctdp_Mgmt_Admin
                 'title' => 'Clinic Rosters',
                 'ajax' => [
                     'registrations_datatable',
+                    'waitlist_datatable',
                     'clinic_datatable',
                     'select2_search',
                     'gen_roster'

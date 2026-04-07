@@ -83,6 +83,7 @@ class Usctdp_Mgmt_Model
             new Usctdp_Mgmt_Session_Table(),
             new Usctdp_Mgmt_Student_Table(),
             new Usctdp_Mgmt_Tournament_Table(),
+            new Usctdp_Mgmt_Waitlist_Table(),
         ];
     }
 

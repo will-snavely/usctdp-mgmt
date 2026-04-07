@@ -65,7 +65,7 @@ table#payment-history-table td {
     letter-spacing: 1px;
 }
 
-#family-balance {
+.family-balance {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -78,7 +78,7 @@ table#payment-history-table td {
     width: fit-content;
 }
 
-#family-balance label {
+.family-balance label {
     font-weight: 600;
     color: #666;
     margin-right: 8px;
@@ -86,13 +86,13 @@ table#payment-history-table td {
     text-transform: uppercase;
 }
 
-#family-balance span {
+.family-balance span {
     font-weight: 700;
     color: #333;
     font-size: 1.1rem;
 }
 
-#family-total-balance {
+.family-balance .balance-amt {
     padding: 4px 8px;
     border-radius: 4px;
     color: #000000;

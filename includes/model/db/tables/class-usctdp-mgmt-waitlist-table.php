@@ -18,15 +18,15 @@ class Usctdp_Mgmt_Waitlist_Table extends Table
     {
         $this->schema = "
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            registration_id bigint(20) unsigned NOT NULL,
+            activity_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned NOT NULL,
-            priority smallint unsigned NOT NULL,
-            status tinyint unsigned NOT NULL,
+            status varchar(50) NOT NULL,
+            priority smallint unsigned,
             created_at datetime,
             notified_at datetime,
             expires_at datetime,
             PRIMARY KEY (id),
-            KEY registration_id (registration_id),
+            KEY activity_id (activity_id),
             KEY student_id (student_id)
         ";
     }

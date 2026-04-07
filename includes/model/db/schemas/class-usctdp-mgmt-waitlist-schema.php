@@ -15,8 +15,8 @@ class Usctdp_Mgmt_Waitlist_Schema extends Schema
             'sortable' => true,
             'default' => 0
         ],
-        'registration_id' => [
-            'name' => 'registration_id',
+        'activity_id' => [
+            'name' => 'activity_id',
             'type' => 'bigint',
             'unsigned' => true,
             'index' => true,
@@ -30,14 +30,14 @@ class Usctdp_Mgmt_Waitlist_Schema extends Schema
             'default' => 0,
         ],
         'priority' => [
-            'name' => 'type',
+            'name' => 'priority',
             'type' => 'smallint',
             'unsigned' => true
         ],
         'status' => [
-            'name' => 'type',
-            'type' => 'tinyint',
-            'unsigned' => true
+            'name' => 'status',
+            'type' => 'varchar',
+            'length' => '50',
         ],
         'created_at' => [
             'name' => 'created_at',

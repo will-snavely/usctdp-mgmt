@@ -44,7 +44,7 @@
             });
         });
 
-        var table = $('#roster-table').DataTable({
+        var rosterTable = $('#roster-table').DataTable({
             processing: true,
             serverSide: true,
             ordering: false,
@@ -76,6 +76,46 @@
                             <div class="roster-actions">
                                 <div class="action-item">
                                     <a href="${familyUrl}" class="button button-small">View Family</a>
+                                </div>
+                            </div>`;
+                        }
+                        return '';
+                    }
+                }
+            ]
+        });
+
+        var waitlistTable = $('#waitlist-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            searching: false,
+            paging: true,
+            deferLoading: 0,
+
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    var activityFilterValue = $('#activity-selector').val();
+                    d.action = usctdp_mgmt_admin.waitlist_datatable_action;
+                    d.security = usctdp_mgmt_admin.waitlist_datatable_nonce;
+                    d.activity_id = activityFilterValue;
+                }
+            },
+            columns: [
+                { data: 'student_first' },
+                { data: 'student_last' },
+                { data: 'created_at' },
+                {
+                    data: 'activity_id',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + data;
+                            return `
+                            <div class="roster-actions">
+                                <div class="action-item">
+                                    <a href="${registerUrl}" class="button button-small">Register</a>
                                 </div>
                             </div>`;
                         }
@@ -117,7 +157,8 @@
                     var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + value;
                     $('#roster-section').removeClass('hidden');
                     $('#register-student-button').attr('href', registerUrl);
-                    table.ajax.reload();
+                    rosterTable.ajax.reload();
+                    waitlistTable.ajax.reload();
                     $('#roster-section').removeClass('hidden');
                 }
             }
@@ -125,7 +166,7 @@
 
         var preloadedData = {};
         if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.activity_id) {
-            const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0]
+            const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
             preloadedData['session-selector'] = {
                 id: preloadedActivity.session_id,
                 text: preloadedActivity.session_name,

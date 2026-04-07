@@ -21,11 +21,27 @@
             </table>
         </div>
 
+        <h2> Waitlist </h2>
+        <div id="waitlist-table-wrap">
+            <table id="waitlist-table" class="usctdp-datatable">
+                <thead>
+                    <tr>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Date Added</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
         <h2> Actions </h2>
         <div class="roster-actions">
             <div id="register-student-action">
                 <a class="button button-primary" id="register-student-button">
-                    Register Student
+                    Waitlist Student
                 </a>
             </div>
             <div id="roster-print-action">

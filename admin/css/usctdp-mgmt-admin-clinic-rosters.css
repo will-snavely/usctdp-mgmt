@@ -6,6 +6,10 @@
     max-width: 800px;
 }
 
+#waitlist-table-wrap {
+    max-width: 800px;
+}
+
 #activity-selection {
     display: flex;
     flex-direction: column;
