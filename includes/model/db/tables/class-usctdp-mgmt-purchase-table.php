@@ -26,6 +26,7 @@ class Usctdp_Mgmt_Purchase_Table extends Table
             created_at datetime NOT NULL,
             created_by bigint(20) unsigned NOT NULL,
             notes text DEFAULT NULL,
+            discounts json,
             PRIMARY KEY (id),
             KEY product_id (product_id),
             KEY family_id (family_id),

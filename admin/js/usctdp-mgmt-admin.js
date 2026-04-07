@@ -28,108 +28,111 @@
         return parseFloat(value) || 0;
     }
 
-    USCTDP_Admin.createPriceAdjustmentLedger = function (args) {
+    USCTDP_Admin.createAdjustmentLedger = function (args) {
         const {
             family_id, student_id, purchase_id,
-            amount, reason, purchase_type
+            amount, direction, reason, purchase_type,
+            event_id_prefix = "price_adjustment"
         } = args;
+
+        const timestampSeconds = Math.floor(Date.now() / 1000);
         var results = [];
         var ledgerBase = {
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
             order_id: null,
-            event_id: "price_adjustment",
-            event: "Price Adjustment, " + reason
+            event_id: event_id_prefix + "_" + timestampSeconds,
+            event: `Price Adjustment (${direction.toUpperCase()}) - ${reason}`
         }
-        const zero = parseFloat(0).toFixed(2);
-        const amt = parseFloat(amount);
-        const amtDisplay = Math.abs(amt).toFixed(2);
+
+        const zero = "0.00";
+        const amtDisplay = Math.abs(USCTDP_Admin.safeParseFloat(amount)).toFixed(2);
+        const isIncrease = direction === "increase";
         results.push({
             ...ledgerBase,
             account: purchase_type + "_fees",
-            debit: amt > 0 ? amtDisplay : zero,
-            credit: amt > 0 ? zero : amtDisplay,
+            debit: isIncrease ? amtDisplay : zero,
+            credit: isIncrease ? zero : amtDisplay,
             entry_type: "adjustment"
         });
         results.push({
             ...ledgerBase,
             account: "revenue",
-            debit: amt > 0 ? zero : amtDisplay,
-            credit: amt > 0 ? amtDisplay : zero,
+            debit: isIncrease ? zero : amtDisplay,
+            credit: isIncrease ? amtDisplay : zero,
             entry_type: "adjustment"
         });
         return results;
     }
 
-    USCTDP_Admin.createRefundEntries = function (args) {
+    USCTDP_Admin.createPayoutLedger = function (args) {
         const {
-            amount, method, reason, purchase_type,
             family_id, student_id, purchase_id,
+            amount, method, reason, purchase_type,
+            event_id_prefix = "refund_payout"
         } = args;
+
         var results = [];
+        const timestampSeconds = Math.floor(Date.now() / 1000);
         var ledgerBase = {
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
             order_id: null,
-            event_id: "account_refund",
-            event: "Refund, " + method + ", " + reason
-        }
-        const amtFormatted = parseFloat(amount).toFixed(2);
+            event_id: event_id_prefix + "_" + timestampSeconds,
+            event: `Refund Payout (${method.toUpperCase()}) - ${reason}`
+        };
 
+        const zero = "0.00";
+        const amtDisplay = Math.abs(parseFloat(amount)).toFixed(2);
+
+        // 1. The Customer Side (registration_fees or merchandise_fees)
+        // We DEBIT this to "zero out" an overpayment (Credit balance)
         results.push({
             ...ledgerBase,
-            account: "refund_contra",
-            debit: amtFormatted,
-            credit: parseFloat(0).toFixed(2),
-            entry_type: "adjustment"
-        });
-        results.push({
-            ...ledgerBase,
-            account: purchase_type + "_fees",
-            debit: parseFloat(0).toFixed(2),
-            credit: amtFormatted,
-            entry_type: "adjustment"
-        });
-        results.push({
-            ...ledgerBase,
-            account: "revenue",
-            debit: amtFormatted,
-            credit: parseFloat(0).toFixed(2),
-            entry_type: "adjustment"
-        });
-        results.push({
-            ...ledgerBase,
-            account: "refund_contra",
-            payment_method: method,
-            debit: parseFloat(0).toFixed(2),
-            credit: amtFormatted,
-            entry_type: "adjustment"
+            account: `${purchase_type}_fees`,
+            debit: amtDisplay,
+            credit: zero,
+            entry_type: method === "house_credit" ? "house_credit" : "refund"
         });
 
-        var refundType = "refund";
-        if (method == "house_credit") {
-            refundType = "house_credit";
-        }
+        // 2. The Asset Side (Where the money is physically leaving)
         results.push({
             ...ledgerBase,
-            account: purchase_type + "_fees",
-            payment_method: method,
-            debit: amtFormatted,
-            credit: parseFloat(0).toFixed(2),
-            entry_type: refundType
-        });
-        results.push({
-            ...ledgerBase,
-            account: "payment_" + method,
-            payment_method: method,
-            debit: parseFloat(0).toFixed(2),
-            credit: amtFormatted,
-            entry_type: refundType
+            account: `payment_${method}`,
+            debit: zero,
+            credit: amtDisplay,
+            entry_type: method === "house_credit" ? "house_credit" : "refund"
         });
 
         return results;
+    };
+
+    USCTDP_Admin.createRefundLedger = function (args) {
+        const {
+            amount, method, reason, purchase_type,
+            family_id, student_id, purchase_id,
+        } = args;
+        const adjustmentLedger = USCTDP_Admin.createAdjustmentLedger({
+            family_id: family_id,
+            student_id: student_id,
+            purchase_id: purchase_id,
+            amount: amount,
+            direction: "decrease",
+            reason: reason,
+            purchase_type: purchase_type,
+        });
+        const payoutLedger = USCTDP_Admin.createPayoutLedger({
+            family_id: family_id,
+            student_id: student_id,
+            purchase_id: purchase_id,
+            amount: amount,
+            method: method,
+            reason: reason,
+            purchase_type: purchase_type,
+        });
+        return adjustmentLedger.concat(payoutLedger);
     }
 
     USCTDP_Admin.displayTime = function (dateObj) {
@@ -329,17 +332,88 @@
         }
     };
 
+    USCTDP_Admin.Discount = class {
+        constructor(data) {
+            this.code = data.code;
+            this.value = data.value;
+            this.reason = data.reason;
+        }
+
+        amount(base_price) {
+            return 0;
+        }
+    }
+
+    USCTDP_Admin.AdditionalDayDiscount = class extends USCTDP_Admin.Discount {
+        constructor(amount) {
+            super({
+                code: 'additional_day',
+                value: amount,
+                reason: 'Additional Day Discount'
+            });
+        }
+
+        amount(base_price) {
+            return this.value;
+        }
+    }
+
+    USCTDP_Admin.SiblingDiscount = class extends USCTDP_Admin.Discount {
+        constructor(percent) {
+            super({
+                code: 'sibling_' + percent,
+                value: percent,
+                reason: 'Sibling Discount'
+            });
+        }
+
+        amount(base_price) {
+            return Math.floor(base_price * (this.value / 100.0));
+        }
+    }
+
+    USCTDP_Admin.CustomFlatDiscount = class extends USCTDP_Admin.Discount {
+        constructor(amount, reason) {
+            super({
+                code: 'custom_flat',
+                value: amount,
+                reason: reason
+            });
+        }
+
+        amount(base_price) {
+            return this.value;
+        }
+    }
+
+    USCTDP_Admin.CustomPercentDiscount = class extends USCTDP_Admin.Discount {
+        constructor(percent, reason) {
+            super({
+                code: 'custom_percent',
+                value: percent,
+                reason: reason
+            });
+        }
+
+        amount(base_price) {
+            return Math.floor(base_price * (this.value / 100.0));
+        }
+    }
+
     USCTDP_Admin.CartItem = class {
         constructor(data) {
             this.type = data.type || (data.registration_id ? 'registration' : 'merchandise');
             this.family_id = data.family_id;
             this.student_id = data.student_id;
             this.product_id = data.product_id;
+            this.base_price = data.base_price;
+            this.additional_day_discount = data.additional_day_discount;
             this.purchase_id = data.purchase_id || null;
             this.registration_id = data.registration_id || null;
             this.student_level = data.student_level || null;
             this.session_id = data.session_id || null;
             this.activity_id = data.activity_id || null;
+            this.discounts = data.discounts || null;
             this.notes = data.notes || "";
 
             this.debit = parseFloat(data.debit || 0);
@@ -357,6 +431,7 @@
             this.container = $(`#${containerId}`);
             this.settings = settings ?? {};
             this.items = [];
+            this.discountsModal = null;
             this.init();
         }
 
@@ -370,6 +445,9 @@
 
         init() {
             this.renderLayout();
+            if (this.settings.manageDiscounts) {
+                this.discountsModal = new USCTDP_Admin.ManageDiscountsModal('payment-discounts-modal');
+            }
             this.bindEvents();
         }
 
@@ -400,13 +478,14 @@
 
             const html = `
                 <div class="payment-wrap">
+                    <div id="payment-discounts-modal"></div>
                     <div class="payment-table-wrap">
                         <table class="payment-table">
                             <thead>
                                 <tr>
                                     <th>Student</th>
                                     <th>Item</th>
-                                    <th>Balance</th>
+                                    <th>Owed</th>
                                     <th>
                                         <div class="transfer-column">
                                             <button class="transfer-btn transfer-all">
@@ -417,7 +496,7 @@
                                             </button>
                                         </div>
                                     </th>
-                                    <th>Payment</th>
+                                    <th>Pay</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -474,7 +553,7 @@
                                 card details and complete the transaction.
                             </p>
                         </div>
-                        <div class="submit-payment-wrap hidden"> 
+                        <div class="submit-payment-wrap hidden">
                             <form id="${this.getId('submit-payment-form')}" action="${postUrl}" method="post">
                                 <input type="hidden" name="action" value="${postAction}">
                                 <input type="hidden" name="${nonceId}" value="${nonceValue}">
@@ -528,12 +607,34 @@
                 this.container.find('.checkout-btn-wrap').toggleClass('hidden', isCheckout);
                 this.container.find('.modify-btn-wrap').toggleClass('hidden', !isCheckout);
                 this.container.find('.checkout-section').toggleClass('hidden', !isCheckout);
-                this.container.find('.remove-btn').prop('disabled', isCheckout);
+                this.container.find('.remove-order-item-btn').prop('disabled', isCheckout);
                 this.trigger(isCheckout ? 'checkout' : 'modify', {});
             });
 
+            if (this.settings.manageDiscounts) {
+                this.container.on('click', '.discounts-btn', (e) => {
+                    const index = $(e.currentTarget).closest('tr').index();
+                    const item = this.items[index];
+                    $('#payment-discounts-modal').data('item-index', index);
+                    this.discountsModal.show(item.base_price, item.additional_day_discount, item.discounts);
+                });
+
+                $('#payment-discounts-modal').on('discounts:apply', (e) => {
+                    const index = $('#payment-discounts-modal').data('item-index');
+                    const item = this.items[index];
+                    item.discounts = e.detail.discounts;
+                    var sale_price = item.base_price;
+                    if (item.discounts) {
+                        sale_price = item.discounts.reduce((acc, discount) => acc - discount.amount, item.base_price);
+                    }
+                    item.debit = sale_price;
+                    this.renderTableBody();
+                    this.updatePaymentTotals();
+                });
+            }
+
             // Removal
-            this.container.on('click', '.remove-btn', (e) => {
+            this.container.on('click', '.remove-order-item-btn', (e) => {
                 const index = $(e.currentTarget).closest('tr').index();
                 this.items.splice(index, 1);
                 this.renderTableBody();
@@ -566,7 +667,7 @@
             this.trigger('cart:empty', {});
         }
 
-        addNewRegistration(data, price) {
+        addNewRegistration(data, base_price, discounts, additional_day_discount) {
             const isDuplicate = this.items.some(item =>
                 item.student_id === data.student_id &&
                 item.session_id === data.session_id &&
@@ -575,7 +676,14 @@
                 return { success: false, error: 'DUPLICATE_ITEM', message: "Item already in cart." };
             }
             data.type = 'registration';
-            return this.addItem(data, price, 0);
+            data.base_price = base_price;
+            data.discounts = discounts;
+            data.additional_day_discount = additional_day_discount;
+            var sale_price = base_price;
+            if (discounts) {
+                sale_price = discounts.reduce((acc, discount) => acc - discount.amount, base_price);
+            }
+            return this.addItem(data, sale_price, 0);
         }
 
 
@@ -723,30 +831,55 @@
         buildLedgerEntries(args) {
             const { lineItem, orderId, eventId, event, paymentMethod, checkNumber, isNew } = args;
             var result = [];
+            const zero = "0.00";
             var ledgerBase = {
                 family_id: lineItem.family_id,
                 student_id: lineItem.student_id,
                 purchase_id: lineItem.purchase_id,
                 order_id: orderId,
-                event_id: eventId,
-                event: event
+                event_id: eventId
             }
             if (isNew) {
                 result.push({
                     ...ledgerBase,
                     account: lineItem.type + "_fees",
-                    debit: parseFloat(lineItem.debit).toFixed(2),
-                    credit: parseFloat(0).toFixed(2),
-                    entry_type: "charge"
+                    debit: parseFloat(lineItem.base_price).toFixed(2),
+                    credit: zero,
+                    entry_type: "charge",
+                    event: event + " - Base Fee"
                 });
 
                 result.push({
                     ...ledgerBase,
                     account: "revenue",
-                    debit: parseFloat(0).toFixed(2),
-                    credit: parseFloat(lineItem.debit).toFixed(2),
-                    entry_type: "charge"
+                    debit: zero,
+                    credit: parseFloat(lineItem.base_price).toFixed(2),
+                    entry_type: "charge",
+                    event: event + " - Base Fee"
                 });
+
+                if (lineItem.discounts) {
+                    for (var i = 0; i < lineItem.discounts.length; i++) {
+                        const discount = lineItem.discounts[i];
+                        const amount = parseFloat(discount.amount).toFixed(2);
+                        result.push({
+                            ...ledgerBase,
+                            account: lineItem.type + "_fees",
+                            debit: zero,
+                            credit: amount,
+                            entry_type: "adjustment",
+                            event: "Discount - " + discount.reason
+                        });
+                        result.push({
+                            ...ledgerBase,
+                            account: "revenue",
+                            debit: amount,
+                            credit: zero,
+                            entry_type: "adjustment",
+                            event: "Discount - " + discount.reason
+                        });
+                    }
+                }
             }
 
             if (lineItem.credit > 0) {
@@ -757,7 +890,8 @@
                     reference_id: checkNumber ?? null,
                     debit: parseFloat(lineItem.debit).toFixed(2),
                     credit: parseFloat(0).toFixed(2),
-                    entry_type: "payment"
+                    entry_type: "payment",
+                    event: event + " - Payment"
                 });
 
                 result.push({
@@ -767,7 +901,8 @@
                     reference_id: checkNumber ?? null,
                     debit: parseFloat(0).toFixed(2),
                     credit: parseFloat(lineItem.credit).toFixed(2),
-                    entry_type: "payment"
+                    entry_type: "payment",
+                    event: event + " - Payment"
                 });
             }
             return result;
@@ -918,7 +1053,7 @@
                     <td class="cart-student-name">${student ?? '--'}</td>
                     <td class="cart-item">${item}</td>
                     <td class="cart-debit"> 
-                        <input class="price-input debit-input" type="number" name="debit" value="${debit}">
+                        <span class="price-value debit-value">${USCTDP_Admin.formatUsd(debit)}</span>
                     </td>
                     <td>
                         <div class="transfer-column">
@@ -933,9 +1068,232 @@
                         <input class="price-input credit-input" type="number" name="credit" value="${credit}">
                     </td>
                     <td>
-                        <button class="button remove-btn">Remove</button> 
+                        <div class="cart-actions flex-row gap-5">
+                            ${this.settings.manageDiscounts ? '<button class="button discounts-btn">Discounts</button>' : ''}
+                            <button class="remove-order-item-btn usctdp-remove-btn">&times;</button>
+                        </div>
                     </td>
                 </tr>`
+        }
+    }
+
+    USCTDP_Admin.ManageDiscountsModal = class {
+        constructor(containerId, settings) {
+            this.container = $(`#${containerId}`);
+            this.settings = settings ?? {};
+            this.discounts = [];
+            this.basePrice = 0;
+            this.additionalDayDiscount = 0;
+            this.init();
+        }
+
+        trigger(eventName, detail = {}) {
+            const event = new CustomEvent(`discounts:${eventName}`, {
+                detail: { ...detail, manager: this },
+                bubbles: true
+            });
+            this.container[0].dispatchEvent(event);
+        }
+
+        init() {
+            this.renderLayout();
+            this.modal = this.container.find('#discount-modal')[0];
+            this.form = this.container.find('#discount-form');
+            this.list = this.container.find('#active-discounts-list');
+            this.bindEvents();
+        }
+
+        show(basePrice, additionalDayDiscount, existingDiscounts = []) {
+            this.basePrice = basePrice;
+            this.additionalDayDiscount = additionalDayDiscount;
+            this.discounts = [...existingDiscounts];
+            this.updateUI();
+            this.modal.showModal();
+            this.trigger('opened');
+        }
+
+        renderLayout() {
+            const supportedDiscounts = this.settings.supportedDiscounts ? this.settings.supportedDiscounts : [
+                { code: 'additional_day', label: 'Addl. Day' },
+                { code: 'sibling_10', label: 'Sibling (10%)' },
+                { code: 'sibling_20', label: 'Sibling (20%)' },
+                { code: 'custom_flat', label: 'Custom Flat' },
+                { code: 'custom_percent', label: 'Custom Percent' }
+            ];
+            const discountOptions = supportedDiscounts.map(discount => `
+                <option value="${discount.code}">
+                    ${discount.label}
+                </option>
+            `).join('');
+            const html = `
+                <dialog id="discount-modal">
+                    <h2>Manage Discounts</h2>
+                    <div id="active-discounts-list"></div>
+                    <form id="discount-form">
+                        <div id="discount-type-wrap">
+                            <select id="discount-type" required>
+                                <option value="">Select Discount...</option>
+                                ${discountOptions}
+                            </select>
+                        </div>
+                        <div id="discount-input-wrap" class="modal_field_group hidden">
+                            <div id="discount-value-wrap" class="modal_field">
+                                <label for="discount-value">Value</label>
+                                <input type="number" id="discount-value" step="0.01" min="0">
+                            </div>
+                            <div id="discount-reason-wrap" class="modal_field">
+                                <label for="discount-reason">Reason</label>
+                                <input type="text" id="discount-reason">
+                            </div>
+                        </div>
+                        <div id="discount-add-btn-wrap">
+                            <button type="submit" class="button button-secondary add-discount-btn">
+                                Add Discount
+                            </button>
+                        </div>
+                        <div id="price-summary" class="price-summary">
+                            <div class="summary-line">Base Price: <span id="base-price-display"></span></div>
+                            <div class="summary-line summary-discount">Discounts: <span id="total-savings-display"></span></div>
+                            <div class="summary-line total">Final Price: <span id="final-price-display"></span></div>
+                        </div>
+                    </form>
+
+                    <div class="actions-footer">
+                        <button type="button" class="button button-primary apply-discounts-btn">Apply Discounts</button>
+                        <button type="button" class="button button-secondary cancel-btn">Cancel</button>
+                    </div>
+                </dialog>
+            `;
+            this.container.append(html);
+        }
+
+        bindEvents() {
+            this.form.on('submit', (e) => {
+                e.preventDefault();
+                const code = this.container.find('#discount-type').val();
+                const value = USCTDP_Admin.safeParseFloat(this.container.find('#discount-value').val());
+                const reason = this.container.find('#discount-reason').val();
+                if (code === 'additional_day') {
+                    const discount = new USCTDP_Admin.AdditionalDayDiscount(this.additionalDayDiscount);
+                    this.addDiscount(discount);
+                } else if (code === 'sibling_10') {
+                    const discount = new USCTDP_Admin.SiblingDiscount(10);
+                    this.addDiscount(discount);
+                } else if (code === 'sibling_20') {
+                    const discount = new USCTDP_Admin.SiblingDiscount(20);
+                    this.addDiscount(discount);
+                } else if (code === 'custom_flat') {
+                    const discount = new USCTDP_Admin.CustomFlatDiscount(value, reason);
+                    this.addDiscount(discount);
+                } else if (code === 'custom_percent') {
+                    const discount = new USCTDP_Admin.CustomPercentDiscount(value, reason);
+                    this.addDiscount(discount);
+                }
+                const $discountInputWrap = this.container.find('#discount-input-wrap');
+                $discountInputWrap.addClass('hidden');
+                $discountInputWrap.find('select').val('');
+                $discountInputWrap.find('input').val('');
+                $discountInputWrap.find('input').prop('required', false);
+                this.form[0].reset();
+            });
+
+            this.container.find('.apply-discounts-btn').on('click', () => {
+                this.trigger('apply', { discounts: this.discounts });
+                this.modal.close();
+            });
+
+            // Handle Remove Buttons (Delegated)
+            this.list.on('click', '.remove-discount-btn', (e) => {
+                const index = $(e.currentTarget).data('index');
+                this.removeDiscount(index);
+            });
+
+            // Close button
+            this.container.find('.cancel-btn').on('click', () => {
+                this.modal.close();
+                this.trigger('closed');
+            });
+
+            this.container.find('#discount-type').on('change', (e) => {
+                const code = e.target.value;
+                const $discountValue = this.container.find('#discount-value');
+                const $discountInputWrap = this.container.find('#discount-input-wrap');
+                const $discountValueLabel = this.container.find('#discount-value-label');
+                if (code === 'custom_flat') {
+                    $discountValueLabel.text('Amount');
+                    $discountInputWrap.removeClass('hidden');
+                    $discountInputWrap.find("input").prop("required", true);
+                    $discountValue.focus();
+                } else if (code === 'custom_percent') {
+                    $discountValueLabel.text('Percent');
+                    $discountInputWrap.removeClass('hidden');
+                    $discountInputWrap.find("input").prop("required", true);
+                    $discountValue.focus();
+                } else {
+                    $discountInputWrap.addClass('hidden');
+                    $discountInputWrap.find("input").prop("required", false);
+                }
+            });
+        }
+
+        addDiscount(discount) {
+            const amount = discount.amount(this.basePrice);
+            this.discounts.push({
+                code: discount.code,
+                value: discount.value,
+                amount: amount,
+                reason: discount.reason
+            });
+            this.updateUI();
+            this.trigger('added', { discount });
+        }
+
+        removeDiscount(index) {
+            const removed = this.discounts.splice(index, 1);
+            this.updateUI();
+            this.trigger('removed', { discount: removed[0] });
+        }
+
+        updateUI() {
+            const $addlDayAmount = this.container.find('#addl-day-amount');
+            $addlDayAmount.text(USCTDP_Admin.formatUsd(this.additionalDayDiscount));
+
+            this.totalSavings = 0;
+            this.discounts.forEach(d => {
+                this.totalSavings += d.amount;
+            });
+
+            this.salePrice = Math.max(0, this.basePrice - this.totalSavings);
+            this.list.empty();
+            if (this.discounts.length === 0) {
+                this.list.append('<p class="empty-msg">No active discounts.</p>');
+            } else {
+                this.discounts.forEach((d, idx) => {
+                    let label = '';
+                    const displayVal = USCTDP_Admin.formatUsd(d.amount);
+                    if (d.code === 'additional_day') {
+                        label = 'Additional Day';
+                    } else if (d.code === 'sibling_10') {
+                        label = 'Sibling 10% (rounded)';
+                    } else if (d.code === 'sibling_20') {
+                        label = 'Sibling 20% (rounded)';
+                    } else if (d.code === 'custom_flat') {
+                        label = `Custom Flat`;
+                    } else if (d.code === 'custom_percent') {
+                        label = `Custom ${d.value}% (rounded)`;
+                    }
+                    this.list.append(`
+                        <div class="discount-item flex-row gap-10">
+                            <span><strong>${label}:</strong> ${displayVal}</span>
+                            <button type="button" class="remove-discount-btn usctdp-remove-btn" data-index="${idx}">&times;</button>
+                        </div>
+                    `);
+                });
+            }
+            this.container.find('#base-price-display').text(USCTDP_Admin.formatUsd(this.basePrice));
+            this.container.find('#total-savings-display').text(`-${USCTDP_Admin.formatUsd(this.totalSavings)}`);
+            this.container.find('#final-price-display').text(USCTDP_Admin.formatUsd(this.salePrice));
+            this.trigger('updated', { totalSavings: this.totalSavings, salePrice: this.salePrice });
         }
     }
 })(jQuery);

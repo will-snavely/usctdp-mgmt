@@ -10,30 +10,51 @@
         </dialog>
 
         <dialog id="post-refund-modal">
-            <h2>Post Refund</h2>
+            <h2>Financial Adjustment & Refund</h2>
             <form id="refund-form">
-                <div id="refund-fields" class="modal_field_group">
-                    <div class="modal_field">
-                        <label for="refund-amount">Amount</label>
-                        <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0" required>
+                <div id="refund-action">
+                    <label for="refund-mode">Action Type</label>
+                    <select id="refund-mode" name="refund-mode" required>
+                        <option value="">Select Action</option>
+                        <option value="standard">Complete Refund</option>
+                        <option value="adjust_only">Adjustment Only</option>
+                        <option value="payout_only">Payout Only</option>
+                    </select>
+                    <p class="field-help">
+                        <span id="mode-description">Select an action to continue.</span>
+                    </p>
+                </div>
+                <div id="refund-fields" class="modal_field_group hidden">
+                    <div class="modal_field" id="direction-field-wrapper">
+                        <label for="refund-direction">Adj. Type</label>
+                        <select id="refund-direction" name="refund-direction">
+                            <option value="">Select Direction</option>
+                            <option value="decrease">Price Decrease</option>
+                            <option value="increase">Price Increase</option>
+                        </select>
                     </div>
                     <div class="modal_field">
-                        <label for="refund-method">Payment Method</label>
-                        <select id="refund-method" name="refund-method" required>
+                        <label for="refund-amount">Amount ($)</label>
+                        <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+                    <div class="modal_field" id="method-field-wrapper">
+                        <label for="refund-method">Payout Method</label>
+                        <select id="refund-method" name="refund-method">
                             <option value="">Select Method</option>
                             <option value="house_credit">House Credit</option>
                             <option value="cash">Cash</option>
                             <option value="check">Check</option>
-                            <option value="card">Card</option>
+                            <option value="card">Card/PayPal</option>
                         </select>
                     </div>
                     <div class="modal_field">
-                        <label for="refund-reason">Reason</label>
-                        <input type="text" id="refund-reason" name="refund-reason" required>
+                        <label for="refund-reason">Reason / Internal Note</label>
+                        <input type="text" id="refund-reason" name="refund-reason" required placeholder="e.g., Injury, Class move, Sibling discount">
                     </div>
                 </div>
+
                 <div class="actions-footer">
-                    <button type="submit" class="button" id="post-refund-btn">Post Refund</button>
+                    <button type="submit" class="button button-primary" id="post-refund-btn">Process Transaction</button>
                     <button type="button" class="button" id="close-refund-modal">Cancel</button>
                 </div>
             </form>

@@ -78,7 +78,6 @@
                                 <input type="checkbox" name="discount-sibling" id="discount-sibling">
                                 <label for="discount-sibling">Sibling Discount</label>
                                 <select name="discount-sibling-percent" id="discount-sibling-percent" disabled>
-                                    <option value="">Select</option>
                                     <option value="10">10%</option>
                                     <option value="20">20%</option>
                                 </select>

@@ -72,6 +72,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     DATE_FORMAT(pur.created_at, '%%Y-%%m-%%dT%%T.%%fZ') as purchase_created_at,
                     pur.created_by as purchase_created_by,
                     pur.notes as purchase_notes,
+                    pur.discounts as purchase_discounts,
                     prod.title as product_name, prod.id as product_id,
                     ledger.total_fees as total_fees,
                     ledger.total_adjustments as total_adjustments,

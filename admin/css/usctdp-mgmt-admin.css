@@ -151,6 +151,12 @@ div.dt-length select {
     vertical-align: middle;
 }
 
+.payment-table .price-value {
+    text-align: right;
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
 .payment-table th:nth-child(1) {
     width: 80px;
 }
@@ -159,15 +165,18 @@ div.dt-length select {
     width: 300px;
 }
 
-.payment-table th:nth-child(3),
-.payment-table th:nth-child(5) {
+.payment-table th:nth-child(3) {
     width: 60px;
 }
 
 .payment-table th:nth-child(4) {
-    width: 50px;
+    width: 40px;
     padding: 0;
     margin: 0;
+}
+
+.payment-table th:nth-child(5) {
+    width: 60px;
 }
 
 .payment-table th:nth-child(6) {
@@ -301,6 +310,26 @@ input[type=number] {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.usctdp-remove-btn {
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    cursor: pointer;
+    padding-bottom: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+}
+
+.usctdp-remove-btn:hover {
+    background: #fecaca;
 }
 
 /* The Modal Container */
@@ -513,4 +542,77 @@ dialog .actions-footer {
 
 .purple-bg {
     background-color: #c393f3;
+}
+
+/* Container and Backdrop */
+dialog#discount-modal {
+    min-width: 400px;
+}
+
+dialog#discount-modal .modal_field {
+    grid-template-columns: 75px 1fr;
+}
+
+dialog#discount-modal #discount-reason {
+    width: 200px;
+}
+
+dialog#discount-modal #active-discounts-list {
+    margin-bottom: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+dialog#discount-modal .empty-msg {
+    color: #6b7280;
+    font-style: italic;
+    font-size: 0.9rem;
+    padding: 10px 0;
+}
+
+dialog#discount-modal .discount-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f3f4f6;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+dialog#discount-modal .discount-item span {
+    font-size: 0.95rem;
+}
+
+dialog#discount-modal .price-summary {
+    background: #f8fafc;
+    border: 1px solid #94bef4;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 10px;
+}
+
+dialog#discount-modal .summary-line {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.75rem;
+}
+
+dialog#discount-modal .summary-line.summary-discount {
+    color: #059669;
+}
+
+dialog#discount-modal .summary-line.total {
+    border-top: 2px solid #e2e8f0;
+    margin-top: 12px;
+    padding-top: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #0f172a;
+}
+
+dialog#discount-modal #discount-value {
+    width: 50px;
 }

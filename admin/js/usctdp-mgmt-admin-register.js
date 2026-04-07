@@ -3,6 +3,7 @@
 
     $(document).ready(function () {
         var preloadedData = {};
+        var discounts = [];
 
         const MERCHANDISE_PRICING = {
             'tshirt': usctdp_mgmt_admin.tshirt_pricing,
@@ -11,6 +12,7 @@
         const paymentSettings = {
             checkoutButton: true,
             allowPayLater: true,
+            manageDiscounts: true,
             paymentMode: "create",
             submitButtonText: "Submit",
             redirectOnComplete: true
@@ -86,17 +88,31 @@
         }
 
         function update_clinic_sale_price() {
-            let computed_price = parseFloat($('#clinic_base_price').val());
+            let base_price = USCTDP_Admin.safeParseFloat($('#clinic_base_price').val());
+            let computed_price = base_price;
+            let discount_objects = [];
+
             if ($('#discount-additional-day').is(':checked')) {
-                computed_price -= $('#clinic-preorder').data('additional_day_discount');
+                const addtl_day_discount_amount = $('#clinic-preorder').data('additional_day_discount');
+                discount_objects.push(new USCTDP_Admin.AdditionalDayDiscount(addtl_day_discount_amount));
             }
             if ($('#discount-sibling').is(':checked') && $('#discount-sibling-percent').val()) {
-                const sibling_discount = parseFloat($('#discount-sibling-percent').val());
-                computed_price -= computed_price * (sibling_discount / 100.0);
+                const sibling_discount_percent = parseFloat($('#discount-sibling-percent').val());
+                discount_objects.push(new USCTDP_Admin.SiblingDiscount(sibling_discount_percent));
             }
-            computed_price = parseFloat(computed_price.toFixed(2));
-            $('#sale-price-value').text(computed_price.toFixed(2));
-            $('#sale-price-value').data('sale_price', computed_price);
+
+            discounts = [];
+            discount_objects.forEach(discount => {
+                const amount = discount.amount(base_price);
+                discounts.push({
+                    code: discount.code,
+                    amount: amount,
+                    value: discount.value,
+                    reason: discount.reason
+                });
+                computed_price -= amount;
+            });
+            $('#sale-price-value').text(USCTDP_Admin.formatUsd(computed_price));
         }
 
         function bind_clinic_info(info) {
@@ -151,6 +167,7 @@
             try {
                 const info = await getPreregistrationInfo(clinicId, studentId);
                 bind_clinic_info(info);
+                discounts = [];
 
                 if (info.student_registered) {
                     set_notification(
@@ -207,6 +224,7 @@
             const studentData = $("#student-selector").select2('data')[0];
             const activityData = $("#activity-selector").select2('data')[0];
             const familyId = $("#family-selector").val();
+
             const registration = {
                 activity_id: $('#activity-selector').val(),
                 activity_name: displayActivityName,
@@ -218,11 +236,18 @@
                 student_level: $('#student-level').val(),
                 session_id: $('#session-selector').val(),
                 session_name: $('#session-selector option:selected').text(),
+                discounts: discounts,
                 notes: $('#clinic-notes').val()
             };
 
-            const price = $('#sale-price-value').data('sale_price');
-            const result = paymentTable.addNewRegistration(registration, price);
+            const basePrice = USCTDP_Admin.safeParseFloat($('#clinic_base_price').val());
+            const additionalDayDiscount = $('#discount-additional-day').data('discount_value');
+            const result = paymentTable.addNewRegistration(
+                registration,
+                basePrice,
+                discounts,
+                additionalDayDiscount
+            );
             if (!result.success) {
                 alert("Failed to add item: " + result.message);
                 return;

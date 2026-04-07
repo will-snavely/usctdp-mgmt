@@ -109,6 +109,10 @@
     padding-bottom: 8px;
 }
 
+#clinic_base_price {
+    width: 60px;
+}
+
 .preorder-details label {
     display: block;
     font-size: 14px;

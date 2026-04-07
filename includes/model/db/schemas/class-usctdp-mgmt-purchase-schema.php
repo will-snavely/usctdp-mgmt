@@ -61,5 +61,10 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
             'type' => 'text',
             'nullable' => true,
         ],
+        'discounts' => [
+            'name' => 'discounts',
+            'type' => 'json',
+            'nullable' => true,
+        ],
     ];
 }

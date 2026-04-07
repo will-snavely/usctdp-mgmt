@@ -11,6 +11,7 @@
             checkoutButton: false,
             allowPayLater: false,
             paymentMode: "update",
+            manageDiscounts: false,
             redirectOnComplete: false,
         };
         const paymentTableId = "registration-payment-table";
@@ -137,7 +138,7 @@
                         <select id="payment-action-${idx}" class="payment-action-select">
                             <option value=""></option>
                             <option value="post-payment">Post Payment</option>
-                            <option value="post-refund">Post Refund</option>
+                            <option value="post-refund">Post Refund/Adjustment</option>
                         </select>
                         <button id="ledger-action-${idx}" class="button ledger-action" disabled>
                             Go
@@ -565,16 +566,70 @@
             }
         }
 
+        const refundMode = $('#refund-mode');
+        const methodWrapper = $('#method-field-wrapper');
+        const modeDesc = $('#mode-description');
+        const methodSelect = $('#refund-method');
+        const refundFields = $('#refund-fields');
+        const directionWrapper = $('#direction-field-wrapper');
+        const directionSelect = $('#refund-direction');
+
+        refundMode.on('change', (e) => {
+            const val = e.target.value;
+            if (val === 'adjust_only') {
+                directionWrapper.removeClass('hidden');
+                refundFields.removeClass('hidden');
+                methodWrapper.addClass('hidden');
+                methodSelect.prop('required', false);
+                directionSelect.prop('required', true);
+                modeDesc.text("Adjusts the price, but does not record any transfer of funds.");
+            } else if (val === 'payout_only') {
+                directionWrapper.addClass('hidden');
+                refundFields.removeClass('hidden');
+                methodWrapper.removeClass('hidden');
+                methodSelect.prop('required', true);
+                directionSelect.prop('required', false);
+                modeDesc.text("Records the transfer of funds for an already adjusted price.");
+            } else if (val === 'standard') {
+                directionWrapper.addClass('hidden');
+                refundFields.removeClass('hidden');
+                methodWrapper.removeClass('hidden');
+                methodSelect.prop('required', true);
+                directionSelect.prop('required', false);
+                modeDesc.text("Adjusts the price and records the transfer of funds.");
+            } else {
+                directionWrapper.addClass('hidden');
+                refundFields.addClass('hidden');
+                methodWrapper.addClass('hidden');
+                methodSelect.prop('required', false);
+                directionSelect.prop('required', false);
+                modeDesc.text("Select an action to continue.");
+            }
+        });
+
         function openPostRefundModal(row) {
-            const refunds = USCTDP_Admin.safeParseFloat(row.total_refunds) + USCTDP_Admin.safeParseFloat(row.total_house_credits);
+            const allRefunds = USCTDP_Admin.safeParseFloat(row.total_refunds) + USCTDP_Admin.safeParseFloat(row.total_house_credits);
             const payments = USCTDP_Admin.safeParseFloat(row.total_payments);
-            if (payments > 0 && refunds < payments) {
+            const adjustments = USCTDP_Admin.safeParseFloat(row.total_adjustments);
+            const fees = USCTDP_Admin.safeParseFloat(row.total_fees);
+            const netFees = fees - adjustments;
+            const netPayments = payments - allRefunds;
+            const owed = netFees - netPayments;
+            if (netPayments > 0) {
+                refundFields.addClass('hidden');
+                methodWrapper.addClass('hidden');
+                methodSelect.prop('required', false);
+                modeDesc.text("Select an action to continue.");
                 $('#refund-form input').val('');
                 $('#refund-form select').val('');
+                $('#refund-adjust-price').prop('checked', false);
                 $('#refund-form').data("purchaseId", row.purchase_id);
                 $('#refund-form').data("purchaseType", row.purchase_type);
                 $('#refund-form').data("studentId", row.student_id);
                 $('#refund-form').data("familyId", row.family_id);
+                if (owed < 0) {
+                    $('#refund-adjust-price').prop('checked', true);
+                }
                 postRefundModal.showModal();
             } else {
                 alert("The selected registration has no credit to refund!");
@@ -588,22 +643,48 @@
                 return;
             }
             e.preventDefault();
+            const action = refundMode.val();
+            console.log(action);
             const amount = $('#refund-amount').val();
             const method = $('#refund-method').val();
             const reason = $('#refund-reason').val();
+            const direction = $('#refund-direction').val();
             const purchaseId = $('#refund-form').data("purchaseId");
             const purchaseType = $('#refund-form').data("purchaseType");
             const studentId = $('#refund-form').data("studentId");
             const familyId = $('#refund-form').data("familyId");
-            const entries = USCTDP_Admin.createRefundEntries({
-                amount: amount,
-                method: method,
-                reason: reason,
-                purchase_id: purchaseId,
-                purchase_type: purchaseType,
-                student_id: studentId,
-                family_id: familyId
-            });
+            let entries = [];
+            if (action === "adjust_only") {
+                entries = USCTDP_Admin.createAdjustmentLedger({
+                    amount: amount,
+                    reason: reason,
+                    purchase_id: purchaseId,
+                    purchase_type: purchaseType,
+                    student_id: studentId,
+                    family_id: familyId,
+                    direction: direction
+                });
+            } else if (action === "payout_only") {
+                entries = USCTDP_Admin.createPayoutLedger({
+                    amount: amount,
+                    method: method,
+                    reason: reason,
+                    purchase_id: purchaseId,
+                    purchase_type: purchaseType,
+                    student_id: studentId,
+                    family_id: familyId
+                });
+            } else if (action === "standard") {
+                entries = USCTDP_Admin.createRefundLedger({
+                    amount: amount,
+                    method: method,
+                    reason: reason,
+                    purchase_id: purchaseId,
+                    purchase_type: purchaseType,
+                    student_id: studentId,
+                    family_id: familyId
+                });
+            }
 
             USCTDP_Admin.ajax_submitLedgerEntries(entries)
                 .then(() => {

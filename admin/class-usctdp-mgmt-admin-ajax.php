@@ -1126,6 +1126,11 @@ class Usctdp_Mgmt_Admin_Ajax
             $notes = sanitize_textarea_field(stripslashes($data['notes']));
         }
 
+        $discounts = null;
+        if (isset($data['discounts'])) {
+            $discounts = json_encode($data['discounts']);
+        }
+
         $line_item_id = 0;
         if (isset($data['line_item_id'])) {
             $line_item_id = sanitize_text_field($data['line_item_id']);
@@ -1144,7 +1149,8 @@ class Usctdp_Mgmt_Admin_Ajax
                 'family_id' => $family['id'],
                 'student_id' => $student['id'],
                 'student_level' => $student_level,
-                'notes' => $notes
+                'notes' => $notes,
+                'discounts' => $discounts,
             ]
         ];
     }
@@ -1232,6 +1238,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'type' => 'registration',
             'created_at' => $created_at,
             'created_by' => $created_by,
+            'discounts' => $args['discounts'] ?? '[]',
         ];
         $purchase_id = $purchase_query->add_item($purchase_args);
         if (!$purchase_id) {

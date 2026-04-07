@@ -35,7 +35,7 @@
     width: 200px;
 }
 
-table td {
+table#payment-history-table td {
     vertical-align: top !important;
 }
 
@@ -387,6 +387,10 @@ dialog#post-refund-modal {
     max-width: 500px;
 }
 
+dialog#post-refund-modal #refund-direction {
+    width: 150px;
+}
+
 dialog#post-refund-modal #refund-amount {
     width: 150px;
 }
@@ -397,6 +401,19 @@ dialog#post-refund-modal #refund-method {
 
 dialog#post-refund-modal #refund-reason {
     width: 300px;
+}
+
+dialog#post-refund-modal .field-help {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 4px;
+    width: 100%;
+    border-left: 2px solid #f1cd18;
+    padding-left: 5px;
+}
+
+dialog#refund-action {
+    width: 100%;
 }
 
 dialog#payment-history-modal {

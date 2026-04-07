@@ -20,5 +20,6 @@ class Usctdp_Mgmt_Purchase_Row extends Row
         $this->created_at = (string) $this->created_at;
         $this->created_by = (int) $this->created_by;
         $this->notes = (string) $this->notes;
+        $this->discounts = json_decode($this->discounts, true);
     }
 }
