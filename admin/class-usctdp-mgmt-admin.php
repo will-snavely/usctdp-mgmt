@@ -98,6 +98,10 @@ class Usctdp_Mgmt_Admin
                     'ledger_events_datatable',
                 ],
                 'context' => ['family_id', 'student_id']
+            ],
+            'earnings' => [
+                'title' => 'Earnings',
+                'ajax' => []
             ]
         ];
     }

@@ -4,7 +4,7 @@
 
 .wp-dashboard-wrapper {
     display: grid;
-    grid-template-columns: 600px 1fr;
+    grid-template-columns: 400px 1fr;
     grid-template-rows: 1fr;
     height: 90vh;
     gap: 10px;
@@ -34,4 +34,10 @@
 #balances-table tbody tr.selected-account {
     background-color: #dcc849 !important;
     border-left: 4px solid #0073aa;
+}
+
+#balances-table {
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
 }

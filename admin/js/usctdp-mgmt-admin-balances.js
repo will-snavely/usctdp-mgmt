@@ -19,6 +19,12 @@
                     d.security = usctdp_mgmt_admin.datatable_balances_nonce;
                 }
             },
+            autoWidth: false,
+            columnDefs: [
+                { width: "30%", targets: 0 },
+                { width: "20%", targets: 1 },
+                { width: "50%", targets: 2 },
+            ],
             columns: [
                 {
                     data: 'family_name',
@@ -68,17 +74,24 @@
                     d.family_id = selectedFamilyId ? selectedFamilyId : '';
                 }
             },
+            autoWidth: false,
+            columnDefs: [
+                { width: "15%", targets: 0 },
+                { width: "25%", targets: 1 },
+                { width: "50%", targets: 2 },
+                { width: "10%", targets: 3 },
+            ],
             columns: [
                 {
                     data: 'student_name',
                     defaultContent: '',
                 },
                 {
-                    data: 'activity_name',
+                    data: 'session_name',
                     defaultContent: '',
                 },
                 {
-                    data: 'session_name',
+                    data: 'activity_name',
                     defaultContent: '',
                 },
                 {

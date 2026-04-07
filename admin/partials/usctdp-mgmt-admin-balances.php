@@ -10,7 +10,7 @@
                     <thead>
                         <tr>
                             <th>Family</th>
-                            <th>Outstanding Balance</th>
+                            <th>Balance</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -30,9 +30,9 @@
                         <thead>
                             <tr>
                                 <th>Student</th>
-                                <th>Class</th>
                                 <th>Session</th>
-                                <th>Outstanding Balance</th>
+                                <th>Class</th>
+                                <th>Balance</th>
                             </tr>
                         </thead>
                         <tbody>

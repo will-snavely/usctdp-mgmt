@@ -1044,8 +1044,6 @@ class Usctdp_Mgmt_Admin_Ajax
         $length = isset($_POST['length']) ? intval($_POST['length']) : 25;
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
         $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
-        $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
-        $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
 
         if (!$family_id) {
             wp_send_json_error('No family ID provided.', 400);
