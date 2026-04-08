@@ -891,19 +891,19 @@
                         console.log(response);
                         if (response.success) {
                             if (response.data.price_change && response.data.price_change.delta != 0) {
-                                var oldPrice = parseFloat(response.data.price_change.old_price);
-                                oldPrice = oldPrice.toFixed(2);
-                                var newPrice = parseFloat(response.data.price_change.new_price);
-                                newPrice = newPrice.toFixed(2);
-                                var delta = parseFloat(response.data.price_change.delta);
-                                delta = delta.toFixed(2);
+                                const oldPrice = parseFloat(response.data.price_change.old_price);
+                                const oldPriceDisp = oldPrice.toFixed(2);
+                                const newPrice = parseFloat(response.data.price_change.new_price);
+                                const newPriceDisp = newPrice.toFixed(2);
+                                const delta = parseFloat(response.data.price_change.delta);
+                                const deltaDisp = delta.toFixed(2);
                                 window.Swal.fire({
                                     title: "Price Change",
                                     html: `
                                     The selected activity has a different price:
                                     <ul>
-                                        <li>Original Price: ${oldPrice}</li>
-                                        <li>New Price: ${newPrice}</li>
+                                        <li>Original Price: ${oldPriceDisp}</li>
+                                        <li>New Price: ${newPriceDisp}</li>
                                     </ul>
                                     Would you like to apply this adjustment to the registration price?
                                     `,
@@ -912,18 +912,20 @@
                                     denyButtonText: `No`
                                 }).then((result) => {
                                     if (result.isConfirmed) {
-                                        const ledgerEntries = USCTDP_Admin.createPriceAdjustmentLedger({
+                                        const ledgerEntries = USCTDP_Admin.createAdjustmentLedger({
                                             family_id: familyId,
                                             student_id: studentId,
                                             purchase_id: rowData.purchase_id,
-                                            amount: delta,
+                                            amount: Math.abs(delta),
                                             reason: "Registration Change",
-                                            purchase_type: rowData.purchase_type
+                                            purchase_type: rowData.purchase_type,
+                    	                    direction: newPrice < oldPrice ? "decrease" : "increase"
                                         });
                                         USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries)
                                             .then(response => {
                                                 Swal.fire("Saved!", "Price adjustment applied.", "success");
                                                 historyTable.ajax.reload();
+            					refreshFamilyBalance($('#family-selector').val(), null);
                                             })
                                             .catch(error => {
                                                 Swal.fire(
