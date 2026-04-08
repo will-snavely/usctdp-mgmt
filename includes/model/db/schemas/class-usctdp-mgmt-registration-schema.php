@@ -35,6 +35,12 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
+        'status' => [
+            'name' => 'status',
+            'type' => 'varchar',
+            'length' => '20',
+            'default' => 'active',
+        ],
         'student_level' => [
             'name' => 'student_level',
             'type' => 'tinytext',

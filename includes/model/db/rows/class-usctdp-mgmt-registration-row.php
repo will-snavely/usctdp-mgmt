@@ -14,6 +14,7 @@ class Usctdp_Mgmt_Registration_Row extends Row
         $this->id = (int) $this->id;
         $this->activity_id = (int) $this->activity_id;
         $this->student_id = (int) $this->student_id;
+        $this->status = (string) $this->status;
         $this->student_level = (string) $this->student_level;
         $this->notes = (string) $this->notes;
     }

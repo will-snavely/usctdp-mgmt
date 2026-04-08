@@ -21,6 +21,7 @@ class Usctdp_Mgmt_Registration_Table extends Table
             purchase_id bigint(20) unsigned NOT NULL,
             activity_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned NOT NULL,
+            status varchar(20) NOT NULL DEFAULT 'active',
             student_level tinytext,
             created_at datetime NOT NULL,
             created_by bigint(20) unsigned NOT NULL,

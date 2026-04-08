@@ -43,13 +43,23 @@ class Usctdp_Mgmt_Admin_Ajax
         return !empty($reg_query->items);
     }
 
-    private function get_activity_registration_count($activity_id)
+    private function get_activity_enrollment_count($activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
             'activity_id' => $activity_id,
+            'status' => 'active',
             'count' => true
         ]);
-        return $reg_query->found_items;
+        $active_registrations = $reg_query->found_items;
+
+        $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([
+            'activity_id' => $activity_id,
+            'status' => 'active',
+            'count' => true
+        ]);
+        $waitlist_registrations = $waitlist_query->found_items;
+
+        return $active_registrations + $waitlist_registrations;
     }
 
     private function get_activity_capacity($activity_id)
@@ -151,7 +161,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
         $pricing = $pricing_query->items[0];
         $capacity = (int) $activity->activity_capacity;
-        $found_posts = (int) $this->get_activity_registration_count($activity_id);
+        $found_posts = (int) $this->get_activity_enrollment_count($activity_id);
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
 
         wp_send_json_success([
@@ -296,6 +306,8 @@ class Usctdp_Mgmt_Admin_Ajax
             return null;
         }
         $current_base_price = round(floatval($current_pricing->pricing['One']), 2);
+        $current_two_day_price = round(floatval($current_pricing->pricing['Two']), 2);
+        $current_additional_day_discount = $current_two_day_price - $current_base_price;
 
         $new_activity = Usctdp_Mgmt_Model::get_activity($new_activity_id);
         if (!$new_activity) {
@@ -306,10 +318,14 @@ class Usctdp_Mgmt_Admin_Ajax
             return null;
         }
         $new_base_price = round(floatval($new_pricing->pricing['One']), 2);
+        $new_two_day_price = round(floatval($new_pricing->pricing['Two']), 2);
+        $new_additional_day_discount = $new_two_day_price - $new_base_price;
         return [
             'delta' => round($new_base_price - $current_base_price, 2),
             'old_price' => $current_base_price,
             'new_price' => $new_base_price,
+            'old_additional_day_discount' => $current_additional_day_discount,
+            'new_additional_day_discount' => $new_additional_day_discount,
         ];
     }
 
@@ -366,6 +382,7 @@ class Usctdp_Mgmt_Admin_Ajax
         $post_fields = [
             'student_level' => sanitize_text_field(...),
             'activity_id' => intval(...),
+            'status' => sanitize_text_field(...),
         ];
 
         $registration = Usctdp_Mgmt_Model::get_registration($entity_id);

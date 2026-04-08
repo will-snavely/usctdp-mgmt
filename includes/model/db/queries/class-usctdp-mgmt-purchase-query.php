@@ -88,7 +88,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     act.title as activity_name,
                     sesh.title as session_name,
                     sesh.id as session_id,
-                    reg.id as registration_id,
+                    reg.id as registration_id, reg.status as registration_status,
                     reg.student_level as registration_student_level
                 FROM {$wpdb->prefix}usctdp_purchase AS pur
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON pur.student_id = stud.id
