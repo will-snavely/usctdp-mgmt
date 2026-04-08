@@ -6,8 +6,8 @@
         var discounts = [];
 
         const MERCHANDISE_PRICING = {
-            'tshirt': usctdp_mgmt_admin.tshirt_pricing,
-            'racket': usctdp_mgmt_admin.racket_pricing
+            'tshirt': USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.tshirt_pricing),
+            'racket': USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.racket_pricing)
         };
         const paymentSettings = {
             checkoutButton: true,
@@ -126,8 +126,8 @@
             $('#clinic-preorder input[type="text"]').val('');
             $('#clinic-current-size').text(registered);
             $('#clinic-max-size').text(capacity);
-            $('#clinic-capacity .clinic-capacity-value').removeClass('full available');
-            $('#clinic-capacity .clinic-capacity-value').addClass(full ? 'full' : 'available');
+            $('#clinic-capacity .clinic-capacity-value').removeClass('red-bg green-bg');
+            $('#clinic-capacity .clinic-capacity-value').addClass(full ? 'red-bg' : 'green-bg');
             $('#student-level').val(student_level);
             $('#clinic_base_price').val(one_day_price.toFixed(2));
             $('#discount-additional-day-value').text('($' + discount.toFixed(2) + ')');
@@ -256,7 +256,7 @@
             const addRacket = $('#add_racket').is(':checked');
             const addTshirt = $('#add_tshirt').is(':checked');
             if (addRacket) {
-                const racket_pricing = parseFloat(usctdp_mgmt_admin.racket_pricing);
+                const racket_pricing = USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.racket_pricing);
                 const merch = {
                     product_id: usctdp_mgmt_admin.racket_product_id,
                     product_name: 'Wilson Tennis Racket',
@@ -268,7 +268,7 @@
                 paymentTable.addNewMerchandise(merch, racket_pricing);
             }
             if (addTshirt) {
-                const tshirt_pricing = parseFloat(usctdp_mgmt_admin.tshirt_pricing);
+                const tshirt_pricing = USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.tshirt_pricing);
                 const merch = {
                     product_id: usctdp_mgmt_admin.tshirt_product_id,
                     product_name: 'USCTDP T-Shirt',
@@ -305,7 +305,6 @@
                 student_first: studentData.first,
                 student_last: studentData.last,
             };
-
             var pricing = MERCHANDISE_PRICING[merchandiseData.code];
             const result = paymentTable.addNewMerchandise(merch, pricing);
             if (!result.success) {

@@ -1,71 +1,16 @@
+/* 
+ * Styling for the selector block at the top of the page
+ */
 .context-selector {
     width: 300px;
 }
 
-.student-name {
-    display: block;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1e293b;
-}
+/* 
+ * Styling for family financial summary blocks,
+ * e.g. overall account balance, house credit, etc.
+ */
 
-.student-age {
-    font-size: 0.80rem;
-    color: black;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-}
-
-.save-btn {
-    background-color: #4CAF50 !important;
-    color: white !important;
-}
-
-#table-filters {
-    display: flex;
-    justify-content: flex-start;
-    gap: 15px;
-}
-
-#student-filter {
-    width: 200px;
-}
-
-#session-filter {
-    width: 200px;
-}
-
-table#payment-history-table td {
-    vertical-align: top !important;
-}
-
-.activity-name {
-    display: inline-block;
-    background: #eff6ff;
-    color: black;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.balance-details-wrap {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 5px 10px;
-    align-items: top;
-    grid-auto-rows: minmax(30px, auto);
-}
-
-.class-label {
-    display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    color: black;
-    letter-spacing: 1px;
-}
-
-.family-balance {
+.family-financial-summary {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -78,7 +23,7 @@ table#payment-history-table td {
     width: fit-content;
 }
 
-.family-balance label {
+.family-financial-summary label {
     font-weight: 600;
     color: #666;
     margin-right: 8px;
@@ -86,21 +31,44 @@ table#payment-history-table td {
     text-transform: uppercase;
 }
 
-.family-balance span {
+.family-financial-summary span {
     font-weight: 700;
     color: #333;
     font-size: 1.1rem;
 }
 
-.family-balance .balance-amt {
+.family-financial-summary .balance-amt {
     padding: 4px 8px;
     border-radius: 4px;
     color: #000000;
 }
 
-.save-notes-btn {
-    width: 100px;
+/* 
+ * Styling for the overall purchase table 
+ * and the filters above the table
+ */
+
+#table-filters {
+    display: flex;
+    justify-content: flex-start;
+    gap: 15px;
 }
+
+#table-filters #student-filter {
+    width: 200px;
+}
+
+#table-filters #session-filter {
+    width: 200px;
+}
+
+table#payment-history-table td {
+    vertical-align: top !important;
+}
+
+/* 
+ * Styling for the individual purchase cards
+ */
 
 .purchase-card {
     display: flex;
@@ -120,15 +88,61 @@ table#payment-history-table td {
         border-left-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.merchandise-badge {
-    background: #c2f7c0;
-    color: rgb(0, 0, 0);
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 10px;
+.purchase-card .border-left {
+    border-left: 1px solid #d4d4d4;
+    padding-left: 15px;
+    margin-left: 5px;
+    height: 32px;
+    display: flex;
+    align-items: center;
 }
 
-.registration-badge {
+.purchase-card .student-name {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.purchase-card .student-age {
+    font-size: 0.80rem;
+    color: black;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.purchase-card .new-purchase-badge {
+    background-color: #f7adad;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #000;
+}
+
+.purchase-card .save-registration-btn {
+    background-color: #4CAF50 !important;
+    color: white !important;
+}
+
+.purchase-card .activity-name {
+    display: inline-block;
+    background: #eff6ff;
+    color: black;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.purchase-card .save-notes-btn {
+    font-size: 10px !important;
+    min-height: 20px !important;
+    height: 20px !important;
+    line-height: 20px !important;
+}
+
+.purchase-card .purchase-badge {
     padding: 2px 6px;
     border-radius: 10px;
 }
@@ -137,31 +151,33 @@ table#payment-history-table td {
     border-left-width: 10px;
 }
 
-.editing {
-    background-color: #d2fad7;
+/* Registration fields */
+.registration-fields {
+    padding: 10px;
+    border-radius: 10px;
+    transition:
+        background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        border-left-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.upper-heavy {
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #1a1a1a;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.session-select {
+.purchase-card .session-select {
     width: 400px;
 }
 
-.activity-select {
+.purchase-card .activity-select {
     width: 400px;
 }
 
-.payment-action-select {
+.purchase-card .level-wrap {
+    width: 50px;
+}
+
+/* Payment information section*/
+.purchase-card .payment-action-select {
     width: 200px;
 }
 
-.payment-info {
+.purchase-card .payment-info {
     display: flex;
     flex-direction: row;
     justify-content: center;
@@ -170,27 +186,10 @@ table#payment-history-table td {
     padding-right: 10px;
 }
 
-.level-wrap {
-    width: 50px;
-}
-
-.save-notes {
-    font-size: 10px !important;
-    min-height: 20px !important;
-    height: 20px !important;
-    line-height: 20px !important;
-}
-
+/* Notes section */
 .notes-wrap {
     width: 460px;
-}
-
-input.edit-mode,
-select.edit-mode {
-    width: 100%;
-    padding: 4px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    margin-right: 10px;
 }
 
 .notes-textarea {
@@ -218,81 +217,24 @@ select.edit-mode {
     ring: 2px rgba(59, 130, 246, 0.1);
 }
 
+.editing {
+    background-color: #d2fad7;
+}
+
+input.edit-mode,
+select.edit-mode {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
 input[readonly],
 textarea[readonly] {
     background-color: #f9fafb;
     border-color: #e5e7eb;
     color: #4b5563;
     cursor: default;
-}
-
-.amt-badge {
-    color: #000;
-    padding: 4px 8px;
-    text-align: center;
-    border-radius: 20px;
-}
-
-.new-badge {
-    background-color: #f7adad;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #000;
-}
-
-.balance-red {
-    background: #f7adad;
-}
-
-.balance-green {
-    background: #aff39c;
-}
-
-.border-left {
-    border-left: 1px solid #d4d4d4;
-    padding-left: 15px;
-    margin-left: 5px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-}
-
-.registration-fields {
-    padding: 10px;
-    border-radius: 10px;
-    transition:
-        background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-        border-left-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.registration-actions button,
-.registration-actions a {
-    width: fit-content;
-    padding: 4px 8px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #000;
-}
-
-.payment-actions {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-}
-
-.payment .view-order {
-    text-align: center;
-}
-
-.table-header-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    font-style: normal;
-    font-weight: normal;
 }
 
 .count-badge {
@@ -308,8 +250,11 @@ textarea[readonly] {
     width: 200px;
 }
 
-/* Container for the balance overview */
-.usctdp-ledger-summary {
+/* 
+ * Styling for the payment history modal
+ */
+
+dialog#payment-history-modal .usctdp-ledger-summary {
     display: flex;
     justify-content: space-between;
     background: #f9f9f9;
@@ -319,7 +264,7 @@ textarea[readonly] {
     margin-bottom: 20px;
 }
 
-.summary-label {
+dialog#payment-history-modal .summary-label {
     display: block;
     font-size: 11px;
     text-transform: uppercase;
@@ -328,22 +273,21 @@ textarea[readonly] {
     margin-bottom: 4px;
 }
 
-.summary-value {
+dialog#payment-history-modal .summary-value {
     font-size: 18px;
     font-weight: 700;
 }
 
-#payment-history-table-wrap {
+dialog#payment-history-modal #payment-history-table-wrap {
     max-height: 320px;
     overflow-y: auto;
 }
 
-/* Table styling */
-.usctdp-table.dataTable {
+dialog#payment-history-modal #payment-history-table.dataTable {
     border-collapse: collapse !important;
 }
 
-.usctdp-table thead th {
+dialog#payment-history-modal #payment-history-table thead th {
     position: sticky;
     top: 0;
     z-index: 10;
@@ -354,34 +298,38 @@ textarea[readonly] {
     border-bottom: 2px solid #dcdcde !important;
 }
 
-.usctdp-table tbody td {
+dialog#payment-history-modal #payment-history-table tbody td {
     padding: 12px !important;
     vertical-align: top;
     border-bottom: 1px solid #f0f0f1;
 }
 
-.num-col {
+dialog#payment-history-modal .num-col {
     text-align: right !important;
     font-family: 'Courier New', Courier, monospace;
     font-weight: 500;
 }
 
-.text-red {
+dialog#payment-history-modal .text-red {
     color: #d63638;
 }
 
-.text-green {
+dialog#payment-history-modal .text-green {
     color: #00a32a;
 }
 
-.balance-col {
+dialog#payment-history-modal .balance-col {
     background-color: #f6f7f7;
     font-weight: 700;
 }
 
-.text-right {
+dialog#payment-history-modal .text-right {
     text-align: right;
 }
+
+/* 
+ * Styling for the post refund modal
+ */
 
 dialog#post-refund-modal {
     max-width: 500px;

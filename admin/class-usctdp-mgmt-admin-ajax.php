@@ -296,13 +296,14 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
-    private function get_price_change($current_activity_id, $new_activity_id) {
+    private function get_price_change($current_activity_id, $new_activity_id)
+    {
         $current_activity = Usctdp_Mgmt_Model::get_activity($current_activity_id);
-        if(!$current_activity) {
+        if (!$current_activity) {
             return null;
         }
         $current_pricing = Usctdp_Mgmt_Model::get_activity_pricing($current_activity);
-        if(!$current_pricing) {
+        if (!$current_pricing) {
             return null;
         }
         $current_base_price = round(floatval($current_pricing->pricing['One']), 2);
@@ -391,7 +392,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         $price_change = 0;
-        if(isset($_POST['activity_id'])) {
+        if (isset($_POST['activity_id'])) {
             $current_activity = $registration->activity_id;
             $new_activity = intval($_POST['activity_id']);
             $price_change = $this->get_price_change($current_activity, $new_activity);
@@ -406,7 +407,7 @@ class Usctdp_Mgmt_Admin_Ajax
             );
             wp_send_json_success([
                 'updated' => $result,
-                'price_change'=> $price_change,
+                'price_change' => $price_change,
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_registration', $e);
@@ -1218,6 +1219,11 @@ class Usctdp_Mgmt_Admin_Ajax
             $line_item_id = sanitize_text_field($data['line_item_id']);
         }
 
+        $discounts = null;
+        if (isset($data['discounts'])) {
+            $discounts = json_encode($data['discounts']);
+        }
+
         return [
             "student" => $student['entity'],
             "family" => $family['entity'],
@@ -1228,6 +1234,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'product_id' => $product['id'],
                 'family_id' => $family['id'],
                 'student_id' => $student['id'],
+                'discounts' => $discounts,
             ]
         ];
     }
@@ -1373,7 +1380,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 }
 
                 $capacity = $this->get_activity_capacity($args['activity_id']);
-                $registrations = $this->get_activity_registration_count($args['activity_id']);
+                $registrations = $this->get_activity_enrollment_count($args['activity_id']);
                 if (!$ignore_full && $registrations >= $capacity) {
                     throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
                 }
@@ -1440,6 +1447,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     'product_id' => $record['product']->id,
                     'family_id' => $record['family']->id,
                     'student_id' => $record['student']->id,
+                    'discounts' => $record['sql_args']['discounts'],
                     'type' => 'merchandise',
                     'created_at' => current_time('mysql'),
                     'created_by' => get_current_user_id(),
@@ -1524,7 +1532,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 }
 
                 $capacity = $this->get_activity_capacity($args['activity_id']);
-                $registrations = $this->get_activity_registration_count($args['activity_id']);
+                $registrations = $this->get_activity_enrollment_count($args['activity_id']);
                 if (!$ignore_full && $registrations >= $capacity) {
                     throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
                 }
@@ -1559,8 +1567,6 @@ class Usctdp_Mgmt_Admin_Ajax
             }
         }
     }
-
-
     public function ajax_create_woocommerce_order()
     {
         $this->check_nonce('create_woocommerce_order');

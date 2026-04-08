@@ -707,6 +707,7 @@
 
         addNewMerchandise(data, price) {
             data.type = 'merchandise';
+            data.base_price = price;
             return this.addItem(data, price, 0);
         }
 
@@ -888,7 +889,7 @@
                     account: "payment_" + paymentMethod,
                     payment_method: paymentMethod,
                     reference_id: checkNumber ?? null,
-                    debit: parseFloat(lineItem.debit).toFixed(2),
+                    debit: parseFloat(lineItem.credit).toFixed(2),
                     credit: parseFloat(0).toFixed(2),
                     entry_type: "payment",
                     event: event + " - Payment"

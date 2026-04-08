@@ -35,7 +35,8 @@
                     </div>
                     <div class="modal_field">
                         <label for="refund-amount">Amount ($)</label>
-                        <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0" required placeholder="0.00">
+                        <input type="number" id="refund-amount" name="refund-amount" step="0.01" min="0" required
+                            placeholder="0.00">
                     </div>
                     <div class="modal_field" id="method-field-wrapper">
                         <label for="refund-method">Payout Method</label>
@@ -49,12 +50,14 @@
                     </div>
                     <div class="modal_field">
                         <label for="refund-reason">Reason / Internal Note</label>
-                        <input type="text" id="refund-reason" name="refund-reason" required placeholder="e.g., Injury, Class move, Sibling discount">
+                        <input type="text" id="refund-reason" name="refund-reason" required
+                            placeholder="e.g., Injury, Class move, Sibling discount">
                     </div>
                 </div>
 
                 <div class="actions-footer">
-                    <button type="submit" class="button button-primary" id="post-refund-btn">Process Transaction</button>
+                    <button type="submit" class="button button-primary" id="post-refund-btn">Process
+                        Transaction</button>
                     <button type="button" class="button" id="close-refund-modal">Cancel</button>
                 </div>
             </form>
@@ -97,11 +100,11 @@
         <div id="history-container" class="hidden">
             <h2>Purchase History for <span id="family-name"></span></h2>
             <div id="family-balance-section" class="flex-row gap-10">
-                <div class="family-balance">
+                <div class="family-financial-summary">
                     <label>Balance</label>
                     <span id="family-total-balance" class="balance-amt"></span>
                 </div>
-                <div class="family-balance">
+                <div class="family-financial-summary">
                     <label>House<br>Credit</label>
                     <span id="family-total-house-credit" class="balance-amt"></span>
                 </div>

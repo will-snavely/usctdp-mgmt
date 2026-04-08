@@ -30,20 +30,20 @@
                 success: function (response) {
                     $('#family-total-balance').text(USCTDP_Admin.formatUsd(response.data.balance));
                     if (response.data.balance > 0) {
-                        $('#family-total-balance').addClass('balance-red');
-                        $('#family-total-balance').removeClass('balance-green');
+                        $('#family-total-balance').addClass('red-bg');
+                        $('#family-total-balance').removeClass('green-bg');
                     } else {
-                        $('#family-total-balance').addClass('balance-green');
-                        $('#family-total-balance').removeClass('balance-red');
+                        $('#family-total-balance').addClass('green-bg');
+                        $('#family-total-balance').removeClass('red-bg');
                     }
 
                     $('#family-total-house-credit').text(USCTDP_Admin.formatUsd(response.data.house_credit));
                     if (response.data.house_credit > 0) {
-                        $('#family-total-house-credit').addClass('balance-green');
-                        $('#family-total-house-credit').removeClass('balance-red');
+                        $('#family-total-house-credit').addClass('green-bg');
+                        $('#family-total-house-credit').removeClass('red-bg');
                     } else {
-                        $('#family-total-house-credit').addClass('balance-red');
-                        $('#family-total-house-credit').removeClass('balance-green');
+                        $('#family-total-house-credit').addClass('red-bg');
+                        $('#family-total-house-credit').removeClass('green-bg');
                     }
 
                 }
@@ -114,7 +114,7 @@
 
         function renderAmountBadge(label, value, classes = []) {
             return `
-                <div class="flex-col gap-5 align-center amount-badge">
+                <div class="flex-col gap-5 align-center">
                     <label class="upper-heavy">${label}</label>
                     <span class="badge ${classes.join(' ')}">${value}</span>
                 </div>
@@ -162,7 +162,7 @@
                 <div class="notes-wrap flex-col gap-5">
                     <div class="flex-row gap-10 align-end">
                         <label class="upper-heavy">Notes</label>
-                        <button id="save-notes-${idx}" class="button button-small save-notes" disabled>Save</button>
+                        <button id="save-notes-${idx}" class="button button-small save-notes-btn" disabled>Save</button>
                     </div>
                     <textarea rows=3 id="notes-input-${idx}" class="notes-input">${notes}</textarea>
                 </div>`;
@@ -204,7 +204,7 @@
                     ${renderStudentInfo(studentFirst, studentLast, studentAge)}
                     <div class="border-left">
                         <div class="purchase-actions flex-row gap-10 align-center">
-                            <span class="registration-badge blue-bg upper-heavy">Registration</span>
+                            <span class="purchase-badge blue-bg upper-heavy">Registration</span>
                             ${newPurchaseBadge}
                             <button id="edit-activity-${idx}" class="button button-small edit-activity" data-state="edit">
                                 Modify
@@ -271,15 +271,10 @@
                     <div class="checkbox-wrap">
                         <input type="checkbox" class="row-check" value="${purchaseId}">
                     </div>
-                    <div class="student-name-wrap">
-                        <span class="student-name">${studentFirst} ${studentLast}</span>
-                    </div>
-                    <div class="student-age-wrap">
-                        <span class="student-age">Age: ${studentAge}</span>
-                    </div>
+                    ${renderStudentInfo(studentFirst, studentLast, studentAge)}
                     <div class="border-left">
                         <div class="purchase-actions flex-row gap-5 align-center">
-                            <span class="merchandise-badge">Merchandise</span>
+                            <span class="purchase-badge green-bg upper-heavy">Merchandise</span>
                             <div class="product-wrap">
                                 <span class="product-name">${productName}</span>
                             </div>
@@ -857,7 +852,7 @@
             if (state == "edit") {
                 $button.text("Save");
                 $button.data("state", "save");
-                $button.addClass('save-btn');
+                $button.addClass('save-registration-btn');
                 $row.find('.purchase-card .registration-fields').addClass('editing');
                 $row.find(".ledger-action").prop('disabled', true);
                 $row.find('select').prop('disabled', false);
@@ -874,7 +869,7 @@
 
                 $button.text("Edit");
                 $button.data("state", "edit");
-                $button.removeClass('save-btn');
+                $button.removeClass('save-registration-btn');
                 $row.find('.purchase-card .registration-fields').removeClass('editing');
                 $row.find('select').prop('disabled', true);
                 $row.find('input').prop('readonly', true);
@@ -919,13 +914,13 @@
                                             amount: Math.abs(delta),
                                             reason: "Registration Change",
                                             purchase_type: rowData.purchase_type,
-                    	                    direction: newPrice < oldPrice ? "decrease" : "increase"
+                                            direction: newPrice < oldPrice ? "decrease" : "increase"
                                         });
                                         USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries)
                                             .then(response => {
                                                 Swal.fire("Saved!", "Price adjustment applied.", "success");
                                                 historyTable.ajax.reload();
-            					refreshFamilyBalance($('#family-selector').val(), null);
+                                                refreshFamilyBalance($('#family-selector').val(), null);
                                             })
                                             .catch(error => {
                                                 Swal.fire(
