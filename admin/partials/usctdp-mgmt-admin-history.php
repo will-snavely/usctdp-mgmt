@@ -12,17 +12,17 @@
         <dialog id="post-refund-modal">
             <h2>Financial Adjustment & Refund</h2>
             <form id="refund-form">
-                <div id="refund-action">
+                <div id="refund-action" class="flex-col gap-10">
                     <label for="refund-mode">Action Type</label>
                     <select id="refund-mode" name="refund-mode" required>
                         <option value="">Select Action</option>
-                        <option value="standard">Complete Refund</option>
+                        <option value="standard">Refund (Adjustment + Payout)</option>
                         <option value="adjust_only">Adjustment Only</option>
                         <option value="payout_only">Payout Only</option>
                     </select>
-                    <p class="field-help">
+                    <div class="field-help">
                         <span id="mode-description">Select an action to continue.</span>
-                    </p>
+                    </div>
                 </div>
                 <div id="refund-fields" class="modal_field_group hidden">
                     <div class="modal_field" id="direction-field-wrapper">
@@ -40,13 +40,17 @@
                     </div>
                     <div class="modal_field" id="method-field-wrapper">
                         <label for="refund-method">Payout Method</label>
-                        <select id="refund-method" name="refund-method">
+                        <select id="refund-method" name="refund-method" required>
                             <option value="">Select Method</option>
                             <option value="house_credit">House Credit</option>
                             <option value="cash">Cash</option>
                             <option value="check">Check</option>
                             <option value="card">Card/PayPal</option>
                         </select>
+                    </div>
+                    <div class="modal_field hidden" id="check-number-field-wrapper">
+                        <label for="refund-check-number">Check #</label>
+                        <input type="text" id="refund-check-number" name="refund-check-number">
                     </div>
                     <div class="modal_field">
                         <label for="refund-reason">Reason / Internal Note</label>
@@ -56,8 +60,9 @@
                 </div>
 
                 <div class="actions-footer">
-                    <button type="submit" class="button button-primary" id="post-refund-btn">Process
-                        Transaction</button>
+                    <button type="submit" class="button button-primary" id="post-refund-btn">
+                        Submit
+                    </button>
                     <button type="button" class="button" id="close-refund-modal">Cancel</button>
                 </div>
             </form>
@@ -82,8 +87,8 @@
                             <th>Date</th>
                             <th>Type</th>
                             <th>Event</th>
-                            <th>Charge</th>
-                            <th>Payment</th>
+                            <th>Debit</th>
+                            <th>Credit</th>
                             <th>Balance</th>
                         </tr>
                     </thead>
@@ -106,7 +111,7 @@
                 </div>
                 <div class="family-financial-summary">
                     <label>House<br>Credit</label>
-                    <span id="family-total-house-credit" class="balance-amt"></span>
+                    <span id="family-total-house-credit" class="balance-amt green-bg"></span>
                 </div>
             </div>
             <div id="history-table-wrap">

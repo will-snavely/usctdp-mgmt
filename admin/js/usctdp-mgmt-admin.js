@@ -17,7 +17,6 @@
             } else {
                 throw new Error(response.data || 'Server error');
             }
-
         } catch (error) {
             console.error('Ledger Entry Creation Failed:', error.statusText || error.message);
             throw error;
@@ -28,6 +27,18 @@
         return parseFloat(value) || 0;
     }
 
+    USCTDP_Admin.formatSnakeCase = function (str) {
+        if (!str) return "";
+        return str
+            .replace(/_+/g, " ")
+            .trim()
+            .split(" ")
+            .map(word => {
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            })
+            .join(" ");
+    }
+
     USCTDP_Admin.createAdjustmentLedger = function (args) {
         const {
             family_id, student_id, purchase_id,
@@ -36,6 +47,8 @@
         } = args;
 
         const timestampSeconds = Math.floor(Date.now() / 1000);
+        const directionStr = direction.charAt(0).toUpperCase() + direction.slice(1);
+        const eventStr = `Price Adjustment (${directionStr}) - ${reason}`;
         var results = [];
         var ledgerBase = {
             family_id: family_id,
@@ -43,7 +56,7 @@
             purchase_id: purchase_id,
             order_id: null,
             event_id: event_id_prefix + "_" + timestampSeconds,
-            event: `Price Adjustment (${direction.toUpperCase()}) - ${reason}`
+            event: eventStr
         }
 
         const zero = "0.00";
@@ -70,18 +83,23 @@
         const {
             family_id, student_id, purchase_id,
             amount, method, reason, purchase_type,
-            event_id_prefix = "refund_payout"
+            event_id_prefix = "refund_payout",
+            check_number = null
         } = args;
 
         var results = [];
         const timestampSeconds = Math.floor(Date.now() / 1000);
+        const checkStr = check_number ? ` #${check_number}` : "";
+        const methodStr = USCTDP_Admin.formatSnakeCase(method) + checkStr;
+        const eventStr = `Refund Payout (${methodStr}) - ${reason}`;
+
         var ledgerBase = {
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
             order_id: null,
             event_id: event_id_prefix + "_" + timestampSeconds,
-            event: `Refund Payout (${method.toUpperCase()}) - ${reason}`
+            event: eventStr
         };
 
         const zero = "0.00";
@@ -112,7 +130,7 @@
     USCTDP_Admin.createRefundLedger = function (args) {
         const {
             amount, method, reason, purchase_type,
-            family_id, student_id, purchase_id,
+            family_id, student_id, purchase_id, check_number
         } = args;
         const adjustmentLedger = USCTDP_Admin.createAdjustmentLedger({
             family_id: family_id,
@@ -131,6 +149,7 @@
             method: method,
             reason: reason,
             purchase_type: purchase_type,
+            check_number: check_number
         });
         return adjustmentLedger.concat(payoutLedger);
     }
@@ -847,7 +866,7 @@
                     debit: parseFloat(lineItem.base_price).toFixed(2),
                     credit: zero,
                     entry_type: "charge",
-                    event: event + " - Base Fee"
+                    event: "Base Fee"
                 });
 
                 result.push({
@@ -856,7 +875,7 @@
                     debit: zero,
                     credit: parseFloat(lineItem.base_price).toFixed(2),
                     entry_type: "charge",
-                    event: event + " - Base Fee"
+                    event: "Base Fee"
                 });
 
                 if (lineItem.discounts) {
@@ -882,7 +901,9 @@
                     }
                 }
             }
-
+            const checkStr = checkNumber ? ` #${checkNumber}` : "";
+            const methodStr = USCTDP_Admin.formatSnakeCase(paymentMethod) + checkStr;
+            const eventStr = `Payment (${methodStr})`;
             if (lineItem.credit > 0) {
                 result.push({
                     ...ledgerBase,
@@ -892,7 +913,7 @@
                     debit: parseFloat(lineItem.credit).toFixed(2),
                     credit: parseFloat(0).toFixed(2),
                     entry_type: "payment",
-                    event: event + " - Payment"
+                    event: eventStr
                 });
 
                 result.push({
@@ -903,7 +924,7 @@
                     debit: parseFloat(0).toFixed(2),
                     credit: parseFloat(lineItem.credit).toFixed(2),
                     entry_type: "payment",
-                    event: event + " - Payment"
+                    event: eventStr
                 });
             }
             return result;
