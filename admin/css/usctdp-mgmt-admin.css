@@ -75,6 +75,10 @@ div.dt-length select {
     pointer-events: none;
 }
 
+.context-selector {
+    width: 100%;
+}
+
 .context-selector-group {
     display: flex;
     flex-direction: column;

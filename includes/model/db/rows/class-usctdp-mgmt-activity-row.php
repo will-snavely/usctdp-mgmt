@@ -17,6 +17,6 @@ class Usctdp_Mgmt_Activity_Row extends Row
         $this->search_term = $this->search_term;
         $this->session_id = (int) $this->session_id;
         $this->product_id = (int) $this->product_id;
-        $this->type = Usctdp_Activity_Type::from($this->type);
+        $this->type = (string) $this->type;
     }
 }

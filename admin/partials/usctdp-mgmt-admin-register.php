@@ -12,7 +12,6 @@
                             <th>First Name</th>
                             <th>Last Name</th>
                             <th>Age</th>
-                            <th>Level</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -23,7 +22,46 @@
                 <button type="button" class="button" id="close-view-roster-modal">Close</button>
             </div>
         </dialog>
+
+        <dialog id="view-waitlist-modal">
+            <h2>Waitlist For: <span id="waitlist-clinic-name"></span></h2>
+            <div id="view-waitlist-table-wrap">
+                <table id="view-waitlist-table" class="usctdp-datatable">
+                    <thead>
+                        <tr>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Age</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+            <div class="actions-footer">
+                <button type="button" class="button" id="close-view-roster-modal">Close</button>
+            </div>
+        </dialog>
+
         <div id="registration-info" class="flex-col gap-20">
+            <div id="preloaded-data" class="flex-col gap-10 hidden">
+                <div id="preloaded-family" class="hidden preload-field">
+                    <span class="preload-label upper-heavy">Family</span>
+                    <span id="preloaded-family-name"></span>
+                </div>
+                <div id="preloaded-student" class="hidden preload-field">
+                    <span class="preload-label upper-heavy">Student</span>
+                    <span id="preloaded-student-name"></span>
+                </div>
+                <div id="preloaded-session" class="hidden preload-field">
+                    <span class="preload-label upper-heavy">Session</span>
+                    <span id="preloaded-session-name"></span>
+                </div>
+                <div id="preloaded-activity" class="hidden preload-field">
+                    <span class="preload-label upper-heavy">Activity</span>
+                    <span id="preloaded-activity-name"></span>
+                </div>
+            </div>
             <div id="context-selection">
                 <div id="context-selection-header" class="section-header">
                     <h2>Select Item</h2>
@@ -48,6 +86,18 @@
                             <div id="view-roster-wrap">
                                 <button id="view-roster-btn" class="button button-secondary">
                                     View Roster
+                                </button>
+                            </div>
+                        </div>
+                        <div id="clinic-waitlist" class="flex-row gap-10 align-center">
+                            <span class="clinic-capacity-label">Waitlist</span>
+                            <span class="clinic-capacity-value">
+                                <span id="clinic-waitlist-size"></span>
+                                Waiting
+                            </span>
+                            <div id="view-waitlist-wrap">
+                                <button id="view-waitlist-btn" class="button button-secondary">
+                                    View Waitlist
                                 </button>
                             </div>
                         </div>

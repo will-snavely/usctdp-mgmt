@@ -4,6 +4,10 @@
     $(document).ready(function () {
         var preloadedData = {};
         var discounts = [];
+        var selectedFamily;
+        var selectedStudent;
+        var selectedActivity;
+        var selectedMerchandise;
 
         const MERCHANDISE_PRICING = {
             'tshirt': USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.tshirt_pricing),
@@ -116,15 +120,16 @@
         }
 
         function bind_clinic_info(info) {
-            const { registered, capacity, pricing, student_level } = info;
-            const full = registered >= capacity;
+            const { active, waitlist, capacity, pricing, student_level } = info;
+            const full = active >= capacity;
             const one_day_price = parseFloat(pricing['One']);
             const two_day_price = parseFloat(pricing['Two']);
             const diff = two_day_price - one_day_price;
             const discount = one_day_price - diff;
             $('#clinic-preorder input[type="checkbox"]').prop('checked', false);
             $('#clinic-preorder input[type="text"]').val('');
-            $('#clinic-current-size').text(registered);
+            $('#clinic-current-size').text(active);
+            $('#clinic-waitlist-size').text(waitlist);
             $('#clinic-max-size').text(capacity);
             $('#clinic-capacity .clinic-capacity-value').removeClass('red-bg green-bg');
             $('#clinic-capacity .clinic-capacity-value').addClass(full ? 'red-bg' : 'green-bg');
@@ -168,7 +173,6 @@
                 const info = await getPreregistrationInfo(clinicId, studentId);
                 bind_clinic_info(info);
                 discounts = [];
-
                 if (info.student_registered) {
                     set_notification(
                         'student-registered',
@@ -195,7 +199,7 @@
 
         async function loadActivityRegistration(activityId, activityType, studentId) {
             $('#notifications-section').children().remove();
-            if (activityType === 1) { // Clinic
+            if (activityType === "clinic") { // Clinic
                 await loadClinicRegistration(activityId, studentId);
             }
         }
@@ -219,23 +223,20 @@
 
 
         $('#add-clinic-registration').on('click', function () {
-            const activityName = $('#activity-selector option:selected').text();
-            var displayActivityName = checkoutActivityName(activityName);
-            const studentData = $("#student-selector").select2('data')[0];
-            const activityData = $("#activity-selector").select2('data')[0];
+            var displayActivityName = checkoutActivityName(selectedActivity.name);
             const familyId = $("#family-selector").val();
 
             const registration = {
-                activity_id: $('#activity-selector').val(),
+                activity_id: selectedActivity.id,
                 activity_name: displayActivityName,
-                product_id: activityData.product_id,
-                student_id: $('#student-selector').val(),
-                family_id: familyId,
-                student_first: studentData.first,
-                student_last: studentData.last,
+                product_id: selectedActivity.product_id,
+                student_id: selectedStudent.id,
+                family_id: selectedFamily.id,
+                student_first: selectedStudent.first,
+                student_last: selectedStudent.last,
                 student_level: $('#student-level').val(),
-                session_id: $('#session-selector').val(),
-                session_name: $('#session-selector option:selected').text(),
+                session_id: selectedActivity.session_id,
+                session_name: selectedActivity.session_name,
                 discounts: discounts,
                 notes: $('#clinic-notes').val()
             };
@@ -262,8 +263,8 @@
                     product_name: 'Wilson Tennis Racket',
                     student_id: $('#student-selector').val(),
                     family_id: familyId,
-                    student_first: studentData.first,
-                    student_last: studentData.last,
+                    student_first: selectedStudent.first,
+                    student_last: selectedStudent.last,
                 };
                 paymentTable.addNewMerchandise(merch, racket_pricing);
             }
@@ -274,15 +275,20 @@
                     product_name: 'USCTDP T-Shirt',
                     student_id: $('#student-selector').val(),
                     family_id: familyId,
-                    student_first: studentData.first,
-                    student_last: studentData.last,
+                    student_first: selectedStudent.first,
+                    student_last: selectedStudent.last,
                 };
                 paymentTable.addNewMerchandise(merch, tshirt_pricing);
             }
+
             clearNotifications();
             togglePreorderDetails(false);
             togglePaymentTable(true);
-            $('#activity-selector').val(null).trigger('change');
+            if ('activity-selector' in selectorConfig) {
+                $('#activity-selector').val(null).trigger('change');
+            } else if ('student-selector' in selectorConfig) {
+                $('#student-selector').val(null).trigger('change');
+            }
         });
 
         $('#view-roster').on('click', function () {
@@ -346,6 +352,14 @@
             togglePaymentTable(false);
             $('#family-selector').prop('disabled', false);
             $('#family-selector-section .context-selector-label-wrap .edit-note').remove();
+
+            if (usctdp_mgmt_admin.preload.student_id && usctdp_mgmt_admin.preload.activity_id) {
+                $("#context-selection").addClass("hidden");
+                loadActivityRegistration(
+                    selectedActivity.id,
+                    selectedActivity.type,
+                    selectedStudent.id);
+            }
         });
 
         $('#payment-table-section').on('payment:checkout', function () {
@@ -355,7 +369,6 @@
             $('#notifications-section').addClass('hidden');
             $('#registration-container').removeClass('edit-order-mode');
             $('#registration-container').addClass('checkout-mode');
-
         });
 
         $('#payment-table-section').on('payment:modify', function () {
@@ -427,27 +440,124 @@
             },
         };
 
+        if (usctdp_mgmt_admin.preload.student_id) {
+            const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+            delete selectorConfig['family-selector'];
+            delete selectorConfig['student-selector'];
+            selectorConfig['session-selector'].isRoot = true;
+            selectedStudent = {
+                id: preloadedStudent.student_id,
+                first: preloadedStudent.student_first,
+                last: preloadedStudent.student_last,
+                name: preloadedStudent.student_name
+            };
+            selectedFamily = {
+                id: preloadedStudent.family_id,
+                name: preloadedStudent.family_name
+            };
+
+            $('#preloaded-data').removeClass("hidden");
+            $('#preloaded-family-name').text(selectedFamily.name);
+            $('#preloaded-family').removeClass('hidden');
+            $('#preloaded-student-name').text(selectedStudent.name);
+            $('#preloaded-student').removeClass('hidden');
+        }
+
+        if (usctdp_mgmt_admin.preload.activity_id) {
+            const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
+
+            delete selectorConfig['session-selector'];
+            delete selectorConfig['activity-selector'];
+            delete selectorConfig['merchandise-selector'];
+
+            if ('student-selector' in selectorConfig) {
+                selectorConfig['student-selector'].next = null;
+            }
+            selectedActivity = {
+                id: preloadedActivity.activity_id,
+                name: preloadedActivity.activity_name,
+                type: preloadedActivity.activity_type,
+                session_id: preloadedActivity.session_id,
+                session_name: preloadedActivity.session_name
+            };
+
+            $('#preloaded-data').removeClass("hidden");
+            $('#preloaded-session-name').text(selectedActivity.session_name);
+            $('#preloaded-session').removeClass('hidden');
+            $('#preloaded-activity-name').text(selectedActivity.name);
+            $('#preloaded-activity').removeClass('hidden');
+        }
+
         const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
 
         $('#context-selectors').on('cascade:change', function (e) {
             const { selectorId, value, complete } = e.detail;
             clearNotifications();
             togglePreorderDetails(false);
+
+            if (selectorId === 'family-selector') {
+                if (value) {
+                    var familyData = $('#family-selector').select2('data')[0];
+                    selectedFamily = {
+                        id: value,
+                        name: familyData.text
+                    };
+                } else {
+                    selectedFamily = null;
+                }
+            }
+
+            if (selectorId === 'student-selector') {
+                if (value) {
+                    var studentData = $('#student-selector').select2('data')[0];
+                    selectedStudent = {
+                        id: value,
+                        first: studentData.first,
+                        last: studentData.last,
+                        name: studentData.text
+                    };
+                } else {
+                    selectedStudent = null;
+                }
+            }
+
+            if (selectorId === 'activity-selector') {
+                if (value) {
+                    const sessionData = $("#session-selector").select2('data')[0];
+                    const activityData = $("#activity-selector").select2('data')[0];
+                    const activityType = activityData.type;
+                    selectedActivity = {
+                        id: value,
+                        name: activityData.text,
+                        type: activityType,
+                        session_id: sessionData.id,
+                        session_name: sessionData.text
+                    };
+                } else {
+                    selectedActivity = null;
+                }
+            }
+
+            if (selectorId === 'merchandise-selector') {
+                if (value) {
+                    const merchandiseData = $("#merchandise-selector").select2('data')[0];
+                    selectedMerchandise = {
+                        id: value,
+                        name: merchandiseData.text,
+                        type: merchandiseData.type,
+                        code: merchandiseData.code
+                    };
+                } else {
+                    selectedMerchandise = null;
+                }
+            }
+
             if (complete && value) {
                 $('#preorder-details .preorder-subtype').addClass('hidden');
-                if (selectorId === 'activity-selector') {
-                    const activityId = value;
-                    const studentId = $('#student-selector').val()
-                    if (activityId && studentId) {
-                        const activityData = $("#activity-selector").select2('data')[0];
-                        const activityType = activityData.type;
-                        loadActivityRegistration(activityId, activityType, studentId);
-                    }
-                } else if (selectorId === 'merchandise-selector') {
-                    const merchandiseId = value;
-                    const merchandiseData = $("#merchandise-selector").select2('data')[0];
-                    const merchandiseCode = merchandiseData.code;
-                    loadMerchandiseRegistration(merchandiseId, merchandiseCode);
+                if (selectedActivity && selectedStudent) {
+                    loadActivityRegistration(selectedActivity.id, selectedActivity.type, selectedStudent.id);
+                } else if (selectedMerchandise) {
+                    loadMerchandiseRegistration(selectedMerchandise.id, selectedMerchandise.code);
                 } else if (selectorId === 'session-selector' && value === 'new_session') {
                     togglePreorderDetails(true, "new-session-preorder");
                 }
@@ -466,10 +576,9 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    var activityFilterValue = $('#activity-selector').val();
                     d.action = usctdp_mgmt_admin.registrations_datatable_action;
                     d.security = usctdp_mgmt_admin.registrations_datatable_nonce;
-                    d.activity_id = activityFilterValue;
+                    d.activity_id = selectedActivity.id;
                 }
             },
             columns: [
@@ -479,41 +588,23 @@
                 { data: 'registration_student_level' },
             ]
         });
+
         $('#view-roster-btn').on('click', function () {
-            const activityData = $("#activity-selector").select2('data')[0];
-            $('#roster-clinic-name').text(activityData.text);
+            $('#roster-clinic-name').text(selectedActivity.name);
             viewRosterModal.showModal();
             viewRosterTable.ajax.reload();
         });
+
         $('#close-view-roster-modal').on('click', function () {
             viewRosterModal.close();
         });
 
-        if (usctdp_mgmt_admin.preload) {
-            if (usctdp_mgmt_admin.preload.family_id) {
-                const preloadedFamily = Object.values(usctdp_mgmt_admin.preload.family_id)[0]
-                preloadedData['family-selector'] = {
-                    id: preloadedFamily.id,
-                    text: preloadedFamily.title,
-                    disable: true
-                }
-                $('#context-selectors').addClass('hidden');
-            }
-
-            if (usctdp_mgmt_admin.preload.student_id) {
-                const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
-                preloadedData['family-selector'] = {
-                    id: preloadedStudent.family_id,
-                    text: preloadedStudent.family_name,
-                    disable: true
-                }
-                preloadedData['student-selector'] = {
-                    id: preloadedStudent.student_id,
-                    text: preloadedStudent.student_name,
-                    disable: true
-                }
-            }
-            selectHandler.applyData(preloadedData);
+        if (usctdp_mgmt_admin.preload.student_id && usctdp_mgmt_admin.preload.activity_id) {
+            $("#context-selection").addClass("hidden");
+            loadActivityRegistration(
+                selectedActivity.id,
+                selectedActivity.type,
+                selectedStudent.id);
         }
     });
 })(jQuery);

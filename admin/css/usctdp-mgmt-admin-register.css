@@ -11,6 +11,19 @@
     gap: 10px;
 }
 
+.preload-field {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.preload-field .preload-label {
+    min-width: 65px;
+    text-align: right;
+    font-size: 0.8rem;
+}
+
+
 #registration-info,
 #payment-table-section {
     background: #fff;
@@ -101,6 +114,10 @@
 #context-selectors {
     padding: 10px;
     margin-left: 10px;
+}
+
+.context-selector {
+    width: 370px;
 }
 
 .section-header {

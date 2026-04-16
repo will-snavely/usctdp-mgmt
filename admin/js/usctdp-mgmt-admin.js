@@ -254,15 +254,24 @@
             this.trigger('ready', { state: this.state });
         }
 
+        reset() {
+            Object.entries(this.config).forEach(([id, settings]) => {
+                if (settings.isRoot) {
+                    $(`#${id}`).val('').trigger('change');
+                }
+            });
+        }
+
         renderSection(id, settings) {
             const isVisible = settings.isRoot ? '' : 'hidden';
+            const required = settings.required ? 'required' : '';
             const html = `
                 <div id="${id}-section" class="context-selector-section ${isVisible}">
                     <div class="context-selector-label-wrap">
                         <label for="${id}" class="context-selector-label">${settings.label}</label>
                     </div>
                     <div class="context-selector-wrap">
-                        <select id="${id}" name="${settings.name}" class="context-selector" style="width:100%">
+                        <select id="${id}" name="${settings.name}" class="context-selector" ${required}>
                         </select>
                     </div>
                 </div>`;
@@ -272,15 +281,17 @@
 
         initSelect2(id, settings) {
             const $el = $(`#${id}`);
-            $el.select2(
-                select2Options({
-                    placeholder: `Select ${settings.label}...`,
-                    allowClear: true,
-                    target: settings.target,
-                    filter: settings.filter,
-                    pinnedOptions: settings.pinnedOptions
-                })
-            );
+            var args = {
+                placeholder: `Select ${settings.label}...`,
+                allowClear: true,
+                target: settings.target,
+                filter: settings.filter,
+                pinnedOptions: settings.pinnedOptions,
+            }
+            if (settings.dropdownParent) {
+                args.dropdownParent = settings.dropdownParent;
+            }
+            $el.select2(select2Options(args));
         }
 
         handleChange($el) {

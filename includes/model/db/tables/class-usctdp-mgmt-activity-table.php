@@ -20,7 +20,7 @@ class Usctdp_Mgmt_Activity_Table extends Table
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             session_id bigint(20) unsigned NOT NULL,
             product_id bigint(20) unsigned NOT NULL,
-            type tinyint,
+            type varchar(50) NOT NULL,
             title tinytext,
             level tinytext,
             search_term tinytext,

@@ -30,6 +30,8 @@ class Usctdp_Mgmt_Admin_Ajax
         'update_family' => 'ajax_update_family',
         'update_registration' => 'ajax_update_registration',
         'update_purchase' => 'ajax_update_purchase',
+        'waitlist_add' => 'ajax_waitlist_add',
+        'waitlist_remove' => 'ajax_waitlist_remove',
         'waitlist_datatable' => 'ajax_waitlist_datatable',
     ];
 
@@ -43,7 +45,7 @@ class Usctdp_Mgmt_Admin_Ajax
         return !empty($reg_query->items);
     }
 
-    private function get_activity_enrollment_count($activity_id)
+    private function get_activity_enrollment_counts($activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
             'activity_id' => $activity_id,
@@ -59,7 +61,11 @@ class Usctdp_Mgmt_Admin_Ajax
         ]);
         $waitlist_registrations = $waitlist_query->found_items;
 
-        return $active_registrations + $waitlist_registrations;
+        return [
+            'active' => $active_registrations,
+            'waitlist' => $waitlist_registrations,
+            'total' => $active_registrations + $waitlist_registrations
+        ];
     }
 
     private function get_activity_capacity($activity_id)
@@ -161,7 +167,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
         $pricing = $pricing_query->items[0];
         $capacity = (int) $activity->activity_capacity;
-        $found_posts = (int) $this->get_activity_enrollment_count($activity_id);
+        $enrollment_counts = $this->get_activity_enrollment_counts($activity_id);
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
 
         wp_send_json_success([
@@ -169,7 +175,9 @@ class Usctdp_Mgmt_Admin_Ajax
             'session_id' => $activity->session_id,
             'product_id' => $activity->product_id,
             'woocommerce_id' => $activity->product_woocommerce_id,
-            'registered' => $found_posts,
+            'enrollment' => $enrollment_counts['total'],
+            'active' => $enrollment_counts['active'],
+            'waitlist' => $enrollment_counts['waitlist'],
             'student_registered' => $student_registered,
             'student_level' => $student->level,
             'pricing' => $pricing->pricing
@@ -212,7 +220,7 @@ class Usctdp_Mgmt_Admin_Ajax
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
             $document = null;
-            if ($target['type'] === Usctdp_Activity_Type::Clinic) {
+            if ($target['type'] === 'clinic') {
                 $document = $doc_gen->generate_clinic_roster($target['id']);
             } elseif ($target['type'] === 'session') {
                 $document = $doc_gen->generate_session_roster($target['id']);
@@ -1637,4 +1645,55 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
+    public function ajax_waitlist_add()
+    {
+        $this->check_nonce('waitlist_add');
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : null;
+        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+
+        $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([
+            'activity_id' => $activity_id,
+            'student_id' => $student_id,
+        ]);
+
+        if (!empty($waitlist_query->items)) {
+            wp_send_json_success('Student is already on the waitlist for this activity.');
+        } else {
+            $result = $waitlist_query->add_item([
+                'activity_id' => $activity_id,
+                'student_id' => $student_id,
+                'created_at' => current_time('mysql'),
+                'status' => 'pending',
+            ]);
+            if($result) {
+                wp_send_json_success($result);
+            } else {
+                wp_send_json_error('Failed to add student to waitlist.');
+            }
+        }
+    }
+
+    public function ajax_waitlist_remove()
+    {
+        $this->check_nonce('waitlist_remove');
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : null;
+        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+
+        $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([
+            'activity_id' => $activity_id,
+            'student_id' => $student_id,
+            'number' => 1,
+        ]);
+        if (empty($waitlist_query->items)) {
+            wp_send_json_success('Student is not on the waitlist for this activity.');
+        } else {
+            $id = $waitlist_query->items[0]->id;
+            $result = $waitlist_query->delete_item($id);
+            if($result) {
+                wp_send_json_success($result);
+            } else {
+                wp_send_json_error('Failed to remove student from waitlist.');
+            }
+        }
+    }
 }

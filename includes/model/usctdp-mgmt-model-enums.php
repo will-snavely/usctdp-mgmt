@@ -15,22 +15,6 @@ enum Usctdp_Day_Of_Week: int
     case Sunday = 7;
 }
 
-enum Usctdp_Activity_Type: int
-{
-    case Clinic = 1;
-    case Tournament = 2;
-    case Camp = 3;
-}
-
-enum Usctdp_Product_Type: int
-{
-    case Clinic = 1;
-    case Tournament = 2;
-    case Camp = 3;
-    case SpecialEvent = 4;
-    case Equipment = 5;
-}
-
 enum Usctdp_Age_Group: int
 {
     case None = 0;

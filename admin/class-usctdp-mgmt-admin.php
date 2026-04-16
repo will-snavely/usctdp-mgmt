@@ -53,7 +53,9 @@ class Usctdp_Mgmt_Admin
                     'waitlist_datatable',
                     'clinic_datatable',
                     'select2_search',
-                    'gen_roster'
+                    'gen_roster',
+                    'waitlist_add',
+                    'waitlist_remove',
                 ],
                 'context' => ['activity_id']
             ],

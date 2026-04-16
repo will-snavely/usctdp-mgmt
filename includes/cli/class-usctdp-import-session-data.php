@@ -257,7 +257,7 @@ class Usctdp_Import_Session_Data
                     $activity_id = $activity_query->add_item([
                         "session_id" => $session_id,
                         "product_id" => $clinic_id,
-                        "type" => Usctdp_Activity_Type::Clinic->value,
+                        "type" => "clinic",
                         "title" => $title,
                         "search_term" => $search_term,
                         "capacity" => $class['capacity'],

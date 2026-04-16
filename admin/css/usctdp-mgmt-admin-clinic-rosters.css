@@ -1,4 +1,4 @@
-.selector {
+.context-selector {
     width: 350px;
 }
 
@@ -32,4 +32,28 @@
 #print-roster-button {
     width: 100px;
     height: auto;
+}
+
+dialog#waitlist-student-modal {
+    width: 400px;
+    overflow: visible;
+}
+
+dialog#waitlist-student-modal .select2-container--open {
+    z-index: 9999;
+}
+
+dialog#waitlist-student-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 250px;
+}
+
+dialog#waitlist-student-modal select {
+    width: 300px;
+}
+
+dialog#waitlist-student-modal .modal-body {
+    flex: 1;
 }

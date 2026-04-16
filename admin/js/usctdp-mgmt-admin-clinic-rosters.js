@@ -2,6 +2,54 @@
     "use strict";
 
     $(document).ready(function () {
+        const waitlistStudentModal = document.getElementById('waitlist-student-modal');
+
+        async function ajax_addWaitlistStudent(student_id, activity_id) {
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.waitlist_add_action,
+                        security: usctdp_mgmt_admin.waitlist_add_nonce,
+                        student_id: student_id,
+                        activity_id: activity_id
+                    }
+                });
+                if (response.success) {
+                    return response.data;
+                } else {
+                    throw new Error(response.data || 'Server error');
+                }
+            } catch (error) {
+                console.error('Add Waitlist Student Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
+        async function ajax_removeWaitlistStudent(student_id, activity_id) {
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.waitlist_remove_action,
+                        security: usctdp_mgmt_admin.waitlist_remove_nonce,
+                        student_id: student_id,
+                        activity_id: activity_id
+                    }
+                });
+                if (response.success) {
+                    return response.data;
+                } else {
+                    throw new Error(response.data || 'Server error');
+                }
+            } catch (error) {
+                console.error('Remove Waitlist Student Failed:', error.statusText || error.message);
+                throw error;
+            }
+        }
+
         function toggleLoading(isLoading) {
             if (isLoading) {
                 $('#print-roster-button .button-text').text('Working...');
@@ -106,16 +154,30 @@
             columns: [
                 { data: 'student_first' },
                 { data: 'student_last' },
-                { data: 'created_at' },
+                {
+                    data: 'waitlist_created_at',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            const createdDate = new Date(data).toLocaleString();
+                            return createdDate;
+                        }
+                        return data;
+                    }
+                },
                 {
                     data: 'activity_id',
                     render: function (data, type, row) {
                         if (type === 'display') {
-                            var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + data;
+                            var activity_id = data;
+                            var student_id = row.student_id;
+                            var registerUrl = `admin.php?page=usctdp-admin-register&activity_id=${activity_id}&student_id=${student_id}`;
                             return `
-                            <div class="roster-actions">
+                            <div class="flex-row gap-5">
                                 <div class="action-item">
                                     <a href="${registerUrl}" class="button button-small">Register</a>
+                                </div>
+                                <div class="action-item">
+                                    <button class="button button-small remove-waitlist-btn">Remove</button>
                                 </div>
                             </div>`;
                         }
@@ -125,7 +187,32 @@
             ]
         });
 
-        const selectorConfig = {
+        const waitlistSelectors = {
+            'family-selector': {
+                name: 'family_id',
+                label: 'Family',
+                target: 'family',
+                next: 'student-selector',
+                dropdownParent: $('#waitlist-student-modal'),
+                isRoot: true,
+                required: true
+            },
+            'student-selector': {
+                name: 'student_id',
+                label: 'Student',
+                target: 'student',
+                next: null,
+                required: true,
+                dropdownParent: $('#waitlist-student-modal'),
+                filter: function () {
+                    return {
+                        family_id: $('#family-selector').val()
+                    };
+                }
+            }
+        };
+
+        const clinicSelectors = {
             'session-selector': {
                 name: 'session_id',
                 label: 'Session',
@@ -146,7 +233,8 @@
             }
         };
 
-        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
+        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', clinicSelectors);
+        const waitlistSelectHandler = new USCTDP_Admin.CascasdingSelect('waitlist-selectors', waitlistSelectors);
 
         $('#context-selectors').on('cascade:change', function (e) {
             const { selectorId, value, state } = e.detail;
@@ -163,6 +251,77 @@
                 }
             }
         });
+
+        $("#waitlist-student-btn").on("click", function () {
+            waitlistSelectHandler.reset();
+            waitlistStudentModal.showModal();
+        });
+
+        $("#add-waitlist-btn").on("click", function () {
+            const studentId = $('#student-selector').val();
+            const activityId = $('#activity-selector').val();
+            ajax_addWaitlistStudent(studentId, activityId)
+                .then(function () {
+                    waitlistStudentModal.close();
+                    waitlistTable.ajax.reload();
+                    Swal.fire({
+                        title: 'Success',
+                        text: 'Student added to waitlist.',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    });
+                })
+                .catch(function (error) {
+                    waitlistStudentModal.close();
+                    waitlistTable.ajax.reload();
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to add student to waitlist. Inform a developer.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                });
+        });
+
+        $("#cancel-waitlist-btn").on("click", function () {
+            waitlistStudentModal.close();
+        });
+
+        $("#add-waitlist-btn").on("click", function (e) {
+            e.preventDefault();
+            const form = $('#waitlist-student-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+        });
+
+        $('#waitlist-table').on('click', '.remove-waitlist-btn', function (e) {
+            const $row = $(this).closest('tr');
+            const rowData = waitlistTable.row($row).data();
+            const studentId = rowData.student_id;
+            const activityId = rowData.activity_id;
+            ajax_removeWaitlistStudent(studentId, activityId)
+                .then(function () {
+                    waitlistTable.ajax.reload();
+                    Swal.fire({
+                        title: 'Success',
+                        text: 'Student removed from waitlist.',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    });
+                })
+                .catch(function (error) {
+                    waitlistTable.ajax.reload();
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to remove student from waitlist. Inform a developer.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                });
+        });
+
 
         var preloadedData = {};
         if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.activity_id) {

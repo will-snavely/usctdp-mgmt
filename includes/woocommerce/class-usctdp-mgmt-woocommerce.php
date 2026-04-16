@@ -63,7 +63,7 @@ class Usctdp_Mgmt_Woocommerce
                 break;
             }
         }
-        if ($product->type == Usctdp_Product_Type::Clinic) {
+        if ($product->type === 'clinic') {
             return $this->find_variations($woo_product, [
                 'session' => $session_name,
                 'days-per-week' => "One",

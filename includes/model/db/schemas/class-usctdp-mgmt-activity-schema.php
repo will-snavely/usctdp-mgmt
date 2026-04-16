@@ -16,7 +16,8 @@ class Usctdp_Mgmt_Activity_Schema extends Schema
         ],
         'type' => [
             'name' => 'type',
-            'type' => 'tinyint',
+            'type' => 'varchar',
+            'length' => '50',
         ],
         'title' => [
             'name' => 'title',

@@ -98,7 +98,7 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->cloneBlock('roster', count($activity_query->items), true, true);
         $index = 1;
         foreach ($activity_query->items as $item) {
-            if ($item->type == Usctdp_Activity_Type::Clinic) {
+            if ($item->type === 'clinic') {
                 WP_CLI::log("Generating roster for clinic " . $item->id);
                 $this->generate_clinic_roster_impl($templateProcessor, $item->id, $index);
             }
