@@ -26,6 +26,7 @@
             paymentSettings
         );
         const viewRosterModal = document.querySelector('#view-roster-modal');
+        const viewWaitlistModal = document.querySelector('#view-waitlist-modal');
 
         function clearNotifications() {
             $('#notifications-section').children().remove();
@@ -289,9 +290,6 @@
             } else if ('student-selector' in selectorConfig) {
                 $('#student-selector').val(null).trigger('change');
             }
-        });
-
-        $('#view-roster').on('click', function () {
         });
 
         $('#discount-sibling').on('change', function () {
@@ -589,6 +587,39 @@
             ]
         });
 
+        var viewWaitlistTable = $('#view-waitlist-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            searching: false,
+            paging: true,
+            deferLoading: 0,
+
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    d.action = usctdp_mgmt_admin.waitlist_datatable_action;
+                    d.security = usctdp_mgmt_admin.waitlist_datatable_nonce;
+                    d.activity_id = selectedActivity.id;
+                }
+            },
+            columns: [
+                { data: 'student_first' },
+                { data: 'student_last' },
+                {
+                    data: 'waitlist_created_at',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            const createdDate = new Date(data).toLocaleString();
+                            return createdDate;
+                        }
+                        return data;
+                    }
+                }
+            ]
+        });
+
         $('#view-roster-btn').on('click', function () {
             $('#roster-clinic-name').text(selectedActivity.name);
             viewRosterModal.showModal();
@@ -597,6 +628,16 @@
 
         $('#close-view-roster-modal').on('click', function () {
             viewRosterModal.close();
+        });
+
+        $('#view-waitlist-btn').on('click', function () {
+            $('#waitlist-clinic-name').text(selectedActivity.name);
+            viewWaitlistModal.showModal();
+            viewWaitlistTable.ajax.reload();
+        });
+
+        $('#close-view-waitlist-modal').on('click', function () {
+            viewWaitlistModal.close();
         });
 
         if (usctdp_mgmt_admin.preload.student_id && usctdp_mgmt_admin.preload.activity_id) {

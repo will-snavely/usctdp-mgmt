@@ -56,7 +56,6 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([
             'activity_id' => $activity_id,
-            'status' => 'active',
             'count' => true
         ]);
         $waitlist_registrations = $waitlist_query->found_items;

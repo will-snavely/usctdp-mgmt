@@ -257,7 +257,14 @@
             waitlistStudentModal.showModal();
         });
 
-        $("#add-waitlist-btn").on("click", function () {
+        $("#add-waitlist-btn").on("click", function (e) {
+            const form = $('#waitlist-student-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+
             const studentId = $('#student-selector').val();
             const activityId = $('#activity-selector').val();
             ajax_addWaitlistStudent(studentId, activityId)

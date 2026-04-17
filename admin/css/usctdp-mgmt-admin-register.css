@@ -174,7 +174,6 @@
 
 .clinic-capacity-value {
     font-size: 16px;
-    font-weight: 700;
     color: #1e293b;
     margin-top: 2px;
     padding: 4px 8px;
@@ -205,4 +204,51 @@ input[type="checkbox"] {
     height: 18px;
     cursor: pointer;
     margin: 0;
+}
+
+#class-enrollment-info {
+    display: grid;
+    grid-template-columns: 60px 130px auto;
+    gap: 10px;
+    align-items: center;
+    max-width: 600px;
+    padding: 20px;
+}
+
+/* Make the two main divs act as grid rows */
+#clinic-capacity,
+#clinic-waitlist {
+    display: grid;
+    grid-column: 1 / -1;
+    /* Stretch across all 3 columns */
+    grid-template-columns: subgrid;
+    /* Inherit the parent's column widths */
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding: 10px 0;
+}
+
+/* Optional: Specific styling for the columns */
+.clinic-capacity-label {
+    font-weight: bold;
+    color: #555;
+}
+
+.clinic-capacity-value {
+    font-family: monospace;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+#view-roster-wrap,
+#view-waitlist-wrap {
+    justify-self: end;
+}
+
+#view-roster-btn {
+    width: 100px;
+}
+
+#view-waitlist-btn {
+    width: 100px;
 }

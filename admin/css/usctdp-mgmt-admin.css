@@ -626,3 +626,11 @@ dialog .actions-footer {
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+
+.fw-700 {
+    font-weight: 700;
+}
+
+.fw-400 {
+    font-weight: 400;
+}

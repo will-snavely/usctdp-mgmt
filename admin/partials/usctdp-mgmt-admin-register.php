@@ -31,6 +31,26 @@
                         <tr>
                             <th>First Name</th>
                             <th>Last Name</th>
+                            <th>Added At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+            <div class="actions-footer">
+                <button type="button" class="button" id="close-view-waitlist-modal">Close</button>
+            </div>
+        </dialog>
+
+        <dialog id="view-waitlist-modal">
+            <h2>Waitlist For: <span id="waitlist-clinic-name"></span></h2>
+            <div id="view-waitlist-table-wrap">
+                <table id="view-waitlist-table" class="usctdp-datatable">
+                    <thead>
+                        <tr>
+                            <th>First Name</th>
+                            <th>Last Name</th>
                             <th>Age</th>
                         </tr>
                     </thead>
@@ -76,29 +96,31 @@
                 <div id="clinic-preorder" class="preorder-subtype flex-col gap-20">
                     <div id="clinic-basic-info" class="flex-col gap-10">
                         <h3>Basic Info</h3>
-                        <div id="clinic-capacity" class="flex-row gap-10 align-center">
-                            <span class="clinic-capacity-label">Capacity</span>
-                            <span class="clinic-capacity-value">
-                                <span id="clinic-current-size"></span>
-                                <span class="clinic-capacity-separator">out of</span>
-                                <span id="clinic-max-size"></span>
-                            </span>
-                            <div id="view-roster-wrap">
-                                <button id="view-roster-btn" class="button button-secondary">
-                                    View Roster
-                                </button>
+                        <div id="class-enrollment-info">   
+                            <div id="clinic-capacity">
+                                <span class="clinic-capacity-label">Capacity</span>
+                                <span class="clinic-capacity-value">
+                                    <span id="clinic-current-size" class="fw-700"></span>
+                                    <span class="clinic-capacity-separator">out of</span>
+                                    <span id="clinic-max-size" class="fw-700"></span>
+                                </span>
+                                <div id="view-roster-wrap">
+                                    <button id="view-roster-btn" class="button button-secondary">
+                                        View Roster
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div id="clinic-waitlist" class="flex-row gap-10 align-center">
-                            <span class="clinic-capacity-label">Waitlist</span>
-                            <span class="clinic-capacity-value">
-                                <span id="clinic-waitlist-size"></span>
-                                Waiting
-                            </span>
-                            <div id="view-waitlist-wrap">
-                                <button id="view-waitlist-btn" class="button button-secondary">
-                                    View Waitlist
-                                </button>
+                            <div id="clinic-waitlist">
+                                <span class="clinic-capacity-label">Waitlist</span>
+                                <span class="clinic-capacity-value blue-bg">
+                                    <span id="clinic-waitlist-size" class="fw-700"></span>
+                                    <span class="fw-400">Waiting</span>
+                                </span>
+                                <div id="view-waitlist-wrap">
+                                    <button id="view-waitlist-btn" class="button button-secondary">
+                                        View Waitlist
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div id="clinic-preorder-fields" class="flex-col">

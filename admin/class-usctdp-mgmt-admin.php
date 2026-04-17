@@ -68,7 +68,8 @@ class Usctdp_Mgmt_Admin
                     'create_woocommerce_order',
                     'commit_order',
                     'create_ledger_entries',
-                    'registrations_datatable'
+                    'registrations_datatable',
+                    'waitlist_datatable',
                 ],
                 'post' => ['payment_checkout'],
                 'context' => ['activity_id', 'student_id'],
