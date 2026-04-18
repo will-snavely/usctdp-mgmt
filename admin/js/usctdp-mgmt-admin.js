@@ -1,6 +1,52 @@
 (function ($) {
     window.USCTDP_Admin = window.USCTDP_Admin || {};
 
+    USCTDP_Admin.ajax_addWaitlistStudent = async function (student_id, activity_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.waitlist_add_action,
+                    security: usctdp_mgmt_admin.waitlist_add_nonce,
+                    student_id: student_id,
+                    activity_id: activity_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Add Waitlist Student Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_removeWaitlistStudent = async function (student_id, activity_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.waitlist_remove_action,
+                    security: usctdp_mgmt_admin.waitlist_remove_nonce,
+                    student_id: student_id,
+                    activity_id: activity_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Remove Waitlist Student Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     USCTDP_Admin.ajax_submitLedgerEntries = async function (entries) {
         try {
             const response = await $.ajax({

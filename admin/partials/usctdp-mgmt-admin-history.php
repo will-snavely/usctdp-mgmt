@@ -117,21 +117,30 @@
             <div id="history-table-wrap">
                 <div id="table-filters">
                     <div id="student-filter-section" class="dt-layout-cell dt-layout-start">
-                        <select id="student-filter"></select>
+                        <select id="student-filter" class="table-filter"></select>
                     </div>
                     <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
-                        <select id="session-filter"></select>
+                        <select id="session-filter" class="table-filter"></select>
                     </div>
                     <div id="type-filter-section" class="dt-layout-cell dt-layout-start">
-                        <select id="type-filter">
+                        <select id="type-filter" class="table-filter">
                             <option value=""></option>
                             <option value="registration">Registration</option>
                             <option value="merchandise">Merchandise</option>
                         </select>
                     </div>
+                    <div id="status-filter-section" class="dt-layout-cell dt-layout-start">
+                        <select id="status-filter" class="table-filter">
+                            <option value=""></option>
+                            <option value="active">Active</option>
+                            <option value="void">Void</option>
+                        </select>
+                    </div>
                     <div id="owes-filter-section" class="dt-layout-cell dt-layout-start">
-                        <label for="owes-filter">Owes Money:</label>
-                        <input type="checkbox" id="owes-filter" name="owes-filter" value="1">
+                        <div class="flex-row gap-5">
+                            <label for="owes-filter">Owes Money:</label>
+                            <input type="checkbox" id="owes-filter" name="owes-filter" value="1" class="table-filter">
+                        </div>
                     </div>
                 </div>
 

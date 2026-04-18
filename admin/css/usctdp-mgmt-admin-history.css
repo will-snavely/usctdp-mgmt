@@ -98,6 +98,8 @@ table#payment-history-table td {
 
 .purchase-card.void-registration {
     background-color: #bababa;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Cstyle%3E.t %7B font: 600 18px sans-serif; fill: rgba(200,0,0,0.12); %7D%3C/style%3E%3Ctext x='20' y='20' class='t'%3EVOID%3C/text%3E%3Ctext x='120' y='70' class='t'%3EVOID%3C/text%3E%3C/svg%3E");
+    background-repeat: repeat;
 }
 
 .purchase-card .border-left {

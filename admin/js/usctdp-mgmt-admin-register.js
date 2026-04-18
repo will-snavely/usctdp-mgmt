@@ -585,7 +585,7 @@
                 { data: 'student_first' },
                 { data: 'student_last' },
                 { data: 'student_age' },
-                { data: 'registration_student_level' },
+                { data: 'registration_student_level' }
             ]
         });
 

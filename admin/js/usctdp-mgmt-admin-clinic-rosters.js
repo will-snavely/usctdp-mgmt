@@ -4,52 +4,6 @@
     $(document).ready(function () {
         const waitlistStudentModal = document.getElementById('waitlist-student-modal');
 
-        async function ajax_addWaitlistStudent(student_id, activity_id) {
-            try {
-                const response = await $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    data: {
-                        action: usctdp_mgmt_admin.waitlist_add_action,
-                        security: usctdp_mgmt_admin.waitlist_add_nonce,
-                        student_id: student_id,
-                        activity_id: activity_id
-                    }
-                });
-                if (response.success) {
-                    return response.data;
-                } else {
-                    throw new Error(response.data || 'Server error');
-                }
-            } catch (error) {
-                console.error('Add Waitlist Student Failed:', error.statusText || error.message);
-                throw error;
-            }
-        }
-
-        async function ajax_removeWaitlistStudent(student_id, activity_id) {
-            try {
-                const response = await $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    data: {
-                        action: usctdp_mgmt_admin.waitlist_remove_action,
-                        security: usctdp_mgmt_admin.waitlist_remove_nonce,
-                        student_id: student_id,
-                        activity_id: activity_id
-                    }
-                });
-                if (response.success) {
-                    return response.data;
-                } else {
-                    throw new Error(response.data || 'Server error');
-                }
-            } catch (error) {
-                console.error('Remove Waitlist Student Failed:', error.statusText || error.message);
-                throw error;
-            }
-        }
-
         function toggleLoading(isLoading) {
             if (isLoading) {
                 $('#print-roster-button .button-text').text('Working...');
@@ -267,7 +221,7 @@
 
             const studentId = $('#student-selector').val();
             const activityId = $('#activity-selector').val();
-            ajax_addWaitlistStudent(studentId, activityId)
+            USCTDP_Admin.ajax_addWaitlistStudent(studentId, activityId)
                 .then(function () {
                     waitlistStudentModal.close();
                     waitlistTable.ajax.reload();
@@ -308,7 +262,7 @@
             const rowData = waitlistTable.row($row).data();
             const studentId = rowData.student_id;
             const activityId = rowData.activity_id;
-            ajax_removeWaitlistStudent(studentId, activityId)
+            USCTDP_Admin.ajax_removeWaitlistStudent(studentId, activityId)
                 .then(function () {
                     waitlistTable.ajax.reload();
                     Swal.fire({
@@ -328,7 +282,6 @@
                     });
                 });
         });
-
 
         var preloadedData = {};
         if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.activity_id) {

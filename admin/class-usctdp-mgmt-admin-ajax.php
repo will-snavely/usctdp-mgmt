@@ -927,6 +927,7 @@ class Usctdp_Mgmt_Admin_Ajax
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
         $owes = isset($_POST['owes']) ? intval($_POST['owes']) : null;
         $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : null;
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : null;
 
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
@@ -950,6 +951,9 @@ class Usctdp_Mgmt_Admin_Ajax
         }
         if ($type) {
             $args['type'] = $type;
+        }
+        if ($status) {
+            $args['status'] = $status;
         }
 
         $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);
@@ -1664,7 +1668,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'created_at' => current_time('mysql'),
                 'status' => 'pending',
             ]);
-            if($result) {
+            if ($result) {
                 wp_send_json_success($result);
             } else {
                 wp_send_json_error('Failed to add student to waitlist.');
@@ -1688,7 +1692,7 @@ class Usctdp_Mgmt_Admin_Ajax
         } else {
             $id = $waitlist_query->items[0]->id;
             $result = $waitlist_query->delete_item($id);
-            if($result) {
+            if ($result) {
                 wp_send_json_success($result);
             } else {
                 wp_send_json_error('Failed to remove student from waitlist.');

@@ -12,6 +12,7 @@
                             <th>First Name</th>
                             <th>Last Name</th>
                             <th>Age</th>
+                            <th>Level</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,7 +97,7 @@
                 <div id="clinic-preorder" class="preorder-subtype flex-col gap-20">
                     <div id="clinic-basic-info" class="flex-col gap-10">
                         <h3>Basic Info</h3>
-                        <div id="class-enrollment-info">   
+                        <div id="class-enrollment-info">
                             <div id="clinic-capacity">
                                 <span class="clinic-capacity-label">Capacity</span>
                                 <span class="clinic-capacity-value">
@@ -114,7 +115,7 @@
                                 <span class="clinic-capacity-label">Waitlist</span>
                                 <span class="clinic-capacity-value blue-bg">
                                     <span id="clinic-waitlist-size" class="fw-700"></span>
-                                    <span class="fw-400">Waiting</span>
+                                    <span class="clinic-capacity-waiting">waiting</span>
                                 </span>
                                 <div id="view-waitlist-wrap">
                                     <button id="view-waitlist-btn" class="button button-secondary">

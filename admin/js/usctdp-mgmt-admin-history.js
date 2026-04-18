@@ -475,6 +475,11 @@
                         d.type = typeFilterValue;
                     }
 
+                    var statusFilterValue = $('#status-filter').val();
+                    if (statusFilterValue) {
+                        d.status = statusFilterValue;
+                    }
+
                     if ($('#owes-filter').is(':checked')) {
                         d.owes = 1;
                     } else {
@@ -509,13 +514,7 @@
                     var filter_row = "<div id='table-filter-row' class='dt-layout-row'></div>";
                     $first_row.after(filter_row);
                     $('#table-filters').appendTo('#table-filter-row');
-                    $('#session-filter, #student-filter').on('change', function () {
-                        historyTable.ajax.reload();
-                    });
-                    $("#type-filter").on('change', function () {
-                        historyTable.ajax.reload();
-                    });
-                    $("#owes-filter").on('change', function () {
+                    $('.table-filter').on('change', function () {
                         historyTable.ajax.reload();
                     });
                 }
@@ -804,6 +803,11 @@
             allowClear: true
         });
 
+        $('#status-filter').select2({
+            placeholder: "Filter by status...",
+            allowClear: true
+        });
+
         $('#student-filter').select2(
             USCTDP_Admin.select2Options({
                 placeholder: "Filter by student...",
@@ -933,7 +937,8 @@
                 title: "Confirm Void Registration",
                 html: `
                     Are you sure you want to void this registration? This will
-                    remove student <b> ${studentName}</b> from the roster.
+                    remove student <b> ${studentName}</b> from the roster for:
+                    <b> ${rowData.activity_name}</b>.
                 `,
                 showDenyButton: true,
                 confirmButtonText: "Yes",
@@ -969,7 +974,8 @@
                 title: "Confirm Restore Registration",
                 html: `
                     Are you sure you want to restore this registration? This will
-                    add student <b> ${studentName}</b> back to the roster.
+                    add student <b> ${studentName}</b> back to the roster for:
+                    <b> ${rowData.activity_name}</b>.
                 `,
                 showDenyButton: true,
                 confirmButtonText: "Yes",

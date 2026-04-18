@@ -50,6 +50,10 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $conditions[] = "pur.type = %s";
             $where_args[] = $args['type'];
         }
+        if (isset($args["status"])) {
+            $conditions[] = "reg.status = %s";
+            $where_args[] = $args['status'];
+        }
         if ($conditions) {
             $where_clause = "WHERE " . implode(" AND ", $conditions);
         }
