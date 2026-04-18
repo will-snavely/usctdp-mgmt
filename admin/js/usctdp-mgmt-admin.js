@@ -866,6 +866,7 @@
                         action: usctdp_mgmt_admin.commit_order_action,
                         security: usctdp_mgmt_admin.commit_order_nonce,
                         line_items: orderData.line_items,
+                        ignore_class_full: 1
                     }
                 });
                 if (response.success) {

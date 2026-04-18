@@ -29,7 +29,8 @@
         const viewWaitlistModal = document.querySelector('#view-waitlist-modal');
 
         function clearNotifications() {
-            $('#notifications-section').children().remove();
+            $('#notifications-list').children().remove();
+            $('#notifications-section').addClass('hidden');
         }
 
         function togglePreorderDetails(visible, subtype) {
@@ -49,27 +50,22 @@
             $("#payment-table-section").toggleClass("hidden", !visible);
         }
 
-        function set_notification(slug, message, ignoreable = false, ignore_action = null) {
-            var $notification = $("<div></div>");
-            $notification.addClass('notification');
-            var $message = $("<p></p>");
-            $message.text(message);
-            $notification.append($message);
-            if (ignoreable) {
-                var $ignoreBtn = $("<a></a>");
-                $ignoreBtn.attr('href', 'javascript:void(0);');
-                $ignoreBtn.attr('id', 'ignore-notification');
-                $ignoreBtn.addClass('ignore-notification');
-                $ignoreBtn.addClass('button');
-                $ignoreBtn.text('Proceed Anyway');
-                $notification.append($ignoreBtn);
-                $ignoreBtn.click(function () {
-                    if (ignore_action) {
-                        ignore_action();
-                    }
-                });
-            }
-            $('#notifications-section').append($notification);
+        function set_notification(slug, message, ignoreable = false) {
+            const notification = `
+                <div id="${slug}-notification" class="notification">
+                    <p>${message}</p>
+                    ${ignoreable ? `
+                    <div class="flex-row gap-10 align-center">
+                        <button id="ignore-notification-btn" class="notification-button button">
+                            Proceed
+                        </button>
+                        <button id="waitlist-student-btn" class="notification-button button">
+                            Add to Waitlist
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>`;
+            $('#notifications-list').append(notification);
             $('#notifications-section').removeClass('hidden');
         }
 
@@ -177,17 +173,14 @@
                 if (info.student_registered) {
                     set_notification(
                         'student-registered',
-                        'The selected student is already registered for this activity.',
+                        'This student is already registered for this activity.',
                         false
                     );
-                } else if (info.registered >= info.capacity) {
+                } else if (info.active >= info.capacity) {
                     set_notification(
                         'activity-full',
-                        'This activity is currently full.',
-                        true,
-                        function () {
-                            togglePreorderDetails(true, "clinic-preorder");
-                        }
+                        'This activity is full.',
+                        true
                     );
                 } else {
                     togglePreorderDetails(true, "clinic-preorder");
@@ -199,14 +192,14 @@
         }
 
         async function loadActivityRegistration(activityId, activityType, studentId) {
-            $('#notifications-section').children().remove();
+            clearNotifications();
             if (activityType === "clinic") { // Clinic
                 await loadClinicRegistration(activityId, studentId);
             }
         }
 
         async function loadMerchandiseRegistration(productId, productCode) {
-            $('#notifications-section').children().remove();
+            clearNotifications();
             bind_merchandise_info({
                 pricing: MERCHANDISE_PRICING[productCode],
                 product_id: productId,
@@ -222,6 +215,35 @@
             return USCTDP_Admin.applyReplacements(name, replacements);
         }
 
+        $('#notifications-section').on('click', '#activity-full-notification #ignore-notification-btn', function () {
+            clearNotifications();
+            togglePreorderDetails(true, "clinic-preorder");
+        });
+
+        $('#notifications-section').on('click', '#activity-full-notification #waitlist-student-btn', function () {
+            const studentId = selectedStudent.id;
+            const activityId = selectedActivity.id;
+            USCTDP_Admin.ajax_addWaitlistStudent(studentId, activityId)
+                .then(function () {
+                    Swal.fire({
+                        title: 'Success',
+                        text: 'Student added to waitlist.',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(function () {
+                        var rosterUrl = `admin.php?page=usctdp-admin-clinic-rosters&activity_id=${activityId}`;
+                        window.location.href = rosterUrl;
+                    });
+                })
+                .catch(function (error) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to add student to waitlist. Inform a developer.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                });
+        });
 
         $('#add-clinic-registration').on('click', function () {
             var displayActivityName = checkoutActivityName(selectedActivity.name);

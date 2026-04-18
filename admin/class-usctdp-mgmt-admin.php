@@ -70,6 +70,8 @@ class Usctdp_Mgmt_Admin
                     'create_ledger_entries',
                     'registrations_datatable',
                     'waitlist_datatable',
+                    'waitlist_add',
+                    'waitlist_remove',
                 ],
                 'post' => ['payment_checkout'],
                 'context' => ['activity_id', 'student_id'],

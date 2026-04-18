@@ -110,7 +110,7 @@
                     <span id="family-total-balance" class="balance-amt"></span>
                 </div>
                 <div class="family-financial-summary">
-                    <label>House<br>Credit</label>
+                    <label>Credit</label>
                     <span id="family-total-house-credit" class="balance-amt green-bg"></span>
                 </div>
             </div>

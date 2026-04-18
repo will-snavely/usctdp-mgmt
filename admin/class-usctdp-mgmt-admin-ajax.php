@@ -45,6 +45,32 @@ class Usctdp_Mgmt_Admin_Ajax
         return !empty($reg_query->items);
     }
 
+    private function is_student_waitlisted($student_id, $activity_id)
+    {
+        $reg_query = new Usctdp_Mgmt_Waitlist_Query([
+            'student_id' => $student_id,
+            'activity_id' => $activity_id,
+            'number' => 1
+        ]);
+        return !empty($reg_query->items);
+    }
+
+    private function remove_waitlist_entry($student_id, $activity_id)
+    {
+        $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([
+            'activity_id' => $activity_id,
+            'student_id' => $student_id,
+            'number' => 1,
+        ]);
+        if (!empty($waitlist_query->items)) {
+            $id = $waitlist_query->items[0]->id;
+            $result = $waitlist_query->delete_item($id);
+            if (!$result) {
+                throw new Web_Request_Exception('Failed to remove student from waitlist.');
+            }
+        }
+    }
+
     private function get_activity_enrollment_counts($activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
@@ -164,10 +190,12 @@ class Usctdp_Mgmt_Admin_Ajax
         if (empty($pricing_query->items)) {
             wp_send_json_error('Pricing for activity ' . $activity_id . ' not found.', 404);
         }
+
         $pricing = $pricing_query->items[0];
         $capacity = (int) $activity->activity_capacity;
         $enrollment_counts = $this->get_activity_enrollment_counts($activity_id);
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
+        $student_waitlisted = $this->is_student_waitlisted($student_id, $activity_id);
 
         wp_send_json_success([
             'capacity' => $capacity,
@@ -178,6 +206,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'active' => $enrollment_counts['active'],
             'waitlist' => $enrollment_counts['waitlist'],
             'student_registered' => $student_registered,
+            'student_waitlisted' => $student_waitlisted,
             'student_level' => $student->level,
             'pricing' => $pricing->pricing
         ]);
@@ -1354,7 +1383,7 @@ class Usctdp_Mgmt_Admin_Ajax
             throw new Web_Request_Exception('No line items provided.');
         }
 
-        $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
+        $ignore_full = isset($_POST['ignore_class_full']) && $_POST['ignore_class_full'] === '1';
 
         $order_records = [];
         foreach ($line_items as $line_item) {
@@ -1386,20 +1415,24 @@ class Usctdp_Mgmt_Admin_Ajax
             foreach ($registration_records as $record) {
                 $args = $record['sql_args'];
                 $line_item_id = $record['line_item_id'];
-                if ($this->is_student_enrolled($args['student_id'], $args['activity_id'])) {
-                    throw new Web_Request_Exception('Student is already enrolled in activity: ' . $record['activity']->title);
+                $student_id = $args['student_id'];
+                $activity_id = $args['activity_id'];
+                $activity_title = $record['activity']->title;
+                if ($this->is_student_enrolled($student_id, $activity_id)) {
+                    throw new Web_Request_Exception('Student is already enrolled in activity: ' . $activity_title);
                 }
 
-                $capacity = $this->get_activity_capacity($args['activity_id']);
-                $enrollment_counts = $this->get_activity_enrollment_counts($args['activity_id']);
-                if (!$ignore_full && $enrollment_counts['total'] >= $capacity) {
-                    throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
+                $capacity = $this->get_activity_capacity($activity_id);
+                $enrollment_counts = $this->get_activity_enrollment_counts($activity_id);
+                if (!$ignore_full && $enrollment_counts['active'] >= $capacity) {
+                    throw new Web_Request_Exception('Class is full: ' . $activity_title);
                 }
 
                 $ids = $this->create_purchase_and_registration($args);
                 if (!$ids) {
                     throw new Web_Request_Exception('Failed to create registration.');
                 }
+                $this->remove_waitlist_entry($student_id, $activity_id);
                 $results[$line_item_id] = $ids;
             }
 

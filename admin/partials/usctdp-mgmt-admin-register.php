@@ -88,7 +88,12 @@
                     <h2>Select Item</h2>
                 </div>
                 <div id="context-selectors" class="flex-col gap-10"></div>
-                <div id="notifications-section" class="hidden flex-col gap-10"></div>
+            </div>
+            <div id="notifications-section" class="hidden flex-col gap-10">
+                <div id="notifications-section-header" class="section-header">
+                    <h2>Issues</h2>
+                </div>
+                <div id="notifications-list" class="flex-col gap-10"></div>
             </div>
             <div id="preorder-details" class="flex-col gap-10 hidden">
                 <div id="preorder-details-header" class="section-header">
