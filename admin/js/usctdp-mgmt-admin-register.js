@@ -475,6 +475,7 @@
                 id: preloadedActivity.activity_id,
                 name: preloadedActivity.activity_name,
                 type: preloadedActivity.activity_type,
+                product_id: preloadedActivity.product_id,
                 session_id: preloadedActivity.session_id,
                 session_name: preloadedActivity.session_name
             };
@@ -528,6 +529,7 @@
                         id: value,
                         name: activityData.text,
                         type: activityType,
+                        product_id: activityData.product_id,
                         session_id: sessionData.id,
                         session_name: sessionData.text
                     };

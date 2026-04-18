@@ -1387,8 +1387,8 @@ class Usctdp_Mgmt_Admin_Ajax
                 }
 
                 $capacity = $this->get_activity_capacity($args['activity_id']);
-                $registrations = $this->get_activity_enrollment_count($args['activity_id']);
-                if (!$ignore_full && $registrations >= $capacity) {
+                $enrollment_counts = $this->get_activity_enrollment_counts($args['activity_id']);
+                if (!$ignore_full && $enrollment_counts['total'] >= $capacity) {
                     throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
                 }
 
@@ -1539,8 +1539,8 @@ class Usctdp_Mgmt_Admin_Ajax
                 }
 
                 $capacity = $this->get_activity_capacity($args['activity_id']);
-                $registrations = $this->get_activity_enrollment_count($args['activity_id']);
-                if (!$ignore_full && $registrations >= $capacity) {
+                $enrollment_counts = $this->get_activity_enrollment_counts($args['activity_id']);
+                if (!$ignore_full && $enrollment_counts['total'] >= $capacity) {
                     throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
                 }
 

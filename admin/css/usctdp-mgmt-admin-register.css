@@ -211,8 +211,7 @@ input[type="checkbox"] {
     grid-template-columns: 60px 130px auto;
     gap: 10px;
     align-items: center;
-    max-width: 600px;
-    padding: 20px;
+    max-width: 330px;
 }
 
 /* Make the two main divs act as grid rows */
