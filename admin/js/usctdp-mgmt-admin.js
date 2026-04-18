@@ -1,6 +1,21 @@
 (function ($) {
     window.USCTDP_Admin = window.USCTDP_Admin || {};
 
+    USCTDP_Admin.ajax_saveRegistrationFields = async function (id, fields) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.update_registration_action,
+                security: usctdp_mgmt_admin.update_registration_nonce,
+                registration_id: id,
+                ...fields
+            }
+        });
+        return response;
+    }
+
     USCTDP_Admin.ajax_addWaitlistStudent = async function (student_id, activity_id) {
         try {
             const response = await $.ajax({

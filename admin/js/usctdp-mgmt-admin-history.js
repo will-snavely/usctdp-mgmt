@@ -278,21 +278,6 @@
             });
         }
 
-        async function saveRegistrationFields(id, fields) {
-            const response = await $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.update_registration_action,
-                    security: usctdp_mgmt_admin.update_registration_nonce,
-                    registration_id: id,
-                    ...fields
-                }
-            });
-            return response;
-        }
-
         async function handlePriceChange(rowData, oldPrice, newPrice) {
             const updatePrice = await window.Swal.fire({
                 title: "Price Change",
@@ -328,7 +313,7 @@
         }
 
         async function updateRegistration(rowData, fields) {
-            const saveResponse = await saveRegistrationFields(rowData.registration_id, fields);
+            const saveResponse = await USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, fields);
             if (!saveResponse.success) {
                 throw Error("Failed to update registration.");
             }
@@ -945,7 +930,7 @@
                 denyButtonText: `No`
             }).then((result) => {
                 if (result.isConfirmed) {
-                    saveRegistrationFields(rowData.registration_id, update)
+                    USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
                         .catch((error) => {
                             Swal.fire({
                                 icon: "error",
@@ -982,7 +967,7 @@
                 denyButtonText: `No`
             }).then((result) => {
                 if (result.isConfirmed) {
-                    saveRegistrationFields(rowData.registration_id, update)
+                    USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
                         .catch((error) => {
                             Swal.fire({
                                 icon: "error",

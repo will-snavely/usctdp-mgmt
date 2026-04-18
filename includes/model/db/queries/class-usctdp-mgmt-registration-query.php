@@ -49,8 +49,9 @@ class Usctdp_Mgmt_Registration_Query extends Query
             $conditions[] = "reg.student_id = %d";
             $where_args[] = $args['student_id'];
         }
-        if (isset($args["owes"])) {
-            $conditions[] = "ledger.total_debit > ledger.total_credit";
+        if (isset($args["status"])) {
+            $conditions[] = "reg.status = %s";
+            $where_args[] = $args['status'];
         }
         if ($conditions) {
             $where_clause = "WHERE " . implode(" AND ", $conditions);
@@ -72,8 +73,6 @@ class Usctdp_Mgmt_Registration_Query extends Query
                     reg.id as registration_id, reg.status as registration_status,
                     reg.student_level as registration_student_level,
                     reg.notes as registration_notes,
-                    ledger.total_debit as registration_debit,
-                    ledger.total_credit as registration_credit,
                     stud.id as student_id, stud.family_id as family_id,
                     stud.first as student_first,
                     stud.last as student_last,
@@ -88,15 +87,6 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                LEFT JOIN (
-                    SELECT 
-                        purchase_id,
-                        SUM(debit) as total_debit,
-                        SUM(credit) as total_credit
-                    FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE account = 'registration_fees'
-                    GROUP BY purchase_id
-                ) AS ledger ON ledger.purchase_id = pur.id
                 {$where_clause}
                 ORDER BY reg.id DESC
                 {$limit_clause}",
@@ -108,15 +98,6 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
                 JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                LEFT JOIN (
-                    SELECT 
-                        purchase_id,
-                        SUM(debit) as total_debit,
-                        SUM(credit) as total_credit
-                    FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE account = 'registration_fees'
-                    GROUP BY purchase_id
-                ) AS ledger ON ledger.purchase_id = reg.id
                 {$where_clause}";
         $count_query = $count_sql;
         if (!empty($where_args)) {

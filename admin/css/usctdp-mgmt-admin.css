@@ -641,3 +641,7 @@ dialog .actions-footer {
 .fw-400 {
     font-weight: 400;
 }
+
+.flex-wrap {
+    flex-wrap: wrap;
+}

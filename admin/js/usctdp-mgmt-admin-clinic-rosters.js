@@ -62,8 +62,17 @@
                     d.action = usctdp_mgmt_admin.registrations_datatable_action;
                     d.security = usctdp_mgmt_admin.registrations_datatable_nonce;
                     d.activity_id = activityFilterValue;
+                    d.status = 'active';
                 }
             },
+            autoWidth: false,
+            columnDefs: [
+                { width: "15%", targets: 0 },
+                { width: "15%", targets: 1 },
+                { width: "10%", targets: 2 },
+                { width: "10%", targets: 3 },
+                { width: "50%", targets: 4 },
+            ],
             columns: [
                 { data: 'student_first' },
                 { data: 'student_last' },
@@ -75,9 +84,12 @@
                         if (type === 'display') {
                             var familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + data;
                             return `
-                            <div class="roster-actions">
+                            <div class="flex-row gap-5">
                                 <div class="action-item">
                                     <a href="${familyUrl}" class="button button-small">View Family</a>
+                                </div>
+                                <div class="action-item">
+                                    <button class="button button-small remove-roster-btn">Remove</button>
                                 </div>
                             </div>`;
                         }
@@ -105,6 +117,13 @@
                     d.activity_id = activityFilterValue;
                 }
             },
+            autoWidth: false,
+            columnDefs: [
+                { width: "15%", targets: 0 },
+                { width: "15%", targets: 1 },
+                { width: "30%", targets: 2 },
+                { width: "40%", targets: 3 },
+            ],
             columns: [
                 { data: 'student_first' },
                 { data: 'student_last' },
@@ -193,15 +212,15 @@
         $('#context-selectors').on('cascade:change', function (e) {
             const { selectorId, value, state } = e.detail;
             $('.print-status').addClass('hidden');
-            $('#roster-section').addClass('hidden');
+            $('#listings-section').addClass('hidden');
             if (selectorId == 'activity-selector') {
                 if (value) {
                     var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + value;
-                    $('#roster-section').removeClass('hidden');
+                    $('#listings-section').removeClass('hidden');
                     $('#register-student-button').attr('href', registerUrl);
                     rosterTable.ajax.reload();
                     waitlistTable.ajax.reload();
-                    $('#roster-section').removeClass('hidden');
+                    $('#listings-section').removeClass('hidden');
                 }
             }
         });
@@ -248,13 +267,49 @@
             waitlistStudentModal.close();
         });
 
-        $("#add-waitlist-btn").on("click", function (e) {
-            e.preventDefault();
-            const form = $('#waitlist-student-form')[0];
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
+        $('#roster-table').on('click', '.remove-roster-btn', function (e) {
+            const $row = $(this).closest('tr');
+            const rowData = rosterTable.row($row).data();
+            var registrationId = rowData.registration_id;
+            var update = {
+                status: 'void'
+            };
+
+            window.Swal.fire({
+                title: "Confirm Roster Removal",
+                html: `
+                    Are you sure you want to remove 
+                    <b>${rowData.student_first} ${rowData.student_last}</b> 
+                    from the roster for 
+                    <b> ${rowData.activity_name}</b>?
+                `,
+                showDenyButton: true,
+                confirmButtonText: "Yes",
+                denyButtonText: `No`
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    USCTDP_Admin.ajax_saveRegistrationFields(registrationId, update)
+                        .then(function () {
+                            Swal.fire({
+                                icon: "success",
+                                title: "Success!",
+                                text: "Registration voided successfully.",
+                            });
+                            rosterTable.ajax.reload();
+                        })
+                        .catch((error) => {
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error!",
+                                text: "A server error occured. Please inform a developer.",
+                            });
+                        })
+                        .finally(() => {
+                            refreshFamilyBalance();
+                            historyTable.ajax.reload();
+                        });
+                }
+            });
         });
 
         $('#waitlist-table').on('click', '.remove-waitlist-btn', function (e) {
@@ -262,25 +317,41 @@
             const rowData = waitlistTable.row($row).data();
             const studentId = rowData.student_id;
             const activityId = rowData.activity_id;
-            USCTDP_Admin.ajax_removeWaitlistStudent(studentId, activityId)
-                .then(function () {
-                    waitlistTable.ajax.reload();
-                    Swal.fire({
-                        title: 'Success',
-                        text: 'Student removed from waitlist.',
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    });
-                })
-                .catch(function (error) {
-                    waitlistTable.ajax.reload();
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Failed to remove student from waitlist. Inform a developer.',
-                        icon: 'error',
-                        confirmButtonText: 'OK'
-                    });
-                });
+
+            window.Swal.fire({
+                title: "Confirm Waitlist Removal",
+                html: `
+                    Are you sure you want to remove 
+                    <b>${rowData.student_first} ${rowData.student_last}</b> 
+                    from the waitlist for 
+                    <b> ${rowData.activity_name}</b>?
+                `,
+                showDenyButton: true,
+                confirmButtonText: "Yes",
+                denyButtonText: `No`
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    USCTDP_Admin.ajax_removeWaitlistStudent(studentId, activityId)
+                        .then(function () {
+                            waitlistTable.ajax.reload();
+                            Swal.fire({
+                                title: 'Success',
+                                text: 'Student removed from waitlist.',
+                                icon: 'success',
+                                confirmButtonText: 'OK'
+                            });
+                        })
+                        .catch(function (error) {
+                            waitlistTable.ajax.reload();
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Failed to remove student from waitlist. Please inform a developer.',
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
+                        });
+                }
+            });
         });
 
         var preloadedData = {};

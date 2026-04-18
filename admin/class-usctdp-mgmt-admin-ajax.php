@@ -1002,6 +1002,7 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : null;
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : null;
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
@@ -1015,6 +1016,9 @@ class Usctdp_Mgmt_Admin_Ajax
         }
         if ($student_id) {
             $args['student_id'] = $student_id;
+        }
+        if ($status) {
+            $args['status'] = $status;
         }
 
         $reg_query = new Usctdp_Mgmt_Registration_Query([]);

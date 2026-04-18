@@ -601,6 +601,7 @@
                     d.action = usctdp_mgmt_admin.registrations_datatable_action;
                     d.security = usctdp_mgmt_admin.registrations_datatable_nonce;
                     d.activity_id = selectedActivity.id;
+                    d.status = 'active';
                 }
             },
             columns: [
