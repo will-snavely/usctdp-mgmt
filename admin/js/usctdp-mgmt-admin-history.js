@@ -306,9 +306,9 @@
                     direction: newPrice < oldPrice ? "decrease" : "increase"
                 });
                 await USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries);
-                Swal.fire("Saved!", "Price adjustment applied.", "success");
+                window.Swal.fire("Saved!", "Price adjustment applied.", "success");
             } else {
-                Swal.fire("Skipped!", "Adjustment not applied.", "info");
+                window.Swal.fire("Skipped!", "Adjustment not applied.", "info");
             }
         }
 
@@ -822,6 +822,28 @@
             paymentHistoryModal.close();
         });
 
+        $('#generate-statement-btn').on('click', () => {
+            const purchaseId = $('#payment-history-modal').data("purchaseId");
+            const $btn = $('#generate-statement-btn');
+            $btn.prop('disabled', true);
+            $btn.html('<span class="spinner is-active"></span> Generating...');
+            USCTDP_Admin.ajax_generateStatement(purchaseId)
+                .then((response) => {
+                    window.open(response.doc_url, '_blank');
+                })
+                .catch((error) => {
+                    window.Swal.fire({
+                        title: "Error",
+                        text: "Failed to generate statement. Inform a developer.",
+                        icon: "error"
+                    });
+                })
+                .finally(() => {
+                    $btn.prop('disabled', false);
+                    $btn.html('Print Statement');
+                });
+        });
+
         $('#history-table tbody').on('change', '.payment-action-select', function () {
             const $row = $(this).closest('tr');
             const $select = $(this);
@@ -872,7 +894,7 @@
             const studentLevel = $row.find('.level-input').first().val();
 
             if (!activityId) {
-                Swal.fire({
+                window.Swal.fire({
                     icon: "error",
                     title: "Activity Required",
                     text: "Please select an activity before saving!",
@@ -893,7 +915,7 @@
 
             updateRegistration(rowData, update)
                 .catch((error) => {
-                    Swal.fire({
+                    window.Swal.fire({
                         icon: "error",
                         title: "Error!",
                         text: "A server error occured. Please inform a developer. Details: " + error,
@@ -932,7 +954,7 @@
                 if (result.isConfirmed) {
                     USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
                         .catch((error) => {
-                            Swal.fire({
+                            window.Swal.fire({
                                 icon: "error",
                                 title: "Error!",
                                 text: "A server error occured. Please inform a developer. Details: " + error,
@@ -969,7 +991,7 @@
                 if (result.isConfirmed) {
                     USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
                         .catch((error) => {
-                            Swal.fire({
+                            window.Swal.fire({
                                 icon: "error",
                                 title: "Error!",
                                 text: "A server error occured. Please inform a developer. Details: " + error,

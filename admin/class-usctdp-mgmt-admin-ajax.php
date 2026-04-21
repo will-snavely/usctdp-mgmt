@@ -16,6 +16,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'datatable_balances' => 'ajax_datatable_balances',
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
         'gen_roster' => 'ajax_gen_roster',
+        'gen_statement' => 'ajax_gen_statement',
         'get_family' => 'ajax_get_family',
         'get_family_balance' => 'ajax_get_family_balance',
         'ledger_datatable' => 'ajax_ledger_datatable',
@@ -123,7 +124,6 @@ class Usctdp_Mgmt_Admin_Ajax
             $args[$field] = $transform($raw);
         }
         $query = new $query_object();
-        error_log(print_r($args, true));
         return $query->add_item($args);
     }
 
@@ -265,6 +265,28 @@ class Usctdp_Mgmt_Admin_Ajax
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
             wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
+        }
+    }
+
+    public function ajax_gen_statement()
+    {
+        $this->check_nonce('gen_statement');
+        $purchase_id = isset($_POST['purchase_id']) ? intval($_POST['purchase_id']) : '';
+        if(empty($purchase_id)) {
+            wp_send_json_error('Purchase ID is required.', 400);
+        }
+        try {
+            $doc_gen = new Usctdp_Mgmt_Docgen();
+            $document = $doc_gen->generate_purchase_statement($purchase_id);
+            $drive_file = $doc_gen->upload_to_google_drive($document, $purchase_id, 'statement-' . $purchase_id);
+            wp_send_json_success([
+                'message' => 'Statement generated successfully',
+                'doc_id' => $drive_file->id,
+                'doc_url' => $drive_file->webViewLink
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_gen_statement', $e);
+            wp_send_json_error('An unexpected server error occurred during statement generation.', 500);
         }
     }
 

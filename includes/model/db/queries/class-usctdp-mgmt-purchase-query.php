@@ -23,6 +23,10 @@ class Usctdp_Mgmt_Purchase_Query extends Query
         $where_args = [];
         $conditions = [];
 
+        if (isset($args["purchase_id"])) {
+            $conditions[] = "pur.id = %d";
+            $where_args[] = $args['purchase_id'];
+        }
         if (isset($args["activity_id"])) {
             $conditions[] = "reg.activity_id = %d";
             $where_args[] = $args['activity_id'];
@@ -87,6 +91,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     stud.first as student_first,
                     stud.last as student_last,
                     stud.birth_date as student_birth_date,
+                    fam.title as family_name,
                     TIMESTAMPDIFF(YEAR, stud.birth_date, CURDATE()) AS student_age,
                     act.id as activity_id,
                     act.title as activity_name,
@@ -96,6 +101,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     reg.student_level as registration_student_level
                 FROM {$wpdb->prefix}usctdp_purchase AS pur
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON pur.student_id = stud.id
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON pur.product_id = prod.id
                 LEFT JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.purchase_id
                 LEFT JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
@@ -121,8 +127,10 @@ class Usctdp_Mgmt_Purchase_Query extends Query
 
         $count_sql = "SELECT COUNT(*) as count
                 FROM {$wpdb->prefix}usctdp_purchase AS pur
+                JOIN {$wpdb->prefix}usctdp_student AS stud ON pur.student_id = stud.id
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
+                JOIN {$wpdb->prefix}usctdp_product AS prod ON pur.product_id = prod.id
                 LEFT JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.purchase_id
-                LEFT JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 LEFT JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
                 LEFT JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
                 LEFT JOIN (

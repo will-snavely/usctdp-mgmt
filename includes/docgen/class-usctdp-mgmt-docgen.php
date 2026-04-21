@@ -18,12 +18,14 @@ define('PCLZIP_TEMPORARY_DIR', plugin_dir_path(__FILE__) . '/templates/tmp');
 
 class Usctdp_Mgmt_Docgen
 {
-    private $template_file;
+    private $roster_template_file;
+    private $statement_template_file;
 
     public function __construct()
     {
         $docgen_dir = plugin_dir_path(__FILE__);
-        $this->template_file = $docgen_dir . 'templates/roster_template.docx';
+        $this->roster_template_file = $docgen_dir . 'templates/roster_template.docx';
+        $this->statement_template_file = $docgen_dir . 'templates/statement_template.docx';
     }
 
     private function int_to_day($day)
@@ -82,7 +84,7 @@ class Usctdp_Mgmt_Docgen
 
     public function generate_clinic_roster($clinic_id)
     {
-        $templateProcessor = new TemplateProcessor($this->template_file);
+        $templateProcessor = new TemplateProcessor($this->roster_template_file);
         $templateProcessor->cloneBlock('roster', 1, true, true);
         $this->generate_clinic_roster_impl($templateProcessor, $clinic_id, '1');
         return $templateProcessor;
@@ -90,20 +92,25 @@ class Usctdp_Mgmt_Docgen
 
     public function generate_session_roster($session_id)
     {
-        WP_CLI::log("Generating session roster for session " . $session_id);
         $activity_query = new Usctdp_Mgmt_Activity_Query([
             'session_id' => $session_id
         ]);
-        $templateProcessor = new TemplateProcessor($this->template_file);
+        $templateProcessor = new TemplateProcessor($this->roster_template_file);
         $templateProcessor->cloneBlock('roster', count($activity_query->items), true, true);
         $index = 1;
         foreach ($activity_query->items as $item) {
             if ($item->type === 'clinic') {
-                WP_CLI::log("Generating roster for clinic " . $item->id);
                 $this->generate_clinic_roster_impl($templateProcessor, $item->id, $index);
             }
             $index++;
         }
+        return $templateProcessor;
+    }
+
+    public function generate_purchase_statement($purchase_id)
+    {
+        $templateProcessor = new TemplateProcessor($this->statement_template_file);
+        $this->generate_statement_impl($templateProcessor, $purchase_id);
         return $templateProcessor;
     }
 
@@ -166,6 +173,64 @@ class Usctdp_Mgmt_Docgen
         $client->setClientSecret(env('GOOGLE_DOCS_CLIENT_SECRET'));
         $client->fetchAccessTokenWithRefreshToken($refreshToken);
         return $client;
+    }
+
+    private function generate_statement_impl($templateProcessor, $purchase_id)
+    {
+        $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+        $purchase_query = new Usctdp_Mgmt_Purchase_Query(); 
+        $purchase_data = $purchase_query->get_purchase_data([
+            'purchase_id' => $purchase_id
+        ])['data'];
+        if (empty($purchase_data)) {
+            throw new ErrorException('Purchase not found');
+        }
+        $purchase_fields = $purchase_data[0];
+
+        $templateProcessor->setValue("statement_title", "Financial Statement");
+        $templateProcessor->setValue("family_name", $purchase_fields->family_name);
+        $templateProcessor->setValue("student_name", $purchase_fields->student_first . ' ' . $purchase_fields->student_last);
+
+        if($purchase_fields->purchase_type)
+        $templateProcessor->setValue("activity_name", $purchase_fields->activity_name);
+
+        $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+        $ledger_events = $ledger_query->get_ledger_events([
+            'purchase_id' => $purchase_id,
+            'account' => $purchase_fields->purchase_type . '_fees'
+        ])['data'];
+        $runningBalance = 0;
+        $statement_rows = [];
+        foreach ($ledger_events as $item) {
+            $charge = floatval($item->charge_amount);
+            $payment = floatval($item->payment_amount);
+            $runningBalance += ($charge - $payment);
+            $item->calculated_balance = $runningBalance;
+            $date = new DateTime($item->event_date);
+            $date->setTimezone(new DateTimeZone('America/New_York'));
+            $formatted_date = $date->format('m/d/y');
+            $statement_rows[] = [
+                'date' => $formatted_date,
+                'event' => $item->entry_type,
+                'description' => $item->event_description,
+                'debit' => $formatter->formatCurrency($charge, 'USD'),
+                'credit' => $formatter->formatCurrency($payment, 'USD'),
+                'balance' => $formatter->formatCurrency($runningBalance, 'USD')
+            ];
+        }
+        $templateProcessor->cloneRowAndSetValues("date", $statement_rows);
+
+        if ($runningBalance <= 0) {
+            $status = 'PAID';
+        } else {
+            $status = 'BALANCE DUE';
+        }
+
+        $templateProcessor->setValue("statement_status", $status);
+        $templateProcessor->setValue(
+            "statement_balance", 
+            $formatter->formatCurrency($runningBalance, 'USD')
+        );
     }
 
     private function generate_clinic_roster_impl($templateProcessor, $clinic_id, $block_id)

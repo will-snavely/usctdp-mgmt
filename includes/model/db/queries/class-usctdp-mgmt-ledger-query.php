@@ -123,7 +123,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
         $query = $wpdb->prepare(
             "SELECT 
                 id,
-                created_at as event_date,
+                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%T.%%fZ') as event_date,
                 entry_type,
                 event as event_description,
                 debit as charge_amount,

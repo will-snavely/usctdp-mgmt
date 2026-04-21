@@ -86,6 +86,7 @@ class Usctdp_Mgmt_Admin
                     'update_registration',
                     'update_purchase',
                     'get_family_balance',
+                    'gen_statement',
                     'create_woocommerce_order',
                     'ledger_datatable',
                     'ledger_events_datatable',
