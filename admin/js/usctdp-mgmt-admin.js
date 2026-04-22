@@ -983,7 +983,7 @@
                             debit: zero,
                             credit: amount,
                             entry_type: "adjustment",
-                            event: "Discount - " + discount.reason
+                            event: discount.reason
                         });
                         result.push({
                             ...ledgerBase,
@@ -991,7 +991,7 @@
                             debit: amount,
                             credit: zero,
                             entry_type: "adjustment",
-                            event: "Discount - " + discount.reason
+                            event: discount.reason
                         });
                     }
                 }

@@ -186,13 +186,33 @@ class Usctdp_Mgmt_Docgen
             throw new ErrorException('Purchase not found');
         }
         $purchase_fields = $purchase_data[0];
+        $family_name = $purchase_fields->family_name;
 
-        $templateProcessor->setValue("statement_title", "Financial Statement");
-        $templateProcessor->setValue("family_name", $purchase_fields->family_name);
-        $templateProcessor->setValue("student_name", $purchase_fields->student_first . ' ' . $purchase_fields->student_last);
+        $templateProcessor->setValue("statement_title", "Financial Statement: $family_name");
 
-        if($purchase_fields->purchase_type)
-        $templateProcessor->setValue("activity_name", $purchase_fields->activity_name);
+        $header_fields = [];
+        $header_fields[] = [
+            "label" => "Student:",
+            "value" => $purchase_fields->student_first . ' ' . $purchase_fields->student_last
+        ];
+        $header_fields[] = [
+            "label" => "Product:",
+            "value" => $purchase_fields->product_name
+        ];
+        if(!empty($purchase_fields->session_name)) {
+            $header_fields[] = [
+                "label" => "Session:",
+                "value" => $purchase_fields->session_name
+            ];
+        }
+        if(!empty($purchase_fields->activity_name)) {
+            $header_fields[] = [
+                "label" => "Activity:",
+                "value" => $purchase_fields->activity_name
+            ];
+        }
+
+        $templateProcessor->cloneRowAndSetValues("label", $header_fields);
 
         $ledger_query = new Usctdp_Mgmt_Ledger_Query();
         $ledger_events = $ledger_query->get_ledger_events([

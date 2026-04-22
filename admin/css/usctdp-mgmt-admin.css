@@ -645,3 +645,15 @@ dialog .actions-footer {
 .flex-wrap {
     flex-wrap: wrap;
 }
+
+.mobile-break {
+    display: none;
+}
+
+@media (max-width: 782px) {
+    .mobile-break {
+        display: block;
+        flex-basis: 100%;
+        height: 0;
+    }
+}

@@ -80,7 +80,6 @@ class Usctdp_Mgmt_Woocommerce
         // Validate the registrations in the order. 
         // All registrations should have a valid registration id.
         foreach ($line_items as $line_item) {
-            error_log("Line item: " . print_r($line_item, true));
             if ($line_item["type"] == "registration") {
                 $registration_id = $line_item["registration_id"];
                 $line_item_id = $line_item["line_item_id"];
@@ -120,7 +119,7 @@ class Usctdp_Mgmt_Woocommerce
                     throw new Usctdp_Woocommerce_Exception($error_message);
                 }
 
-                $custom_price = floatval($line_item["credit"]);
+                $custom_price = floatval($line_item["base_price"]);
                 $total += $custom_price;
 
                 if ($line_item["type"] == "merchandise") {
@@ -161,7 +160,21 @@ class Usctdp_Mgmt_Woocommerce
                 }
             }
 
-            $order->set_total($total);
+            // Apply discounts to the order as negative fees
+            $discounts = $line_item["discounts"];
+            $discount_total = 0;
+            if ($discounts) {
+                foreach ($discounts as $discount) {
+                    $discount_amount = floatval($discount["amount"]);
+                    $discount_total += $discount_amount;
+                    $fee = new WC_Order_Item_Fee();
+                    $fee->set_name($discount["reason"]);
+                    $fee->set_total(-$discount_amount);
+                    $order->add_item($fee);
+                }
+            }
+
+            $order->set_total($total - $discount_total);
             if ($payment_method === 'cash') {
                 $order->set_payment_method('cod');
                 $order->set_payment_method_title('Cash');

@@ -96,14 +96,14 @@
                 </table>
             </div>
             <div class="actions-footer">
-                <button type="button" class="button" id="generate-statement-btn">Print Statement</button>
-                <button type="button" class="button" id="close-payment-history-modal">Close</button>
+                <button type="button" class="button button-primary" id="generate-statement-btn">Print Statement</button>
+                <button type="button" class="button button-secondary" id="close-payment-history-modal">Close</button>
             </div>
         </dialog>
 
         <div id="context-selectors">
         </div>
-        <div id="history-container" class="hidden">
+        <div id="history-container" class="hidden w-100">
             <h2>Purchase History for <span id="family-name"></span></h2>
             <div id="family-balance-section" class="flex-row gap-10">
                 <div class="family-financial-summary">
@@ -115,7 +115,7 @@
                     <span id="family-total-house-credit" class="balance-amt green-bg"></span>
                 </div>
             </div>
-            <div id="history-table-wrap">
+            <div id="history-table-wrap w-100">
                 <div id="table-filters">
                     <div id="student-filter-section" class="dt-layout-cell dt-layout-start">
                         <select id="student-filter" class="table-filter"></select>
@@ -138,23 +138,23 @@
                         </select>
                     </div>
                     <div id="owes-filter-section" class="dt-layout-cell dt-layout-start">
-                        <div class="flex-row gap-5">
+                        <div class="flex-row gap-5 align-center">
                             <label for="owes-filter">Owes Money:</label>
                             <input type="checkbox" id="owes-filter" name="owes-filter" value="1" class="table-filter">
                         </div>
                     </div>
                 </div>
 
-                <table id="history-table" class="reg-history-table">
+                <table id="history-table" class="w-100">
                     <thead>
                         <tr>
                             <th>
                                 <div class="table-header-controls">
-                                    <div class="select-all-control">
+                                    <div class="flex-row gap-5 align-center">
                                         <input id="cb-select-all" type="checkbox" class="cb-select-all">
                                         <label for="cb-select-all">Select All Visible</label>
                                     </div>
-                                    <div class="bulk-actions">
+                                    <div class="bulk-actions flex-row gap-5 align-center flex-wrap">
                                         <select id="bulk-action-selector">
                                             <option value=""></option>
                                             <option value="post-payments">Post Payment</option>

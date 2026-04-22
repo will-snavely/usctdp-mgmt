@@ -2,7 +2,6 @@
     "use strict";
 
     $(document).ready(function () {
-        var preloadedData = {};
         var discounts = [];
         var selectedFamily;
         var selectedStudent;

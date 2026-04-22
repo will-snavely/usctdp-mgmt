@@ -13,7 +13,7 @@
                 const createdDate = new Date(this.data.purchase_created_at).toLocaleString()
                 return `
                     <div class="purchase-card edit-disabled ${this._card_classes()}" data-idx="${this.idx}">
-                        <div class="flex-row gap-10 align-center">
+                        <div class="flex-row gap-10 align-center w-100 flex-wrap">
                             <div class="checkbox-wrap">
                                 <input type="checkbox" class="row-check" value="${this.data.registrationId || this.data.purchaseId}">
                             </div>
@@ -35,11 +35,11 @@
                             </div>
                         </div>
 
-                        <div class="card-middle-content">
+                        <div class="card-middle-content flex-row gap-10 align-center w-100">
                             ${this._renderMiddleSection()}
                         </div>
 
-                        <div class="flex-row gap-10 w-100">
+                        <div class="card-bottom-content flex-row gap-10 align-center w-100">
                             ${this._renderFinancialSection()}
                             ${this._renderNotesSection()}
                         </div>
@@ -92,20 +92,21 @@
                 const format = (val) => USCTDP_Admin.formatUsd(val);
 
                 return `
-                    <div class="flex-col gap-10 align-end">
+                    <div class="financial-section flex-col gap-10">
                         <div class="payment-info">
-                            ${this._renderAmountBadge('Net Fees', format(netFees), ['red-bg'])}
-                            ${this._renderAmountBadge('Net Paid', format(netPayments), ['green-bg'])}
+                            ${this._renderAmountBadge('Fees', format(netFees), ['red-bg'])}
+                            ${this._renderAmountBadge('Paid', format(netPayments), ['green-bg'])}
                             ${this._renderAmountBadge('Owed', format(owed), ['red-bg'])}
+                            <div class="mobile-break"></div>
                             ${this._renderAmountBadge('Refunds', format(refunds), ['blue-bg'])}
-                            ${this._renderAmountBadge('House Cr.', format(houseCredits), ['blue-bg'])}
+                            ${this._renderAmountBadge('Credits', format(houseCredits), ['blue-bg'])}
                         </div>
-                        <div class="flex-row gap-10">
-                            <button id="payment-history-${this.idx}" class="button payment-history">Payment History</button>
+                        <div class="flex-row gap-10 align-center">
+                            <button id="payment-history-${this.idx}" class="button payment-history">History</button>
                             <select id="payment-action-${this.idx}" class="payment-action-select">
                                 <option value=""></option>
-                                <option value="post-payment">Post Payment</option>
-                                <option value="post-refund">Post Refund/Adjustment</option>
+                                <option value="post-payment">Record Payment</option>
+                                <option value="post-refund">Record Refund/Adj.</option>
                             </select>
                             <button id="ledger-action-${this.idx}" class="button ledger-action" disabled>Go</button>
                         </div>
@@ -114,8 +115,8 @@
 
             _renderNotesSection() {
                 return `
-                    <div class="notes-wrap flex-col gap-5">
-                        <div class="flex-row gap-10 align-end">
+                    <div class="notes-section flex-col gap-5">
+                        <div class="flex-row gap-10 align-center">
                             <label class="upper-heavy">Notes</label>
                             <button id="save-notes-${this.idx}" class="button button-small save-notes-btn" disabled>Save</button>
                         </div>
@@ -172,21 +173,19 @@
                 const sessionSelectId = `session-selector-${this.idx}`;
                 const activitySelectId = `activity-selector-${this.idx}`;
                 return `
-                    <div class="registration-fields flex-row gap-10">
-                        <div class="session-selector-wrap flex-col gap-5">
+                    <div class="registration-fields flex-row gap-10 w-100">
+                        <div class="session-selector-wrap flex-col gap-5 selector-wrap">
                             <label class="upper-heavy">Session</label>
-                            <div id="session-selector-wrap-${this.idx}">
-                                <select id="${sessionSelectId}" class="session-select" data-orig-value="${this.data.session_id}"
-                                    data-orig-text="${this.data.session_name}" data-activity-selector-id="${activitySelectId}" disabled>
+                            <div id="session-selector-wrap-${this.idx}" class="w-100">
+                                <select id="${sessionSelectId}" class="session-select" data-width="100%" disabled>
                                     <option value="${this.data.session_id}" selected>${this.data.session_name}</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="activity-selector-wrap flex-col gap-5">
+                        <div class="activity-selector-wrap flex-col gap-5 selector-wrap">
                             <label class="upper-heavy">Activity</label>
-                            <div id="activity-selector-wrap-${this.idx}">
-                                <select id="${activitySelectId}" class="activity-select" data-orig-value="${this.data.activity_id}"
-                                    data-orig-text="${this.data.activity_name}" data-session-selector-id="${sessionSelectId}" disabled>
+                            <div id="activity-selector-wrap-${this.idx}" class="w-100">
+                                <select id="${activitySelectId}" class="activity-select" data-width="100%" disabled>
                                     <option value="${this.data.activity_id}" selected>${this.data.activity_name}</option>
                                 </select>
                             </div>
@@ -273,7 +272,7 @@
 
         function initPaymentActionSelect($selectElem) {
             $selectElem.select2({
-                placeholder: "Select a payment action...",
+                placeholder: "Payment action...",
                 allowClear: true,
             });
         }
@@ -425,6 +424,8 @@
 
         var historyTable = $('#history-table').DataTable({
             processing: true,
+            responsive: true,
+            autoWidth: false,
             serverSide: true,
             ordering: false,
             paging: true,
@@ -745,7 +746,7 @@
 
         $('#history-table tbody').on('input', '.notes-input', function () {
             const $row = $(this).closest('tr');
-            $row.find('.notes-wrap').addClass('is-dirty');
+            $row.find('.notes-section').addClass('is-dirty');
             $row.find('.save-notes-btn').prop('disabled', false);
         });
 
@@ -758,7 +759,7 @@
             }
             savePurchaseFields(rowData.purchase_id, update)
                 .then(() => {
-                    $row.find('.notes-wrap').removeClass('is-dirty');
+                    $row.find('.notes-section').removeClass('is-dirty');
                 })
                 .catch((error) => {
                     alert("Saving notes failed! " + error);
