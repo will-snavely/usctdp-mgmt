@@ -107,10 +107,10 @@ class Usctdp_Mgmt_Docgen
         return $templateProcessor;
     }
 
-    public function generate_purchase_statement($purchase_id)
+    public function generate_financial_statement($family_id, $purchase_ids)
     {
         $templateProcessor = new TemplateProcessor($this->statement_template_file);
-        $this->generate_statement_impl($templateProcessor, $purchase_id);
+        $this->generate_statement_impl($templateProcessor, $family_id, $purchase_ids);
         return $templateProcessor;
     }
 
@@ -175,10 +175,14 @@ class Usctdp_Mgmt_Docgen
         return $client;
     }
 
-    private function generate_statement_impl($templateProcessor, $purchase_id)
+    private function generate_statement_impl($templateProcessor, $family_id, $purchase_ids)
     {
         $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
-        $purchase_query = new Usctdp_Mgmt_Purchase_Query(); 
+        $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+        $family = Usctdp_Mgmt_Model::get_family($family_id);
+        if (empty($family)) {
+            throw new ErrorException('Family not found');
+        }
         $purchase_data = $purchase_query->get_purchase_data([
             'purchase_id' => $purchase_id
         ])['data'];
@@ -186,57 +190,39 @@ class Usctdp_Mgmt_Docgen
             throw new ErrorException('Purchase not found');
         }
         $purchase_fields = $purchase_data[0];
-        $family_name = $purchase_fields->family_name;
+        $templateProcessor->setValue("family_id", $$family->title);
+        $templateProcessor->setValue("address", $$family->address);
+        $templateProcessor->setValue("city", $$family->city);
+        $templateProcessor->setValue("state", $$family->state);
+        $templateProcessor->setValue("zip", $$family->zip);
+        $templateProcessor->setValue("stmt_date", date("m/d/Y"));
 
-        $templateProcessor->setValue("statement_title", "Financial Statement: $family_name");
-
-        $header_fields = [];
-        $header_fields[] = [
-            "label" => "Student:",
-            "value" => $purchase_fields->student_first . ' ' . $purchase_fields->student_last
-        ];
-        $header_fields[] = [
-            "label" => "Product:",
-            "value" => $purchase_fields->product_name
-        ];
-        if(!empty($purchase_fields->session_name)) {
-            $header_fields[] = [
-                "label" => "Session:",
-                "value" => $purchase_fields->session_name
-            ];
-        }
-        if(!empty($purchase_fields->activity_name)) {
-            $header_fields[] = [
-                "label" => "Activity:",
-                "value" => $purchase_fields->activity_name
-            ];
-        }
-
-        $templateProcessor->cloneRowAndSetValues("label", $header_fields);
-
-        $ledger_query = new Usctdp_Mgmt_Ledger_Query();
-        $ledger_events = $ledger_query->get_ledger_events([
-            'purchase_id' => $purchase_id,
-            'account' => $purchase_fields->purchase_type . '_fees'
-        ])['data'];
         $runningBalance = 0;
         $statement_rows = [];
-        foreach ($ledger_events as $item) {
-            $charge = floatval($item->charge_amount);
-            $payment = floatval($item->payment_amount);
-            $runningBalance += ($charge - $payment);
-            $item->calculated_balance = $runningBalance;
-            $date = new DateTime($item->event_date);
-            $date->setTimezone(new DateTimeZone('America/New_York'));
-            $formatted_date = $date->format('m/d/y');
-            $statement_rows[] = [
-                'date' => $formatted_date,
-                'event' => $item->entry_type,
-                'description' => $item->event_description,
-                'debit' => $formatter->formatCurrency($charge, 'USD'),
-                'credit' => $formatter->formatCurrency($payment, 'USD'),
-                'balance' => $formatter->formatCurrency($runningBalance, 'USD')
-            ];
+
+        foreach ($purchase_ids as $purchase_id) {
+            $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+            $ledger_events = $ledger_query->get_ledger_events([
+                'purchase_id' => $purchase_id,
+                'account' => $purchase_fields->purchase_type . '_fees'
+            ])['data'];
+            foreach ($ledger_events as $item) {
+                $charge = floatval($item->charge_amount);
+                $payment = floatval($item->payment_amount);
+                $runningBalance += ($charge - $payment);
+                $item->calculated_balance = $runningBalance;
+                $date = new DateTime($item->event_date);
+                $date->setTimezone(new DateTimeZone('America/New_York'));
+                $formatted_date = $date->format('m/d/y');
+                $statement_rows[] = [
+                    'date' => $formatted_date,
+                    'event' => $item->entry_type,
+                    'description' => $item->event_description,
+                    'debit' => $formatter->formatCurrency($charge, 'USD'),
+                    'credit' => $formatter->formatCurrency($payment, 'USD'),
+                    'balance' => $formatter->formatCurrency($runningBalance, 'USD')
+                ];
+            }
         }
         $templateProcessor->cloneRowAndSetValues("date", $statement_rows);
 
@@ -248,7 +234,7 @@ class Usctdp_Mgmt_Docgen
 
         $templateProcessor->setValue("statement_status", $status);
         $templateProcessor->setValue(
-            "statement_balance", 
+            "statement_balance",
             $formatter->formatCurrency($runningBalance, 'USD')
         );
     }

@@ -174,7 +174,7 @@
         const timestampSeconds = Math.floor(Date.now() / 1000);
         const checkStr = check_number ? ` #${check_number}` : "";
         const methodStr = USCTDP_Admin.formatSnakeCase(method) + checkStr;
-        const eventStr = `Refund Payout (${methodStr}) - ${reason}`;
+        const description = `Refund Payout (${methodStr}) - ${reason}`;
 
         var ledgerBase = {
             family_id: family_id,
@@ -182,7 +182,7 @@
             purchase_id: purchase_id,
             order_id: null,
             event_id: event_id_prefix + "_" + timestampSeconds,
-            event: eventStr
+            description: description
         };
 
         const zero = "0.00";
