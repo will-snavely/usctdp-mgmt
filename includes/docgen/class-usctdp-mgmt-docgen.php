@@ -5,14 +5,9 @@ if (!defined('ABSPATH')) {
 }
 
 use Google\Client;
-use Google\Service\Docs;
-use Google\Service\Docs\Request as DocsRequest;
-use Google\Service\Docs\BatchUpdateDocumentRequest;
-use Google\Service\Docs\InsertTextRequest;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 use PhpOffice\PhpWord\TemplateProcessor;
-use PhpOffice\PhpWord\Settings;
 
 define('PCLZIP_TEMPORARY_DIR', plugin_dir_path(__FILE__) . '/templates/tmp');
 
@@ -178,29 +173,30 @@ class Usctdp_Mgmt_Docgen
     private function generate_statement_impl($templateProcessor, $family_id, $purchase_ids)
     {
         $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
-        $purchase_query = new Usctdp_Mgmt_Purchase_Query();
         $family = Usctdp_Mgmt_Model::get_family($family_id);
         if (empty($family)) {
             throw new ErrorException('Family not found');
         }
-        $purchase_data = $purchase_query->get_purchase_data([
-            'purchase_id' => $purchase_id
-        ])['data'];
-        if (empty($purchase_data)) {
-            throw new ErrorException('Purchase not found');
-        }
-        $purchase_fields = $purchase_data[0];
-        $templateProcessor->setValue("family_id", $$family->title);
-        $templateProcessor->setValue("address", $$family->address);
-        $templateProcessor->setValue("city", $$family->city);
-        $templateProcessor->setValue("state", $$family->state);
-        $templateProcessor->setValue("zip", $$family->zip);
+        $templateProcessor->setValue("family_id", $family->title);
+        $templateProcessor->setValue("address", $family->address);
+        $templateProcessor->setValue("city", $family->city);
+        $templateProcessor->setValue("state", $family->state);
+        $templateProcessor->setValue("zip", $family->zip);
         $templateProcessor->setValue("stmt_date", date("m/d/Y"));
 
         $runningBalance = 0;
         $statement_rows = [];
 
         foreach ($purchase_ids as $purchase_id) {
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            $purchase_data = $purchase_query->get_purchase_data([
+                'purchase_id' => $purchase_id
+            ])['data'];
+            if (empty($purchase_data)) {
+                throw new ErrorException('Purchase not found: ' . $purchase_id);
+            }
+            $purchase_fields = $purchase_data[0];
+
             $ledger_query = new Usctdp_Mgmt_Ledger_Query();
             $ledger_events = $ledger_query->get_ledger_events([
                 'purchase_id' => $purchase_id,
@@ -225,18 +221,6 @@ class Usctdp_Mgmt_Docgen
             }
         }
         $templateProcessor->cloneRowAndSetValues("date", $statement_rows);
-
-        if ($runningBalance <= 0) {
-            $status = 'PAID';
-        } else {
-            $status = 'BALANCE DUE';
-        }
-
-        $templateProcessor->setValue("statement_status", $status);
-        $templateProcessor->setValue(
-            "statement_balance",
-            $formatter->formatCurrency($runningBalance, 'USD')
-        );
     }
 
     private function generate_clinic_roster_impl($templateProcessor, $clinic_id, $block_id)

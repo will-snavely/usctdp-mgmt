@@ -277,7 +277,9 @@
             });
         }
 
-        async function handlePriceChange(rowData, oldPrice, newPrice) {
+        async function handlePriceChange(rowData, priceChange, purchaseData) {
+            const oldPrice = priceChange.old_price;
+            const newPrice = priceChange.new_price;
             const updatePrice = await window.Swal.fire({
                 title: "Price Change",
                 html: `
@@ -290,25 +292,37 @@
                 `,
                 showDenyButton: true,
                 confirmButtonText: "Yes",
-                denyButtonText: `No`
+                denyButtonText: "No"
             });
 
+            /*
             if (updatePrice.isConfirmed) {
                 const absoluteDelta = Math.abs(newPrice - oldPrice);
-                const ledgerEntries = USCTDP_Admin.createAdjustmentLedger({
-                    family_id: rowData.family_id,
-                    student_id: rowData.student_id,
-                    purchase_id: rowData.purchase_id,
-                    amount: absoluteDelta,
-                    reason: "Registration Change",
-                    purchase_type: rowData.purchase_type,
-                    direction: newPrice < oldPrice ? "decrease" : "increase"
-                });
+                const direction = newPrice < oldPrice ? "decrease" : "increase"
+                const timestampSeconds = Math.floor(Date.now() / 1000);
+                var ledgerEntries = [];
+                if (direction == "decrease") {
+
+
+                } else {
+                    const adjEntries = USCTDP_Admin.createAdjustmentLedger({
+                        event_id: "adjustment_" + timestampSeconds,
+                        family_id: rowData.family_id,
+                        student_id: rowData.student_id,
+                        purchase_id: rowData.purchase_id,
+                        amount: absoluteDelta,
+                        reason: "Registration Change",
+                        purchase_type: rowData.purchase_type,
+                        direction: newPrice < oldPrice ? "decrease" : "increase"
+                    });
+                    ledgerEntries.push(...adjEntries);
+                }
                 await USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries);
                 window.Swal.fire("Saved!", "Price adjustment applied.", "success");
             } else {
                 window.Swal.fire("Skipped!", "Adjustment not applied.", "info");
             }
+            */
         }
 
         async function updateRegistration(rowData, fields) {
@@ -321,7 +335,7 @@
             if (priceChange && priceChange.delta != 0) {
                 const oldPrice = parseFloat(priceChange.old_price);
                 const newPrice = parseFloat(priceChange.new_price);
-                await handlePriceChange(rowData, oldPrice, newPrice);
+                await handlePriceChange(rowData, priceChange, saveResponse.data.purchase_data);
             }
         }
 
@@ -668,9 +682,12 @@
             const purchaseType = $('#refund-form').data("purchaseType");
             const studentId = $('#refund-form').data("studentId");
             const familyId = $('#refund-form').data("familyId");
+            const timestampSeconds = Math.floor(Date.now() / 1000);
             let entries = [];
+
             if (action === "adjust_only") {
                 entries = USCTDP_Admin.createAdjustmentLedger({
+                    event_id: "adjustment_" + timestampSeconds,
                     amount: amount,
                     reason: reason,
                     purchase_id: purchaseId,
@@ -681,6 +698,7 @@
                 });
             } else if (action === "payout_only") {
                 entries = USCTDP_Admin.createPayoutLedger({
+                    event_id: "payout_" + timestampSeconds,
                     amount: amount,
                     method: method,
                     reason: reason,
@@ -692,6 +710,7 @@
                 });
             } else if (action === "standard") {
                 entries = USCTDP_Admin.createRefundLedger({
+                    event_id: "refund_" + timestampSeconds,
                     amount: amount,
                     method: method,
                     reason: reason,

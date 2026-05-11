@@ -45,10 +45,6 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'name' => 'student_level',
             'type' => 'tinytext',
         ],
-        'notes' => [
-            'name' => 'notes',
-            'type' => 'text',
-        ],
         'created_at' => [
             'name' => 'created_at',
             'type' => 'datetime',
@@ -68,6 +64,10 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'type' => 'bigint',
             'length' => '20',
             'unsigned' => true,
+        ],
+        'notes' => [
+            'name' => 'notes',
+            'type' => 'text',
         ],
     ];
 }

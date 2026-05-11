@@ -1,6 +1,7 @@
 <?php
 global $wpdb;
 
+undefined_function_test();
 
 $balance_query =
     "   SELECT 

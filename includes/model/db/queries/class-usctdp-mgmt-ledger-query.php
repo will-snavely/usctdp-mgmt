@@ -123,9 +123,10 @@ class Usctdp_Mgmt_Ledger_Query extends Query
         $query = $wpdb->prepare(
             "SELECT 
                 id,
+                event_id,
                 DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%T.%%fZ') as event_date,
                 entry_type,
-                event as event_description,
+                description as event_description,
                 debit as charge_amount,
                 credit as payment_amount
             FROM {$wpdb->prefix}usctdp_ledger

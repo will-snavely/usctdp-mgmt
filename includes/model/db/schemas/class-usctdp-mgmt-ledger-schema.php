@@ -81,10 +81,6 @@ class Usctdp_Mgmt_Ledger_Schema extends Schema
             'default' => '0.00',
             'unsigned' => false,
         ],
-        'notes' => [
-            'name' => 'notes',
-            'type' => 'text',
-        ],
         'created_by' => [
             'name' => 'created_by',
             'type' => 'bigint',

@@ -124,22 +124,20 @@
 
     USCTDP_Admin.createAdjustmentLedger = function (args) {
         const {
-            family_id, student_id, purchase_id,
-            amount, direction, reason, purchase_type,
-            event_id_prefix = "price_adjustment"
+            family_id, student_id, purchase_id, event_id,
+            amount, direction, reason, purchase_type
         } = args;
 
-        const timestampSeconds = Math.floor(Date.now() / 1000);
         const directionStr = direction.charAt(0).toUpperCase() + direction.slice(1);
-        const eventStr = `Price Adjustment (${directionStr}) - ${reason}`;
+        const description = `Price ${directionStr} - ${reason}`;
         var results = [];
         var ledgerBase = {
+            event_id: event_id,
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
             order_id: null,
-            event_id: event_id_prefix + "_" + timestampSeconds,
-            event: eventStr
+            description: description
         }
 
         const zero = "0.00";
@@ -164,24 +162,22 @@
 
     USCTDP_Admin.createPayoutLedger = function (args) {
         const {
-            family_id, student_id, purchase_id,
+            family_id, student_id, purchase_id, event_id,
             amount, method, reason, purchase_type,
-            event_id_prefix = "refund_payout",
             check_number = null
         } = args;
 
         var results = [];
-        const timestampSeconds = Math.floor(Date.now() / 1000);
         const checkStr = check_number ? ` #${check_number}` : "";
         const methodStr = USCTDP_Admin.formatSnakeCase(method) + checkStr;
-        const description = `Refund Payout (${methodStr}) - ${reason}`;
+        const description = `Payout - ${methodStr} - ${reason}`;
 
         var ledgerBase = {
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
             order_id: null,
-            event_id: event_id_prefix + "_" + timestampSeconds,
+            event_id: event_id,
             description: description
         };
 
@@ -212,10 +208,11 @@
 
     USCTDP_Admin.createRefundLedger = function (args) {
         const {
-            amount, method, reason, purchase_type,
+            amount, method, reason, purchase_type, event_id,
             family_id, student_id, purchase_id, check_number
         } = args;
         const adjustmentLedger = USCTDP_Admin.createAdjustmentLedger({
+            event_id: event_id,
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
@@ -225,6 +222,7 @@
             purchase_type: purchase_type,
         });
         const payoutLedger = USCTDP_Admin.createPayoutLedger({
+            event_id: event_id,
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
@@ -780,6 +778,13 @@
             this.trigger('cart:empty', {});
         }
 
+        isAdditionalDay(student_id, session_id, product_id) {
+            return this.items.some(item =>
+                item.student_id == student_id &&
+                item.session_id == session_id &&
+                item.product_id == product_id);
+        }
+
         addNewRegistration(data, base_price, discounts, additional_day_discount) {
             const isDuplicate = this.items.some(item =>
                 item.student_id === data.student_id &&
@@ -798,7 +803,6 @@
             }
             return this.addItem(data, sale_price, 0);
         }
-
 
         addExistingRegistration(data) {
             const isDuplicate = this.items.some(item =>
@@ -961,7 +965,7 @@
                     debit: parseFloat(lineItem.base_price).toFixed(2),
                     credit: zero,
                     entry_type: "charge",
-                    event: "Base Fee"
+                    description: "Base Fee"
                 });
 
                 result.push({
@@ -970,7 +974,7 @@
                     debit: zero,
                     credit: parseFloat(lineItem.base_price).toFixed(2),
                     entry_type: "charge",
-                    event: "Base Fee"
+                    description: "Base Fee"
                 });
 
                 if (lineItem.discounts) {
@@ -983,7 +987,7 @@
                             debit: zero,
                             credit: amount,
                             entry_type: "adjustment",
-                            event: discount.reason
+                            description: discount.reason
                         });
                         result.push({
                             ...ledgerBase,
@@ -991,7 +995,7 @@
                             debit: amount,
                             credit: zero,
                             entry_type: "adjustment",
-                            event: discount.reason
+                            description: discount.reason
                         });
                     }
                 }
@@ -1008,7 +1012,7 @@
                     debit: parseFloat(lineItem.credit).toFixed(2),
                     credit: parseFloat(0).toFixed(2),
                     entry_type: "payment",
-                    event: eventStr
+                    description: eventStr
                 });
 
                 result.push({
@@ -1019,7 +1023,7 @@
                     debit: parseFloat(0).toFixed(2),
                     credit: parseFloat(lineItem.credit).toFixed(2),
                     entry_type: "payment",
-                    event: eventStr
+                    description: eventStr
                 });
             }
             return result;

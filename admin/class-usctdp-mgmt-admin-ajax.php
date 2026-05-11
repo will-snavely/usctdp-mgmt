@@ -7,9 +7,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'clinic_datatable' => 'ajax_clinic_datatable',
         'commit_order' => 'ajax_commit_order',
         'commit_merchandise' => 'ajax_commit_merchandise',
-        'commit_registrations' => 'ajax_commit_registrations',
         'create_family' => 'ajax_create_family',
-        'create_ledger_entry' => 'ajax_create_ledger_entry',
         'create_ledger_entries' => 'ajax_create_ledger_entries',
         'create_student' => 'ajax_create_student',
         'create_woocommerce_order' => 'ajax_create_woocommerce_order',
@@ -272,7 +270,7 @@ class Usctdp_Mgmt_Admin_Ajax
     {
         $this->check_nonce('gen_statement');
         $purchase_id = isset($_POST['purchase_id']) ? intval($_POST['purchase_id']) : '';
-        if(empty($purchase_id)) {
+        if (empty($purchase_id)) {
             wp_send_json_error('Purchase ID is required.', 400);
         }
         try {
@@ -285,6 +283,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'doc_url' => $drive_file->webViewLink
             ]);
         } catch (Throwable $e) {
+            error_log("WHYYYYYYYYYYYYYYYYYYY");
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_statement', $e);
             wp_send_json_error('An unexpected server error occurred during statement generation.', 500);
         }
@@ -428,7 +427,6 @@ class Usctdp_Mgmt_Admin_Ajax
         );
         wp_send_json($response);
     }
-
     public function ajax_update_registration()
     {
         $this->check_nonce('update_registration');
@@ -450,10 +448,16 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         $price_change = 0;
+        $purchase_data = null;
         if (isset($_POST['activity_id'])) {
             $current_activity = $registration->activity_id;
             $new_activity = intval($_POST['activity_id']);
             $price_change = $this->get_price_change($current_activity, $new_activity);
+
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            $purchase_data = $purchase_query->get_purchase_data([
+                "purchase_id" => $registration->purchase_id
+            ]);
         }
 
         try {
@@ -466,6 +470,7 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_success([
                 'updated' => $result,
                 'price_change' => $price_change,
+                'purchase_data' => $purchase_data
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_registration', $e);
@@ -742,7 +747,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'student_id' => intval(...),
             'order_id' => intval(...),
             'event_id' => sanitize_text_field(...),
-            'event' => sanitize_text_field(...),
+            'description' => sanitize_text_field(...),
             'entry_type' => sanitize_text_field(...),
             'account' => sanitize_text_field(...),
             'purchase_id' => intval(...),
@@ -1547,92 +1552,6 @@ class Usctdp_Mgmt_Admin_Ajax
             } else {
                 wp_send_json_success([
                     "ids" => $purchase_ids
-                ]);
-            }
-        }
-    }
-    public function ajax_commit_registrations()
-    {
-        $this->check_nonce('commit_registrations');
-
-        $transaction_started = false;
-        $transaction_completed = false;
-        $response_message = '';
-        $registration_ids = [];
-        global $wpdb;
-
-        try {
-            if (!current_user_can('manage_options')) {
-                throw new Web_Request_Exception('You do not have permission to perform this action.');
-            }
-
-            $ignore_full = isset($_POST['ignore-class-full']) && $_POST['ignore-class-full'] === 'true';
-            $registration_data = isset($_POST['registration_data']) ? $_POST['registration_data'] : [];
-            if (empty($registration_data)) {
-                throw new Web_Request_Exception('No registrations provided.');
-            }
-
-            $registration_records = [];
-            foreach ($registration_data as $registration) {
-                $registration_records[] = $this->parse_registration_data($registration);
-            }
-
-            $wpdb->query('START TRANSACTION');
-            $transaction_started = true;
-
-            $activity_ids = array_map(function ($record) {
-                return (int) $record["activity"]->id;
-            }, $registration_records);
-
-            if (!empty($activity_ids)) {
-                $placeholders = implode(',', array_fill(0, count($activity_ids), '%d'));
-                $wpdb->get_results(
-                    $wpdb->prepare(
-                        "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id IN ($placeholders) FOR UPDATE",
-                        $activity_ids
-                    )
-                );
-            }
-
-            foreach ($registration_records as &$record) {
-                $args = $record['sql_args'];
-                $line_item_id = $record['line_item_id'];
-                if ($this->is_student_enrolled($args['student_id'], $args['activity_id'])) {
-                    throw new Web_Request_Exception('Student is already enrolled in activity: ' . $record['activity']->title);
-                }
-
-                $capacity = $this->get_activity_capacity($args['activity_id']);
-                $enrollment_counts = $this->get_activity_enrollment_counts($args['activity_id']);
-                if (!$ignore_full && $enrollment_counts['total'] >= $capacity) {
-                    throw new Web_Request_Exception('Class is full: ' . $record['activity']->title);
-                }
-
-                $ids = $this->create_purchase_and_registration($args);
-                if (!$ids) {
-                    throw new Web_Request_Exception('Failed to create registration.');
-                }
-                $registration_ids[$line_item_id] = $ids;
-            }
-            $wpdb->query('COMMIT');
-            $transaction_completed = true;
-        } catch (Web_Request_Exception $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
-            $response_message = $e->getMessage();
-        } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_commit_registrations', $e);
-            $response_message = 'A system error occurred. Please try again.';
-        } finally {
-            if (!$transaction_completed) {
-                if ($transaction_started) {
-                    $wpdb->query('ROLLBACK');
-                }
-                if ($response_message === '') {
-                    $response_message = 'A system error occurred. Please try again.';
-                }
-                wp_send_json_error($response_message, 500);
-            } else {
-                wp_send_json_success([
-                    "ids" => $registration_ids
                 ]);
             }
         }

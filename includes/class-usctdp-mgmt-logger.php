@@ -24,11 +24,12 @@ class Usctdp_Mgmt_Logger
         ];
     }
 
-    private function get_logger($level) {
+    private function get_logger($level)
+    {
         return $this->loggers[$level->value] ?? $this->log_info(...);
     }
 
-    public function log_exception($message, $e, $level=Usctdp_Log_Level::Error)
+    public function log_exception($message, $e, $level = Usctdp_Log_Level::Error)
     {
         $logger = $this->get_logger($level);
         $logger($message . ": " . $e->getMessage());

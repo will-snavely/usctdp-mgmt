@@ -122,6 +122,7 @@
             const two_day_price = parseFloat(pricing['Two']);
             const diff = two_day_price - one_day_price;
             const discount = one_day_price - diff;
+
             $('#clinic-preorder input[type="checkbox"]').prop('checked', false);
             $('#clinic-preorder input[type="text"]').val('');
             $('#clinic-current-size').text(active);
