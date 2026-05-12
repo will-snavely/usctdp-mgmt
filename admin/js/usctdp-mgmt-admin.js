@@ -16,7 +16,7 @@
         return response;
     }
 
-    USCTDP_Admin.ajax_generateStatement = async function (purchase_id) {
+    USCTDP_Admin.ajax_generateStatement = async function (family_id, purchase_ids) {
         try {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -24,7 +24,8 @@
                 data: {
                     action: usctdp_mgmt_admin.gen_statement_action,
                     security: usctdp_mgmt_admin.gen_statement_nonce,
-                    purchase_id: purchase_id,
+                    family_id: family_id,
+                    purchase_ids: purchase_ids
                 }
             });
             if (response.success) {
@@ -124,7 +125,7 @@
 
     USCTDP_Admin.createAdjustmentLedger = function (args) {
         const {
-            family_id, student_id, purchase_id, event_id,
+            family_id, student_id, purchase_id, event_id, event,
             amount, direction, reason, purchase_type
         } = args;
 
@@ -133,6 +134,7 @@
         var results = [];
         var ledgerBase = {
             event_id: event_id,
+            event: event,
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
@@ -162,7 +164,7 @@
 
     USCTDP_Admin.createPayoutLedger = function (args) {
         const {
-            family_id, student_id, purchase_id, event_id,
+            family_id, student_id, purchase_id, event_id, event,
             amount, method, reason, purchase_type,
             check_number = null
         } = args;
@@ -173,11 +175,12 @@
         const description = `Payout - ${methodStr} - ${reason}`;
 
         var ledgerBase = {
+            event: event,
+            event_id: event_id,
             family_id: family_id,
             student_id: student_id,
             purchase_id: purchase_id,
             order_id: null,
-            event_id: event_id,
             description: description
         };
 
@@ -208,10 +211,11 @@
 
     USCTDP_Admin.createRefundLedger = function (args) {
         const {
-            amount, method, reason, purchase_type, event_id,
+            amount, method, reason, purchase_type, event_id, event,
             family_id, student_id, purchase_id, check_number
         } = args;
         const adjustmentLedger = USCTDP_Admin.createAdjustmentLedger({
+            event: event,
             event_id: event_id,
             family_id: family_id,
             student_id: student_id,
@@ -222,6 +226,7 @@
             purchase_type: purchase_type,
         });
         const payoutLedger = USCTDP_Admin.createPayoutLedger({
+            event: event,
             event_id: event_id,
             family_id: family_id,
             student_id: student_id,
@@ -819,6 +824,7 @@
             var netPayments = payments - refunds - houseCredits;
             var outstanding = netFees - netPayments;
             data.type = 'registration';
+            data.base_price = outstanding;
             return this.addItem(data, outstanding, 0);
         }
 
@@ -956,7 +962,8 @@
                 student_id: lineItem.student_id,
                 purchase_id: lineItem.purchase_id,
                 order_id: orderId,
-                event_id: eventId
+                event_id: eventId,
+                event: event
             }
             if (isNew) {
                 result.push({
@@ -1051,6 +1058,7 @@
 
                 var order = null;
                 var eventId = null;
+                
                 if (orderData.payment_method != "pay_later") {
                     order = await this.createWooCommerceOrder(orderData);
                     eventId = "order_" + order.order_id;

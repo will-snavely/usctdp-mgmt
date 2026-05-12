@@ -22,6 +22,7 @@ class Usctdp_Mgmt_Ledger_Table extends Table
             purchase_id bigint(20) UNSIGNED DEFAULT NULL,
             order_id bigint(20) UNSIGNED DEFAULT NULL,
             event_id varchar(50) NOT NULL,
+            event varchar(100) NOT NULL,
             account varchar(50) NOT NULL,
             description varchar(200) NOT NULL,
             entry_type varchar(20) DEFAULT NULL,

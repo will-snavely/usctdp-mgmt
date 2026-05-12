@@ -202,6 +202,8 @@ class Usctdp_Mgmt_Docgen
                 'purchase_id' => $purchase_id,
                 'account' => $purchase_fields->purchase_type . '_fees'
             ])['data'];
+            $session = $purchase_fields->session_name . ', ' . $purchase_fields->activity_name;
+            $first = true;
             foreach ($ledger_events as $item) {
                 $charge = floatval($item->charge_amount);
                 $payment = floatval($item->payment_amount);
@@ -210,17 +212,25 @@ class Usctdp_Mgmt_Docgen
                 $date = new DateTime($item->event_date);
                 $date->setTimezone(new DateTimeZone('America/New_York'));
                 $formatted_date = $date->format('m/d/y');
+                $session_str = "--";
+                $name_str = "--";
+                if ($first) {
+                    $session_str = $session;
+                    $name_str = $purchase_fields->student_first;
+                    $first = false;
+                }
                 $statement_rows[] = [
                     'date' => $formatted_date,
-                    'event' => $item->entry_type,
+                    'session' => $session_str,
+                    'name' => $name_str,
                     'description' => $item->event_description,
-                    'debit' => $formatter->formatCurrency($charge, 'USD'),
-                    'credit' => $formatter->formatCurrency($payment, 'USD'),
+                    'amount' => $formatter->formatCurrency($charge - $payment, 'USD'),
                     'balance' => $formatter->formatCurrency($runningBalance, 'USD')
                 ];
             }
         }
         $templateProcessor->cloneRowAndSetValues("date", $statement_rows);
+        $templateProcessor->setValue("balance_due", $formatter->formatCurrency($runningBalance, 'USD'));
     }
 
     private function generate_clinic_roster_impl($templateProcessor, $clinic_id, $block_id)

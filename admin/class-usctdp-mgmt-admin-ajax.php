@@ -269,21 +269,24 @@ class Usctdp_Mgmt_Admin_Ajax
     public function ajax_gen_statement()
     {
         $this->check_nonce('gen_statement');
-        $purchase_id = isset($_POST['purchase_id']) ? intval($_POST['purchase_id']) : '';
-        if (empty($purchase_id)) {
-            wp_send_json_error('Purchase ID is required.', 400);
+        $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
+        $purchase_ids = isset($_POST['purchase_ids']) ? array_map('intval', $_POST['purchase_ids']) : [];
+        if (empty($family_id)) {
+            wp_send_json_error('Family ID is required.', 400);
+        }
+        if (empty($purchase_ids)) {
+            wp_send_json_error('Purchase IDs are required.', 400);
         }
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
-            $document = $doc_gen->generate_purchase_statement($purchase_id);
-            $drive_file = $doc_gen->upload_to_google_drive($document, $purchase_id, 'statement-' . $purchase_id);
+            $document = $doc_gen->generate_financial_statement($family_id, $purchase_ids);
+            $drive_file = $doc_gen->upload_to_google_drive($document, $family_id, 'statement-' . $family_id);
             wp_send_json_success([
                 'message' => 'Statement generated successfully',
                 'doc_id' => $drive_file->id,
                 'doc_url' => $drive_file->webViewLink
             ]);
         } catch (Throwable $e) {
-            error_log("WHYYYYYYYYYYYYYYYYYYY");
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_statement', $e);
             wp_send_json_error('An unexpected server error occurred during statement generation.', 500);
         }
@@ -747,6 +750,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'student_id' => intval(...),
             'order_id' => intval(...),
             'event_id' => sanitize_text_field(...),
+            'event' => sanitize_text_field(...),
             'description' => sanitize_text_field(...),
             'entry_type' => sanitize_text_field(...),
             'account' => sanitize_text_field(...),

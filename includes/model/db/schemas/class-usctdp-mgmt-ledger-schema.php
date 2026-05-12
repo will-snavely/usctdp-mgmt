@@ -32,6 +32,11 @@ class Usctdp_Mgmt_Ledger_Schema extends Schema
             'length' => 50,
             'index' => true,
         ],
+        'event' => [
+            'name' => 'event',
+            'type' => 'varchar',
+            'length' => 100
+        ],
         'account' => [
             'name' => 'account',
             'type' => 'varchar',

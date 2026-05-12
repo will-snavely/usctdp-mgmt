@@ -1,8 +1,6 @@
 <?php
 global $wpdb;
 
-undefined_function_test();
-
 $balance_query =
     "   SELECT 
             COUNT(id) as total_count,

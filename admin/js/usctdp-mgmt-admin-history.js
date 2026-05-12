@@ -90,16 +90,15 @@
                 const owed = netFees - netPayments;
 
                 const format = (val) => USCTDP_Admin.formatUsd(val);
-
                 return `
                     <div class="financial-section flex-col gap-10">
                         <div class="payment-info">
                             ${this._renderAmountBadge('Fees', format(netFees), ['red-bg'])}
                             ${this._renderAmountBadge('Paid', format(netPayments), ['green-bg'])}
-                            ${this._renderAmountBadge('Owed', format(owed), ['red-bg'])}
-                            <div class="mobile-break"></div>
                             ${this._renderAmountBadge('Refunds', format(refunds), ['blue-bg'])}
-                            ${this._renderAmountBadge('Credits', format(houseCredits), ['blue-bg'])}
+                            <div class="mobile-break"></div>
+                            ${this._renderAmountBadge('House Cr.', format(houseCredits), ['blue-bg'])}
+                            ${this._renderAmountBadge('Owed', format(owed), ['red-bg'])}
                         </div>
                         <div class="flex-row gap-10 align-center">
                             <button id="payment-history-${this.idx}" class="button payment-history">History</button>
@@ -391,7 +390,12 @@
                 },
             },
             columns: [
-                { data: 'event_date' },
+                {
+                    data: 'event_date',
+                    render: function (data, type, row, meta) {
+                        return new Date(data).toLocaleString();
+                    }
+                },
                 { data: 'entry_type' },
                 { data: 'event_description' },
                 {
@@ -565,9 +569,10 @@
             }
         }
 
-        function openPaymentHistoryModal(purchaseId, account) {
+        function openPaymentHistoryModal(purchaseId, account, familyId) {
             $('#payment-history-modal').data("purchaseId", purchaseId);
             $('#payment-history-modal').data("account", account);
+            $('#payment-history-modal').data("familyId", familyId);
             paymentHistoryTable.ajax.reload();
             paymentHistoryModal.showModal();
         }
@@ -672,7 +677,6 @@
             }
             e.preventDefault();
             const action = refundMode.val();
-            console.log(action);
             const amount = $('#refund-amount').val();
             const method = $('#refund-method').val();
             const reason = $('#refund-reason').val();
@@ -688,6 +692,7 @@
             if (action === "adjust_only") {
                 entries = USCTDP_Admin.createAdjustmentLedger({
                     event_id: "adjustment_" + timestampSeconds,
+                    event: "Price Adjustment",
                     amount: amount,
                     reason: reason,
                     purchase_id: purchaseId,
@@ -699,6 +704,7 @@
             } else if (action === "payout_only") {
                 entries = USCTDP_Admin.createPayoutLedger({
                     event_id: "payout_" + timestampSeconds,
+                    event: "Refund Payout",
                     amount: amount,
                     method: method,
                     reason: reason,
@@ -711,6 +717,7 @@
             } else if (action === "standard") {
                 entries = USCTDP_Admin.createRefundLedger({
                     event_id: "refund_" + timestampSeconds,
+                    event: "Refund",
                     amount: amount,
                     method: method,
                     reason: reason,
@@ -843,15 +850,17 @@
         });
 
         $('#generate-statement-btn').on('click', () => {
+            const familyId = $('#payment-history-modal').data("familyId");
             const purchaseId = $('#payment-history-modal').data("purchaseId");
             const $btn = $('#generate-statement-btn');
             $btn.prop('disabled', true);
             $btn.html('<span class="spinner is-active"></span> Generating...');
-            USCTDP_Admin.ajax_generateStatement(purchaseId)
+            USCTDP_Admin.ajax_generateStatement(familyId, [purchaseId])
                 .then((response) => {
                     window.open(response.doc_url, '_blank');
                 })
                 .catch((error) => {
+                    paymentHistoryModal.close();
                     window.Swal.fire({
                         title: "Error",
                         text: "Failed to generate statement. Inform a developer.",
@@ -1036,7 +1045,8 @@
             var rowData = historyTable.row($row).data();
             const purchaseId = rowData.purchase_id;
             const account = rowData.purchase_type + "_fees";
-            openPaymentHistoryModal(purchaseId, account);
+            const familyId = rowData.family_id;
+            openPaymentHistoryModal(purchaseId, account, familyId);
         });
 
         function load_registration_history(title) {
