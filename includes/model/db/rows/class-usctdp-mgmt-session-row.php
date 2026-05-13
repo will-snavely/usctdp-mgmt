@@ -18,6 +18,6 @@ class Usctdp_Mgmt_Session_Row extends Row
         $this->end_date = DateTime::createFromFormat('Y-m-d', $this->end_date);
         $this->num_weeks = (int) $this->num_weeks;
         $this->category = Usctdp_Session_Category::from($this->category);
-        $this->notes = (string) $this->notes;
+        $this->season = (string) $this->season;
     }
 }

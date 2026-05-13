@@ -84,6 +84,7 @@ class Usctdp_Import_Session_Data
                     "start_date" => $start_date->format("Y-m-d"),
                     "end_date" => $end_date->format("Y-m-d"),
                     "num_weeks" => $session['length_weeks'],
+                    "season" => $session['season'],
                     "category" => $session_category->value,
                 ]);
             }

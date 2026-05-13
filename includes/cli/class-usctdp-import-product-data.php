@@ -213,6 +213,10 @@ class Usctdp_Import_Product_Data
             "search_term" => $search_term,
             "code" => $clinic['code'],
             "type" => "clinic",
+            "level" => $clinic['level'],
+            "age_range" => $clinic['age_range'],
+            "description" => $clinic['description'],
+            "short_description" => $clinic['short_description'],
             "session_category" => $this->get_category_int($clinic['session_category']),
             "age_group" => strtolower($clinic['age_group']),
         ]);

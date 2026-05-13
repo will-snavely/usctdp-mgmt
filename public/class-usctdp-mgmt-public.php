@@ -144,7 +144,7 @@ class Usctdp_Mgmt_Public
             $usctdp_id = null;
             if (!empty($product_query->items)) {
                 $tennis_product = $product_query->items[0];
-                $product_type = $tennis_product->type->value;
+                $product_type = $tennis_product->type;
                 $usctdp_id = $tennis_product->id;
             }
 

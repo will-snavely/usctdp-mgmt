@@ -40,6 +40,7 @@ class Usctdp_Mgmt_Session_Table extends Table
             end_date date,
             num_weeks tinyint unsigned,
             category tinyint unsigned,
+            season varchar(50),
             PRIMARY KEY (id),
             INDEX title_prefix (title(10)),
             INDEX idx_start_date (start_date),

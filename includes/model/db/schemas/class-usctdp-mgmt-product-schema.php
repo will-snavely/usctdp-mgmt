@@ -41,10 +41,28 @@ class Usctdp_Mgmt_Product_Schema extends Schema
             'type' => 'varchar',
             'length' => '50',
         ],
+        'level' => [
+            'name' => 'level',
+            'type' => 'varchar',
+            'length' => '50',
+        ],
         'age_group' => [
             'name' => 'age_group',
             'type' => 'varchar',
             'length' => '50',
+        ],
+        'age_range' => [
+            'name' => 'age_range',
+            'type' => 'varchar',
+            'length' => '50',
+        ],
+        'description' => [
+            'name' => 'description',
+            'type' => 'text',
+        ],
+        'short_description' => [
+            'name' => 'short_description',
+            'type' => 'text',
         ],
         'session_category' => [
             'name' => 'session_category',

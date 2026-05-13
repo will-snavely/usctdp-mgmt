@@ -47,5 +47,10 @@ class Usctdp_Mgmt_Session_Schema extends Schema
             'type' => 'tinyint',
             'unsigned' => true,
         ],
+        'season' => [
+            'name' => 'season',
+            'type' => 'varchar',
+            'length' => 50
+        ],
     ];
 }
