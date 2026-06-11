@@ -12,12 +12,14 @@ class Usctdp_Mgmt_Product_Row extends Row
     {
         parent::__construct($item);
         $this->id = (int) $this->id;
+        $this->code = (string) $this->code;
+        $this->wp_image_id = $this->wp_image_id !== null ? (int) $this->wp_image_id : null;
         $this->woocommerce_id = (int) $this->woocommerce_id;
         $this->type = (string) $this->type;
         $this->title = (string) $this->title;
         $this->search_term = (string) $this->search_term;
-        $this->code = (string) $this->code;
         $this->level = (string) $this->level;
+        $this->meta = (string) $this->meta;
         $this->age_group = (string) $this->age_group;
         $this->age_range = (string) $this->age_range;
         $this->description = (string) $this->description;

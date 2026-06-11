@@ -27,6 +27,9 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-import-family-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-import-staff-data.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-random-people-generator.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -37,6 +40,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-clean-products.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-meta.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -109,6 +115,81 @@ class Usctdp_Cli_Command
         }
         $generator = new Usctdp_Import_Session_Data();
         $generator->import($file_path);
+    }
+
+    public function import_staff($args, $assoc_args)
+    {
+        $file_path = '';
+        if ($args && count($args) > 0) {
+            $file_path = $args[0];
+        } else {
+            WP_CLI::error('File path not provided');
+            return;
+        }
+        $generator = new Usctdp_Import_Staff_Data();
+        $generator->import($file_path);
+    }
+    public function meta($args, $assoc_args)
+    {
+        if (count($args) < 1) {
+            WP_CLI::error('Provide operation: get, set, del');
+            return;
+        }
+        $operation = $args[0];
+
+        if (count($args) < 2) {
+            WP_CLI::error('Provide table name');
+            return;
+        }
+        $table = $args[1];
+        $meta = new Usctdp_Meta($table);
+
+        switch ($operation) {
+            case 'get':
+                if (count($args) < 3) {
+                    WP_CLI::error('Provide object id.');
+                    return;
+                }
+                $object_id = $args[2];
+                $meta_key = null;
+                if (count($args) >= 4) {
+                    $meta_key = $args[3];
+                }
+                $meta->get_meta($object_id, $meta_key);
+                break;
+            case 'set':
+                if (count($args) < 3) {
+                    WP_CLI::error('Provide object id.');
+                    return;
+                }
+                if (count($args) < 4) {
+                    WP_CLI::error('Provide meta key.');
+                    return;
+                }
+                if (count($args) < 5) {
+                    WP_CLI::error('Provide meta value.');
+                    return;
+                }
+                $object_id = $args[2];
+                $meta_key = $args[3];
+                $meta_value = $args[4];
+                $meta->set_meta($object_id, $meta_key, $meta_value);
+                break;
+            case 'del':
+                if (count($args) < 2) {
+                    WP_CLI::error('Provide object id.');
+                    return;
+                }
+                $object_id = $args[2];
+                $meta_key = null;
+                if (count($args) >= 3) {
+                    $meta_key = $args[3];
+                }
+                $meta->delete_meta($object_id, $meta_key);
+                break;
+            default:
+                WP_CLI::error('Unknown operation: ' . $operation);
+        }
     }
 
     public function clean($args, $assoc_args)

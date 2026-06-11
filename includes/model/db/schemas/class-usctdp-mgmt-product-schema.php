@@ -27,6 +27,13 @@ class Usctdp_Mgmt_Product_Schema extends Schema
             'type' => 'tinytext',
             'index' => true,
         ],
+        'wp_image_id' => [
+            'name' => 'wp_image_id',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'nullable' => true,
+        ],
         'title' => [
             'name' => 'title',
             'type' => 'tinytext',
@@ -68,5 +75,10 @@ class Usctdp_Mgmt_Product_Schema extends Schema
             'name' => 'session_category',
             'type' => 'tinyint',
         ],
+        'meta' => [
+            'name' => 'meta',
+            'type' => 'json',
+            'default' => '{}',
+        ]   
     ];
 }

@@ -25,17 +25,6 @@ class Usctdp_Import_Product_Data
         $normalized_cat = strtolower(trim($cat));
         return $cats[$normalized_cat] ?? false;
     }
-
-    private function get_age_group_int(string $cat)
-    {
-        $cats = [
-            'junior' => 1,
-            'adult' => 2,
-        ];
-        $normalized_cat = strtolower(trim($cat));
-        return $cats[$normalized_cat] ?? false;
-    }
-
     private function get_or_import_image($local_file, $external_id)
     {
         global $wpdb;
@@ -209,12 +198,13 @@ class Usctdp_Import_Product_Data
         WP_CLI::log("Creating clinic $title for product $product_id");
         return $query->add_item([
             "woocommerce_id" => $product_id,
+            "wp_image_id" => $this->image_map[$clinic['image_id']] ?? null,
             "title" => $title,
             "search_term" => $search_term,
             "code" => $clinic['code'],
-            "type" => "clinic",
-            "level" => $clinic['level'],
-            "age_range" => $clinic['age_range'],
+            "type" => $clinic['type'] ?? 'clinic',
+            "level" => strtolower($clinic['level']),
+            "age_range" => strtolower($clinic['age_range']),
             "description" => $clinic['description'],
             "short_description" => $clinic['short_description'],
             "session_category" => $this->get_category_int($clinic['session_category']),

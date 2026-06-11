@@ -52,5 +52,10 @@ class Usctdp_Mgmt_Session_Schema extends Schema
             'type' => 'varchar',
             'length' => 50
         ],
+        'meta' => [
+            'name' => 'meta',
+            'type' => 'json',
+            'default' => '{}'
+        ]
     ];
 }

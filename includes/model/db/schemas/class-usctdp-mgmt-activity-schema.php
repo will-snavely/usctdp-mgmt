@@ -37,9 +37,10 @@ class Usctdp_Mgmt_Activity_Schema extends Schema
             'type' => 'tinytext',
             'index' => true,
         ],
-        'notes' => [
-            'name' => 'notes',
-            'type' => 'text',
+        'meta' => [
+            'name' => 'meta',
+            'type' => 'json',
+            'default' => '{}',
         ],
         'session_id' => [
             'name' => 'session_id',

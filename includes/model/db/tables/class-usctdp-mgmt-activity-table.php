@@ -25,7 +25,7 @@ class Usctdp_Mgmt_Activity_Table extends Table
             level tinytext,
             search_term tinytext,
             capacity smallint unsigned,
-            notes text,
+            meta json default '{}',
             PRIMARY KEY (id),
             KEY session_id (session_id),
             KEY product_id (product_id),

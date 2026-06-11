@@ -19,5 +19,6 @@ class Usctdp_Mgmt_Session_Row extends Row
         $this->num_weeks = (int) $this->num_weeks;
         $this->category = Usctdp_Session_Category::from($this->category);
         $this->season = (string) $this->season;
+        $this->meta = (string) $this->meta;
     }
 }
