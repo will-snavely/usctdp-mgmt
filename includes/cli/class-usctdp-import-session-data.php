@@ -218,6 +218,10 @@ class Usctdp_Import_Session_Data
         foreach ($data["classes"] as $class) {
             $clinic_name = $class['clinic'];
             $clinic = $this->get_clinic_by_title($class['clinic']);
+            if (!$clinic) {
+                WP_CLI::log("No clinic found with title $clinic_name");
+                continue;
+            }
             $clinic_id = $clinic->id;
             $clinic_category = $clinic->session_category;
 

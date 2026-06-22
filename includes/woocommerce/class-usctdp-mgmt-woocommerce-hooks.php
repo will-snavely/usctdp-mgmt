@@ -238,7 +238,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function after_checkout_validation($data, $errors)
     {
         global $wpdb;
-
         $registration_table = $wpdb->prefix . 'usctdp_registration';
         $activity_table = $wpdb->prefix . 'usctdp_activity';
         $count_query_template = "
