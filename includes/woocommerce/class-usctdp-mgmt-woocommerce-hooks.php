@@ -128,15 +128,17 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     {
         $activities = [];
         if (isset($_POST['student_id'])) {
-            $cart_item_data['student_id'] = $_POST['student_id'];
+            $cart_item_data['student_id'] = intval($_POST['student_id']);
         }
         if (isset($_POST['day_of_week_1'])) {
-            $activities[] = $_POST['day_of_week_1'];
-            $cart_item_data['day_of_week_1'] = $_POST['day_of_week_1'];
+            $id = intval($_POST['day_of_week_1']);
+            $activities[] = $id;
+            $cart_item_data['day_of_week_1'] = $id;
         }
         if (isset($_POST['day_of_week_2'])) {
-            $activities[] = $_POST['day_of_week_2'];
-            $cart_item_data['day_of_week_2'] = $_POST['day_of_week_2'];
+            $id = intval($_POST['day_of_week_2']);
+            $activities[] = $id;
+            $cart_item_data['day_of_week_2'] = $id;
         }
         $cart_item_data['activities'] = $activities;
         $cart_item_data['tracking_id'] = uniqid("usctdp_", true);
@@ -283,13 +285,19 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 ]);
                 if (!empty($reg_query->items)) {
                     $existing_reg = $reg_query->items[0];
-                    if ($existing_reg->tracking_id !== $reg["tracking_id"]) {
-                        $name = $student->title;
-                        $class = $activity->title;
-                        $msg = "$name is already enrolled in '$class'.";
-                        throw new Usctdp_Checkout_Exception($msg, 'already_enrolled');
-                    } else {
-                        $already_reserved = true;
+                    $active_statuses = [
+                        Usctdp_Registration_Status::Confirmed->value,
+                        Usctdp_Registration_Status::Pending->value,
+                    ];
+                    if (in_array($existing_reg->status, $active_statuses)) {
+                        if ($existing_reg->tracking_id !== $reg["tracking_id"]) {
+                            $name = $student->title;
+                            $class = $activity->title;
+                            $msg = "$name is already enrolled in '$class'.";
+                            throw new Usctdp_Checkout_Exception($msg, 'already_enrolled');
+                        } else {
+                            $already_reserved = true;
+                        }
                     }
                 }
 
@@ -372,23 +380,31 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             $item->add_meta_data('Day 2', $this->get_clinic_display($values['day_of_week_2']));
         }
         $item->add_meta_data('_activities', $values['activities']);
+        $item->add_meta_data('_tracking_id', $values['tracking_id']);
     }
 
     public function checkout_order_processed($order_id, $data, $order)
     {
         foreach ($order->get_items() as $item_id => $item) {
-            $student_id = $item->get_meta('_student_id');
-            $activities = $item->get_meta('_activities');
+            $student_id  = $item->get_meta('_student_id');
+            $tracking_id = $item->get_meta('_tracking_id');
+            $activities  = $item->get_meta('_activities');
             foreach ($activities as $activity_id) {
                 $query = new Usctdp_Mgmt_Registration_Query([
-                    'student_id' => $student_id,
+                    'student_id'  => $student_id,
                     'activity_id' => $activity_id,
+                    'tracking_id' => $tracking_id,
+                    'status'      => Usctdp_Registration_Status::Pending->value,
                 ]);
                 if (!empty($query->items)) {
                     $query->update_item($query->items[0]->id, [
                         'order_id' => $order_id,
                     ]);
                 } else {
+                    Usctdp_Mgmt::logger()->log_error(
+                        "USCTDP: No pending registration found for order $order_id, " .
+                        "student $student_id, activity $activity_id, tracking $tracking_id"
+                    );
                 }
             }
         }
@@ -406,6 +422,168 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 "last_modified_at" => current_time('mysql'),
                 "last_modified_by" => get_current_user_id(),
             ]);
+        }
+    }
+
+    public function create_purchase_and_ledger_entries($order_id)
+    {
+        global $wpdb;
+        $txn_started   = false;
+        $txn_committed = false;
+
+        try {
+            $order = wc_get_order($order_id);
+            if (!$order) {
+                Usctdp_Mgmt::logger()->log_error("USCTDP: Order $order_id not found for purchase/ledger creation.");
+                return;
+            }
+
+            $user_id = $order->get_customer_id();
+            $family_query = new Usctdp_Mgmt_Family_Query(['user_id' => $user_id, 'number' => 1]);
+            if (empty($family_query->items)) {
+                Usctdp_Mgmt::logger()->log_error("USCTDP: No family found for user $user_id on order $order_id.");
+                return;
+            }
+            $family_id      = $family_query->items[0]->id;
+            $payment_method = $order->get_payment_method();
+            $reference_id   = $order->get_transaction_id() ?: (string) $order_id;
+            $created_at     = current_time('mysql');
+            $created_by     = get_current_user_id();
+
+            $wpdb->query('START TRANSACTION');
+            $txn_started = true;
+
+            foreach ($order->get_items() as $item) {
+                $student_id = $item->get_meta('_student_id');
+                if (!$student_id) {
+                    continue;
+                }
+
+                $tracking_id = $item->get_meta('_tracking_id');
+                $day_1_id    = $item->get_meta('_day_1_id');
+                $day_2_id    = $item->get_meta('_day_2_id');
+                $item_total  = floatval($item->get_total());
+
+                $activity_ids = [];
+                if ($day_1_id) {
+                    $activity_ids[] = intval($day_1_id);
+                }
+                if ($day_2_id) {
+                    $activity_ids[] = intval($day_2_id);
+                }
+                if (empty($activity_ids)) {
+                    continue;
+                }
+
+                $wc_product_id = $item->get_product_id();
+                $product_query = new Usctdp_Mgmt_Product_Query(['woocommerce_id' => $wc_product_id, 'number' => 1]);
+                if (empty($product_query->items)) {
+                    throw new Exception("Plugin product not found for WC product $wc_product_id on order $order_id.");
+                }
+                $product = $product_query->items[0];
+
+                $activities = [];
+                foreach ($activity_ids as $activity_id) {
+                    $aq = new Usctdp_Mgmt_Activity_Query(['id' => $activity_id, 'number' => 1]);
+                    if (empty($aq->items)) {
+                        throw new Exception("Activity $activity_id not found for order $order_id.");
+                    }
+                    $activities[$activity_id] = $aq->items[0];
+                }
+
+                if (count($activity_ids) === 1) {
+                    $activity_prices = [$activity_ids[0] => $item_total];
+                } else {
+                    $pricing = Usctdp_Mgmt_Model::get_activity_pricing($activities[$activity_ids[0]]);
+                    if (!$pricing) {
+                        throw new Exception("Pricing not found for activity {$activity_ids[0]} on order $order_id.");
+                    }
+                    $pricing_data         = json_decode($pricing->pricing, true);
+                    $day1_price           = floatval($pricing_data['One']);
+                    $activity_prices      = [
+                        $activity_ids[0] => $day1_price,
+                        $activity_ids[1] => $item_total - $day1_price,
+                    ];
+                }
+
+                $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+                foreach ($activity_ids as $activity_id) {
+                    $reg_query = new Usctdp_Mgmt_Registration_Query([
+                        'order_id'    => $order_id,
+                        'student_id'  => $student_id,
+                        'activity_id' => $activity_id,
+                        'number'      => 1,
+                    ]);
+                    if (empty($reg_query->items)) {
+                        throw new Exception("Registration not found for order $order_id, student $student_id, activity $activity_id.");
+                    }
+                    $registration = $reg_query->items[0];
+                    if (!empty($registration->purchase_id)) {
+                        continue;
+                    }
+
+                    $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+                    $purchase_id    = $purchase_query->add_item([
+                        'product_id'  => $product->id,
+                        'family_id'   => $family_id,
+                        'student_id'  => $student_id,
+                        'tracking_id' => $tracking_id,
+                        'type'        => 'registration',
+                        'created_at'  => $created_at,
+                        'created_by'  => $created_by,
+                    ]);
+                    if (!$purchase_id) {
+                        throw new Exception("Failed to create purchase for order $order_id, activity $activity_id.");
+                    }
+
+                    $reg_query->update_item($registration->id, ['purchase_id' => $purchase_id]);
+                    $price          = $activity_prices[$activity_id];
+                    $activity_title = $activities[$activity_id]->title;
+
+                    $ledger_query->add_item([
+                        'purchase_id'    => $purchase_id,
+                        'family_id'      => $family_id,
+                        'order_id'       => $order_id,
+                        'event_id'       => 'wc_order' . $order_id,
+                        'event'          => 'WooCommerce Order ' . $order_id,
+                        'account'        => 'registration_fees',
+                        'entry_type'     => 'charge',
+                        'description'    => $activity_title,
+                        'payment_method' => $payment_method,
+                        'reference_id'   => $reference_id,
+                        'debit'          => $price,
+                        'credit'         => 0,
+                        'created_at'     => $created_at,
+                        'created_by'     => $created_by,
+                    ]);
+
+                    $ledger_query->add_item([
+                        'purchase_id'    => $purchase_id,
+                        'family_id'      => $family_id,
+                        'order_id'       => $order_id,
+                        'event_id'       => 'wc_order' . $order_id,
+                        'event'          => 'WooCommerce Order ' . $order_id,
+                        'account'        => 'registration_fees',
+                        'entry_type'     => 'payment',
+                        'description'    => $activity_title,
+                        'payment_method' => $payment_method,
+                        'reference_id'   => $reference_id,
+                        'debit'          => 0,
+                        'credit'         => $price,
+                        'created_at'     => $created_at,
+                        'created_by'     => $created_by,
+                    ]);
+                }
+            }
+
+            $wpdb->query('COMMIT');
+            $txn_committed = true;
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('USCTDP: create_purchase_and_ledger_entries', $e);
+        } finally {
+            if ($txn_started && !$txn_committed) {
+                $wpdb->query('ROLLBACK');
+            }
         }
     }
 }
