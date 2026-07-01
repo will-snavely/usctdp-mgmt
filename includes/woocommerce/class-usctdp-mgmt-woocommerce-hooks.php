@@ -37,6 +37,69 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         <?php
     }
 
+    /**
+     * Silently suppress the "Please choose product options" error when no variation_id
+     * is present. WooCommerce's add_to_cart_handler_variable() generates this notice
+     * after the woocommerce_add_to_cart_validation filter, so returning false here
+     * exits the handler before wc_add_notice() is ever called.
+     *
+     * This catches all callers (AJAX, PayPal, standard POST) that fire the variable
+     * product handler without a valid variation — including PayPal's change-cart and
+     * simulate-cart endpoints that serialize the product form but omit variation data.
+     * JS already handles the client-side "select options" UX, so no server notice is needed.
+     */
+    public function suppress_missing_variation_notice($passed, $product_id, $quantity, $variation_id = 0)
+    {
+        if (!empty($variation_id)) {
+            return $passed;
+        }
+        $product = wc_get_product($product_id);
+        if ($product && $product->is_type('variable')) {
+            return false;
+        }
+        return $passed;
+    }
+
+    /**
+     * Remove "Please choose product options" notices from the WC session.
+     *
+     * These accumulate when any AJAX endpoint (PayPal smart buttons, fragment refresh,
+     * etc.) triggers add_to_cart_action without a variation_id. wc_print_notices() never
+     * runs in those AJAX contexts, so the notices stay in the session and surface on
+     * completely unrelated pages — cart, checkout, shop, wherever WooCommerce next
+     * outputs notices.
+     *
+     * Registered on two hooks:
+     *   shutdown  (priority 15, before WC saves the session at priority 20) — scrubs any
+     *             notices generated during an AJAX request before they hit the DB.
+     *   wp        (priority 100, before template rendering / notice output)  — scrubs any
+     *             notices that were already persisted from a previous AJAX request so
+     *             they never appear on page loads.
+     */
+    public function clear_stale_variation_notices()
+    {
+        if (!WC()->session) {
+            return;
+        }
+        $notices = WC()->session->get('wc_notices', []);
+        if (empty($notices['error'])) {
+            return;
+        }
+        $target = 'Please choose product options';
+        $filtered = array_values(array_filter($notices['error'], function ($notice) use ($target) {
+            $text = is_array($notice) ? ($notice['notice'] ?? '') : $notice;
+            return strpos(wp_strip_all_tags($text), $target) === false;
+        }));
+        if (count($filtered) === count($notices['error'])) {
+            return;
+        }
+        $notices['error'] = $filtered;
+        if (empty($notices['error'])) {
+            unset($notices['error']);
+        }
+        WC()->session->set('wc_notices', $notices);
+    }
+
     public function display_before_variations_form()
     {
     }
@@ -98,8 +161,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function display_after_variations_form()
     {
     }
-
-
     private function int_to_day($day_of_week)
     {
         $days = [

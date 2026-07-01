@@ -214,6 +214,22 @@ class Usctdp_Mgmt
     private function define_woocommerce_hooks()
     {
         $commerce_handler = new Usctdp_Mgmt_Woocommerce_Hooks();
+
+        $this->loader->add_filter(
+            'woocommerce_add_to_cart_validation',
+            $commerce_handler,
+            'suppress_missing_variation_notice',
+            999,
+            4
+        );
+
+        // Scrub "Please choose product options" notices that accumulated in the WC
+        // session from AJAX requests where wc_print_notices() never ran.
+        // shutdown priority 15 fires before WC saves the session (priority 20).
+        // wp priority 100 fires before template rendering on page loads.
+        $this->loader->add_action('shutdown', $commerce_handler, 'clear_stale_variation_notices', 15);
+        $this->loader->add_action('wp', $commerce_handler, 'clear_stale_variation_notices', 100);
+
         $this->define_product_page_display_hooks($commerce_handler);
 
         $this->loader->add_filter(

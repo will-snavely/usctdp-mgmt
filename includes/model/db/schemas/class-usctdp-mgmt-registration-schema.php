@@ -35,6 +35,11 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
+        'tracking_id' => [
+            'name' => 'tracking_id',
+            'type' => 'varchar',
+            'length' => '50',
+        ],
         'status' => [
             'name' => 'status',
             'type' => 'varchar',
