@@ -569,7 +569,6 @@ class Usctdp_Mgmt_Admin_Ajax
                 WHERE " . implode(' AND ', $conditions),
             $args
         );
-        error_log($query);
         $result = $wpdb->get_row($query);
         return $result->total_balance_due;
     }
@@ -597,7 +596,6 @@ class Usctdp_Mgmt_Admin_Ajax
                 WHERE " . implode(' AND ', $conditions),
             $args
         );
-        error_log($query);
         $result = $wpdb->get_row($query);
         return $result->house_credit_balance;
     }
@@ -947,7 +945,6 @@ class Usctdp_Mgmt_Admin_Ajax
 
     public function ajax_clinic_datatable()
     {
-        error_log('ajax_clinic_datatable');
         $this->check_nonce('clinic_datatable');
 
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;

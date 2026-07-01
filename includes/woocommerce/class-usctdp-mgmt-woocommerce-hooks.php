@@ -539,7 +539,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 $wc_product_id = $item->get_product_id();
                 $product_query = new Usctdp_Mgmt_Product_Query(['woocommerce_id' => $wc_product_id, 'number' => 1]);
                 if (empty($product_query->items)) {
-                    throw new Exception("Plugin product not found for WC product $wc_product_id on order $order_id.");
+                    throw new Exception("USCTDP Product not found for WC product $wc_product_id on order $order_id.");
                 }
                 $product = $product_query->items[0];
 
@@ -559,7 +559,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     if (!$pricing) {
                         throw new Exception("Pricing not found for activity {$activity_ids[0]} on order $order_id.");
                     }
-                    $pricing_data         = json_decode($pricing->pricing, true);
+                    $pricing_data         = $pricing->pricing;
                     $day1_price           = floatval($pricing_data['One']);
                     $activity_prices      = [
                         $activity_ids[0] => $day1_price,
@@ -609,7 +609,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         'event'          => 'WooCommerce Order ' . $order_id,
                         'account'        => 'registration_fees',
                         'entry_type'     => 'charge',
-                        'description'    => $activity_title,
+                        'description'    => 'Order placed in online store.',
                         'payment_method' => $payment_method,
                         'reference_id'   => $reference_id,
                         'debit'          => $price,
@@ -626,7 +626,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         'event'          => 'WooCommerce Order ' . $order_id,
                         'account'        => 'registration_fees',
                         'entry_type'     => 'payment',
-                        'description'    => $activity_title,
+                        'description'    => 'Order paid in online store.',
                         'payment_method' => $payment_method,
                         'reference_id'   => $reference_id,
                         'debit'          => 0,

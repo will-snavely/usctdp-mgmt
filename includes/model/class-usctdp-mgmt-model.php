@@ -117,7 +117,6 @@ class Usctdp_Mgmt_Model
     {
         $query = new Usctdp_Mgmt_Activity_Query();
         $result = $query->get_activity_data(['id' => $id]);
-        error_log(print_r($result, true));
         if (!$result || !isset($result['data']) || empty($result['data'])) {
             return null;
         }
