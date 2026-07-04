@@ -29,6 +29,16 @@ class Usctdp_Mgmt_Family_Row extends Row
             }
         }
         $this->phone_numbers = $phone_result;
+
+        $email_result = [];
+        if (!empty($this->emails)) {
+            $json = json_decode($this->emails);
+            if (!empty($json)) {
+                $email_result = $json;
+            }
+        }
+        $this->emails = $email_result;
+    
         $this->notes = (string) $this->notes;
     }
 }

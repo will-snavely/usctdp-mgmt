@@ -80,8 +80,12 @@ class Usctdp_Cli_Command
             WP_CLI::error('File path not provided');
             return;
         }
+        $mock = false;
+        if (isset($args[1])) {
+            $mock = boolval($args[1]);
+        }
         $generator = new Usctdp_Import_Family_Data();
-        $generator->import($file_path);
+        $generator->import($file_path, $mock);
     }
 
     public function import_products($args, $assoc_args)

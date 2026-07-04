@@ -54,9 +54,9 @@ class Usctdp_Mgmt_Family_Schema extends Schema
             'name' => 'phone_numbers',
             'type' => 'json',
         ],
-        'email' => [
-            'name' => 'email',
-            'type' => 'tinytext',
+        'emails' => [
+            'name' => 'emails',
+            'type' => 'json',
         ],
         'notes' => [
             'name' => 'notes',

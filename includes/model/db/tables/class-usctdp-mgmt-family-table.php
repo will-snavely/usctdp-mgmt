@@ -26,7 +26,7 @@ class Usctdp_Mgmt_Family_Table extends Table
             state tinytext,
             zip tinytext,
             phone_numbers JSON,
-            email tinytext,
+            emails JSON,
             notes text,
             PRIMARY KEY (id),
             KEY user_id (user_id),

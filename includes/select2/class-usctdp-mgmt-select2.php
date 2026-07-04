@@ -142,7 +142,7 @@ class Usctdp_Mgmt_Select2
                     'state' => $result->state,
                     'zip' => $result->zip,
                     'phone_numbers' => json_decode($result->phone_numbers),
-                    'email' => $result->email,
+                    'emails' => json_decode($result->emails),
                     'notes' => $result->notes,
                 );
             }

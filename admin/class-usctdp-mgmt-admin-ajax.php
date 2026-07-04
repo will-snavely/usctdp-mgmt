@@ -491,7 +491,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         $post_fields = [
-            'email' => sanitize_text_field(...),
+            'emails' => json_encode(...),
             'address' => sanitize_text_field(...),
             'city' => sanitize_text_field(...),
             'state' => sanitize_text_field(...),
@@ -628,13 +628,17 @@ class Usctdp_Mgmt_Admin_Ajax
 
         try {
             $fields = [
-                'email' => sanitize_text_field(...),
+                'emails' => function ($raw) {
+                    return json_encode([$this->get_sanitized_post_field_text('email')]);
+                },
                 'last' => sanitize_text_field(...),
                 'address' => sanitize_text_field(...),
                 'city' => sanitize_text_field(...),
                 'state' => sanitize_text_field(...),
                 'zip' => sanitize_text_field(...),
-                'phone_numbers' => json_encode(...),
+                'phone_numbers' => function ($raw) {
+                    return json_encode([$this->get_sanitized_post_field_text('phone')]);
+                },
                 'title' => function ($raw) {
                     $phone = trim($this->get_sanitized_post_field_text('phone'));
                     $last_four = substr($phone, -4);
@@ -662,7 +666,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $userdata = array(
                 'user_login' => $last_name . $last_four,
                 'user_pass' => bin2hex(random_bytes(24)),
-                'user_email' => $family->email,
+                'user_email' => $family->emails[0] ?? '',
                 'first_name' => 'Family Account',
                 'last_name' => $last_name,
                 'display_name' => $last_name . ' ' . $last_four,

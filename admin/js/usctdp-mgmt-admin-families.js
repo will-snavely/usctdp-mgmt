@@ -15,7 +15,7 @@
                 section: 'contact',
                 fields: [
                     { key: 'phone_numbers', label: 'Phone' },
-                    { key: 'email', label: 'email', type: 'text' },
+                    { key: 'emails', label: 'Email' },
                 ]
             },
             {
@@ -124,6 +124,21 @@
                                 <button type="button" id="add-phone">+ Add Number</button>
                             </div>
                         `;
+                    } else if (field.key === 'emails') {
+                        const currentValues = value || [];
+                        const inputs = currentValues.map((val, index) => `
+                            <div class="email-row">
+                                <input type="email" class="email-input" data-index="${index}" value="${val}">
+                                <button type="button" class="remove-email" data-index="${index}">&times;</button>
+                            </div>
+                        `).join('');
+
+                        tag = `
+                            <div class="email-list">
+                                <div id="email-list">${inputs}</div>
+                                <button type="button" id="add-email">+ Add Email</button>
+                            </div>
+                        `;
                     } else if (field.type === "textarea") {
                         tag = `
                             <textarea 
@@ -204,6 +219,43 @@
                 .text(`Save ${Object.keys(pendingChanges).length} Changes`);
         });
 
+        $(document).on('click', '#add-email', function () {
+            if (!pendingChanges.hasOwnProperty('emails')) {
+                var emails = queryClient.getQueryData(['family', currentId]).emails;
+                pendingChanges['emails'] = [...emails];
+
+            }
+            pendingChanges['emails'].push('');
+            renderUI(queryClient.getQueryData(['family', currentId]));
+        });
+
+        $(document).on('click', '.remove-email', function () {
+            const indexToRemove = $(this).data('index');
+            if (!pendingChanges.hasOwnProperty('emails')) {
+                var emails = queryClient.getQueryData(['family', currentId]).emails;
+                pendingChanges['emails'] = [...emails];
+            }
+            pendingChanges['emails'].splice(indexToRemove, 1);
+            if (pendingChanges['emails'].length === 0) {
+                pendingChanges['emails'] = [];
+            }
+            renderUI(queryClient.getQueryData(['family', currentId]));
+            $('#save-btn')
+                .prop('disabled', false)
+                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
+        });
+
+        $(document).on('input', '.email-input', function () {
+            const allEmails = $('.email-input').map(function () {
+                return $(this).val();
+            }).get();
+            pendingChanges['emails'] = allEmails;
+            $(this).closest('.field-group').addClass('is-dirty');
+            $('#save-btn')
+                .prop('disabled', false)
+                .text(`Save ${Object.keys(pendingChanges).length} Changes`);
+        });
+
         // 4. The Batch Save Function
         async function handleBatchSave() {
             if (Object.keys(pendingChanges).length === 0) return;
@@ -212,6 +264,9 @@
                 mutationFn: async (batch) => {
                     if (pendingChanges['phone_numbers'] && pendingChanges['phone_numbers'].length === 0) {
                         batch['phone_numbers'] = '';
+                    }
+                    if (pendingChanges['emails'] && pendingChanges['emails'].length === 0) {
+                        batch['emails'] = '';
                     }
                     const response = await updateFamilyFields(currentId, batch);
                     if (!response) throw new Error("Server error");

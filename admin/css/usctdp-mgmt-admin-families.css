@@ -150,8 +150,9 @@ label {
     margin-bottom: 4px;
 }
 
-/* Container for the whole phone section */
-#phone-list {
+/* Container for the whole phone/email section */
+#phone-list,
+#email-list {
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -159,14 +160,16 @@ label {
 }
 
 /* The individual row */
-.phone-row {
+.phone-row,
+.email-row {
     display: flex;
     align-items: center;
     gap: 0;
     /* We'll use borders to join them */
 }
 
-.phone-input {
+.phone-input,
+.email-input {
     flex: 1;
     padding: 10px 12px;
     border: 1px solid #ddd;
@@ -176,7 +179,8 @@ label {
     transition: border-color 0.2s;
 }
 
-.phone-input:focus {
+.phone-input:focus,
+.email-input:focus {
     outline: none;
     border-color: #3498db;
     z-index: 1;
@@ -184,7 +188,8 @@ label {
 }
 
 /* The Remove (X) Button */
-.remove-phone {
+.remove-phone,
+.remove-email {
     background: #f8f9fa;
     border: 1px solid #ddd;
     border-left: none;
@@ -200,13 +205,15 @@ label {
     transition: background 0.2s;
 }
 
-.remove-phone:hover {
+.remove-phone:hover,
+.remove-email:hover {
     background: #fee;
     border-color: #e74c3c;
 }
 
 /* The Add Button */
-#add-phone {
+#add-phone,
+#add-email {
     background: transparent;
     color: #3498db;
     border: 1px dashed #3498db;
@@ -221,7 +228,8 @@ label {
     transition: all 0.2s;
 }
 
-#add-phone:hover {
+#add-phone:hover,
+#add-email:hover {
     background: #ebf5fb;
     border-style: solid;
 }

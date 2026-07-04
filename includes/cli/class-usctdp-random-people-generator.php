@@ -94,7 +94,7 @@ class Usctdp_Random_People_Generator
             // Define the user data array
             $userdata = array(
                 'user_login' => $last_name . $random_last_four_digits,
-                'user_pass' => bin2hex(random_bytes(16)),
+                'user_pass' => bin2hex(random_bytes(32)),
                 'user_email' => $last_name . $random_last_four_digits . '@example.com',
                 'first_name' => 'Family',
                 'last_name' => $last_name,
@@ -106,6 +106,7 @@ class Usctdp_Random_People_Generator
                 WP_CLI::error($user_id->get_error_message());
                 return;
             }
+            
             $street_numbers = rand(100, 9999);
             $random_street_name = $this->street_names[array_rand($this->street_names)];
             $random_street_type = $this->street_types[array_rand($this->street_types)];
