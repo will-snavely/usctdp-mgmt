@@ -80,7 +80,7 @@ class Usctdp_Cli_Command
             WP_CLI::error('File path not provided');
             return;
         }
-        $mock = false;
+        $mock = true;
         if (isset($args[1])) {
             $mock = boolval($args[1]);
         }

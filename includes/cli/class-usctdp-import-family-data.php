@@ -24,7 +24,7 @@ class Usctdp_Import_Family_Data
         ]);
     }
 
-    private function import_family($family, $mock = false)
+    private function import_family($family, $mock)
     {
         $query = new Usctdp_Mgmt_Family_Query([
             "title" => $family["id"]
@@ -101,14 +101,14 @@ class Usctdp_Import_Family_Data
         }
     }
 
-    private function import_families($data)
+    private function import_families($data, $mock)
     {
         foreach ($data as $family) {
-            $this->import_family($family);
+            $this->import_family($family, $mock);
         }
     }
 
-    public function import($file_path, $mock = false)
+    public function import($file_path, $mock)
     {
         if (!file_exists($file_path)) {
             WP_CLI::error(sprintf('File not found: %s', $file_path));
@@ -126,6 +126,6 @@ class Usctdp_Import_Family_Data
             WP_CLI::error(sprintf('Error decoding JSON from file %s: %s', $file_path, json_last_error_msg()));
             return;
         }
-        $this->import_families($data);
+        $this->import_families($data, $mock);
     }
 }
