@@ -6,12 +6,15 @@ class Usctdp_Import_Family_Data
     {
     }
 
-    private function import_student($student, $family_id, $family)
+    private function import_student($student, $family_id, $family, $mock)
     {
         $query = new Usctdp_Mgmt_Student_Query([]);
         $birth_date_str = '';
         if ($student["birthday"]) {
             $birth_date = DateTime::createFromFormat('m/d/y H:i:s', $student["birthday"]);
+            if($mock) {
+                $birth_date->setDate($birth_date->format('Y'), 1,1);
+            }
             $birth_date_str = $birth_date->format('Y-m-d');
         }
         $query->add_item([
@@ -96,7 +99,7 @@ class Usctdp_Import_Family_Data
                 "notes" => $notes,
             ]);
             foreach ($family["children"] as $member) {
-                $this->import_student($member, $family_id, $family);
+                $this->import_student($member, $family_id, $family, $mock);
             }
         }
     }
