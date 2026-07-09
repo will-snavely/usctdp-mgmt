@@ -85,7 +85,7 @@ class Usctdp_Mgmt_Activity_Query extends Query
         $query = $wpdb->prepare(
             "   SELECT
                     act.id as activity_id, act.title as activity_name, act.type as activity_type,
-                    act.capacity as activity_capacity, act.level as activity_level, act.notes as activity_notes,
+                    act.capacity as activity_capacity, act.level as activity_level,
                     sess.id as session_id, sess.title as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
