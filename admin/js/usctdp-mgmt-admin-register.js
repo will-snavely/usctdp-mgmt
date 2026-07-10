@@ -421,14 +421,14 @@
                 name: 'session_id',
                 label: 'Session',
                 target: 'session',
-                branches: ['activity-selector', 'merchandise-selector'],
+                branches: ['clinic-selector', 'merchandise-selector'],
                 next: function (value) {
                     if (value === 'merch_only') {
                         return 'merchandise-selector';
                     } else if (value === 'new_session') {
                         return null;
                     } else {
-                        return 'activity-selector';
+                        return 'clinic-selector';
                     }
                 },
                 pinnedOptions: [
@@ -436,14 +436,26 @@
                     { id: 'new_session', text: '➕ New Special Session' }
                 ]
             },
+            'clinic-selector': {
+                name: 'product_id',
+                label: 'Clinic',
+                target: 'product',
+                next: 'activity-selector',
+                filter: function () {
+                    return {
+                        session_id: $('#session-selector').val(),
+                    };
+                }
+            },
             'activity-selector': {
                 name: 'activity_id',
-                label: 'Activity',
+                label: 'Day',
                 target: 'activity',
                 next: null,
                 filter: function () {
                     return {
                         session_id: $('#session-selector').val(),
+                        product_id: $('#clinic-selector').val(),
                     };
                 }
             },

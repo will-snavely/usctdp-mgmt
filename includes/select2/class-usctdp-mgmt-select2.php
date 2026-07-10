@@ -7,6 +7,7 @@ class Select2_Search_Exception extends Exception
 class Usctdp_Mgmt_Select2
 {
     private $select2_search_targets;
+    private static $limit = 20;
 
     public function __construct()
     {
@@ -28,7 +29,8 @@ class Usctdp_Mgmt_Select2
             'product' => [
                 'callback' => $this->select2_product_search(...),
                 'filters' => [
-                    'type' => sanitize_text_field(...)
+                    'type' => sanitize_text_field(...),
+                    'session_id' => intval(...)
                 ]
             ],
             'family' => [
@@ -74,7 +76,7 @@ class Usctdp_Mgmt_Select2
         $query = new Usctdp_Mgmt_Session_Query();
         $active = $filters['active'] ?? null;
         $category = $filters['category'] ?? null;
-        $query_results = $query->search_sessions($search, $active, $category, 10);
+        $query_results = $query->search_sessions($search, $active, $category, self::$limit);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(
@@ -92,7 +94,7 @@ class Usctdp_Mgmt_Select2
         $query = new Usctdp_Mgmt_Activity_Query();
         $session_id = $filters['session_id'] ?? null;
         $product_id = $filters['product_id'] ?? null;
-        $query_results = $query->search_activities($search, $session_id, $product_id, 10);
+        $query_results = $query->search_activities($search, $session_id, $product_id, self::$limit);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(
@@ -112,7 +114,15 @@ class Usctdp_Mgmt_Select2
         $results = [];
         $query = new Usctdp_Mgmt_Product_Query();
         $activity_type = $filters['type'] ?? null;
-        $query_results = $query->search_products($search, $activity_type, 10);
+        $session_id = $filters['session_id'] ?? null;
+        $session_category = null;
+
+        if($session_id) {
+            $session = Usctdp_Mgmt_Model::get_session($session_id);
+            $session_category = $session->category->value;
+        }
+
+        $query_results = $query->search_products($search, $session_category, $activity_type, self::$limit);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(
@@ -131,7 +141,7 @@ class Usctdp_Mgmt_Select2
     {
         $results = [];
         $query = new Usctdp_Mgmt_Family_Query();
-        $query_results = $query->search_families($search, 10);
+        $query_results = $query->search_families($search, self::$limit);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(
@@ -155,7 +165,7 @@ class Usctdp_Mgmt_Select2
         $results = [];
         $query = new Usctdp_Mgmt_Student_Query();
         $family_id = $filters['family_id'] ?? null;
-        $query_results = $query->search_students($search, $family_id, 10);
+        $query_results = $query->search_students($search, $family_id, self::$limit);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(

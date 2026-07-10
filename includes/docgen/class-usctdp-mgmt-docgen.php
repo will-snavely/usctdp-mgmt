@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 use Google\Client;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
+use Google\Service\Drive\Permission;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 define('PCLZIP_TEMPORARY_DIR', plugin_dir_path(__FILE__) . '/templates/tmp');
@@ -146,6 +147,11 @@ class Usctdp_Mgmt_Docgen
                 'uploadType' => 'multipart',
                 'fields' => 'id, webViewLink'
             ]);
+
+            $drive->permissions->create($file->id, new Permission([
+                'type' => 'anyone',
+                'role' => 'writer'
+            ]), ['fields' => 'id']);
 
             $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
             $link_query->add_item([

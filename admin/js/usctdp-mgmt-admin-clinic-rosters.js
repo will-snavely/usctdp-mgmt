@@ -9,7 +9,6 @@
                 $('#print-roster-button .button-text').text('Working...');
                 $('#print-roster-button').addClass('is-loading');
                 $('.selector').attr('disabled', true);
-
             } else {
                 $('#print-roster-button .button-text').text('Print Roster');
                 $('#print-roster-button').removeClass('is-loading');
@@ -34,8 +33,7 @@
                     security: usctdp_mgmt_admin.gen_roster_nonce,
                 },
                 success: function (response) {
-                    $('#roster-link').attr('href', response.data.doc_url);
-                    $('#roster-print-success').removeClass('hidden');
+                    window.open(response.data.doc_url, '_blank');
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     $('#roster-print-error').removeClass('hidden');
@@ -360,12 +358,12 @@
             preloadedData['session-selector'] = {
                 id: preloadedActivity.session_id,
                 text: preloadedActivity.session_name,
-                disable: true
+                disable: false
             };
             preloadedData['activity-selector'] = {
                 id: preloadedActivity.activity_id,
                 text: preloadedActivity.activity_name,
-                disable: true
+                disable: false
             };
         }
         selectHandler.applyData(preloadedData);

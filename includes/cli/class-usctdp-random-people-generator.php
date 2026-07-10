@@ -121,7 +121,7 @@ class Usctdp_Random_People_Generator
                 "state" => "PA",
                 "zip" => $random_zip,
                 "phone_numbers" => json_encode([$phone_number]),
-                "email" => $last_name . "@example.com",
+                "emails" => json_encode([$last_name . "@example.com"]),
                 "user_id" => $user_id,
                 "notes" => "",
             ]);

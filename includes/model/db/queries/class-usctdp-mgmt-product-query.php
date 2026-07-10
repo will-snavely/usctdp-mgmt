@@ -15,7 +15,7 @@ class Usctdp_Mgmt_Product_Query extends Query
     protected $item_name_plural = 'products';
     protected $item_shape = 'Usctdp_Mgmt_Product_Row';
 
-    public function search_products($query, $type = null, $limit = 10)
+    public function search_products($query, $session_cat = null, $type = null, $limit = 10)
     {
         global $wpdb;
         $sql = "SELECT * FROM {$wpdb->prefix}{$this->table_name}";
@@ -29,6 +29,10 @@ class Usctdp_Mgmt_Product_Query extends Query
             }
             $conditions[] = "MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
             $args[] = implode(" ", $query_terms);
+        }
+        if ($session_cat !== null) {
+            $conditions[] = "session_category = %d";
+            $args[] = $session_cat;
         }
         if ($type !== null) {
             $conditions[] = "type = %s";
