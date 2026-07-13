@@ -30,6 +30,9 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-import-staff-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-import-page-data.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-random-people-generator.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -133,6 +136,37 @@ class Usctdp_Cli_Command
         $generator = new Usctdp_Import_Staff_Data();
         $generator->import($file_path);
     }
+
+    /**
+     * Create/update WP pages and the primary nav menu from a JSON manifest.
+     *
+     * ## OPTIONS
+     *
+     * <file>
+     * : Path to the pages JSON file (e.g. data/pages.json).
+     *
+     * [--dry-run]
+     * : Log what would happen without writing anything.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp import_pages data/pages.json
+     *     wp usctdp import_pages data/pages.json --dry-run
+     */
+    public function import_pages($args, $assoc_args)
+    {
+        $file_path = '';
+        if ($args && count($args) > 0) {
+            $file_path = $args[0];
+        } else {
+            WP_CLI::error('File path not provided');
+            return;
+        }
+        $dry_run = \WP_CLI\Utils\get_flag_value($assoc_args, 'dry-run', false);
+        $generator = new Usctdp_Import_Page_Data();
+        $generator->import($file_path, $dry_run);
+    }
+
     public function meta($args, $assoc_args)
     {
         if (count($args) < 1) {
