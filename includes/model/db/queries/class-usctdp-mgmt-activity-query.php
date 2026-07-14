@@ -42,7 +42,7 @@ class Usctdp_Mgmt_Activity_Query extends Query
         if (!empty($conditions)) {
             $sql .= " WHERE " . implode(" AND ", $conditions);
         }
-        $sql .= " ORDER BY title ASC LIMIT %d";
+        $sql .= " ORDER BY primary_sort_order ASC, secondary_sort_order ASC LIMIT %d";
         $args[] = $limit;
 
         $query = $wpdb->prepare($sql, $args);
@@ -94,7 +94,7 @@ class Usctdp_Mgmt_Activity_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}
-                ORDER BY act.id DESC
+                ORDER BY act.primary_sort_order ASC, act.secondary_sort_order ASC
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );

@@ -19,6 +19,8 @@ class Usctdp_Mgmt_Activity_Row extends Row
         $this->product_id = (int) $this->product_id;
         $this->type = (string) $this->type;
         $this->capacity = (int) $this->capacity;
+        $this->primary_sort_order = (int) $this->primary_sort_order;
+        $this->secondary_sort_order = (int) $this->secondary_sort_order;
         $this->meta = (string) $this->meta;
     }
 }

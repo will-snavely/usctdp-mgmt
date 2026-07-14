@@ -55,6 +55,16 @@ class Usctdp_Mgmt_Activity_Schema extends Schema
             'length' => '20',
             'unsigned' => true,
             'index' => true,
-        ]
+        ],
+        'primary_sort_order' => [
+            'name' => 'primary_sort_order',
+            'type' => 'smallint',
+            'unsigned' => true,
+        ],
+        'secondary_sort_order' => [
+            'name' => 'secondary_sort_order',
+            'type' => 'smallint',
+            'unsigned' => true,
+        ],
     ];
 }

@@ -266,6 +266,8 @@ class Usctdp_Import_Session_Data
                         "title" => $title,
                         "search_term" => $search_term,
                         "capacity" => $class['capacity'],
+                        "primary_sort_order" => $class['primary_sort_order'] ?? null,
+                        "secondary_sort_order" => $class['secondary_sort_order'] ?? null,
                     ]);
 
                     $clinic_query = new Usctdp_Mgmt_Clinic_Query([
