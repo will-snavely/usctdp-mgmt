@@ -289,6 +289,18 @@ class Usctdp_Mgmt
             'create_purchase_and_ledger_entries',
             20
         );
+        $this->loader->add_action(
+            'woocommerce_order_status_processing',
+            $commerce_handler,
+            'record_deferred_payment',
+            20
+        );
+        $this->loader->add_action(
+            'woocommerce_payment_complete',
+            $commerce_handler,
+            'record_deferred_payment',
+            20
+        );
     }
 
     /**

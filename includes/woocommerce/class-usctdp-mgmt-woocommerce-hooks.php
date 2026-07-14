@@ -647,4 +647,109 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             }
         }
     }
+
+    /**
+     * Records the payment side of the ledger for purchases created via the admin
+     * invoicing flow (Usctdp_Mgmt_Woocommerce::create_woocommerce_order()).
+     *
+     * That flow books the charge immediately but, for card payments, defers the
+     * actual payment entry until the customer completes payment through the
+     * WooCommerce order-pay link - the card may fail or the customer may not pay
+     * right away. This fills in that payment entry once WooCommerce confirms the
+     * order is paid. It's a no-op for order items with no '_purchase_id' meta
+     * (self-checkout orders, handled by create_purchase_and_ledger_entries) and
+     * for purchases that already have a payment entry recorded (cash/check orders,
+     * which record their payment entry client-side at invoice creation).
+     */
+    public function record_deferred_payment($order_id)
+    {
+        global $wpdb;
+        $txn_started   = false;
+        $txn_committed = false;
+
+        try {
+            $order = wc_get_order($order_id);
+            if (!$order) {
+                Usctdp_Mgmt::logger()->log_error("USCTDP: Order $order_id not found for deferred payment recording.");
+                return;
+            }
+
+            $payment_method = $order->get_payment_method();
+            $reference_id   = $order->get_transaction_id() ?: (string) $order_id;
+            $created_at     = current_time('mysql');
+            $created_by     = get_current_user_id();
+            $event_id       = 'wc_order' . $order_id;
+            $event          = 'WooCommerce Order ' . $order_id;
+
+            $wpdb->query('START TRANSACTION');
+            $txn_started = true;
+
+            foreach ($order->get_items() as $item) {
+                $purchase_id = intval($item->get_meta('_purchase_id'));
+                if (!$purchase_id) {
+                    continue;
+                }
+
+                $existing_payment = new Usctdp_Mgmt_Ledger_Query([
+                    'purchase_id' => $purchase_id,
+                    'entry_type'  => 'payment',
+                    'number'      => 1,
+                ]);
+                if (!empty($existing_payment->items)) {
+                    continue;
+                }
+
+                $purchase_query = new Usctdp_Mgmt_Purchase_Query(['id' => $purchase_id, 'number' => 1]);
+                if (empty($purchase_query->items)) {
+                    throw new Exception("USCTDP Purchase $purchase_id not found for order $order_id.");
+                }
+                $purchase = $purchase_query->items[0];
+                $price    = floatval($item->get_total());
+
+                $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+                $ledger_query->add_item([
+                    'purchase_id'    => $purchase_id,
+                    'family_id'      => $purchase->family_id,
+                    'order_id'       => $order_id,
+                    'event_id'       => $event_id,
+                    'event'          => $event,
+                    'account'        => 'payment_' . $payment_method,
+                    'entry_type'     => 'payment',
+                    'description'    => 'Payment received in online store.',
+                    'payment_method' => $payment_method,
+                    'reference_id'   => $reference_id,
+                    'debit'          => $price,
+                    'credit'         => 0,
+                    'created_at'     => $created_at,
+                    'created_by'     => $created_by,
+                ]);
+
+                $ledger_query->add_item([
+                    'purchase_id'    => $purchase_id,
+                    'family_id'      => $purchase->family_id,
+                    'order_id'       => $order_id,
+                    'event_id'       => $event_id,
+                    'event'          => $event,
+                    'account'        => $purchase->type . '_fees',
+                    'entry_type'     => 'payment',
+                    'description'    => 'Payment received in online store.',
+                    'payment_method' => $payment_method,
+                    'reference_id'   => $reference_id,
+                    'debit'          => 0,
+                    'credit'         => $price,
+                    'created_at'     => $created_at,
+                    'created_by'     => $created_by,
+                ]);
+            }
+
+            $wpdb->query('COMMIT');
+            $txn_committed = true;
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('USCTDP: record_deferred_payment', $e);
+        } finally {
+            if ($txn_started && !$txn_committed) {
+                $wpdb->query('ROLLBACK');
+            }
+        }
+    }
 }

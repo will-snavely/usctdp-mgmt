@@ -121,6 +121,7 @@ class Usctdp_Mgmt_Woocommerce
 
                 $custom_price = floatval($line_item["base_price"]);
                 $total += $custom_price;
+                $purchase_id = isset($line_item["purchase_id"]) ? intval($line_item["purchase_id"]) : 0;
 
                 if ($line_item["type"] == "merchandise") {
                     $product_id = $line_item["product_id"];
@@ -128,6 +129,7 @@ class Usctdp_Mgmt_Woocommerce
                     $item_id = $order->add_product($woo_product, 1);
                     $item = $order->get_item($item_id);
                     $item->add_meta_data('Student', $student->title);
+                    $item->add_meta_data('_purchase_id', $purchase_id);
                     $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
                     $item->save();
                 } else if ($line_item["type"] == "registration") {
@@ -155,6 +157,7 @@ class Usctdp_Mgmt_Woocommerce
                     $item->add_meta_data('Student', $student->title);
                     $item->add_meta_data('Session', $session->title);
                     $item->add_meta_data('Activity', $activity->title);
+                    $item->add_meta_data('_purchase_id', $purchase_id);
                     $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
                     $item->save();
                 }
