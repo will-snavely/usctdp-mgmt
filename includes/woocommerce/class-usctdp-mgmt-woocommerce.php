@@ -160,9 +160,12 @@ class Usctdp_Mgmt_Woocommerce
                 }
             }
 
-            // Apply discounts to the order as negative fees
-            $discounts = $line_item["discounts"];
             $discount_total = 0;
+            $discounts = [];
+            if (isset($line_item["discounts"])) {
+                $discounts = $line_item["discounts"];
+            }
+
             if ($discounts) {
                 foreach ($discounts as $discount) {
                     $discount_amount = floatval($discount["amount"]);

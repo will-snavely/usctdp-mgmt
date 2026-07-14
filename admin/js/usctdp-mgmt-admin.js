@@ -1010,7 +1010,7 @@
             const checkStr = checkNumber ? ` #${checkNumber}` : "";
             const methodStr = USCTDP_Admin.formatSnakeCase(paymentMethod) + checkStr;
             const eventStr = `Payment (${methodStr})`;
-            if (lineItem.credit > 0) {
+            if (lineItem.credit > 0 && paymentMethod !== "pay_later" && paymentMethod !== "card") {
                 result.push({
                     ...ledgerBase,
                     account: "payment_" + paymentMethod,
@@ -1058,7 +1058,7 @@
 
                 var order = null;
                 var eventId = null;
-                
+
                 if (orderData.payment_method != "pay_later") {
                     order = await this.createWooCommerceOrder(orderData);
                     eventId = "order_" + order.order_id;
