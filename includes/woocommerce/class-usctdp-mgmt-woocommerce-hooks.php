@@ -389,7 +389,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     'student_level' => $student->level,
                     'credit' => 0,
                     'debit' => 0,
-                    'status' => Usctdp_Registration_Status::Pending->value,
+                    'status' => 'pending',
                     'created_at' => $current_time,
                     'created_by' => get_current_user_id(),
                     'last_modified_at' => $current_time,
@@ -475,7 +475,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     {
         $query = new Usctdp_Mgmt_Registration_Query([
             'order_id' => $order_id,
-            'status' => Usctdp_Registration_Status::Pending->value,
+            'status' => 'pending'
         ]);
         foreach ($query->items as $item) {
             $query->update_item($item->id, [
