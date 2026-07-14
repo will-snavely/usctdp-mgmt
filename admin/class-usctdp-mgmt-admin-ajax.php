@@ -39,7 +39,8 @@ class Usctdp_Mgmt_Admin_Ajax
         $reg_query = new Usctdp_Mgmt_Registration_Query([
             'student_id' => $student_id,
             'activity_id' => $activity_id,
-            'number' => 1
+            'number' => 1,
+            'status' => 'active'
         ]);
         return !empty($reg_query->items);
     }
