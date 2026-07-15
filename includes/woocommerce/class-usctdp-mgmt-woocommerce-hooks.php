@@ -306,7 +306,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         $count_query_template = "
             SELECT COUNT(*) FROM $registration_table 
             WHERE activity_id = %d
-            AND (status = %d 
+            AND (status = %s
             OR (status = %d AND created_at > NOW() - INTERVAL %d MINUTE))";
         $activity_lock_template = "SELECT * FROM $activity_table WHERE id=%d FOR UPDATE";
         $txn_started = false;
@@ -347,8 +347,8 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 if (!empty($reg_query->items)) {
                     $existing_reg = $reg_query->items[0];
                     $active_statuses = [
-                        Usctdp_Registration_Status::Confirmed->value,
-                        Usctdp_Registration_Status::Pending->value,
+                        "active",
+                        "pending",
                     ];
                     if (in_array($existing_reg->status, $active_statuses)) {
                         if ($existing_reg->tracking_id !== $reg["tracking_id"]) {
@@ -370,8 +370,8 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 $count_query = $wpdb->prepare(
                     $count_query_template,
                     $reg["activity_id"],
-                    Usctdp_Registration_Status::Confirmed->value,
-                    Usctdp_Registration_Status::Pending->value,
+                    "active",
+                    "pending",
                     $this->hold_minutes
                 );
                 $current_count = $wpdb->get_var($count_query);
@@ -455,7 +455,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     'student_id'  => $student_id,
                     'activity_id' => $activity_id,
                     'tracking_id' => $tracking_id,
-                    'status'      => Usctdp_Registration_Status::Pending->value,
+                    'status'      => 'pending',
                 ]);
                 if (!empty($query->items)) {
                     $query->update_item($query->items[0]->id, [
@@ -479,7 +479,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         ]);
         foreach ($query->items as $item) {
             $query->update_item($item->id, [
-                "status" => Usctdp_Registration_Status::Confirmed->value,
+                "status" => "active",
                 "last_modified_at" => current_time('mysql'),
                 "last_modified_by" => get_current_user_id(),
             ]);
@@ -698,7 +698,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 if (!empty($existing_payment->items)) {
                     continue;
                 }
-
                 $purchase_query = new Usctdp_Mgmt_Purchase_Query(['id' => $purchase_id, 'number' => 1]);
                 if (empty($purchase_query->items)) {
                     throw new Exception("USCTDP Purchase $purchase_id not found for order $order_id.");

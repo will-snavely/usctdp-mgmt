@@ -33,13 +33,6 @@ enum Usctdp_Session_Category: int
     case Adult_Tournament = 6;
 }
 
-enum Usctdp_Registration_Status: int
-{
-    case Pending = 1;
-    case Confirmed = 2;
-    case Voided = 3;
-}
-
 enum Usctdp_Payment_Method: int
 {
     case None = 0;

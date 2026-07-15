@@ -61,7 +61,7 @@ class Usctdp_Random_Registration_Generator
                 'debit' => $cost,
                 'credit' => $credit,
                 'notes' => '',
-                'status' => Usctdp_Registration_Status::Confirmed->value,
+                'status' => "active",
                 'created_at' => current_time('mysql'),
                 'created_by' => get_current_user_id(),
                 'last_modified_at' => current_time('mysql'),

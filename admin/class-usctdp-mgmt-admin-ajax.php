@@ -40,7 +40,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'student_id' => $student_id,
             'activity_id' => $activity_id,
             'number' => 1,
-            'status' => 
+            'status' => 'active'
         ]);
         return !empty($reg_query->items);
     }
