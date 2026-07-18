@@ -85,6 +85,33 @@
         }
     }
 
+    USCTDP_Admin.ajax_submitPayment = async function (orderData) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.submit_payment_action,
+                    security: usctdp_mgmt_admin.submit_payment_nonce,
+                    payment_mode: orderData.payment_mode,
+                    payment_method: orderData.payment_method,
+                    check_number: orderData.check_number,
+                    house_credit_applied: orderData.house_credit_applied,
+                    ignore_class_full: 1,
+                    line_items: orderData.line_items,
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Payment Submission Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     USCTDP_Admin.ajax_submitLedgerEntries = async function (entries) {
         try {
             const response = await $.ajax({
@@ -663,7 +690,7 @@
                                 <option value="card" disabled>Card</option>
                                 <option value="check" disabled>Check</option>
                                 <option value="cash" disabled>Cash</option>
-                                <option value="house_credit_only" disabled>Paid via House Credit</option>
+                                <option value="house_credit_only" disabled>House Credit</option>
                                 ${payLaterHtml}
                             </select>
                         </div>
@@ -940,254 +967,29 @@
             $form[0].submit();
         }
 
-        async createOrder(orderData) {
-            try {
-                const response = await $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    data: {
-                        action: usctdp_mgmt_admin.commit_order_action,
-                        security: usctdp_mgmt_admin.commit_order_nonce,
-                        line_items: orderData.line_items,
-                        ignore_class_full: 1
-                    }
-                });
-                if (response.success) {
-                    return response.data;
-                } else {
-                    throw new Error(response.data || 'Server error');
-                }
-            } catch (error) {
-                console.error('Registration Commit Failed:', error.statusText || error.message);
-                throw error;
-            }
-        }
-
-        async createWooCommerceOrder(orderData) {
-            try {
-                const response = await $.ajax({
-                    url: usctdp_mgmt_admin.ajax_url,
-                    method: 'POST',
-                    data: {
-                        action: usctdp_mgmt_admin.create_woocommerce_order_action,
-                        security: usctdp_mgmt_admin.create_woocommerce_order_nonce,
-                        line_items: orderData.line_items,
-                        payment_method: orderData.payment_method,
-                        check_number: orderData.check_number
-                    }
-                });
-
-                if (response.success) {
-                    return response.data;
-                } else {
-                    throw new Error(response.data || 'Server error');
-                }
-
-            } catch (error) {
-                console.error('Order Creation Failed:', error.statusText || error.message);
-                throw error;
-            }
-        }
-
-        buildLedgerEntries(args) {
-            const { lineItem, orderId, eventId, event, paymentMethod, checkNumber, isNew } = args;
-            var result = [];
-            const zero = "0.00";
-            var ledgerBase = {
-                family_id: lineItem.family_id,
-                student_id: lineItem.student_id,
-                purchase_id: lineItem.purchase_id,
-                order_id: orderId,
-                event_id: eventId,
-                event: event
-            }
-            if (isNew) {
-                result.push({
-                    ...ledgerBase,
-                    account: lineItem.type + "_fees",
-                    debit: parseFloat(lineItem.base_price).toFixed(2),
-                    credit: zero,
-                    entry_type: "charge",
-                    description: "Base Fee"
-                });
-
-                result.push({
-                    ...ledgerBase,
-                    account: "revenue",
-                    debit: zero,
-                    credit: parseFloat(lineItem.base_price).toFixed(2),
-                    entry_type: "charge",
-                    description: "Base Fee"
-                });
-
-                if (lineItem.discounts) {
-                    for (var i = 0; i < lineItem.discounts.length; i++) {
-                        const discount = lineItem.discounts[i];
-                        const amount = parseFloat(discount.amount).toFixed(2);
-                        result.push({
-                            ...ledgerBase,
-                            account: lineItem.type + "_fees",
-                            debit: zero,
-                            credit: amount,
-                            entry_type: "adjustment",
-                            description: discount.reason
-                        });
-                        result.push({
-                            ...ledgerBase,
-                            account: "revenue",
-                            debit: amount,
-                            credit: zero,
-                            entry_type: "adjustment",
-                            description: discount.reason
-                        });
-                    }
-                }
-            }
-
-            const checkStr = checkNumber ? ` #${checkNumber}` : "";
-            const methodStr = USCTDP_Admin.formatSnakeCase(paymentMethod) + checkStr;
-            const eventStr = `Payment (${methodStr})`;
-            const houseCredit = USCTDP_Admin.safeParseFloat(lineItem.house_credit);
-            const paymentAmount = USCTDP_Admin.safeParseFloat(lineItem.credit);
-            const amountAfterHouseCredit = paymentAmount - houseCredit;
-
-            if (amountAfterHouseCredit > 0 && paymentMethod !== "card") {
-                result.push({
-                    ...ledgerBase,
-                    account: "payment_" + paymentMethod,
-                    payment_method: paymentMethod,
-                    reference_id: checkNumber ?? null,
-                    debit: parseFloat(amountAfterHouseCredit).toFixed(2),
-                    credit: parseFloat(0).toFixed(2),
-                    entry_type: "payment",
-                    description: eventStr
-                });
-
-                result.push({
-                    ...ledgerBase,
-                    account: lineItem.type + "_fees",
-                    payment_method: paymentMethod,
-                    reference_id: checkNumber ?? null,
-                    debit: parseFloat(0).toFixed(2),
-                    credit: parseFloat(amountAfterHouseCredit).toFixed(2),
-                    entry_type: "payment",
-                    description: eventStr
-                });
-            }
-
-            if (houseCredit > 0) {
-                result.push({
-                    ...ledgerBase,
-                    account: "payment_house_credit",
-                    debit: houseCredit.toFixed(2),
-                    credit: zero,
-                    entry_type: "house_credit",
-                    description: "House Credit Applied"
-                });
-
-                result.push({
-                    ...ledgerBase,
-                    account: lineItem.type + "_fees",
-                    debit: zero,
-                    credit: houseCredit.toFixed(2),
-                    entry_type: "house_credit",
-                    description: "House Credit Applied"
-                });
-            }
-            return result;
-        }
-
         async submitPayment(orderData) {
             const { paymentMode = "update" } = this.settings;
             try {
-                const lineItems = orderData.line_items;
+                const response = await USCTDP_Admin.ajax_submitPayment({
+                    ...orderData,
+                    payment_mode: paymentMode
+                });
 
                 if (paymentMode === "create") {
-                    var order = await this.createOrder(orderData);
-                    var purchaseIds = order.purchases;
-                    for (var i = 0; i < lineItems.length; i++) {
-                        const line_item_id = lineItems[i].line_item_id;
-                        if (line_item_id in purchaseIds) {
-                            lineItems[i].purchase_id = purchaseIds[line_item_id]['purchase_id'];
-                            if (lineItems[i].type === "registration") {
-                                lineItems[i].registration_id = purchaseIds[line_item_id]['registration_id'];
+                    for (const lineItem of orderData.line_items) {
+                        const created = response.purchases[lineItem.line_item_id];
+                        if (created) {
+                            lineItem.purchase_id = created.purchase_id;
+                            if (lineItem.type === "registration") {
+                                lineItem.registration_id = created.registration_id;
                             }
                         } else {
-                            console.log("Line item id " + line_item_id + " not found in created purchases.");
+                            console.log("Line item id " + lineItem.line_item_id + " not found in created purchases.");
                         }
                     }
                 }
 
-                const houseCreditApplied = USCTDP_Admin.safeParseFloat(orderData.house_credit_applied);
-                var remainingHouseCredit = houseCreditApplied;
-                var i = 0;
-                while (remainingHouseCredit > 0 && i < lineItems.length) {
-                    const credit = USCTDP_Admin.safeParseFloat(lineItems[i].credit);
-                    const debit = USCTDP_Admin.safeParseFloat(lineItems[i].debit);
-                    var allocated = Math.min(remainingHouseCredit, credit);
-                    lineItems[i].house_credit = allocated;
-                    remainingHouseCredit -= allocated;
-                    i++;
-                }
-
-                var order = null;
-                var eventId = null;
-                if (orderData.payment_method === "card") {
-                    order = await this.createWooCommerceOrder(orderData);
-                    eventId = "order_card_" + order.order_id;
-                } else {
-                    eventId = "order_payment_" + orderData.payment_method;
-                }
-
-                var event = '';
-                if (paymentMode === "create") {
-                    const isPartialPayment = orderData.total_balance > 0;
-                    const partialNote = isPartialPayment ? " (Partial)" : "";
-                    if (orderData.payment_method === "check") {
-                        event = "Purchase w/ Check #" + orderData.check_number + partialNote;
-                    } else if (orderData.payment_method === "cash") {
-                        event = "Purchase w/ Cash" + partialNote;
-                    } else if (orderData.payment_method === "card") {
-                        event = "Order Initiated, Card Details Pending" + partialNote;
-                    } else if (orderData.payment_method === "house_credit_only") {
-                        event = "Purchase Paid w/ House Credit";
-                    } else {
-                        event = "Order Initiated, Payment Pending";
-                    }
-                } else {
-                    const isPartialPayment = orderData.total_balance > 0;
-                    const partialNote = isPartialPayment ? " (Partial)" : "";
-                    if (orderData.payment_method === "check") {
-                        event = "Payment Made w/ Check #" + orderData.check_number + partialNote;
-                    } else if (orderData.payment_method === "cash") {
-                        event = "Payment Made w/ Cash" + partialNote;
-                    } else if (orderData.payment_method === "card") {
-                        event = "Payment Initiated, Card Details Pending" + partialNote;
-                    } else if (orderData.payment_method === "house_credit_only") {
-                        event = "Payment Made w/ House Credit";
-                    }
-                }
-
-                var ledgerEntries = [];
-                for (var i = 0; i < lineItems.length; i++) {
-                    var entries = this.buildLedgerEntries({
-                        lineItem: lineItems[i],
-                        orderId: order ? order.order_id : null,
-                        eventId: eventId,
-                        paymentMethod: orderData.payment_method,
-                        checkNumber: orderData.check_number,
-                        isNew: paymentMode === "create",
-                        event: event
-                    });
-                    ledgerEntries.push(...entries);
-                }
-                const result = await USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries);
-
-                return {
-                    order: order,
-                    purchases: purchaseIds,
-                    ledger_entries: result
-                };
+                return response;
             } catch (error) {
                 console.error('Submission failed:', error);
                 throw error;
@@ -1254,7 +1056,7 @@
             const $method = $('#' + this.getId('payment_method'));
             const selectedVal = $method.val();
             const hasPayment = creditTotal > 0;
-            const coveredByHouseCredit = this.houseCreditApplied >= creditTotal;
+            const coveredByHouseCredit = hasPayment && this.houseCreditApplied >= creditTotal;
             const $paymentNote = this.container.find(".payment-method-note span");
 
             $method.find("option").prop('disabled', !hasPayment);

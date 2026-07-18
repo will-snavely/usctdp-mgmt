@@ -5,12 +5,10 @@ class Usctdp_Mgmt_Admin_Ajax
     public static $ajax_handlers = [
         'activity_preregistration' => 'ajax_activity_preregistration',
         'clinic_datatable' => 'ajax_clinic_datatable',
-        'commit_order' => 'ajax_commit_order',
         'commit_merchandise' => 'ajax_commit_merchandise',
         'create_family' => 'ajax_create_family',
         'create_ledger_entries' => 'ajax_create_ledger_entries',
         'create_student' => 'ajax_create_student',
-        'create_woocommerce_order' => 'ajax_create_woocommerce_order',
         'datatable_balances' => 'ajax_datatable_balances',
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
         'gen_roster' => 'ajax_gen_roster',
@@ -25,6 +23,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
         'student_datatable' => 'ajax_student_datatable',
+        'submit_payment' => 'ajax_submit_payment',
         'toggle_session_active' => 'ajax_toggle_session_active',
         'update_family' => 'ajax_update_family',
         'update_registration' => 'ajax_update_registration',
@@ -1414,22 +1413,16 @@ class Usctdp_Mgmt_Admin_Ajax
         ];
     }
 
-    public function ajax_commit_order()
+    /**
+     * Creates the purchase/registration records for a set of order line items.
+     * Pure business logic - no transaction handling or JSON response, so it can
+     * be composed into a larger transaction (see ajax_submit_payment()).
+     *
+     * @return array Results keyed by line_item_id, each ['purchase_id' => ..., 'registration_id' => ...]
+     */
+    private function create_order_records($line_items, $ignore_full)
     {
-        $this->check_nonce('commit_order');
-
-        global $wpdb;
-        $transaction_started = false;
-        $transaction_completed = false;
-        $response_message = '';
         $results = [];
-
-        $line_items = isset($_POST['line_items']) ? $_POST['line_items'] : [];
-        if (empty($line_items)) {
-            throw new Web_Request_Exception('No line items provided.');
-        }
-
-        $ignore_full = isset($_POST['ignore_class_full']) && $_POST['ignore_class_full'] === '1';
 
         $order_records = [];
         foreach ($line_items as $line_item) {
@@ -1444,67 +1437,41 @@ class Usctdp_Mgmt_Admin_Ajax
             return $record['type'] === 'registration';
         });
 
-        try {
-            $wpdb->query('START TRANSACTION');
-            $transaction_started = true;
-
-            // Handle merchandise orders
-            foreach ($merchandise_records as $record) {
-                $line_item_id = $record['line_item_id'];
-                $results[$line_item_id] = [
-                    'purchase_id' => $this->create_merchandise_order($record),
-                ];
-            }
-
-            // Handle registration orders
-            $this->lock_registrations($registration_records);
-            foreach ($registration_records as $record) {
-                $args = $record['sql_args'];
-                $line_item_id = $record['line_item_id'];
-                $student_id = $args['student_id'];
-                $activity_id = $args['activity_id'];
-                $activity_title = $record['activity']->title;
-                if ($this->is_student_enrolled($student_id, $activity_id)) {
-                    throw new Web_Request_Exception('Student is already enrolled in activity: ' . $activity_title);
-                }
-
-                $capacity = $this->get_activity_capacity($activity_id);
-                $enrollment_counts = $this->get_activity_enrollment_counts($activity_id);
-                if (!$ignore_full && $enrollment_counts['active'] >= $capacity) {
-                    throw new Web_Request_Exception('Class is full: ' . $activity_title);
-                }
-
-                $ids = $this->create_purchase_and_registration($args);
-                if (!$ids) {
-                    throw new Web_Request_Exception('Failed to create registration.');
-                }
-                $this->remove_waitlist_entry($student_id, $activity_id);
-                $results[$line_item_id] = $ids;
-            }
-
-            $wpdb->query('COMMIT');
-            $transaction_completed = true;
-        } catch (Web_Request_Exception $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_commit_order', $e);
-            $response_message = $e->getMessage();
-        } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_commit_order', $e);
-            $response_message = 'A system error occurred. Please try again.';
-        } finally {
-            if (!$transaction_completed) {
-                if ($transaction_started) {
-                    $wpdb->query('ROLLBACK');
-                }
-                if ($response_message === '') {
-                    $response_message = 'A system error occurred. Please try again.';
-                }
-                wp_send_json_error($response_message, 500);
-            } else {
-                wp_send_json_success([
-                    "purchases" => $results
-                ]);
-            }
+        // Handle merchandise orders
+        foreach ($merchandise_records as $record) {
+            $line_item_id = $record['line_item_id'];
+            $results[$line_item_id] = [
+                'purchase_id' => $this->create_merchandise_order($record),
+            ];
         }
+
+        // Handle registration orders
+        $this->lock_registrations($registration_records);
+        foreach ($registration_records as $record) {
+            $args = $record['sql_args'];
+            $line_item_id = $record['line_item_id'];
+            $student_id = $args['student_id'];
+            $activity_id = $args['activity_id'];
+            $activity_title = $record['activity']->title;
+            if ($this->is_student_enrolled($student_id, $activity_id)) {
+                throw new Web_Request_Exception('Student is already enrolled in activity: ' . $activity_title);
+            }
+
+            $capacity = $this->get_activity_capacity($activity_id);
+            $enrollment_counts = $this->get_activity_enrollment_counts($activity_id);
+            if (!$ignore_full && $enrollment_counts['active'] >= $capacity) {
+                throw new Web_Request_Exception('Class is full: ' . $activity_title);
+            }
+
+            $ids = $this->create_purchase_and_registration($args);
+            if (!$ids) {
+                throw new Web_Request_Exception('Failed to create registration.');
+            }
+            $this->remove_waitlist_entry($student_id, $activity_id);
+            $results[$line_item_id] = $ids;
+        }
+
+        return $results;
     }
 
     public function ajax_commit_merchandise()
@@ -1571,48 +1538,363 @@ class Usctdp_Mgmt_Admin_Ajax
             }
         }
     }
-    public function ajax_create_woocommerce_order()
+    private function sanitize_payment_line_item($item)
     {
-        $this->check_nonce('create_woocommerce_order');
-
-        $line_items = isset($_POST['line_items'])
-            ? $_POST['line_items']
-            : null;
-        if (empty($line_items)) {
-            wp_send_json_error('No line items provided.', 400);
+        $type = isset($item['type']) ? sanitize_text_field($item['type']) : null;
+        if (!in_array($type, ['registration', 'merchandise'], true)) {
+            throw new Web_Request_Exception('Invalid line item type.');
         }
 
-        $payment_method = isset($_POST['payment_method'])
-            ? sanitize_text_field($_POST['payment_method'])
-            : null;
+        $discounts = [];
+        if (!empty($item['discounts'])) {
+            foreach ($item['discounts'] as $discount) {
+                $discounts[] = [
+                    'amount' => round(floatval($discount['amount'] ?? 0), 2),
+                    'reason' => sanitize_text_field($discount['reason'] ?? ''),
+                ];
+            }
+        }
+
+        return [
+            'line_item_id' => sanitize_text_field($item['line_item_id'] ?? ''),
+            'type' => $type,
+            'family_id' => intval($item['family_id'] ?? 0),
+            'student_id' => intval($item['student_id'] ?? 0),
+            'purchase_id' => !empty($item['purchase_id']) ? intval($item['purchase_id']) : null,
+            'base_price' => round(floatval($item['base_price'] ?? 0), 2),
+            'debit' => round(floatval($item['debit'] ?? 0), 2),
+            'credit' => round(floatval($item['credit'] ?? 0), 2),
+            'discounts' => $discounts,
+        ];
+    }
+
+    private function format_snake_case($str)
+    {
+        if (empty($str)) {
+            return '';
+        }
+        return ucwords(strtolower(trim(str_replace('_', ' ', $str))));
+    }
+
+    private function build_payment_event_description($payment_mode, $payment_method, $check_number)
+    {
+        if ($payment_mode === 'create') {
+            switch ($payment_method) {
+                case 'check':
+                    return 'Purchase w/ Check #' . $check_number;
+                case 'cash':
+                    return 'Purchase w/ Cash';
+                case 'card':
+                    return 'Order Initiated, Card Details Pending';
+                case 'house_credit_only':
+                    return 'Purchase Paid w/ House Credit';
+                default:
+                    return 'Order Initiated, Payment Pending';
+            }
+        }
+
+        switch ($payment_method) {
+            case 'check':
+                return 'Payment Made w/ Check #' . $check_number;
+            case 'cash':
+                return 'Payment Made w/ Cash';
+            case 'card':
+                return 'Payment Initiated, Card Details Pending';
+            case 'house_credit_only':
+                return 'Payment Made w/ House Credit';
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * Builds the double-entry ledger rows for a single payment line item:
+     * the initial charge/revenue/discount entries (only for newly created
+     * purchases) plus the payment and house-credit entries for this
+     * submission. Mirrors what USCTDP_Admin.buildLedgerEntries used to do
+     * in JS - this is now the single place that knows the accounting rules.
+     */
+    private function build_ledger_entries_for_line_item(
+        $line_item,
+        $order_id,
+        $event_id,
+        $event,
+        $payment_method,
+        $check_number,
+        $is_new
+    ) {
+        $entries = [];
+        $zero = '0.00';
+        $base = [
+            'family_id' => $line_item['family_id'],
+            'student_id' => $line_item['student_id'],
+            'purchase_id' => $line_item['purchase_id'],
+            'order_id' => $order_id,
+            'event_id' => $event_id,
+            'event' => $event,
+        ];
+
+        if ($is_new) {
+            $base_price = number_format($line_item['base_price'], 2, '.', '');
+            $entries[] = array_merge($base, [
+                'account' => $line_item['type'] . '_fees',
+                'debit' => $base_price,
+                'credit' => $zero,
+                'entry_type' => 'charge',
+                'description' => 'Base Fee',
+            ]);
+            $entries[] = array_merge($base, [
+                'account' => 'revenue',
+                'debit' => $zero,
+                'credit' => $base_price,
+                'entry_type' => 'charge',
+                'description' => 'Base Fee',
+            ]);
+
+            foreach ($line_item['discounts'] as $discount) {
+                $amount = number_format($discount['amount'], 2, '.', '');
+                $entries[] = array_merge($base, [
+                    'account' => $line_item['type'] . '_fees',
+                    'debit' => $zero,
+                    'credit' => $amount,
+                    'entry_type' => 'adjustment',
+                    'description' => $discount['reason'],
+                ]);
+                $entries[] = array_merge($base, [
+                    'account' => 'revenue',
+                    'debit' => $amount,
+                    'credit' => $zero,
+                    'entry_type' => 'adjustment',
+                    'description' => $discount['reason'],
+                ]);
+            }
+        }
+
+        $check_str = $check_number ? " #$check_number" : '';
+        $event_str = 'Payment (' . $this->format_snake_case($payment_method) . $check_str . ')';
+        $house_credit = round($line_item['house_credit'] ?? 0, 2);
+        $amount_after_house_credit = round($line_item['credit'] - $house_credit, 2);
+
+        if ($amount_after_house_credit > 0 && $payment_method !== 'card') {
+            $amount_str = number_format($amount_after_house_credit, 2, '.', '');
+            $entries[] = array_merge($base, [
+                'account' => 'payment_' . $payment_method,
+                'payment_method' => $payment_method,
+                'reference_id' => $check_number ?: null,
+                'debit' => $amount_str,
+                'credit' => $zero,
+                'entry_type' => 'payment',
+                'description' => $event_str,
+            ]);
+            $entries[] = array_merge($base, [
+                'account' => $line_item['type'] . '_fees',
+                'payment_method' => $payment_method,
+                'reference_id' => $check_number ?: null,
+                'debit' => $zero,
+                'credit' => $amount_str,
+                'entry_type' => 'payment',
+                'description' => $event_str,
+            ]);
+        }
+
+        if ($house_credit > 0) {
+            $house_credit_str = number_format($house_credit, 2, '.', '');
+            $entries[] = array_merge($base, [
+                'account' => 'payment_house_credit',
+                'debit' => $house_credit_str,
+                'credit' => $zero,
+                'entry_type' => 'house_credit',
+                'description' => 'House Credit Applied',
+            ]);
+            $entries[] = array_merge($base, [
+                'account' => $line_item['type'] . '_fees',
+                'debit' => $zero,
+                'credit' => $house_credit_str,
+                'entry_type' => 'house_credit',
+                'description' => 'House Credit Applied',
+            ]);
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Consolidated payment submission: creates purchases/registrations (when
+     * payment_mode is "create"), allocates house credit across line items,
+     * creates the WooCommerce order for card payments, and writes the full
+     * set of ledger entries - all in a single transaction. This replaces the
+     * old three-round-trip flow (commit_order -> create_woocommerce_order ->
+     * create_ledger_entries) where the browser assembled the ledger entries
+     * itself and the server trusted whatever amounts it sent.
+     */
+    public function ajax_submit_payment()
+    {
+        $this->check_nonce('submit_payment');
+
+        global $wpdb;
+        $transaction_started = false;
+        $transaction_completed = false;
+        $response_message = '';
+        $order_info = null;
+        $purchases = [];
+
+        $raw_line_items = isset($_POST['line_items']) ? $_POST['line_items'] : [];
+        if (empty($raw_line_items)) {
+            throw new Web_Request_Exception('No line items provided.');
+        }
+
+        $payment_mode = isset($_POST['payment_mode']) ? sanitize_text_field($_POST['payment_mode']) : 'update';
+        $is_new = $payment_mode === 'create';
+
+        $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : '';
         if (empty($payment_method)) {
-            wp_send_json_error('No payment method provided.', 400);
+            throw new Web_Request_Exception('No payment method provided.');
         }
 
-        $check_number = isset($_POST['check_number'])
+        $check_number = isset($_POST['check_number']) && $_POST['check_number'] !== ''
             ? sanitize_text_field($_POST['check_number'])
             : null;
+        $house_credit_applied = round(floatval($_POST['house_credit_applied'] ?? 0), 2);
+        $ignore_full = isset($_POST['ignore_class_full']) && $_POST['ignore_class_full'] === '1';
+
+        $line_items = [];
+        foreach ($raw_line_items as $item) {
+            $line_items[] = $this->sanitize_payment_line_item($item);
+        }
 
         $family_id = $this->get_order_family_id($line_items);
         if (!$family_id) {
-            wp_send_json_error('No unique family ID found for the line items.', 400);
+            throw new Web_Request_Exception('No unique family ID found for the line items.');
         }
 
-        $result = Usctdp_Mgmt::woocommerce()->create_woocommerce_order(
-            $family_id,
-            $line_items,
-            $payment_method,
-            $check_number
-        );
-        $order = $result['order'];
+        try {
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
 
-        wp_send_json_success([
-            'order_id' => $order->get_id(),
-            'order_url' => get_edit_post_link($order->get_id()),
-            'payment_url' => $order->get_checkout_payment_url(),
-            'user_id' => $result['user_id'],
-        ]);
+            if ($is_new) {
+                $purchases = $this->create_order_records($raw_line_items, $ignore_full);
+                foreach ($line_items as &$line_item) {
+                    $created = $purchases[$line_item['line_item_id']] ?? null;
+                    if (!$created) {
+                        $msg = 'Line item ' . $line_item['line_item_id'] . ' not found in created purchases.';
+                        throw new Web_Request_Exception($msg);
+                    }
+                    $line_item['purchase_id'] = $created['purchase_id'];
+                    if ($line_item['type'] === 'registration') {
+                        $line_item['registration_id'] = $created['registration_id'];
+                    }
+                }
+                unset($line_item);
+            }
+
+            // Allocate house credit across line items in submission order, same
+            // waterfall the client used to run before handing entries to the server.
+            $remaining_house_credit = $house_credit_applied;
+            foreach ($line_items as &$line_item) {
+                if ($remaining_house_credit <= 0) {
+                    break;
+                }
+                $allocated = min($remaining_house_credit, $line_item['credit']);
+                $line_item['house_credit'] = round($allocated, 2);
+                $remaining_house_credit = round($remaining_house_credit - $allocated, 2);
+            }
+            unset($line_item);
+
+            $order_id = null;
+            $event_id = 'order_payment_' . $payment_method;
+            if ($payment_method === 'card') {
+                $wc_line_items = [];
+                foreach ($raw_line_items as $idx => $item) {
+                    $item['house_credit'] = $line_items[$idx]['house_credit'] ?? 0;
+                    if ($is_new) {
+                        $item['purchase_id'] = $line_items[$idx]['purchase_id'];
+                        if ($line_items[$idx]['type'] === 'registration') {
+                            $item['registration_id'] = $line_items[$idx]['registration_id'];
+                        }
+                    }
+                    $wc_line_items[] = $item;
+                }
+                $wc_result = Usctdp_Mgmt::woocommerce()->create_woocommerce_order(
+                    $family_id,
+                    $wc_line_items,
+                    $payment_method,
+                    $check_number
+                );
+                if (empty($wc_result) || empty($wc_result['order'])) {
+                    throw new Web_Request_Exception('Failed to create WooCommerce order.');
+                }
+                $order = $wc_result['order'];
+                $order_id = $order->get_id();
+                $order_info = [
+                    'order_id' => $order_id,
+                    'order_url' => get_edit_post_link($order_id),
+                    'payment_url' => $order->get_checkout_payment_url(),
+                    'user_id' => $wc_result['user_id'],
+                ];
+                $event_id = 'order_card_' . $order_id;
+            }
+
+            $event = $this->build_payment_event_description($payment_mode, $payment_method, $check_number);
+
+            $ledger_ids = [];
+            foreach ($line_items as $line_item) {
+                $entries = $this->build_ledger_entries_for_line_item(
+                    $line_item,
+                    $order_id,
+                    $event_id,
+                    $event,
+                    $payment_method,
+                    $check_number,
+                    $is_new
+                );
+                foreach ($entries as $entry) {
+                    $ledger_id = $this->create_ledger_entry($entry);
+                    if (!$ledger_id) {
+                        throw new Web_Request_Exception('Failed to create ledger entry.');
+                    }
+                    $ledger_ids[] = $ledger_id;
+                }
+            }
+
+            $wpdb->query('COMMIT');
+            $transaction_completed = true;
+        } catch (Web_Request_Exception $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_submit_payment', $e);
+            $response_message = $e->getMessage();
+        } catch (Usctdp_Woocommerce_Exception $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_submit_payment', $e);
+            $response_message = $e->getMessage();
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_submit_payment', $e);
+            $response_message = 'A system error occurred. Please try again.';
+        } finally {
+            if (!$transaction_completed) {
+                if ($transaction_started) {
+                    $wpdb->query('ROLLBACK');
+                }
+                if ($order_info && !empty($order_info['order_id'])) {
+                    // WooCommerce order creation isn't purely wpdb writes (it can
+                    // trigger its own hooks/side effects), so it isn't safely
+                    // covered by our ROLLBACK - clean it up explicitly.
+                    $wc_order = wc_get_order($order_info['order_id']);
+                    if ($wc_order) {
+                        $wc_order->delete(true);
+                    }
+                }
+                if ($response_message === '') {
+                    $response_message = 'A system error occurred. Please try again.';
+                }
+                wp_send_json_error($response_message, 500);
+            } else {
+                wp_send_json_success([
+                    'order' => $order_info,
+                    'purchases' => $purchases,
+                    'ledger_entries' => $ledger_ids,
+                ]);
+            }
+        }
     }
+
     public function ajax_waitlist_datatable()
     {
         $this->check_nonce('waitlist_datatable');

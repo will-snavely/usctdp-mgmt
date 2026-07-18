@@ -988,9 +988,9 @@
                 denyButtonText: `No`
             }).then((result) => {
                 if (result.isConfirmed) {
-                    USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
+                    savePurchaseFields(rowData.purchase_id, update)
                         .then(() => {
-                            savePurchaseFields(rowData.purchase_id, update);
+                            return USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
                         })
                         .catch((error) => {
                             window.Swal.fire({
@@ -1000,8 +1000,8 @@
                             });
                         })
                         .finally(() => {
-                            refreshFamilyBalance();
                             historyTable.ajax.reload();
+                            refreshFamilyBalance();
                         });
                 }
             });
@@ -1028,9 +1028,9 @@
                 denyButtonText: `No`
             }).then((result) => {
                 if (result.isConfirmed) {
-                    USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
+                    savePurchaseFields(rowData.purchase_id, update)
                         .then(() => {
-                            savePurchaseFields(rowData.purchase_id, update);
+                            return USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
                         })
                         .catch((error) => {
                             window.Swal.fire({
@@ -1040,8 +1040,8 @@
                             });
                         })
                         .finally(() => {
-                            refreshFamilyBalance();
                             historyTable.ajax.reload();
+                            refreshFamilyBalance();
                         });
                 }
             });

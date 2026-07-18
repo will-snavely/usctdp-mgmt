@@ -228,7 +228,7 @@ table#payment-history-table td {
 
 .registration-fields .selector-wrap {
     width: 40%;
-    min-width: 350px;
+    min-width: 400px;
 }
 
 .registration-fields .level-wrap {
@@ -238,12 +238,12 @@ table#payment-history-table td {
 
 /* Payment information section*/
 .purchase-card .payment-action-select {
-    width: 150px;
+    width: 170px;
 }
 
 .purchase-card .financial-section {
     width: 40%;
-    min-width: 350px;
+    min-width: 400px;
 }
 
 .purchase-card .payment-info {
