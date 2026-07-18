@@ -34,6 +34,22 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 </div>
             </form>
         </dialog>
+        <dialog id="waitlist-modal">
+            <form id="waitlist-form" method="dialog">
+                <h2>Join Waitlist</h2>
+                <p id="waitlist-details">
+                    <span id="waitlist-session"></span> &mdash; <span id="waitlist-day"></span>
+                </p>
+                <div class="student_field">
+                    <label for="waitlist_student_select">Student</label>
+                    <select name="student_id" id="waitlist_student_select" required></select>
+                </div>
+                <div class="actions">
+                    <button type="button" class="button" id="close-waitlist-modal">Cancel</button>
+                    <button type="submit" class="button" id="confirm-waitlist">Join Waitlist</button>
+                </div>
+            </form>
+        </dialog>
         <?php
     }
 

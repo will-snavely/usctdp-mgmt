@@ -91,6 +91,14 @@ class Usctdp_Mgmt_Public
                 return is_user_logged_in();
             },
         ]);
+
+        register_rest_route($rest_id, '/waitlist/', [
+            'methods' => 'POST',
+            'callback' => [$this, 'create_waitlist_entry'],
+            'permission_callback' => function () {
+                return is_user_logged_in();
+            },
+        ]);
     }
 
     public function enqueue_styles()
@@ -277,6 +285,73 @@ class Usctdp_Mgmt_Public
             error_log('REST API reached: ' . $request->get_route());
             error_log(print_r($request->get_params(), true));
             return new WP_Error("create_student_failed", "Failed to create student", [
+                'status' => 400
+            ]);
+        }
+        return $result;
+    }
+
+    public function create_waitlist_entry($request)
+    {
+        $family = $this->get_user_family();
+        if (empty($family)) {
+            return new WP_Error('no_family', 'No family found for user', [
+                'status' => 400
+            ]);
+        }
+        $student_id = $request->get_param('student_id');
+        if (empty($student_id)) {
+            return new WP_Error('no_student_id', 'Student is required', [
+                'status' => 400
+            ]);
+        }
+        $activity_id = $request->get_param('activity_id');
+        if (empty($activity_id)) {
+            return new WP_Error('no_activity_id', 'Activity is required', [
+                'status' => 400
+            ]);
+        }
+
+        $student_query = new Usctdp_Mgmt_Student_Query([
+            'id' => intval($student_id),
+            'number' => 1,
+        ]);
+        if (empty($student_query->items) || intval($student_query->items[0]->family_id) !== intval($family->id)) {
+            return new WP_Error('invalid_student', 'Invalid student', [
+                'status' => 400
+            ]);
+        }
+
+        $activity_query = new Usctdp_Mgmt_Activity_Query([
+            'id' => intval($activity_id),
+            'number' => 1,
+        ]);
+        if (empty($activity_query->items)) {
+            return new WP_Error('invalid_activity', 'Invalid activity', [
+                'status' => 400
+            ]);
+        }
+
+        $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([
+            'activity_id' => intval($activity_id),
+            'student_id' => intval($student_id),
+            'number' => 1,
+        ]);
+        if (!empty($waitlist_query->items)) {
+            return $waitlist_query->items[0];
+        }
+
+        $result = $waitlist_query->add_item([
+            'activity_id' => intval($activity_id),
+            'student_id' => intval($student_id),
+            'status' => 'pending',
+            'created_at' => current_time('mysql'),
+        ]);
+        if (!$result) {
+            error_log("Failed to create waitlist entry.");
+            error_log('REST API reached: ' . $request->get_route());
+            error_log(print_r($request->get_params(), true));
+            return new WP_Error("create_waitlist_failed", "Failed to add student to waitlist", [
                 'status' => 400
             ]);
         }

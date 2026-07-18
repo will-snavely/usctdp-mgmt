@@ -18,6 +18,8 @@
     };
 
     const modal = document.querySelector('#new-student-modal');
+    const waitlistModal = document.querySelector('#waitlist-modal');
+    let activeWaitlistButton = null;
 
     function clear_day_selectors() {
       $('#usctdp-day-selectors').empty();
@@ -61,7 +63,7 @@
       });
     }
 
-    function add_day_selector(clinics, day_index, label_text) {
+    function add_day_selector(clinics, day_index, label_text, session_label) {
       var wrapper = $('<div></div>');
       wrapper.addClass('usctdp-day-selector');
       var label = $('<label></label>');
@@ -73,15 +75,24 @@
       selector.attr('id', 'day_of_week_' + day_index);
       selector.prop('required', true);
       selector.append('<option value=""></option>');
+      var waitlistButtons = $('<div></div>').addClass('usctdp-waitlist-buttons');
       clinics.forEach(function (clinic) {
         var dowStr = int_to_day[clinic.day_of_week];
         var startTime = format_time(clinic.start_time);
-        var optionText = dowStr + ' at ' + startTime;
+        var dayLabel = dowStr + ' at ' + startTime;
+        var optionText = dayLabel;
         var optionId = clinic.id;
         var disabled = false;
         if (clinic.enrolled_count >= clinic.capacity) {
           optionText += ' (Full)';
           disabled = true;
+          waitlistButtons.append($('<button></button>')
+            .attr('type', 'button')
+            .addClass('button join-waitlist-btn')
+            .attr('data-activity-id', clinic.id)
+            .attr('data-day-label', dayLabel)
+            .attr('data-session-label', session_label)
+            .text('Join Waitlist (' + dowStr + ')'));
         }
         selector.append($('<option></option>')
           .attr('value', optionId)
@@ -92,6 +103,9 @@
           .prop('disabled', disabled));
       });
       wrapper.append(selector);
+      if (waitlistButtons.children().length) {
+        wrapper.append(waitlistButtons);
+      }
       $('#usctdp-day-selectors').append(wrapper);
       $('#day_of_week_' + day_index).select2({
         placeholder: 'Select a day...',
@@ -104,10 +118,9 @@
       });
     }
 
-    function refreshStudentDropDown(initial_value = null) {
-      const $select = $('#student_select');
+    function populateStudentSelect($select, initial_value = null) {
       $select.prop('disabled', true);
-      fetch(siteData.root + 'usctdp-mgmt/v1/students/', {
+      return fetch(siteData.root + 'usctdp-mgmt/v1/students/', {
         method: 'GET',
         headers: {
           'X-WP-Nonce': siteData.nonce
@@ -137,6 +150,10 @@
         });
     }
 
+    function refreshStudentDropDown(initial_value = null) {
+      populateStudentSelect($('#student_select'), initial_value);
+    }
+
     // Listen for the event on the variations form
     $('.variations_form').on('found_variation', function (event, variation) {
       var daysPerWeekStr = variation.attributes["attribute_days-per-week"];
@@ -153,10 +170,10 @@
           clear_day_selectors();
           var days = daysPerWeek[daysPerWeekStr];
           if (days == 1) {
-            add_day_selector(data, 1, 'Select Day');
+            add_day_selector(data, 1, 'Select Day', session);
           } else {
-            add_day_selector(data, 1, 'Select 1st Day');
-            add_day_selector(data, 2, 'Select 2nd Day');
+            add_day_selector(data, 1, 'Select 1st Day', session);
+            add_day_selector(data, 2, 'Select 2nd Day', session);
           }
         })
         .catch(error => console.error('Error loading options:', error));
@@ -204,6 +221,60 @@
           modal.close();
         } else {
 
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    });
+
+    // Open waitlist modal when a "Join Waitlist" button is clicked
+    $('#usctdp-day-selectors').on('click', '.join-waitlist-btn', function (e) {
+      e.preventDefault();
+      activeWaitlistButton = this;
+      const $btn = $(this);
+
+      $('#waitlist-session').text($btn.data('session-label'));
+      $('#waitlist-day').text($btn.data('day-label'));
+      $('#waitlist-form').data('activity-id', $btn.data('activity-id'));
+
+      populateStudentSelect($('#waitlist_student_select'), $('#student_select').val());
+      waitlistModal.showModal();
+    });
+
+    // Close waitlist modal on "Cancel"
+    $('#close-waitlist-modal').on('click', () => {
+      waitlistModal.close();
+    });
+
+    // Handle waitlist confirmation
+    $('#waitlist-form').on('submit', async function (e) {
+      e.preventDefault();
+      const activityId = $(this).data('activity-id');
+      const studentId = $('#waitlist_student_select').val();
+      if (!studentId) {
+        return;
+      }
+
+      try {
+        const response = await fetch(siteData.root + 'usctdp-mgmt/v1/waitlist/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': siteData.nonce
+          },
+          body: JSON.stringify({
+            student_id: studentId,
+            activity_id: activityId
+          }),
+        });
+
+        if (response.ok) {
+          if (activeWaitlistButton) {
+            $(activeWaitlistButton).text('Waitlisted').prop('disabled', true);
+          }
+          waitlistModal.close();
+        } else {
+          console.error('Error joining waitlist:', await response.text());
         }
       } catch (error) {
         console.error('Error:', error);
