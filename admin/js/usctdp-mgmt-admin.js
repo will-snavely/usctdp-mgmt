@@ -1101,7 +1101,7 @@
             const { paymentMode = "update" } = this.settings;
             try {
                 const lineItems = orderData.line_items;
-                
+
                 if (paymentMode === "create") {
                     var order = await this.createOrder(orderData);
                     var purchaseIds = order.purchases;
@@ -1195,9 +1195,8 @@
         }
 
         getMaxApplicableHouseCredit() {
-            const debit = this.items.reduce((s, i) => s + i.debit, 0);
             const credit = this.items.reduce((s, i) => s + i.credit, 0);
-            return Math.max(0, Math.min(this.houseCreditAvailable, debit - credit));
+            return Math.max(0, Math.min(this.houseCreditAvailable, credit));
         }
 
         setHouseCreditApplied(amount) {
@@ -1243,47 +1242,36 @@
         updatePaymentTotals() {
             const debit = this.items.reduce((s, i) => s + i.debit, 0);
             const credit = this.items.reduce((s, i) => s + i.credit, 0);
-            this.houseCreditApplied = Math.min(this.houseCreditApplied, this.getMaxApplicableHouseCredit());
-            const balance = debit - credit - this.houseCreditApplied;
-
+            const balance = debit - credit;
             this.container.find(".debit-summary .total").text(USCTDP_Admin.formatUsd(debit));
             this.container.find(".credit-summary .total").text(USCTDP_Admin.formatUsd(credit));
             this.container.find(".balance-summary .total").text(USCTDP_Admin.formatUsd(balance));
-
-            const $houseCreditInput = this.container.find(`#${this.getId('house_credit_apply')}`);
-            if (!$houseCreditInput.is(':focus')) {
-                $houseCreditInput.val(this.houseCreditApplied.toFixed(2));
-            }
-
+            this.container.find(".house-credit-apply-field input").val(this.houseCreditApplied.toFixed(2));
             this.updatePaymentMethodConstraints(credit, balance);
         }
 
-        updatePaymentMethodConstraints(creditTotal, balance) {
+        updatePaymentMethodConstraints(creditTotal, houseCredit, balance) {
             const $method = $('#' + this.getId('payment_method'));
             const selectedVal = $method.val();
             const hasPayment = creditTotal > 0;
-            const coveredByHouseCredit = !hasPayment && balance <= 0 && this.houseCreditApplied > 0;
+            const coveredByHouseCredit = this.houseCreditApplied >= creditTotal;
             const $paymentNote = this.container.find(".payment-method-note span");
 
             $method.find("option").prop('disabled', !hasPayment);
             $method.find("option[value='pay_later']").prop('disabled', hasPayment);
             $method.find("option[value='house_credit_only']").prop('disabled', !coveredByHouseCredit);
 
-            if (coveredByHouseCredit) {
-                $method.val('house_credit_only').trigger('change');
-                $paymentNote.text("The remaining balance is fully covered by house credit. No additional payment is required.");
-            } else if (hasPayment) {
-                if (selectedVal === 'pay_later' || selectedVal === 'house_credit_only') {
+            if (hasPayment) {
+                $paymentNote.text("");
+                if (coveredByHouseCredit) {
+                    $method.val('house_credit_only').trigger('change');
+                    $paymentNote.text("The payment is fully covered by house credit. No additional payment is required.");
+                } else if (selectedVal === 'pay_later' || selectedVal === 'house_credit_only') {
                     $method.val('').trigger('change');
-                }
-                if (this.settings.allowPayLater) {
-                    $paymentNote.text("Because the payment balance is greater than zero, 'Pay Later' cannot be selected.");
-                } else {
-                    $paymentNote.text("");
                 }
             } else if (balance <= 0) {
                 if (this.settings.allowPayLater) {
-                    $paymentNote.text("Payment balance is currently zero, 'Pay Later' must be selected.");
+                    $paymentNote.text("Payment amount is currently zero, 'Pay Later' must be selected.");
                     $method.val('pay_later').trigger('change');
                 } else {
                     $paymentNote.text("Payment balance is currently zero.");
