@@ -387,6 +387,44 @@ input[type=number] {
     align-items: center;
 }
 
+.house-credit-section {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #94bef4;
+    background: #f8fafc;
+    border-radius: 8px;
+}
+
+.house-credit-available {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-end;
+}
+
+.house-credit-available .label {
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #555;
+}
+
+.house-credit-available .value {
+    font-weight: bold;
+    font-size: 1rem;
+    color: #005670;
+}
+
+.house-credit-apply-field input {
+    width: 90px;
+}
+
 .payment-option {
     margin-left: 20px;
     display: flex;

@@ -73,6 +73,7 @@ class Usctdp_Mgmt_Admin
                     'waitlist_datatable',
                     'waitlist_add',
                     'waitlist_remove',
+                    'get_family_balance',
                 ],
                 'post' => ['payment_checkout'],
                 'context' => ['activity_id', 'student_id'],

@@ -134,6 +134,7 @@
             $('#clinic_base_price').val(one_day_price.toFixed(2));
             $('#discount-additional-day-value').text('($' + discount.toFixed(2) + ')');
             $('#discount-additional-day').data('discount_value', discount);
+            $('#discount-sibling-percent').prop('disabled', true);
             update_clinic_sale_price();
             $("#clinic-preorder").removeData();
             $("#clinic-preorder").data('pricing', pricing);

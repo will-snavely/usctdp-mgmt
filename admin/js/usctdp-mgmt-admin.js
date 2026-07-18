@@ -463,9 +463,9 @@
     USCTDP_Admin.AdditionalDayDiscount = class extends USCTDP_Admin.Discount {
         constructor(amount) {
             super({
-                code: 'additional_day',
+                code: 'second_day',
                 value: amount,
-                reason: 'Additional Day Discount'
+                reason: 'Second Day Discount'
             });
         }
 
@@ -548,6 +548,8 @@
             this.settings = settings ?? {};
             this.items = [];
             this.discountsModal = null;
+            this.houseCreditAvailable = 0;
+            this.houseCreditApplied = 0;
             this.init();
         }
 
@@ -634,6 +636,19 @@
                                 <span class="total"></span>
                             </div>
                         </div>
+                        <div class="house-credit-section hidden">
+                            <div class="house-credit-available">
+                                <span class="label">Available House Credit</span>
+                                <span class="value house-credit-available-value"></span>
+                            </div>
+                            <div class="house-credit-apply-field checkout-field">
+                                <label for="${this.getId('house_credit_apply')}">Apply House Credit</label>
+                                <input type="number" min="0" step="0.01"
+                                    id="${this.getId('house_credit_apply')}"
+                                    name="house_credit_apply" value="0.00">
+                                <button type="button" class="button house-credit-max-btn">Max</button>
+                            </div>
+                        </div>
                         ${checkoutButtonHtml}
                         ${modifyButtonHtml}
                     </div>
@@ -648,6 +663,7 @@
                                 <option value="card" disabled>Card</option>
                                 <option value="check" disabled>Check</option>
                                 <option value="cash" disabled>Cash</option>
+                                <option value="house_credit_only" disabled>Paid via House Credit</option>
                                 ${payLaterHtml}
                             </select>
                         </div>
@@ -772,14 +788,29 @@
                 }
             });
 
+            // House Credit
+            this.container.on('input', `#${this.getId('house_credit_apply')}`, (e) => {
+                this.setHouseCreditApplied(USCTDP_Admin.safeParseFloat(e.currentTarget.value));
+            });
+
+            this.container.on('blur', `#${this.getId('house_credit_apply')}`, (e) => {
+                e.currentTarget.value = this.houseCreditApplied.toFixed(2);
+            });
+
+            this.container.on('click', '.house-credit-max-btn', () => {
+                this.setHouseCreditApplied(this.houseCreditAvailable);
+            });
+
             // Submission
             $(`#${this.getId('submit-payment-form')}`).on('submit', (e) => this.handleFormSubmit(e));
         }
 
         clear() {
             this.items = [];
+            this.houseCreditAvailable = 0;
+            this.houseCreditApplied = 0;
             this.renderTableBody();
-            this.updatePaymentTotals();
+            this.updateHouseCreditUI();
             this.trigger('cart:empty', {});
         }
 
@@ -844,10 +875,14 @@
 
         addItem(data, debit, credit) {
             const item = new USCTDP_Admin.CartItem({ ...data, debit, credit });
+            const isFirstItem = this.items.length === 0;
             this.items.push(item);
             this.renderTableBody();
             this.updatePaymentTotals();
             this.trigger('cart:add', { item });
+            if (isFirstItem) {
+                this.fetchHouseCredit(item.family_id);
+            }
             return { success: true };
         }
 
@@ -858,6 +893,7 @@
                 payment_method: method,
                 total_debit: this.items.reduce((s, i) => s + i.debit, 0),
                 total_credit: this.items.reduce((s, i) => s + i.credit, 0),
+                house_credit_applied: this.houseCreditApplied,
                 check_number: this.container.find("#" + this.getId('check_number')).val(),
                 line_items: this.items.map((item, idx) => ({ ...item, line_item_id: idx + 1 }))
             };
@@ -1007,16 +1043,21 @@
                     }
                 }
             }
+
             const checkStr = checkNumber ? ` #${checkNumber}` : "";
             const methodStr = USCTDP_Admin.formatSnakeCase(paymentMethod) + checkStr;
             const eventStr = `Payment (${methodStr})`;
-            if (lineItem.credit > 0 && paymentMethod !== "pay_later" && paymentMethod !== "card") {
+            const houseCredit = USCTDP_Admin.safeParseFloat(lineItem.house_credit);
+            const paymentAmount = USCTDP_Admin.safeParseFloat(lineItem.credit);
+            const amountAfterHouseCredit = paymentAmount - houseCredit;
+
+            if (amountAfterHouseCredit > 0 && paymentMethod !== "card") {
                 result.push({
                     ...ledgerBase,
                     account: "payment_" + paymentMethod,
                     payment_method: paymentMethod,
                     reference_id: checkNumber ?? null,
-                    debit: parseFloat(lineItem.credit).toFixed(2),
+                    debit: parseFloat(amountAfterHouseCredit).toFixed(2),
                     credit: parseFloat(0).toFixed(2),
                     entry_type: "payment",
                     description: eventStr
@@ -1028,9 +1069,29 @@
                     payment_method: paymentMethod,
                     reference_id: checkNumber ?? null,
                     debit: parseFloat(0).toFixed(2),
-                    credit: parseFloat(lineItem.credit).toFixed(2),
+                    credit: parseFloat(amountAfterHouseCredit).toFixed(2),
                     entry_type: "payment",
                     description: eventStr
+                });
+            }
+
+            if (houseCredit > 0) {
+                result.push({
+                    ...ledgerBase,
+                    account: "payment_house_credit",
+                    debit: houseCredit.toFixed(2),
+                    credit: zero,
+                    entry_type: "house_credit",
+                    description: "House Credit Applied"
+                });
+
+                result.push({
+                    ...ledgerBase,
+                    account: lineItem.type + "_fees",
+                    debit: zero,
+                    credit: houseCredit.toFixed(2),
+                    entry_type: "house_credit",
+                    description: "House Credit Applied"
                 });
             }
             return result;
@@ -1040,6 +1101,7 @@
             const { paymentMode = "update" } = this.settings;
             try {
                 const lineItems = orderData.line_items;
+                
                 if (paymentMode === "create") {
                     var order = await this.createOrder(orderData);
                     var purchaseIds = order.purchases;
@@ -1056,14 +1118,25 @@
                     }
                 }
 
+                const houseCreditApplied = USCTDP_Admin.safeParseFloat(orderData.house_credit_applied);
+                var remainingHouseCredit = houseCreditApplied;
+                var i = 0;
+                while (remainingHouseCredit > 0 && i < lineItems.length) {
+                    const credit = USCTDP_Admin.safeParseFloat(lineItems[i].credit);
+                    const debit = USCTDP_Admin.safeParseFloat(lineItems[i].debit);
+                    var allocated = Math.min(remainingHouseCredit, credit);
+                    lineItems[i].house_credit = allocated;
+                    remainingHouseCredit -= allocated;
+                    i++;
+                }
+
                 var order = null;
                 var eventId = null;
-
-                if (orderData.payment_method != "pay_later") {
+                if (orderData.payment_method === "card") {
                     order = await this.createWooCommerceOrder(orderData);
-                    eventId = "order_" + order.order_id;
+                    eventId = "order_card_" + order.order_id;
                 } else {
-                    eventId = "order_pay_later";
+                    eventId = "order_payment_" + orderData.payment_method;
                 }
 
                 var event = '';
@@ -1076,6 +1149,8 @@
                         event = "Purchase w/ Cash" + partialNote;
                     } else if (orderData.payment_method === "card") {
                         event = "Order Initiated, Card Details Pending" + partialNote;
+                    } else if (orderData.payment_method === "house_credit_only") {
+                        event = "Purchase Paid w/ House Credit";
                     } else {
                         event = "Order Initiated, Payment Pending";
                     }
@@ -1088,6 +1163,8 @@
                         event = "Payment Made w/ Cash" + partialNote;
                     } else if (orderData.payment_method === "card") {
                         event = "Payment Initiated, Card Details Pending" + partialNote;
+                    } else if (orderData.payment_method === "house_credit_only") {
+                        event = "Payment Made w/ House Credit";
                     }
                 }
 
@@ -1117,29 +1194,86 @@
             }
         }
 
+        getMaxApplicableHouseCredit() {
+            const debit = this.items.reduce((s, i) => s + i.debit, 0);
+            const credit = this.items.reduce((s, i) => s + i.credit, 0);
+            return Math.max(0, Math.min(this.houseCreditAvailable, debit - credit));
+        }
+
+        setHouseCreditApplied(amount) {
+            const clamped = Math.min(Math.max(USCTDP_Admin.safeParseFloat(amount), 0), this.getMaxApplicableHouseCredit());
+            this.houseCreditApplied = clamped;
+            this.updatePaymentTotals();
+        }
+
+        async fetchHouseCredit(familyId) {
+            if (!familyId) {
+                this.houseCreditAvailable = 0;
+                this.updateHouseCreditUI();
+                return;
+            }
+            try {
+                const response = await $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    method: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.get_family_balance_action,
+                        security: usctdp_mgmt_admin.get_family_balance_nonce,
+                        family_id: familyId
+                    }
+                });
+                this.houseCreditAvailable = response.success
+                    ? USCTDP_Admin.safeParseFloat(response.data.house_credit)
+                    : 0;
+            } catch (error) {
+                console.error('Failed to load house credit balance:', error);
+                this.houseCreditAvailable = 0;
+            }
+            this.updateHouseCreditUI();
+        }
+
+        updateHouseCreditUI() {
+            const $section = this.container.find('.house-credit-section');
+            $section.toggleClass('hidden', this.items.length === 0);
+            this.container.find('.house-credit-available-value').text(USCTDP_Admin.formatUsd(this.houseCreditAvailable));
+            this.container.find(`#${this.getId('house_credit_apply')}`).prop('disabled', this.houseCreditAvailable <= 0);
+            this.updatePaymentTotals();
+        }
+
         updatePaymentTotals() {
             const debit = this.items.reduce((s, i) => s + i.debit, 0);
             const credit = this.items.reduce((s, i) => s + i.credit, 0);
-            const balance = debit - credit;
+            this.houseCreditApplied = Math.min(this.houseCreditApplied, this.getMaxApplicableHouseCredit());
+            const balance = debit - credit - this.houseCreditApplied;
 
             this.container.find(".debit-summary .total").text(USCTDP_Admin.formatUsd(debit));
             this.container.find(".credit-summary .total").text(USCTDP_Admin.formatUsd(credit));
             this.container.find(".balance-summary .total").text(USCTDP_Admin.formatUsd(balance));
 
-            this.updatePaymentMethodConstraints(credit);
+            const $houseCreditInput = this.container.find(`#${this.getId('house_credit_apply')}`);
+            if (!$houseCreditInput.is(':focus')) {
+                $houseCreditInput.val(this.houseCreditApplied.toFixed(2));
+            }
+
+            this.updatePaymentMethodConstraints(credit, balance);
         }
 
-        updatePaymentMethodConstraints(creditTotal) {
+        updatePaymentMethodConstraints(creditTotal, balance) {
             const $method = $('#' + this.getId('payment_method'));
             const selectedVal = $method.val();
             const hasPayment = creditTotal > 0;
+            const coveredByHouseCredit = !hasPayment && balance <= 0 && this.houseCreditApplied > 0;
             const $paymentNote = this.container.find(".payment-method-note span");
 
             $method.find("option").prop('disabled', !hasPayment);
             $method.find("option[value='pay_later']").prop('disabled', hasPayment);
+            $method.find("option[value='house_credit_only']").prop('disabled', !coveredByHouseCredit);
 
-            if (hasPayment) {
-                if (selectedVal === 'pay_later') {
+            if (coveredByHouseCredit) {
+                $method.val('house_credit_only').trigger('change');
+                $paymentNote.text("The remaining balance is fully covered by house credit. No additional payment is required.");
+            } else if (hasPayment) {
+                if (selectedVal === 'pay_later' || selectedVal === 'house_credit_only') {
                     $method.val('').trigger('change');
                 }
                 if (this.settings.allowPayLater) {
@@ -1147,14 +1281,17 @@
                 } else {
                     $paymentNote.text("");
                 }
-            } else {
+            } else if (balance <= 0) {
                 if (this.settings.allowPayLater) {
                     $paymentNote.text("Payment balance is currently zero, 'Pay Later' must be selected.");
                     $method.val('pay_later').trigger('change');
                 } else {
-                    $paymentNote.text("Payment balance is currently zero. Please input a payment amount above to proceed.");
+                    $paymentNote.text("Payment balance is currently zero.");
                     $method.val('').trigger('change');
                 }
+            } else {
+                $paymentNote.text("Please input a payment amount above, or apply enough house credit, to proceed.");
+                $method.val('').trigger('change');
             }
         }
 
@@ -1400,8 +1537,8 @@
                 this.discounts.forEach((d, idx) => {
                     let label = '';
                     const displayVal = USCTDP_Admin.formatUsd(d.amount);
-                    if (d.code === 'additional_day') {
-                        label = 'Additional Day';
+                    if (d.code === 'second_day') {
+                        label = 'Second Day';
                     } else if (d.code === 'sibling_10') {
                         label = 'Sibling 10% (rounded)';
                     } else if (d.code === 'sibling_20') {

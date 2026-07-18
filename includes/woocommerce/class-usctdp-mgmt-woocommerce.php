@@ -180,6 +180,18 @@ class Usctdp_Mgmt_Woocommerce
                 }
             }
 
+            $house_credit_applied = 0;
+            if(isset($line_item["house_credit"])) {
+                $house_credit_applied = floatval($line_item["house_credit"]);
+                if ($house_credit_applied > 0) {
+                    $discount_total += $house_credit_applied;
+                    $fee = new WC_Order_Item_Fee();
+                    $fee->set_name("House Credit Applied");
+                    $fee->set_total(-$house_credit_applied);
+                    $order->add_item($fee);
+                }
+            }
+
             $order->set_total($total - $discount_total);
             if ($payment_method === 'cash') {
                 $order->set_payment_method('cod');

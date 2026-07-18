@@ -148,7 +148,7 @@
                             <div class="field-row discount-field">
                                 <input type="checkbox" name="discount-additional-day" id="discount-additional-day">
                                 <label for="discount-additional-day">
-                                    Additional Day
+                                    Second Day
                                     <span id="discount-additional-day-value"></span>
                                 </label>
                             </div>
