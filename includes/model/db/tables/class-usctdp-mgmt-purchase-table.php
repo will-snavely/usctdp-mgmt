@@ -21,6 +21,7 @@ class Usctdp_Mgmt_Purchase_Table extends Table
             product_id bigint(20) unsigned NOT NULL,
             family_id bigint(20) unsigned NOT NULL,
             student_id bigint(20) unsigned DEFAULT NULL,
+            status varchar(20) NOT NULL DEFAULT 'active',
             tracking_id varchar(255) DEFAULT NULL,
             type varchar(50) NOT NULL,
             created_at datetime NOT NULL,

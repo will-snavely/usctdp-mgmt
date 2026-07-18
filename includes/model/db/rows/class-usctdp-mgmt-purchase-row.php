@@ -15,6 +15,7 @@ class Usctdp_Mgmt_Purchase_Row extends Row
         $this->product_id = (int) $this->product_id;
         $this->family_id = (int) $this->family_id;
         $this->student_id = (int) $this->student_id;
+        $this->status = (string) $this->status;
         $this->tracking_id = (string) $this->tracking_id;
         $this->type = (string) $this->type;
         $this->created_at = (string) $this->created_at;

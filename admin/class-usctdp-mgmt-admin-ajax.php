@@ -530,6 +530,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'notes' => function ($value) {
                 return sanitize_textarea_field(stripslashes($value));
             },
+            'status' => sanitize_text_field(...),
         ];
 
         try {
@@ -551,14 +552,17 @@ class Usctdp_Mgmt_Admin_Ajax
         $conditions = [];
         $args = [];
 
-        $conditions[] = "family_id = %d";
+        $conditions[] = "ul.family_id = %d";
         $args[] = $family_id;
         if ($student_id) {
-            $conditions[] = "student_id = %d";
+            $conditions[] = "ul.student_id = %d";
             $args[] = $student_id;
         }
 
-        $conditions[] = "account in (%s, %s)";
+        $conditions[] = "up.status = %s";
+        $args[] = 'active';
+
+        $conditions[] = "ul.account in (%s, %s)";
         $args[] = 'registration_fees';
         $args[] = 'merchandise_fees';
 
@@ -566,7 +570,8 @@ class Usctdp_Mgmt_Admin_Ajax
         $query = $wpdb->prepare(
             "   SELECT 
                     SUM(debit) - SUM(credit) as total_balance_due
-                FROM {$wpdb->prefix}usctdp_ledger
+                FROM {$wpdb->prefix}usctdp_ledger as ul
+                JOIN {$wpdb->prefix}usctdp_purchase as up ON ul.purchase_id = up.id
                 WHERE " . implode(' AND ', $conditions),
             $args
         );
@@ -579,21 +584,25 @@ class Usctdp_Mgmt_Admin_Ajax
         $conditions = [];
         $args = [];
 
-        $conditions[] = "family_id = %d";
+        $conditions[] = "ul.family_id = %d";
         $args[] = $family_id;
         if ($student_id) {
-            $conditions[] = "student_id = %d";
+            $conditions[] = "ul.student_id = %d";
             $args[] = $student_id;
         }
 
-        $conditions[] = "account = %s";
+        $conditions[] = "ul.account = %s";
         $args[] = 'payment_house_credit';
+
+        $conditions[] = "up.status = %s";
+        $args[] = 'active';
 
         global $wpdb;
         $query = $wpdb->prepare(
             "   SELECT 
                     SUM(credit) - SUM(debit) as house_credit_balance
-                FROM {$wpdb->prefix}usctdp_ledger
+                FROM {$wpdb->prefix}usctdp_ledger as ul
+                JOIN {$wpdb->prefix}usctdp_purchase as up ON ul.purchase_id = up.id
                 WHERE " . implode(' AND ', $conditions),
             $args
         );

@@ -583,11 +583,16 @@
             paymentTable.clear();
             let count = 0;
             for (const purchase of purchases) {
-                const payments = USCTDP_Admin.safeParseFloat(purchase.total_payments);
-                const fees = USCTDP_Admin.safeParseFloat(purchase.total_fees);
                 const adjustments = USCTDP_Admin.safeParseFloat(purchase.total_adjustments);
-                const net_fee = fees - adjustments;
-                if (net_fee > payments) {
+                const fees = USCTDP_Admin.safeParseFloat(purchase.total_fees);
+                const payments = USCTDP_Admin.safeParseFloat(purchase.total_payments);
+                const refunds = USCTDP_Admin.safeParseFloat(purchase.total_refunds);
+                const houseCredits = USCTDP_Admin.safeParseFloat(purchase.total_house_credits);
+                const netFees = fees - adjustments;
+                const netPayments = payments - (refunds + houseCredits);
+                const owed = netFees - netPayments;
+
+                if (owed > 0) {
                     if (purchase.purchase_type === 'registration') {
                         paymentTable.addExistingRegistration(purchase);
                         count++;
@@ -984,6 +989,9 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
+                        .then(() => {
+                            savePurchaseFields(rowData.purchase_id, update);
+                        })
                         .catch((error) => {
                             window.Swal.fire({
                                 icon: "error",
@@ -1021,6 +1029,9 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
+                        .then(() => {
+                            savePurchaseFields(rowData.purchase_id, update);
+                        })
                         .catch((error) => {
                             window.Swal.fire({
                                 icon: "error",

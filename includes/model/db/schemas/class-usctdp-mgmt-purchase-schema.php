@@ -35,6 +35,12 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
+        'status' => [
+            'name' => 'status',
+            'type' => 'varchar',
+            'length' => '20',
+            'default' => 'active',
+        ],
         'tracking_id' => [
             'name' => 'tracking_id',
             'type' => 'varchar',
