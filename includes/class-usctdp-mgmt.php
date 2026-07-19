@@ -172,7 +172,7 @@ class Usctdp_Mgmt
         $this->loader->add_action(
             "init",
             $model,
-            "maybe_upgrade_berlindb_entities",
+            "register_berlindb_entities",
         );
     }
 

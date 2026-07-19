@@ -92,19 +92,30 @@ class Usctdp_Mgmt_Model
 
     public function install_berlindb_entities()
     {
-        $tables = $this->get_db_tables();
-        foreach ($tables as $table) {
+        foreach ($this->get_db_tables() as $table) {
             $table->maybe_upgrade();
         }
         update_option(self::$db_version_option, USCTDP_MGMT_VERSION);
     }
 
-    public function maybe_upgrade_berlindb_entities()
+    /**
+     * Constructing each Table object registers its name with $wpdb, which
+     * Query relies on for every query - this must run on every request.
+     * The (comparatively expensive) install/upgrade check underneath it
+     * is version-gated so it only touches the database when needed.
+     */
+    public function register_berlindb_entities()
     {
+        $tables = $this->get_db_tables();
+
         if (get_option(self::$db_version_option) === USCTDP_MGMT_VERSION) {
             return;
         }
-        $this->install_berlindb_entities();
+
+        foreach ($tables as $table) {
+            $table->maybe_upgrade();
+        }
+        update_option(self::$db_version_option, USCTDP_MGMT_VERSION);
     }
 
     private static function get_one($obj, $id)
