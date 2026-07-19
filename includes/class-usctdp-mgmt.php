@@ -170,7 +170,7 @@ class Usctdp_Mgmt
     {
         $model = new Usctdp_Mgmt_Model();
         $this->loader->add_action(
-            "admin_init",
+            "init",
             $model,
             "maybe_upgrade_berlindb_entities",
         );
