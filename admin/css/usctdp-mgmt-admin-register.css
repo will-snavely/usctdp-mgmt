@@ -94,7 +94,7 @@
     text-decoration: underline;
     letter-spacing: 0.5px;
     color: #6e6e6e;
-    margin: 0;
+    margin: 0 0 6px;
 }
 
 #registration-info h4 {
@@ -102,7 +102,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #828282;
-    margin: 0;
+    margin: 0 0 4px;
 }
 
 #context-selectors {
@@ -112,6 +112,25 @@
 
 .context-selector {
     width: 370px;
+}
+
+/* Select2 hides the real <select> and renders a sibling .select2-container
+   with its own inline width baked in at init time (which varies per
+   instance depending on that select's state when Select2 measured it).
+   Override it directly so every dropdown in this group is the same width
+   and never wider than its container. */
+#context-selectors .select2-container {
+    width: 100% !important;
+    max-width: 370px;
+    box-sizing: border-box;
+}
+
+#context-selectors .context-selector-wrap {
+    /* usctdp-mgmt-admin.css sets a hard, uncapped `width: 370px` on this
+       class globally; override it here so it can shrink below 370px on
+       narrow viewports instead of forcing the card wider than the screen. */
+    width: 100% !important;
+    max-width: 350px;
 }
 
 .section-header {
@@ -133,6 +152,15 @@
 
 .preorder-subtype {
     padding: 0 24px 24px;
+}
+
+/* .field-row (defined globally in usctdp-mgmt-admin.css) caps rows at a
+   strict 25px with a 5px gap, which reads as cramped for this section's
+   label+input pairs. Loosen it here without touching the shared rule. */
+#preorder-details .field-row {
+    min-height: 32px;
+    max-height: none;
+    gap: 8px;
 }
 
 .notes-section label {
@@ -163,7 +191,7 @@
 #class-enrollment-info {
     display: grid;
     grid-template-columns: 60px 130px auto;
-    gap: 5px;
+    gap: 8px;
     align-items: center;
     max-width: 330px;
 }
@@ -191,6 +219,9 @@
     margin-top: 2px;
     padding: 4px 8px;
     border-radius: 15px;
+    width: fit-content;
+    min-width: 110px;
+    white-space: nowrap;
 }
 
 .clinic-capacity-separator {
@@ -229,4 +260,74 @@
 
 #view-waitlist-btn {
     width: 100px;
+}
+
+/* Mobile: collapse the fixed-width two-column layout and let fixed-width
+   children shrink instead of forcing horizontal overflow. Breakpoint matches
+   WP admin's own mobile breakpoint so it lines up with the rest of wp-admin. */
+@media (max-width: 782px) {
+    .edit-order-mode {
+        grid-template-columns: 1fr;
+    }
+
+    .context-selector {
+        width: 100%;
+        max-width: 370px;
+    }
+
+    /* The desktop 3-column subgrid (label / pill / button) collapses badly
+       to a single column — each child ends up as its own full-width row.
+       Replace it with an explicit 2-column grid (content / button) that's
+       identical between the capacity and waitlist blocks, so the pill and
+       button land at the same X position in both regardless of how wide
+       the pill's own text happens to be. */
+    #class-enrollment-info {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 100%;
+    }
+
+    #clinic-capacity,
+    #clinic-waitlist {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        column-gap: 12px;
+        row-gap: 6px;
+        width: 100%;
+    }
+
+    .clinic-capacity-label {
+        grid-column: 1 / -1;
+    }
+
+    .clinic-capacity-value {
+        grid-column: 1;
+        justify-self: start;
+    }
+
+    #view-roster-wrap,
+    #view-waitlist-wrap {
+        grid-column: 2;
+        justify-self: end;
+    }
+
+    #registration-info,
+    #payment-table-section {
+        padding: 12px;
+    }
+
+    .preorder-subtype {
+        padding: 0 12px 12px;
+    }
+
+    #preorder-details .field-row {
+        min-height: 36px;
+    }
+
+    #payment-table-section {
+        width: 100%;
+        overflow-x: auto;
+    }
 }

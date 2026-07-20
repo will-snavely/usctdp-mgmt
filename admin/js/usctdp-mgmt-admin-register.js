@@ -354,17 +354,6 @@
         });
 
         $('#payment-table-section').on('payment:cart:add', function () {
-            const editNode = `
-            <div class="edit-note">
-                <span> 
-                    <strong>NOTE:</strong> All purchases must come from one family.
-                </span>
-            </div>
-            `;
-            const $labelWrap = $('#family-selector-section .context-selector-label-wrap');
-            if ($labelWrap.find('.edit-note').length === 0) {
-                $labelWrap.append(editNode);
-            }
             $('#family-selector').prop('disabled', true);
         });
 
