@@ -76,6 +76,20 @@
     justify-content: flex-start;
 }
 
+/* Stack fields vertically on mobile so phone/email inputs get full width
+   instead of squeezing into a shared row */
+@media (max-width: 600px) {
+    .field-list {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .field-group {
+        min-width: 100%;
+        flex: 1 1 100%;
+    }
+}
+
 label {
     font-size: 0.8rem;
     font-weight: 600;
