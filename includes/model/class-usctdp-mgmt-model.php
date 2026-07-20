@@ -4,6 +4,7 @@ class Usctdp_Mgmt_Model
 {
     public $model_types;
     public static $token_suffix = "_xxx";
+    private static $db_version_option = 'usctdp_mgmt_db_version';
 
     public function __construct()
     {
@@ -89,14 +90,32 @@ class Usctdp_Mgmt_Model
         ];
     }
 
+    public function install_berlindb_entities()
+    {
+        foreach ($this->get_db_tables() as $table) {
+            $table->maybe_upgrade();
+        }
+        update_option(self::$db_version_option, USCTDP_MGMT_VERSION);
+    }
+
+    /**
+     * Constructing each Table object registers its name with $wpdb, which
+     * Query relies on for every query - this must run on every request.
+     * The (comparatively expensive) install/upgrade check underneath it
+     * is version-gated so it only touches the database when needed.
+     */
     public function register_berlindb_entities()
     {
         $tables = $this->get_db_tables();
-        foreach ($tables as $table) {
-            if (!$table->exists()) {
-                $table->install();
-            }
+
+        if (get_option(self::$db_version_option) === USCTDP_MGMT_VERSION) {
+            return;
         }
+
+        foreach ($tables as $table) {
+            $table->maybe_upgrade();
+        }
+        update_option(self::$db_version_option, USCTDP_MGMT_VERSION);
     }
 
     private static function get_one($obj, $id)

@@ -33,5 +33,10 @@ class Usctdp_Mgmt_Activator
                 }
             }
         }
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/model/class-usctdp-mgmt-model.php";
+        $model = new Usctdp_Mgmt_Model();
+        $model->install_berlindb_entities();
     }
 }

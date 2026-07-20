@@ -169,7 +169,11 @@ class Usctdp_Mgmt
     private function define_model_hooks()
     {
         $model = new Usctdp_Mgmt_Model();
-        $this->loader->add_action("init", $model, "register_berlindb_entities");
+        $this->loader->add_action(
+            "init",
+            $model,
+            "register_berlindb_entities",
+        );
     }
 
     private function define_product_page_display_hooks($commerce_handler)
