@@ -63,6 +63,10 @@ class Usctdp_Import_Product_Data
         $existing_id = wc_get_product_id_by_sku($sku);
         if ($existing_id) {
             WP_CLI::log('Product already exists for clinic: ' . $clinic_name);
+            $product = wc_get_product($existing_id);
+            $product->set_description($clinic['description']);
+            $product->set_short_description($clinic['short_description']);
+            $product->save();
             return $existing_id;
         }
 
@@ -101,6 +105,10 @@ class Usctdp_Import_Product_Data
         $existing_id = wc_get_product_id_by_sku($sku);
         if ($existing_id) {
             WP_CLI::log('Product already exists for tournament: ' . $tourney_name);
+            $product = wc_get_product($existing_id);
+            $product->set_description($tournament['description']);
+            $product->set_short_description($tournament['short_description']);
+            $product->save();
             return $existing_id;
         }
 
@@ -121,13 +129,7 @@ class Usctdp_Import_Product_Data
         $session_attribute->set_visible(true);
         $session_attribute->set_variation(true);
 
-        $num_days_attr = new WC_Product_Attribute();
-        $num_days_attr->set_name('Role');
-        $num_days_attr->set_options(array('Competitor', 'Substitute'));
-        $num_days_attr->set_visible(true);
-        $num_days_attr->set_variation(true);
-
-        $product->set_attributes(array($session_attribute, $num_days_attr));
+        $product->set_attributes(array($session_attribute));
         return $product->save();
     }
 
@@ -168,6 +170,7 @@ class Usctdp_Import_Product_Data
                 "wp_image_id" => $this->image_map[$tournament['image_id']] ?? null,
                 "description" => $tournament['description'],
                 "short_description" => $tournament['short_description'],
+                "level" => strtolower($tournament['level']),
             ]);
             return $tourney_id;
         }
@@ -181,6 +184,7 @@ class Usctdp_Import_Product_Data
             "type" => "tournament",
             "description" => $tournament['description'],
             "short_description" => $tournament['short_description'],
+            "level" => strtolower($tournament['level']),
             "session_category" => $this->get_category_int($tournament['session_category']),
             "age_group" => strtolower($tournament['age_group']),
         ]);

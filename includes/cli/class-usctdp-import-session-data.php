@@ -403,6 +403,8 @@ class Usctdp_Import_Session_Data
             return;
         }
 
+        $product_data = [];
+
         foreach ($data["tournament_pricing"] as $pricing) {
             $tournament_name = trim($pricing['tournament']);
             $session_name = trim($pricing['session']);
@@ -452,6 +454,58 @@ class Usctdp_Import_Session_Data
                     "product_id" => $product->id,
                     "pricing" => json_encode($prices),
                 ]);
+            }
+
+            if (!empty($prices['base'])) {
+                $woo_product_id = $product->woocommerce_id;
+                if (!isset($product_data[$woo_product_id])) {
+                    $product_data[$woo_product_id] = [];
+                }
+                $product_data[$woo_product_id][$session_name] = [
+                    "session_id" => $session_id,
+                    "price" => $prices['base'],
+                ];
+            }
+        }
+
+        foreach ($product_data as $woo_product_id => $sessions) {
+            $product = wc_get_product($woo_product_id);
+            if (!$product) {
+                WP_CLI::log("No WooCommerce product found for id $woo_product_id");
+                continue;
+            }
+            $this->delete_all_product_variations($woo_product_id);
+            ksort($sessions);
+
+            $session_attribute = new WC_Product_Attribute();
+            $session_attribute->set_name('Session');
+            $session_attribute->set_options(array_keys($sessions));
+            $session_attribute->set_position(0);
+            $session_attribute->set_visible(true);
+            $session_attribute->set_variation(true);
+
+            $product->set_attributes([$session_attribute]);
+
+            $session_post_ids = [];
+            foreach ($sessions as $session_name => $info) {
+                $session_post_ids[$session_name] = $info['session_id'];
+            }
+            $product->update_meta_data('_session_post_ids', $session_post_ids);
+            $product->save();
+
+            foreach ($sessions as $session_name => $info) {
+                if (empty($info['price'])) {
+                    WP_CLI::log("No price for $session_name");
+                    continue;
+                }
+                $variation = new WC_Product_Variation();
+                $variation->set_parent_id($woo_product_id);
+                $variation->set_attributes([
+                    sanitize_title('Session') => $session_name,
+                ]);
+                $variation->set_regular_price($info['price']);
+                $variation->set_manage_stock(false);
+                $variation->save();
             }
         }
     }
