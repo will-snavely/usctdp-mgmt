@@ -1,3 +1,32 @@
+.product table.variations th,
+.product table.variations td {
+    padding: 8px;
+}
+
+.product table.variations th.label {
+    white-space: nowrap;
+    text-align: right;
+}
+
+.product table.variations select {
+    border-style: solid;
+    border-color: black;
+    border-width: 1px;
+    padding-left: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.product table.variations select.usctdp-select-locked {
+    background-color: #eee;
+    color: #888;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 #usctdp-woocommerce-extra {
     display: flex;
     flex-direction: column;
@@ -188,4 +217,57 @@ dialog#new-student-modal .student_field input {
 
 .force-hidden {
     display: none !important;
+}
+
+#usctdp-session-info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.usctdp-session-info {
+    position: relative;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 14px 16px;
+}
+
+.usctdp-session-info-title {
+    margin: 0;
+    font-weight: 600;
+}
+
+.usctdp-session-info-dates {
+    margin: 2px 0 0;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.usctdp-session-info-note {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: #777;
+    font-style: italic;
+}
+
+.usctdp-session-info-badge {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    background-color: #3a9e5f;
+    border-radius: 10px;
+    padding: 2px 10px;
+}
+
+.usctdp-session-info.usctdp-session-selected {
+    border-color: #3a9e5f;
+}
+
+.usctdp-session-info.usctdp-session-selected .usctdp-session-info-badge {
+    display: inline-block;
 }

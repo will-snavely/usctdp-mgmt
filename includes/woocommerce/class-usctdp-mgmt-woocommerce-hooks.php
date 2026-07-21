@@ -106,6 +106,53 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
     public function display_before_variations_table()
     {
+        global $product;
+        if (!$product) {
+            return;
+        }
+
+        $session_map = get_post_meta($product->get_id(), '_session_post_ids', true);
+        if (empty($session_map) || !is_array($session_map)) {
+
+            return;
+
+        }
+
+        $session_query = new Usctdp_Mgmt_Session_Query([
+            'id__in' => array_values($session_map),
+        ]);
+        $sessions_by_id = [];
+        foreach ($session_query->items as $session) {
+            $sessions_by_id[$session->id] = $session;
+        }
+        ?>
+        <?php $is_single_session = count($session_map) === 1; ?>
+        <div id="usctdp-session-info-list">
+            <?php foreach ($session_map as $session_name => $session_id):
+                $session = $sessions_by_id[$session_id] ?? null;
+                if (!$session) {
+                    continue;
+                }
+                $meta = json_decode($session->meta, true) ?: [];
+                $note = $meta['note'] ?? '';
+                ?>
+                <div class="usctdp-session-info" data-session="<?php echo esc_attr($session_name); ?>">
+                    <?php if (!$is_single_session): ?>
+                        <span class="usctdp-session-info-badge">Selected</span>
+                    <?php endif; ?>
+                    <p class="usctdp-session-info-title"><?php echo esc_html($session_name); ?></p>
+                    <p class="usctdp-session-info-dates">
+                        <?php echo esc_html($session->start_date->format('M j, Y')); ?>
+                        &ndash;
+                        <?php echo esc_html($session->end_date->format('M j, Y')); ?>
+                    </p>
+                    <?php if (!empty($note)): ?>
+                        <p class="usctdp-session-info-note"><?php echo esc_html($note); ?></p>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php
     }
 
     public function display_after_variations_table()
@@ -447,15 +494,15 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function checkout_order_processed($order_id, $data, $order)
     {
         foreach ($order->get_items() as $item_id => $item) {
-            $student_id  = $item->get_meta('_student_id');
+            $student_id = $item->get_meta('_student_id');
             $tracking_id = $item->get_meta('_tracking_id');
-            $activities  = $item->get_meta('_activities');
+            $activities = $item->get_meta('_activities');
             foreach ($activities as $activity_id) {
                 $query = new Usctdp_Mgmt_Registration_Query([
-                    'student_id'  => $student_id,
+                    'student_id' => $student_id,
                     'activity_id' => $activity_id,
                     'tracking_id' => $tracking_id,
-                    'status'      => 'pending',
+                    'status' => 'pending',
                 ]);
                 if (!empty($query->items)) {
                     $query->update_item($query->items[0]->id, [
@@ -489,7 +536,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function create_purchase_and_ledger_entries($order_id)
     {
         global $wpdb;
-        $txn_started   = false;
+        $txn_started = false;
         $txn_committed = false;
 
         try {
@@ -505,11 +552,11 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 Usctdp_Mgmt::logger()->log_error("USCTDP: No family found for user $user_id on order $order_id.");
                 return;
             }
-            $family_id      = $family_query->items[0]->id;
+            $family_id = $family_query->items[0]->id;
             $payment_method = $order->get_payment_method();
-            $reference_id   = $order->get_transaction_id() ?: (string) $order_id;
-            $created_at     = current_time('mysql');
-            $created_by     = get_current_user_id();
+            $reference_id = $order->get_transaction_id() ?: (string) $order_id;
+            $created_at = current_time('mysql');
+            $created_by = get_current_user_id();
 
             $wpdb->query('START TRANSACTION');
             $txn_started = true;
@@ -521,9 +568,9 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 }
 
                 $tracking_id = $item->get_meta('_tracking_id');
-                $day_1_id    = $item->get_meta('_day_1_id');
-                $day_2_id    = $item->get_meta('_day_2_id');
-                $item_total  = floatval($item->get_total());
+                $day_1_id = $item->get_meta('_day_1_id');
+                $day_2_id = $item->get_meta('_day_2_id');
+                $item_total = floatval($item->get_total());
 
                 $activity_ids = [];
                 if ($day_1_id) {
@@ -559,9 +606,9 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     if (!$pricing) {
                         throw new Exception("Pricing not found for activity {$activity_ids[0]} on order $order_id.");
                     }
-                    $pricing_data         = $pricing->pricing;
-                    $day1_price           = floatval($pricing_data['One']);
-                    $activity_prices      = [
+                    $pricing_data = $pricing->pricing;
+                    $day1_price = floatval($pricing_data['One']);
+                    $activity_prices = [
                         $activity_ids[0] => $day1_price,
                         $activity_ids[1] => $item_total - $day1_price,
                     ];
@@ -570,10 +617,10 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 $ledger_query = new Usctdp_Mgmt_Ledger_Query();
                 foreach ($activity_ids as $activity_id) {
                     $reg_query = new Usctdp_Mgmt_Registration_Query([
-                        'order_id'    => $order_id,
-                        'student_id'  => $student_id,
+                        'order_id' => $order_id,
+                        'student_id' => $student_id,
                         'activity_id' => $activity_id,
-                        'number'      => 1,
+                        'number' => 1,
                     ]);
                     if (empty($reg_query->items)) {
                         throw new Exception("Registration not found for order $order_id, student $student_id, activity $activity_id.");
@@ -584,55 +631,55 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     }
 
                     $purchase_query = new Usctdp_Mgmt_Purchase_Query();
-                    $purchase_id    = $purchase_query->add_item([
-                        'product_id'  => $product->id,
-                        'family_id'   => $family_id,
-                        'student_id'  => $student_id,
+                    $purchase_id = $purchase_query->add_item([
+                        'product_id' => $product->id,
+                        'family_id' => $family_id,
+                        'student_id' => $student_id,
                         'tracking_id' => $tracking_id,
-                        'type'        => 'registration',
-                        'created_at'  => $created_at,
-                        'created_by'  => $created_by,
+                        'type' => 'registration',
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
                     ]);
                     if (!$purchase_id) {
                         throw new Exception("Failed to create purchase for order $order_id, activity $activity_id.");
                     }
 
                     $reg_query->update_item($registration->id, ['purchase_id' => $purchase_id]);
-                    $price          = $activity_prices[$activity_id];
+                    $price = $activity_prices[$activity_id];
                     $activity_title = $activities[$activity_id]->title;
 
                     $ledger_query->add_item([
-                        'purchase_id'    => $purchase_id,
-                        'family_id'      => $family_id,
-                        'order_id'       => $order_id,
-                        'event_id'       => 'wc_order' . $order_id,
-                        'event'          => 'WooCommerce Order ' . $order_id,
-                        'account'        => 'registration_fees',
-                        'entry_type'     => 'charge',
-                        'description'    => 'Order placed in online store.',
+                        'purchase_id' => $purchase_id,
+                        'family_id' => $family_id,
+                        'order_id' => $order_id,
+                        'event_id' => 'wc_order' . $order_id,
+                        'event' => 'WooCommerce Order ' . $order_id,
+                        'account' => 'registration_fees',
+                        'entry_type' => 'charge',
+                        'description' => 'Order placed in online store.',
                         'payment_method' => $payment_method,
-                        'reference_id'   => $reference_id,
-                        'debit'          => $price,
-                        'credit'         => 0,
-                        'created_at'     => $created_at,
-                        'created_by'     => $created_by,
+                        'reference_id' => $reference_id,
+                        'debit' => $price,
+                        'credit' => 0,
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
                     ]);
 
                     $ledger_query->add_item([
-                        'purchase_id'    => $purchase_id,
-                        'family_id'      => $family_id,
-                        'order_id'       => $order_id,
-                        'event_id'       => 'wc_order' . $order_id,
-                        'event'          => 'WooCommerce Order ' . $order_id,
-                        'account'        => 'registration_fees',
-                        'entry_type'     => 'payment',
-                        'description'    => 'Order paid in online store.',
+                        'purchase_id' => $purchase_id,
+                        'family_id' => $family_id,
+                        'order_id' => $order_id,
+                        'event_id' => 'wc_order' . $order_id,
+                        'event' => 'WooCommerce Order ' . $order_id,
+                        'account' => 'registration_fees',
+                        'entry_type' => 'payment',
+                        'description' => 'Order paid in online store.',
                         'payment_method' => $payment_method,
-                        'reference_id'   => $reference_id,
-                        'debit'          => 0,
-                        'credit'         => $price,
-                        'created_at'     => $created_at,
-                        'created_by'     => $created_by,
+                        'reference_id' => $reference_id,
+                        'debit' => 0,
+                        'credit' => $price,
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
                     ]);
                 }
             }
@@ -664,7 +711,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function record_deferred_payment($order_id)
     {
         global $wpdb;
-        $txn_started   = false;
+        $txn_started = false;
         $txn_committed = false;
 
         try {
@@ -675,11 +722,11 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             }
 
             $payment_method = $order->get_payment_method();
-            $reference_id   = $order->get_transaction_id() ?: (string) $order_id;
-            $created_at     = current_time('mysql');
-            $created_by     = get_current_user_id();
-            $event_id       = 'wc_order' . $order_id;
-            $event          = 'WooCommerce Order ' . $order_id;
+            $reference_id = $order->get_transaction_id() ?: (string) $order_id;
+            $created_at = current_time('mysql');
+            $created_by = get_current_user_id();
+            $event_id = 'wc_order' . $order_id;
+            $event = 'WooCommerce Order ' . $order_id;
 
             $wpdb->query('START TRANSACTION');
             $txn_started = true;
@@ -692,8 +739,8 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
                 $existing_payment = new Usctdp_Mgmt_Ledger_Query([
                     'purchase_id' => $purchase_id,
-                    'entry_type'  => 'payment',
-                    'number'      => 1,
+                    'entry_type' => 'payment',
+                    'number' => 1,
                 ]);
                 if (!empty($existing_payment->items)) {
                     continue;
@@ -703,41 +750,41 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     throw new Exception("USCTDP Purchase $purchase_id not found for order $order_id.");
                 }
                 $purchase = $purchase_query->items[0];
-                $price    = floatval($item->get_total());
+                $price = floatval($item->get_total());
 
                 $ledger_query = new Usctdp_Mgmt_Ledger_Query();
                 $ledger_query->add_item([
-                    'purchase_id'    => $purchase_id,
-                    'family_id'      => $purchase->family_id,
-                    'order_id'       => $order_id,
-                    'event_id'       => $event_id,
-                    'event'          => $event,
-                    'account'        => 'payment_' . $payment_method,
-                    'entry_type'     => 'payment',
-                    'description'    => 'Payment received in online store.',
+                    'purchase_id' => $purchase_id,
+                    'family_id' => $purchase->family_id,
+                    'order_id' => $order_id,
+                    'event_id' => $event_id,
+                    'event' => $event,
+                    'account' => 'payment_' . $payment_method,
+                    'entry_type' => 'payment',
+                    'description' => 'Payment received in online store.',
                     'payment_method' => $payment_method,
-                    'reference_id'   => $reference_id,
-                    'debit'          => $price,
-                    'credit'         => 0,
-                    'created_at'     => $created_at,
-                    'created_by'     => $created_by,
+                    'reference_id' => $reference_id,
+                    'debit' => $price,
+                    'credit' => 0,
+                    'created_at' => $created_at,
+                    'created_by' => $created_by,
                 ]);
 
                 $ledger_query->add_item([
-                    'purchase_id'    => $purchase_id,
-                    'family_id'      => $purchase->family_id,
-                    'order_id'       => $order_id,
-                    'event_id'       => $event_id,
-                    'event'          => $event,
-                    'account'        => $purchase->type . '_fees',
-                    'entry_type'     => 'payment',
-                    'description'    => 'Payment received in online store.',
+                    'purchase_id' => $purchase_id,
+                    'family_id' => $purchase->family_id,
+                    'order_id' => $order_id,
+                    'event_id' => $event_id,
+                    'event' => $event,
+                    'account' => $purchase->type . '_fees',
+                    'entry_type' => 'payment',
+                    'description' => 'Payment received in online store.',
                     'payment_method' => $payment_method,
-                    'reference_id'   => $reference_id,
-                    'debit'          => 0,
-                    'credit'         => $price,
-                    'created_at'     => $created_at,
-                    'created_by'     => $created_by,
+                    'reference_id' => $reference_id,
+                    'debit' => 0,
+                    'credit' => $price,
+                    'created_at' => $created_at,
+                    'created_by' => $created_by,
                 ]);
             }
 

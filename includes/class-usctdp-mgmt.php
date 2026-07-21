@@ -184,7 +184,7 @@ class Usctdp_Mgmt
             'display_before_variations_form',
         );
         $this->loader->add_action(
-            'woocommerce_before_variations_table',
+            'woocommerce_before_variations_form',
             $commerce_handler,
             'display_before_variations_table',
         );

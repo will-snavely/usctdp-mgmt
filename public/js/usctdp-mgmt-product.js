@@ -179,6 +179,24 @@
       populateStudentSelect($('#student_select'), initial_value);
     }
 
+    function highlightSelectedSession(session) {
+      var $infoCards = $('.usctdp-session-info');
+      $infoCards.removeClass('usctdp-session-selected');
+      // With only one session available, there's nothing to indicate as
+      // "selected" - it's just the only option, not a choice the customer made.
+      if (session && $infoCards.length > 1) {
+        $infoCards.filter('[data-session="' + session + '"]').addClass('usctdp-session-selected');
+      }
+    }
+
+    // Highlight the session card as soon as a session is chosen, independent
+    // of whether the rest of the variation (e.g. Days Per Week) has resolved
+    // yet - waiting on found_variation meant the badge never appeared until
+    // the entire variation was complete.
+    $('.variations_form').on('change', 'select[name="attribute_session"]', function () {
+      highlightSelectedSession($(this).val());
+    });
+
     // Listen for the event on the variations form
     $('.variations_form').on('found_variation', function (event, variation) {
       var daysPerWeekStr = variation.attributes["attribute_days-per-week"];
@@ -208,7 +226,51 @@
     $('.variations_form').on('reset_data', function () {
       clear_day_selectors();
       $('#usctdp-woocommerce-extra').addClass('force-hidden');
+      // Note: deliberately not clearing the session badge here. WooCommerce
+      // fires reset_data any time ANY attribute is incomplete (e.g. Session
+      // picked but Days-Per-Week still empty), not just on an explicit
+      // clear - so this fires constantly during normal use. The session
+      // select's own change handler above is the sole source of truth for
+      // the badge and already reflects an empty value if Session itself is
+      // genuinely cleared.
     });
+
+    // WooCommerce recalculates which options are still valid whenever an
+    // earlier attribute changes (e.g. a session where only "One" day/week
+    // has a matching variation) and removes the invalid <option>s from the
+    // DOM. When that narrows a selector down to one real option, auto-select
+    // it and grey it out - visible but non-interactive, unlike the
+    // hide-entirely treatment below, since this constraint is session-
+    // dependent and can loosen again if the customer picks a different one.
+    // Excludes the Session selector itself - narrowing is bidirectional in
+    // WooCommerce (a Days-Per-Week choice can narrow Session down to one
+    // option too), but Session has its own dedicated handling and should
+    // never be auto-locked as a side effect of a later selection.
+    //
+    // Bound before the single-option auto-select loop below runs: that loop
+    // triggers a 'change' on page load which cascades synchronously through
+    // WooCommerce's check_variations -> onUpdateAttributes chain (confirmed
+    // in add-to-cart-variation.js - no AJAX involved for a normal-sized
+    // variation set), ending in this same event. If this listener weren't
+    // registered yet, that first cascade would be missed.
+    function lockNarrowedSelects() {
+      $('.variations_form select[name^="attribute_"]').not('[name="attribute_session"]').each(function () {
+        var $select = $(this);
+        var $realOptions = $select.find('option').filter(function () {
+          return $(this).val() !== '';
+        });
+        if ($realOptions.length === 1) {
+          if ($select.val() !== $realOptions.first().val()) {
+            $select.val($realOptions.first().val()).trigger('change');
+          }
+          $select.addClass('usctdp-select-locked');
+        } else {
+          $select.removeClass('usctdp-select-locked');
+        }
+      });
+    }
+
+    $('.variations_form').on('woocommerce_update_variation_values', lockNarrowedSelects);
 
     // When a variation attribute (e.g. Session) has only one real option,
     // there's nothing for the customer to choose. Auto-select it, hide the

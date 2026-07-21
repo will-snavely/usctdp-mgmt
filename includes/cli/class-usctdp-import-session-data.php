@@ -438,10 +438,6 @@ class Usctdp_Import_Session_Data
                         : null,
                     "schedule" => isset($tournament['schedule']) ? json_encode($tournament['schedule']) : '[]',
                 ]);
-                if (!$result) {
-                    global $wpdb;
-                    WP_CLI::warning("Failed to create tournament row for activity id=$activity_id ($title): {$wpdb->last_error}");
-                }
             }
         }
     }
