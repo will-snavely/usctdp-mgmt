@@ -165,16 +165,22 @@ class Usctdp_Import_Product_Data
             WP_CLI::log("Existing tournament $title found with id $tourney_id");
             $query->update_item($tourney_id, [
                 "woocommerce_id" => $product_id,
+                "wp_image_id" => $this->image_map[$tournament['image_id']] ?? null,
+                "description" => $tournament['description'],
+                "short_description" => $tournament['short_description'],
             ]);
             return $tourney_id;
         }
         WP_CLI::log("Creating tournament $title");
         return $query->add_item([
             "woocommerce_id" => $product_id,
+            "wp_image_id" => $this->image_map[$tournament['image_id']] ?? null,
             "title" => $title,
             "search_term" => $search_term,
             "code" => $tournament['code'],
             "type" => "tournament",
+            "description" => $tournament['description'],
+            "short_description" => $tournament['short_description'],
             "session_category" => $this->get_category_int($tournament['session_category']),
             "age_group" => strtolower($tournament['age_group']),
         ]);
