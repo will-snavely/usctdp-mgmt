@@ -210,6 +210,26 @@
       $('#usctdp-woocommerce-extra').addClass('force-hidden');
     });
 
+    // When a variation attribute (e.g. Session) has only one real option,
+    // there's nothing for the customer to choose. Auto-select it, hide the
+    // dropdown, and trigger the same 'change' event WooCommerce's own
+    // variation-form script listens for, so found_variation still fires
+    // normally and the rest of the flow (day selectors, etc.) is unaffected.
+    $('.variations_form select[name^="attribute_"]').each(function () {
+      var $select = $(this);
+      var $realOptions = $select.find('option').filter(function () {
+        return $(this).val() !== '';
+      });
+      if ($realOptions.length === 1) {
+        var $wrapper = $select.closest('tr');
+        if (!$wrapper.length) {
+          $wrapper = $select.parent();
+        }
+        $wrapper.addClass('force-hidden');
+        $select.val($realOptions.first().val()).trigger('change');
+      }
+    });
+
     // Open modal
     $('#new-student-button').on('click', (e) => {
       e.preventDefault();

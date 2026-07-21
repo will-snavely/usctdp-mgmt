@@ -24,6 +24,9 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-import-session-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-build-program-schedule.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-import-family-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -122,6 +125,12 @@ class Usctdp_Cli_Command
         }
         $generator = new Usctdp_Import_Session_Data();
         $generator->import($file_path);
+    }
+
+    public function build_schedule($args, $assoc_args)
+    {
+        $builder = new Usctdp_Build_Program_Schedule();
+        $builder->build();
     }
 
     public function import_staff($args, $assoc_args)

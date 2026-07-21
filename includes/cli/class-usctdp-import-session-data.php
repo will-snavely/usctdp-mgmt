@@ -5,12 +5,14 @@ class Usctdp_Import_Session_Data
     private $session_data;
     private $sessions_by_category;
     private $sessions_by_name;
+    private $active_session_ids;
 
     public function __construct()
     {
         $this->session_data = [];
         $this->sessions_by_category = [];
         $this->sessions_by_name = [];
+        $this->active_session_ids = [];
     }
 
     private function get_clinic_by_title($title)
@@ -107,6 +109,9 @@ class Usctdp_Import_Session_Data
             $this->sessions_by_category[$session_category->value][] = $session_id;
             $this->session_data[$session_id] = $session;
             $this->sessions_by_name[$session['name']] = $session_id;
+            if (!empty($session['active'])) {
+                $this->active_session_ids[$session_id] = true;
+            }
         }
     }
 
@@ -137,10 +142,43 @@ class Usctdp_Import_Session_Data
         return true;
     }
 
+    /**
+     * Syncs which sessions are currently active/on-sale for a product,
+     * keyed by the custom usctdp_product id (not the WooCommerce id).
+     *
+     * @param int   $product_id                    usctdp_product.id
+     * @param array $active_session_ids_for_product Set of session_id => true currently active for this product.
+     */
+    private function sync_product_sessions($product_id, $active_session_ids_for_product)
+    {
+        $existing_query = new Usctdp_Mgmt_Product_Session_Query([
+            "product_id" => $product_id,
+        ]);
+        foreach ($existing_query->items as $item) {
+            if (!isset($active_session_ids_for_product[$item->session_id])) {
+                $existing_query->delete_item($item->id);
+            }
+        }
+
+        foreach (array_keys($active_session_ids_for_product) as $session_id) {
+            $query = new Usctdp_Mgmt_Product_Session_Query([
+                "product_id" => $product_id,
+                "session_id" => $session_id,
+            ]);
+            if (empty($query->items)) {
+                $query->add_item([
+                    "product_id" => $product_id,
+                    "session_id" => $session_id,
+                ]);
+            }
+        }
+    }
+
     private function import_clinic_prices($data)
     {
         $clinics_by_title = [];
         $product_data = [];
+        $active_sessions_by_product = [];
 
         foreach ($data["class_pricing"] as $pricing) {
             $clinic_title = $pricing['clinic'];
@@ -158,12 +196,19 @@ class Usctdp_Import_Session_Data
             if (!isset($product_data[$woo_product_id])) {
                 $product_data[$woo_product_id] = [];
             }
+            if (!isset($active_sessions_by_product[$clinic->id])) {
+                $active_sessions_by_product[$clinic->id] = [];
+            }
+
             $prices = [
                 "One" => $pricing['1_day_price'],
                 "Two" => $pricing['2_day_price'],
             ];
 
-            $product_data[$woo_product_id][$pricing['session']] = $prices;
+            if (isset($this->active_session_ids[$session_id])) {
+                $product_data[$woo_product_id][$pricing['session']] = $prices;
+                $active_sessions_by_product[$clinic->id][$session_id] = true;
+            }
 
             $pricing_query = new Usctdp_Mgmt_Pricing_Query([
                 "session_id" => $session_id,
@@ -182,6 +227,10 @@ class Usctdp_Import_Session_Data
                     "pricing" => json_encode($prices),
                 ]);
             }
+        }
+
+        foreach ($active_sessions_by_product as $product_id => $active_ids) {
+            $this->sync_product_sessions($product_id, $active_ids);
         }
 
         foreach ($product_data as $woo_product_id => $sessions) {
@@ -404,6 +453,7 @@ class Usctdp_Import_Session_Data
         }
 
         $product_data = [];
+        $active_sessions_by_product = [];
 
         foreach ($data["tournament_pricing"] as $pricing) {
             $tournament_name = trim($pricing['tournament']);
@@ -421,6 +471,14 @@ class Usctdp_Import_Session_Data
                 continue;
             }
             $session_id = $this->sessions_by_name[$session_name];
+            $woo_product_id = $product->woocommerce_id;
+
+            if (!isset($product_data[$woo_product_id])) {
+                $product_data[$woo_product_id] = [];
+            }
+            if (!isset($active_sessions_by_product[$product->id])) {
+                $active_sessions_by_product[$product->id] = [];
+            }
 
             $prices = [];
             if (!empty($pricing['base'])) {
@@ -456,16 +514,17 @@ class Usctdp_Import_Session_Data
                 ]);
             }
 
-            if (!empty($prices['base'])) {
-                $woo_product_id = $product->woocommerce_id;
-                if (!isset($product_data[$woo_product_id])) {
-                    $product_data[$woo_product_id] = [];
-                }
+            if (!empty($prices['base']) && isset($this->active_session_ids[$session_id])) {
                 $product_data[$woo_product_id][$session_name] = [
                     "session_id" => $session_id,
                     "price" => $prices['base'],
                 ];
+                $active_sessions_by_product[$product->id][$session_id] = true;
             }
+        }
+
+        foreach ($active_sessions_by_product as $product_id => $active_ids) {
+            $this->sync_product_sessions($product_id, $active_ids);
         }
 
         foreach ($product_data as $woo_product_id => $sessions) {
@@ -539,5 +598,7 @@ class Usctdp_Import_Session_Data
         $this->import_tournament_activities($data);
         WP_CLI::log('Importing tournament pricing...');
         $this->import_tournament_pricing($data);
+        WP_CLI::log('Building program schedule...');
+        (new Usctdp_Build_Program_Schedule())->build();
     }
 }
