@@ -48,15 +48,38 @@
                     defaultContent: '',
                 }
             ],
+            autoWidth: false,
+            columnDefs: [
+                { width: "85%", targets: 0 },
+                { width: "15%", targets: 1 },
+            ],
             "initComplete": function () {
                 $('#session-rosters-table').removeClass('hidden');
             }
         });
 
         $('#session-rosters-table').on('click', 'button.view-session-roster', function () {
-            var drive_id = $(this).attr('data-drive_id');
-            var drive_link = 'https://drive.google.com/file/d/' + drive_id + '/edit';
-            window.open(drive_link, '_blank');
+            var $btn = $(this);
+            var $tr = $btn.closest('tr');
+            var rowData = sessionsRosterTable.row($tr).data();
+            var sessionId = rowData.id;
+            $btn.prop('disabled', true);
+            $btn.html('<span class="spinner is-active"></span> Generating...');
+            USCTDP_Admin.ajax_generateSessionRoster(sessionId)
+                .then((response) => {
+                    window.open(response.doc_url, '_blank');
+                })
+                .catch((error) => {
+                    window.Swal.fire({
+                        title: "Error",
+                        text: "Failed to generate roster. Inform a developer.",
+                        icon: "error"
+                    });
+                })
+                .finally(() => {
+                    $btn.prop('disabled', false);
+                    $btn.html("View Roster");
+                });
         });
     });
 })(jQuery);

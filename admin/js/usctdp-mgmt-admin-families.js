@@ -144,7 +144,7 @@
                             <textarea 
                                 rows=5
                                 class="${inputClasses.join(' ')}" 
-                                data-key="${field.key}">${value || ''}</textarea>`;
+                                data-key="${field.kphoney}">${value || ''}</textarea>`;
                     } else {
                         tag = ` 
                             <input

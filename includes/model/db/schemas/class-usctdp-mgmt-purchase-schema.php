@@ -45,7 +45,7 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
             'name' => 'tracking_id',
             'type' => 'varchar',
             'length' => '255',
-            'nullable' => true,
+            'allow_null' => true,
         ],
         'type' => [
             'name' => 'type',
@@ -65,12 +65,12 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
         'notes' => [
             'name' => 'notes',
             'type' => 'text',
-            'nullable' => true,
+            'allow_null' => true,
         ],
         'discounts' => [
             'name' => 'discounts',
             'type' => 'json',
-            'nullable' => true,
+            'allow_null' => true,
             'default' => '[]',
         ],
     ];

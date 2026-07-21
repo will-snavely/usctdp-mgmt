@@ -39,6 +39,29 @@
         }
     }
 
+    USCTDP_Admin.ajax_generateSessionRoster = async function (session_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    session_id: session_id,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Generate Session Roster Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     USCTDP_Admin.ajax_addWaitlistStudent = async function (student_id, activity_id) {
         try {
             const response = await $.ajax({

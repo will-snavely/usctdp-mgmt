@@ -89,7 +89,12 @@ class Usctdp_Mgmt_Docgen
     public function generate_session_roster($session_id)
     {
         $activity_query = new Usctdp_Mgmt_Activity_Query([
-            'session_id' => $session_id
+            'session_id' => $session_id,
+            'orderby' => [
+                'primary_sort_order',
+                'secondary_sort_order',
+            ],
+            "order" => 'ASC'
         ]);
         $templateProcessor = new TemplateProcessor($this->roster_template_file);
         $templateProcessor->cloneBlock('roster', count($activity_query->items), true, true);

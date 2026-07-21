@@ -25,6 +25,18 @@ class Usctdp_Import_Session_Data
         return false;
     }
 
+    private function get_product_by_title($title)
+    {
+        $query = new Usctdp_Mgmt_Product_Query([
+            'title' => $title,
+            'number' => 1,
+        ]);
+        if (!empty($query->items)) {
+            return $query->items[0];
+        }
+        return false;
+    }
+
     private function get_category_integer(string $cat)
     {
         $cats = [
@@ -86,6 +98,7 @@ class Usctdp_Import_Session_Data
                     "num_weeks" => $session['length_weeks'],
                     "season" => $session['season'],
                     "category" => $session_category->value,
+                    "meta" => isset($session['meta']) ? json_encode($session['meta']) : '{}'
                 ]);
             }
             if (!isset($this->sessions_by_category[$session_category->value])) {
@@ -129,7 +142,7 @@ class Usctdp_Import_Session_Data
         $clinics_by_title = [];
         $product_data = [];
 
-        foreach ($data["pricing"] as $pricing) {
+        foreach ($data["class_pricing"] as $pricing) {
             $clinic_title = $pricing['clinic'];
             if (!isset($clinics_by_title[$clinic_title])) {
                 $clinic = $this->get_clinic_by_title($clinic_title);
@@ -215,6 +228,8 @@ class Usctdp_Import_Session_Data
 
     private function import_clinic_classes($data)
     {
+        $primary_sort_counter = 0;
+        $sorting = [];
         foreach ($data["classes"] as $class) {
             $clinic_name = $class['clinic'];
             $clinic = $this->get_clinic_by_title($class['clinic']);
@@ -224,15 +239,22 @@ class Usctdp_Import_Session_Data
             }
             $clinic_id = $clinic->id;
             $clinic_category = $clinic->session_category;
-
+            if (!isset($sorting[$clinic_id])) {
+                $primary_sort_counter += 1;
+                $sorting[$clinic_id] = [$primary_sort_counter, 0];
+            }
+            $sorting[$clinic_id][1] += 1;
+            $primary_sort_order = $sorting[$clinic_id][0];
+            $secondary_sort_order = $sorting[$clinic_id][1];
+            
             $dow = $class['day'];
             $start_time = new DateTime($class['start_time']);
             $end_time = new DateTime($class['end_time']);
             $sessions = $this->sessions_by_category[$clinic_category->value];
 
             $session_filter = null;
-            if (!empty($class["sessions"])) {
-                foreach (explode(",", $class["sessions"]) as $name) {
+            if (!empty($class["session"])) {
+                foreach ($class["session"] as $name) {
                     $session_filter[] = $this->sessions_by_name[trim($name)];
                 }
             }
@@ -266,8 +288,9 @@ class Usctdp_Import_Session_Data
                         "title" => $title,
                         "search_term" => $search_term,
                         "capacity" => $class['capacity'],
-                        "primary_sort_order" => $class['primary_sort'] ?? null,
-                        "secondary_sort_order" => $class['secondary_sort'] ?? null,
+                        "primary_sort_order" => $primary_sort_order,
+                        "secondary_sort_order" => $secondary_sort_order,
+                        "meta" => isset($class['meta']) ? json_encode($class['meta']) : '{}'
                     ]);
 
                     $clinic_query = new Usctdp_Mgmt_Clinic_Query([
@@ -286,6 +309,149 @@ class Usctdp_Import_Session_Data
                         ]);
                     }
                 }
+            }
+        }
+    }
+
+    private function import_tournament_activities($data)
+    {
+        if (empty($data["tournaments"])) {
+            return;
+        }
+
+        $primary_sort_order = 0;
+        foreach ($data["tournaments"] as $tournament) {
+            $name = trim($tournament['name']);
+            $product_name = trim($tournament['product']);
+            $primary_sort_order += 1;
+
+            $product = $this->get_product_by_title($product_name);
+            if (!$product) {
+                WP_CLI::log("No product found with title $product_name");
+                continue;
+            }
+
+            if (!isset($this->sessions_by_name[$name])) {
+                WP_CLI::log("No session found with name $name");
+                continue;
+            }
+            $session_id = $this->sessions_by_name[$name];
+
+            $start_date = new DateTime($tournament['start_date']);
+            $start_date_addtl = !empty($tournament['start_date_addtl'])
+                ? new DateTime($tournament['start_date_addtl'])
+                : $start_date;
+            $registration_deadline = new DateTime($tournament['registration_deadline']);
+            $early_registration_deadline = !empty($tournament['early_registration_deadline'])
+                ? new DateTime($tournament['early_registration_deadline'])
+                : null;
+
+            $title = sanitize_text_field($name);
+            $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+
+            $activity_query = new Usctdp_Mgmt_Activity_Query([
+                "session_id" => $session_id,
+                "product_id" => $product->id,
+                "title" => $title,
+            ]);
+
+            if (!empty($activity_query->items)) {
+                WP_CLI::log("Activity exists: $title");
+                $activity_id = $activity_query->items[0]->id;
+            } else {
+                WP_CLI::log("Creating activity: $title");
+                $activity_id = $activity_query->add_item([
+                    "session_id" => $session_id,
+                    "product_id" => $product->id,
+                    "type" => "tournament",
+                    "title" => $title,
+                    "search_term" => $search_term,
+                    "capacity" => $tournament['capacity'],
+                    "primary_sort_order" => $primary_sort_order,
+                    "secondary_sort_order" => 1,
+                    "meta" => isset($tournament['meta']) ? json_encode($tournament['meta']) : '{}'
+                ]);
+            }
+
+            $tournament_query = new Usctdp_Mgmt_Tournament_Query([
+                "id" => $activity_id
+            ]);
+            if (!empty($tournament_query->items)) {
+                WP_CLI::log("Unexpected: tournament already exists (id=$activity_id)");
+            } else {
+                $result = $tournament_query->add_item([
+                    "id" => $activity_id,
+                    "start_date" => $start_date->format("Y-m-d"),
+                    "start_date_addtl" => $start_date_addtl->format("Y-m-d"),
+                    "registration_deadline" => $registration_deadline->format("Y-m-d"),
+                    "early_registration_deadline" => $early_registration_deadline
+                        ? $early_registration_deadline->format("Y-m-d")
+                        : null,
+                    "schedule" => isset($tournament['schedule']) ? json_encode($tournament['schedule']) : '[]',
+                ]);
+                if (!$result) {
+                    global $wpdb;
+                    WP_CLI::warning("Failed to create tournament row for activity id=$activity_id ($title): {$wpdb->last_error}");
+                }
+            }
+        }
+    }
+
+    private function import_tournament_pricing($data)
+    {
+        if (empty($data["tournament_pricing"])) {
+            return;
+        }
+
+        foreach ($data["tournament_pricing"] as $pricing) {
+            $tournament_name = trim($pricing['tournament']);
+            $session_name = trim($pricing['session']);
+            $product_name = trim($pricing['product']);
+
+            $product = $this->get_product_by_title($product_name);
+            if (!$product) {
+                WP_CLI::log("No product found with title $product_name");
+                continue;
+            }
+
+            if (!isset($this->sessions_by_name[$session_name])) {
+                WP_CLI::log("No session found with name $session_name");
+                continue;
+            }
+            $session_id = $this->sessions_by_name[$session_name];
+
+            $prices = [];
+            if (!empty($pricing['base'])) {
+                $prices['base'] = $pricing['base'];
+            }
+            if (!empty($pricing['early_signup'])) {
+                $prices['early_signup'] = $pricing['early_signup'];
+            }
+            if (!empty($pricing['with_clinic'])) {
+                $prices['with_clinic'] = $pricing['with_clinic'];
+            }
+
+            if (empty($prices)) {
+                WP_CLI::log("No pricing found for tournament $tournament_name");
+                continue;
+            }
+
+            $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+                "session_id" => $session_id,
+                "product_id" => $product->id,
+                "number" => 1,
+            ]);
+            if (!empty($pricing_query->items)) {
+                $target = $pricing_query->items[0]->id;
+                $pricing_query->update_item($target, [
+                    "pricing" => json_encode($prices),
+                ]);
+            } else {
+                $pricing_query->add_item([
+                    "session_id" => $session_id,
+                    "product_id" => $product->id,
+                    "pricing" => json_encode($prices),
+                ]);
             }
         }
     }
@@ -315,5 +481,9 @@ class Usctdp_Import_Session_Data
         $this->import_clinic_classes($data);
         WP_CLI::log('Importing clinic pricing...');
         $this->import_clinic_prices($data);
+        WP_CLI::log('Importing tournaments...');
+        $this->import_tournament_activities($data);
+        WP_CLI::log('Importing tournament pricing...');
+        $this->import_tournament_pricing($data);
     }
 }

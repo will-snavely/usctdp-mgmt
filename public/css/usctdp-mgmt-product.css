@@ -59,7 +59,7 @@
     grid-template-rows: auto auto;
     grid-template-areas:
         "lab sel"
-        ". wait";
+        ". status";
     gap: 10px;
     width: 100%;
     align-items: center;
@@ -75,12 +75,24 @@
     width: 100%;
 }
 
-.usctdp-waitlist-buttons {
-    grid-area: wait;
+.usctdp-day-status {
+    grid-area: status;
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
+.usctdp-full-message {
+    color: #c0392b;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.single_add_to_cart_button.usctdp-cart-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
 }
 
 /* Add space for the 'X' clear button */
@@ -96,8 +108,7 @@
 }
 
 /* The Modal Container */
-dialog#new-student-modal,
-dialog#waitlist-modal {
+dialog#new-student-modal {
     border: none;
     border-radius: 12px;
     padding: 24px;
@@ -110,14 +121,12 @@ dialog#waitlist-modal {
     inset: 0;
 }
 
-dialog#new-student-modal::backdrop,
-dialog#waitlist-modal::backdrop {
+dialog#new-student-modal::backdrop {
     background: rgba(0, 0, 0, 0.5);
 }
 
 /* Heading Styling */
-dialog#new-student-modal h2,
-dialog#waitlist-modal h2 {
+dialog#new-student-modal h2 {
     margin-top: 0;
     margin-bottom: 20px;
     font-size: 1.5rem;
@@ -127,8 +136,7 @@ dialog#waitlist-modal h2 {
 }
 
 /* Label Styling */
-dialog#new-student-modal label,
-dialog#waitlist-modal label {
+dialog#new-student-modal label {
     font-weight: 600;
     font-size: 0.9rem;
     color: #555;
@@ -143,23 +151,20 @@ dialog#new-student-modal input {
     transition: border-color 0.2s;
 }
 
-dialog#new-student-modal form,
-dialog#waitlist-modal form {
+dialog#new-student-modal form {
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
 
-dialog#new-student-modal .actions,
-dialog#waitlist-modal .actions {
+dialog#new-student-modal .actions {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 10px;
 }
 
-dialog#new-student-modal .student_field,
-dialog#waitlist-modal .student_field {
+dialog#new-student-modal .student_field {
     display: grid;
     grid-template-columns: 1fr 2fr;
     grid-template-rows: auto;
@@ -168,8 +173,7 @@ dialog#waitlist-modal .student_field {
     gap: 5px;
 }
 
-dialog#new-student-modal .student_field label,
-dialog#waitlist-modal .student_field label {
+dialog#new-student-modal .student_field label {
     grid-area: lab;
     justify-self: end;
     align-self: center;
@@ -177,17 +181,9 @@ dialog#waitlist-modal .student_field label {
     margin-right: 5px;
 }
 
-dialog#new-student-modal .student_field input,
-dialog#waitlist-modal .student_field select,
-dialog#waitlist-modal .student_field .select2-container {
+dialog#new-student-modal .student_field input {
     grid-area: sel;
     width: 100%;
-}
-
-dialog#waitlist-modal #waitlist-details {
-    margin: 0 0 5px;
-    color: #555;
-    font-size: 0.95rem;
 }
 
 .force-hidden {

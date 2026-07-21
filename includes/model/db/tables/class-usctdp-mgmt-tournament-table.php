@@ -19,8 +19,10 @@ class Usctdp_Mgmt_Tournament_Table extends Table
         $this->schema = "
             id bigint(20) unsigned NOT NULL,
             start_date date NOT NULL,
-            registration_deadline date NOT NULL,
-            days json,
+            start_date_addtl date,
+            registration_deadline date,
+            early_registration_deadline date,
+            schedule json default '{}',
             PRIMARY KEY (id)
         ";
     }

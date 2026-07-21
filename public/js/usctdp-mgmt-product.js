@@ -18,11 +18,17 @@
     };
 
     const modal = document.querySelector('#new-student-modal');
-    const waitlistModal = document.querySelector('#waitlist-modal');
-    let activeWaitlistButton = null;
+    const waitlistedEntries = new Set();
+    let cartBlocked = false;
+
+    function waitlistKey(studentId, activityId) {
+      return studentId + ':' + activityId;
+    }
 
     function clear_day_selectors() {
       $('#usctdp-day-selectors').empty();
+      cartBlocked = false;
+      $('.single_add_to_cart_button').removeClass('usctdp-cart-disabled');
     }
 
     function format_time(timeString) {
@@ -41,13 +47,7 @@
     function syncDaySelectors(source, target) {
       const selectedDay = $(source).find(':selected').data('day-of-week');
 
-      $(target).find('option').each(function () {
-        const $option = $(this);
-        const isFull = $option.data('full');
-        if (!isFull) {
-          $option.prop('disabled', false);
-        }
-      });
+      $(target).find('option').prop('disabled', false);
 
       if (selectedDay) {
         $(target).find(`option[data-day-of-week="${selectedDay}"]`).each(function () {
@@ -63,6 +63,38 @@
       });
     }
 
+    function updateCartAvailability() {
+      cartBlocked = $('.usctdp-day-selector select').toArray().some(function (el) {
+        return $(el).find(':selected').data('full') === true;
+      });
+      $('.single_add_to_cart_button').toggleClass('usctdp-cart-disabled', cartBlocked);
+    }
+
+    function updateDayStatus($select, $statusWrap) {
+      const $selected = $select.find(':selected');
+      const isFull = $selected.data('full') === true;
+      const $btn = $statusWrap.find('.add-waitlist-btn');
+
+      $statusWrap.toggleClass('force-hidden', !isFull);
+      if (isFull) {
+        const activityId = String($selected.val());
+        const studentId = $('#student_select').val();
+        const alreadyWaitlisted = !!studentId && waitlistedEntries.has(waitlistKey(studentId, activityId));
+        $btn.data('activity-id', activityId);
+        $btn.prop('disabled', alreadyWaitlisted);
+        $btn.text(alreadyWaitlisted ? 'Added to Waitlist' : 'Add to Waitlist');
+      }
+
+      updateCartAvailability();
+    }
+
+    function refreshAllDayStatuses() {
+      $('.usctdp-day-selector').each(function () {
+        const $wrapper = $(this);
+        updateDayStatus($wrapper.find('select'), $wrapper.find('.usctdp-day-status'));
+      });
+    }
+
     function add_day_selector(clinics, day_index, label_text, session_label) {
       var wrapper = $('<div></div>');
       wrapper.addClass('usctdp-day-selector');
@@ -75,37 +107,29 @@
       selector.attr('id', 'day_of_week_' + day_index);
       selector.prop('required', true);
       selector.append('<option value=""></option>');
-      var waitlistButtons = $('<div></div>').addClass('usctdp-waitlist-buttons');
       clinics.forEach(function (clinic) {
         var dowStr = int_to_day[clinic.day_of_week];
         var startTime = format_time(clinic.start_time);
         var dayLabel = dowStr + ' at ' + startTime;
-        var optionText = dayLabel;
-        var optionId = clinic.id;
-        var disabled = false;
-        if (clinic.enrolled_count >= clinic.capacity) {
-          optionText += ' (Full)';
-          disabled = true;
-          waitlistButtons.append($('<button></button>')
-            .attr('type', 'button')
-            .addClass('button join-waitlist-btn')
-            .attr('data-activity-id', clinic.id)
-            .attr('data-day-label', dayLabel)
-            .attr('data-session-label', session_label)
-            .text('Join Waitlist (' + dowStr + ')'));
-        }
+        var isFull = clinic.enrolled_count >= clinic.capacity;
+        var optionText = isFull ? dayLabel + ' (Full)' : dayLabel;
         selector.append($('<option></option>')
-          .attr('value', optionId)
+          .attr('value', clinic.id)
           .attr('data-day-of-week', clinic.day_of_week)
           .attr('data-start-time', clinic.start_time)
-          .attr('data-full', disabled)
-          .text(optionText)
-          .prop('disabled', disabled));
+          .attr('data-full', isFull)
+          .text(optionText));
       });
       wrapper.append(selector);
-      if (waitlistButtons.children().length) {
-        wrapper.append(waitlistButtons);
-      }
+
+      var statusWrap = $('<div></div>').addClass('usctdp-day-status force-hidden');
+      statusWrap.append($('<span></span>').addClass('usctdp-full-message').text('This class is full.'));
+      statusWrap.append($('<button></button>')
+        .attr('type', 'button')
+        .addClass('button add-waitlist-btn')
+        .text('Add to Waitlist'));
+      wrapper.append(statusWrap);
+
       $('#usctdp-day-selectors').append(wrapper);
       $('#day_of_week_' + day_index).select2({
         placeholder: 'Select a day...',
@@ -115,6 +139,7 @@
 
       $('#day_of_week_' + day_index).on('change', function () {
         syncDaySelectors(this, '#day_of_week_' + (day_index == 1 ? 2 : 1));
+        updateDayStatus($(this), statusWrap);
       });
     }
 
@@ -227,33 +252,19 @@
       }
     });
 
-    // Open waitlist modal when a "Join Waitlist" button is clicked
-    $('#usctdp-day-selectors').on('click', '.join-waitlist-btn', function (e) {
+    // Add the currently selected student to the waitlist for a full day
+    $('#usctdp-day-selectors').on('click', '.add-waitlist-btn', async function (e) {
       e.preventDefault();
-      activeWaitlistButton = this;
       const $btn = $(this);
-
-      $('#waitlist-session').text($btn.data('session-label'));
-      $('#waitlist-day').text($btn.data('day-label'));
-      $('#waitlist-form').data('activity-id', $btn.data('activity-id'));
-
-      populateStudentSelect($('#waitlist_student_select'), $('#student_select').val());
-      waitlistModal.showModal();
-    });
-
-    // Close waitlist modal on "Cancel"
-    $('#close-waitlist-modal').on('click', () => {
-      waitlistModal.close();
-    });
-
-    // Handle waitlist confirmation
-    $('#waitlist-form').on('submit', async function (e) {
-      e.preventDefault();
-      const activityId = $(this).data('activity-id');
-      const studentId = $('#waitlist_student_select').val();
+      const studentId = $('#student_select').val();
       if (!studentId) {
+        alert('Please select a student before adding them to the waitlist.');
+        $('#student_select').select2('open');
         return;
       }
+
+      const activityId = $btn.data('activity-id');
+      $btn.prop('disabled', true).text('Adding...');
 
       try {
         const response = await fetch(siteData.root + 'usctdp-mgmt/v1/waitlist/', {
@@ -269,16 +280,31 @@
         });
 
         if (response.ok) {
-          if (activeWaitlistButton) {
-            $(activeWaitlistButton).text('Waitlisted').prop('disabled', true);
-          }
-          waitlistModal.close();
+          waitlistedEntries.add(waitlistKey(studentId, activityId));
+          $btn.text('Added to Waitlist');
         } else {
           console.error('Error joining waitlist:', await response.text());
+          $btn.prop('disabled', false).text('Add to Waitlist');
+          alert('Failed to add student to the waitlist. Please try again.');
         }
       } catch (error) {
         console.error('Error:', error);
+        $btn.prop('disabled', false).text('Add to Waitlist');
+        alert('Failed to add student to the waitlist. Please try again.');
       }
+    });
+
+    // Block checkout while a full day is selected
+    $('.variations_form').on('submit', function (e) {
+      if (cartBlocked) {
+        e.preventDefault();
+        alert('One or more selected days are full. Please choose a different day, or add the student to the waitlist instead.');
+      }
+    });
+
+    // Re-evaluate "Add to Waitlist" button state for the newly selected student
+    $('#student_select').on('change', function () {
+      refreshAllDayStatuses();
     });
 
     refreshStudentDropDown();

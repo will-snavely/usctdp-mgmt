@@ -14,7 +14,16 @@ class Usctdp_Mgmt_Tournament_Row extends Row
         $this->id = (int) $this->id;
         $this->start_date = DateTime::createFromFormat('Y-m-d', $this->start_date);
         $this->registration_deadline = DateTime::createFromFormat('Y-m-d', $this->registration_deadline);
-        $this->capacity = (int) $this->capacity;
-        $this->days = json_decode($this->notes);
+        if (!empty($this->start_date_addtl)) {
+            $this->start_date_addtl = DateTime::createFromFormat('Y-m-d', $this->start_date_addtl);
+        } else {
+            $this->start_date_addtl = null;
+        }
+        if (!empty($this->early_registration_deadline)) {
+            $this->early_registration_deadline = DateTime::createFromFormat('Y-m-d', $this->early_registration_deadline);
+        } else {
+            $this->early_registration_deadline = null;
+        }
+        $this->schedule = json_decode($this->schedule);
     }
 }

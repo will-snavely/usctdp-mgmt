@@ -147,6 +147,7 @@ class Usctdp_Import_Product_Data
         $product->set_regular_price($equipment["price"]);
         $product->set_description($equipment["description"]);
         $product->set_short_description($equipment["description"]);
+        $product->set_sku($sku);
         $product->set_catalog_visibility('hidden');
         return $product->save();
     }

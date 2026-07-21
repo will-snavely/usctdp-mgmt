@@ -32,7 +32,7 @@ class Usctdp_Mgmt_Product_Schema extends Schema
             'type' => 'bigint',
             'length' => '20',
             'unsigned' => true,
-            'nullable' => true,
+            'allow_null' => true,
         ],
         'title' => [
             'name' => 'title',

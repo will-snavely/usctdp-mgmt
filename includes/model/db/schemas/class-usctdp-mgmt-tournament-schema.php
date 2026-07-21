@@ -17,18 +17,23 @@ class Usctdp_Mgmt_Tournament_Schema extends Schema
             'name' => 'start_date',
             'type' => 'date',
         ],
+        'start_date_addtl' => [
+            'name' => 'start_date_addtl',
+            'type' => 'date',
+        ],
         'registration_deadline' => [
             'name' => 'registration_deadline',
             'type' => 'date',
         ],
-        'capacity' => [
-            'name' => 'capacity',
-            'type' => 'smallint',
-            'unsigned' => true,
+        'early_registration_deadline' => [
+            'name' => 'early_registration_deadline',
+            'type' => 'date',
+            'allow_null' => true,
         ],
-        'days' => [
-            'name' => 'days',
+        'schedule' => [
+            'name' => 'schedule',
             'type' => 'json',
+            'default' => '{}',
         ],
     ];
 }
