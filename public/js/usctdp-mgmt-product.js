@@ -200,6 +200,10 @@
     // Listen for the event on the variations form
     $('.variations_form').on('found_variation', function (event, variation) {
       var daysPerWeekStr = variation.attributes["attribute_days-per-week"];
+      if (!daysPerWeekStr) {
+        // Product has no days-per-week variation (e.g. tournaments) - nothing to select.
+        return;
+      }
       var session = variation.attributes["attribute_session"];
       var session_id = siteData.session_map[session];
       fetch(siteData.root + 'usctdp-mgmt/v1/clinics/' + session_id + '/' + siteData.usctdp_id, {
