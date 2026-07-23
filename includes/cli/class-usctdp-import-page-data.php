@@ -28,9 +28,14 @@ class Usctdp_Import_Page_Data
         $pages = $data['pages'] ?? [];
         $menus = $data['menus'] ?? [];
         $permalink_structure = $data['permalink_structure'] ?? null;
+        $woocommerce = $data['woocommerce'] ?? null;
 
         if ($permalink_structure !== null) {
             $this->set_permalink_structure($permalink_structure);
+        }
+
+        if ($woocommerce !== null) {
+            $this->configure_woocommerce($woocommerce);
         }
 
         WP_CLI::log('Importing pages...');
@@ -66,6 +71,66 @@ class Usctdp_Import_Page_Data
         $wp_rewrite->flush_rules(false);
 
         WP_CLI::log("Permalink structure set to '$structure'");
+    }
+
+    /**
+     * Apply a handful of WooCommerce store-wide settings, same as toggling
+     * them under WooCommerce -> Settings -> Products. Each key is optional
+     * and only applied when present/truthy.
+     */
+    private function configure_woocommerce($settings)
+    {
+        if (!empty($settings['disable_reviews'])) {
+            if ($this->dry_run) {
+                WP_CLI::log('[dry-run] would disable WooCommerce product reviews');
+            } else {
+                update_option('woocommerce_enable_reviews', 'no');
+                WP_CLI::log('Disabled WooCommerce product reviews');
+            }
+        }
+
+        if (!empty($settings['disable_image_zoom'])) {
+            if ($this->dry_run) {
+                WP_CLI::log('[dry-run] would disable WooCommerce product image zoom');
+            } else {
+                update_option('woocommerce_enable_zoom', 'no');
+                WP_CLI::log('Disabled WooCommerce product image zoom');
+            }
+        }
+
+        if (!empty($settings['classic_cart'])) {
+            $this->set_classic_page_content('woocommerce_cart_page_id', '[woocommerce_cart]', 'cart');
+        }
+
+        if (!empty($settings['classic_checkout'])) {
+            $this->set_classic_page_content('woocommerce_checkout_page_id', '[woocommerce_checkout]', 'checkout');
+        }
+    }
+
+    /**
+     * Overwrite a WooCommerce-managed page's content with a legacy shortcode,
+     * replacing the Cart/Checkout block markup WooCommerce scaffolds by
+     * default so the page renders via the classic (non-block) templates.
+     */
+    private function set_classic_page_content($option_name, $shortcode, $label)
+    {
+        $page_id = get_option($option_name);
+        if (!$page_id) {
+            WP_CLI::warning("WooCommerce $label page is not set, skipping");
+            return;
+        }
+
+        if ($this->dry_run) {
+            WP_CLI::log("[dry-run] would set WooCommerce $label page (id=$page_id) content to '$shortcode'");
+            return;
+        }
+
+        wp_update_post([
+            'ID'           => $page_id,
+            'post_content' => $shortcode,
+        ]);
+
+        WP_CLI::log("Set WooCommerce $label page (id=$page_id) content to classic shortcode '$shortcode'");
     }
 
     /**
