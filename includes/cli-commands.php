@@ -147,7 +147,8 @@ class Usctdp_Cli_Command
     }
 
     /**
-     * Create/update WP pages and the primary nav menu from a JSON manifest.
+     * Create/update WP pages, the primary nav menu, and Contact Form 7
+     * forms from a JSON manifest.
      *
      * ## OPTIONS
      *

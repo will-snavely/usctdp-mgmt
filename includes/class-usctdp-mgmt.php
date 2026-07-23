@@ -184,6 +184,13 @@ class Usctdp_Mgmt
             'hide_variable_product_price_range',
             1,
         );
+        $this->loader->add_filter(
+            'woocommerce_is_sold_individually',
+            $commerce_handler,
+            'force_sold_individually_for_variable_products',
+            10,
+            2,
+        );
         $this->loader->add_action(
             'woocommerce_before_variations_form',
             $commerce_handler,

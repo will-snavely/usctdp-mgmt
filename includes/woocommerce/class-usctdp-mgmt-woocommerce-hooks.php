@@ -123,6 +123,22 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         }
     }
 
+    /**
+     * Treat variable products (clinics, tournaments) as "sold individually"
+     * so only one registration can be added to the cart at a time. This is
+     * what WooCommerce itself uses to decide the quantity input's min/max;
+     * when they're both 1, its own template renders a hidden qty=1 field
+     * instead of the spinner, so the counter disappears as a side effect.
+     * Simple products (e.g. merch) are unaffected.
+     */
+    public function force_sold_individually_for_variable_products($sold_individually, $product)
+    {
+        if ($product && $product->is_type('variable')) {
+            return true;
+        }
+        return $sold_individually;
+    }
+
     public function display_before_variations_table()
     {
         global $product;

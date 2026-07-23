@@ -27,6 +27,7 @@ class Usctdp_Import_Page_Data
 
         $pages = $data['pages'] ?? [];
         $menus = $data['menus'] ?? [];
+        $forms = $data['forms'] ?? [];
         $permalink_structure = $data['permalink_structure'] ?? null;
         $woocommerce = $data['woocommerce'] ?? null;
 
@@ -44,6 +45,11 @@ class Usctdp_Import_Page_Data
         foreach ($menus as $location => $items) {
             WP_CLI::log("Importing menu for location '$location'...");
             $this->sync_menu($location, $items, $slug_to_id);
+        }
+
+        if (!empty($forms)) {
+            WP_CLI::log('Importing Contact Form 7 forms...');
+            $this->upsert_forms($forms);
         }
 
         WP_CLI::success('Page import complete.');
@@ -286,6 +292,50 @@ class Usctdp_Import_Page_Data
             if (!empty($item['children'])) {
                 $this->create_menu_items($menu_id, $item['children'], $slug_to_id, $item_id);
             }
+        }
+    }
+
+    /**
+     * Create or update Contact Form 7 forms, matched by title. Each entry's
+     * 'form', 'mail', and 'messages' keys map directly onto CF7's own
+     * property structure (see WPCF7_ContactForm::get_properties()), so the
+     * JSON is effectively a serialized version of what the CF7 admin editor
+     * would save. Fields omitted from an entry are left at CF7's defaults
+     * (or, on update, whatever is already saved).
+     */
+    private function upsert_forms($forms)
+    {
+        if (!class_exists('WPCF7_ContactForm')) {
+            WP_CLI::warning('Contact Form 7 is not active, skipping form import');
+            return;
+        }
+
+        foreach ($forms as $form_data) {
+            $title = $form_data['title'];
+            $existing = wpcf7_get_contact_form_by_title($title);
+
+            if ($this->dry_run) {
+                WP_CLI::log('[dry-run] would ' . ($existing ? 'update' : 'create') . " Contact Form 7 form '$title'");
+                continue;
+            }
+
+            $contact_form = $existing ?: WPCF7_ContactForm::get_template(['title' => $title]);
+            $properties = $contact_form->get_properties();
+
+            if (isset($form_data['form'])) {
+                $properties['form'] = $form_data['form'];
+            }
+            if (isset($form_data['mail'])) {
+                $properties['mail'] = array_merge($properties['mail'], $form_data['mail']);
+            }
+            if (isset($form_data['messages'])) {
+                $properties['messages'] = array_merge($properties['messages'], $form_data['messages']);
+            }
+
+            $contact_form->set_properties($properties);
+            $contact_form->save();
+
+            WP_CLI::log(($existing ? 'Updated' : 'Created') . " Contact Form 7 form '$title' (id={$contact_form->id()})");
         }
     }
 }
