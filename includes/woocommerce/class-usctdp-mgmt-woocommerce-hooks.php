@@ -104,6 +104,25 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     {
     }
 
+    /**
+     * Hide the price range WooCommerce shows for variable products (clinics,
+     * tournaments) on the single product page. That pricing is already broken
+     * out per session in the session-info cards rendered above the variations
+     * table, so the range here is redundant. Scoped to variable products only
+     * so simple products (e.g. merch) keep their normal price display.
+     *
+     * Hooked at priority 1 on the same action woocommerce_template_single_price
+     * uses (priority 10), so the removal is registered before that callback
+     * would otherwise run.
+     */
+    public function hide_variable_product_price_range()
+    {
+        global $product;
+        if ($product && $product->is_type('variable')) {
+            remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_price', 10);
+        }
+    }
+
     public function display_before_variations_table()
     {
         global $product;
@@ -125,6 +144,12 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         foreach ($session_query->items as $session) {
             $sessions_by_id[$session->id] = $session;
         }
+
+        $product_query = new Usctdp_Mgmt_Product_Query([
+            'woocommerce_id' => $product->get_id(),
+            'number' => 1,
+        ]);
+        $usctdp_product = $product_query->items[0] ?? null;
         ?>
         <?php $is_single_session = count($session_map) === 1; ?>
         <div id="usctdp-session-info-list">
@@ -135,6 +160,9 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 }
                 $meta = json_decode($session->meta, true) ?: [];
                 $note = $meta['note'] ?? '';
+                $price_lines = $usctdp_product
+                    ? $this->get_session_price_lines($usctdp_product, $session)
+                    : [];
                 ?>
                 <div class="usctdp-session-info" data-session="<?php echo esc_attr($session_name); ?>">
                     <?php if (!$is_single_session): ?>
@@ -149,10 +177,53 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     <?php if (!empty($note)): ?>
                         <p class="usctdp-session-info-note"><?php echo esc_html($note); ?></p>
                     <?php endif; ?>
+                    <?php if (!empty($price_lines)): ?>
+                        <p class="usctdp-session-info-price">
+                            <?php foreach ($price_lines as $line): ?>
+                                <span class="usctdp-session-info-price-line"><?php echo $line; ?></span>
+                            <?php endforeach; ?>
+                        </p>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>
         <?php
+    }
+
+    /**
+     * Look up the (session, product) pricing row and format it for display
+     * on the session card. Clinics price by days-per-week ('One'/'Two');
+     * tournaments have a flat enrollment fee ('base'). Returns an array of
+     * pre-formatted HTML strings, one per price line, or [] if there's
+     * nothing to show (no pricing row, or an unpriced product type).
+     */
+    private function get_session_price_lines($usctdp_product, $session)
+    {
+        $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+            'session_id' => $session->id,
+            'product_id' => $usctdp_product->id,
+            'number' => 1,
+        ]);
+        if (empty($pricing_query->items)) {
+            return [];
+        }
+        $pricing = $pricing_query->items[0]->pricing;
+
+        if ($usctdp_product->type === 'tournament') {
+            if (empty($pricing['base'])) {
+                return [];
+            }
+            return [wc_price($pricing['base']) . ' to enroll'];
+        }
+
+        $lines = [];
+        if (!empty($pricing['One'])) {
+            $lines[] = wc_price($pricing['One']) . ' &middot; 1 day/week';
+        }
+        if (!empty($pricing['Two'])) {
+            $lines[] = wc_price($pricing['Two']) . ' &middot; 2 days/week';
+        }
+        return $lines;
     }
 
     public function display_after_variations_table()

@@ -179,6 +179,12 @@ class Usctdp_Mgmt
     private function define_product_page_display_hooks($commerce_handler)
     {
         $this->loader->add_action(
+            'woocommerce_single_product_summary',
+            $commerce_handler,
+            'hide_variable_product_price_range',
+            1,
+        );
+        $this->loader->add_action(
             'woocommerce_before_variations_form',
             $commerce_handler,
             'display_before_variations_form',

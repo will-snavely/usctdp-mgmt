@@ -251,6 +251,18 @@ dialog#new-student-modal .student_field input {
     font-style: italic;
 }
 
+.usctdp-session-info-price {
+    margin: 8px 0 0;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.usctdp-session-info-price-line {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 .usctdp-session-info-badge {
     display: none;
     position: absolute;

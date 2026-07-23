@@ -89,15 +89,6 @@ class Usctdp_Import_Page_Data
             }
         }
 
-        if (!empty($settings['disable_image_zoom'])) {
-            if ($this->dry_run) {
-                WP_CLI::log('[dry-run] would disable WooCommerce product image zoom');
-            } else {
-                update_option('woocommerce_enable_zoom', 'no');
-                WP_CLI::log('Disabled WooCommerce product image zoom');
-            }
-        }
-
         if (!empty($settings['classic_cart'])) {
             $this->set_classic_page_content('woocommerce_cart_page_id', '[woocommerce_cart]', 'cart');
         }
