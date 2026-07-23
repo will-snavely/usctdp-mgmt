@@ -199,9 +199,12 @@
 
     // Listen for the event on the variations form
     $('.variations_form').on('found_variation', function (event, variation) {
+      $('#usctdp-woocommerce-extra').removeClass('force-hidden');
+
       var daysPerWeekStr = variation.attributes["attribute_days-per-week"];
       if (!daysPerWeekStr) {
-        // Product has no days-per-week variation (e.g. tournaments) - nothing to select.
+        // Product has no days-per-week variation (e.g. tournaments) - no day selectors to show.
+        clear_day_selectors();
         return;
       }
       var session = variation.attributes["attribute_session"];
@@ -224,7 +227,6 @@
           }
         })
         .catch(error => console.error('Error loading options:', error));
-      $('#usctdp-woocommerce-extra').removeClass('force-hidden');
     });
 
     $('.variations_form').on('reset_data', function () {
