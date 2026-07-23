@@ -4,7 +4,6 @@ class Usctdp_Mgmt_Admin_Ajax
 {
     public static $ajax_handlers = [
         'activity_preregistration' => 'ajax_activity_preregistration',
-        'clinic_datatable' => 'ajax_clinic_datatable',
         'commit_merchandise' => 'ajax_commit_merchandise',
         'create_family' => 'ajax_create_family',
         'create_ledger_entries' => 'ajax_create_ledger_entries',
@@ -19,6 +18,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
         'registrations_datatable' => 'ajax_registrations_datatable',
+        'roster_link' => 'ajax_get_roster_link',
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
@@ -248,6 +248,8 @@ class Usctdp_Mgmt_Admin_Ajax
             $document = null;
             if ($target['type'] === 'clinic') {
                 $document = $doc_gen->generate_clinic_roster($target['id']);
+            } elseif ($target['type'] === 'tournament') {
+                $document = $doc_gen->generate_tournament_roster($target['id']);
             } elseif ($target['type'] === 'session') {
                 $document = $doc_gen->generate_session_roster($target['id']);
             }
@@ -258,11 +260,42 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_success([
                 'message' => 'Roster generated successfully',
                 'doc_id' => $drive_file->id,
-                'doc_url' => $drive_file->webViewLink
+                'doc_url' => $drive_file->webViewLink,
+                'generated_at' => current_time('mysql')
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
             wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
+        }
+    }
+
+    public function ajax_get_roster_link()
+    {
+        $this->check_nonce('roster_link');
+
+        $entity_id = isset($_GET['entity_id']) ? intval($_GET['entity_id']) : 0;
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter entity_id', 400);
+        }
+
+        try {
+            $doc_gen = new Usctdp_Mgmt_Docgen();
+            $roster_link = $doc_gen->get_roster_link($entity_id);
+            if (!$roster_link) {
+                wp_send_json_success([
+                    'drive_id' => null,
+                    'doc_url' => null,
+                    'generated_at' => null
+                ]);
+            }
+            wp_send_json_success([
+                'drive_id' => $roster_link->drive_id,
+                'doc_url' => 'https://drive.google.com/file/d/' . $roster_link->drive_id . '/edit',
+                'generated_at' => $roster_link->updated_at ? $roster_link->updated_at->format('Y-m-d H:i:s') : null
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_roster_link', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
 
@@ -952,38 +985,6 @@ class Usctdp_Mgmt_Admin_Ajax
             "recordsTotal" => count($results),
             "recordsFiltered" => count($results),
             "data" => $results,
-        );
-        wp_send_json($response);
-    }
-
-    public function ajax_clinic_datatable()
-    {
-        $this->check_nonce('clinic_datatable');
-
-        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
-        $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : null;
-        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
-        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
-        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
-
-        $args = [
-            'number' => $length,
-            'offset' => $start,
-        ];
-        if ($session_id) {
-            $args['session_id'] = $session_id;
-        }
-        if ($product_id) {
-            $args['product_id'] = $product_id;
-        }
-
-        $clinic_query = new Usctdp_Mgmt_Clinic_Query([]);
-        $result = $clinic_query->get_clinic_data($args);
-        $response = array(
-            "draw" => $draw,
-            "recordsTotal" => $result['count'],
-            "recordsFiltered" => $result['count'],
-            "data" => $result['data'],
         );
         wp_send_json($response);
     }

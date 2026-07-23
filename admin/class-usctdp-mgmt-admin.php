@@ -26,10 +26,6 @@ class Usctdp_Mgmt_Admin
         $this->plugin_name = $plugin_name;
         $this->version = $version;
         $this->submenu_config = [
-            'clinics' => [
-                'title' => 'Clinics',
-                'ajax' => ['clinic_datatable', 'select2_search']
-            ],
             'families' => [
                 'title' => 'Families',
                 'ajax' => [
@@ -42,21 +38,19 @@ class Usctdp_Mgmt_Admin
                 ],
                 'context' => ['family_id']
             ],
-            'session-rosters' => [
-                'title' => 'Session Rosters',
-                'ajax' => ['gen_roster', 'session_rosters_datatable']
-            ],
-            'clinic-rosters' => [
-                'title' => 'Clinic Rosters',
+            'rosters' => [
+                'title' => 'Rosters',
                 'ajax' => [
+                    'gen_roster',
+                    'session_rosters',
+                    'session_rosters_datatable',
                     'registrations_datatable',
                     'update_registration',
                     'waitlist_datatable',
-                    'clinic_datatable',
                     'select2_search',
-                    'gen_roster',
                     'waitlist_add',
                     'waitlist_remove',
+                    'roster_link',
                 ],
                 'context' => ['activity_id']
             ],

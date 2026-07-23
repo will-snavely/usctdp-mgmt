@@ -62,6 +62,43 @@
         }
     }
 
+    // Usctdp_Session_Category::Junior_Tournament / Adult_Tournament
+    USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES = [5, 6];
+
+    /**
+     * Tournament sessions have exactly one activity, so there's nothing
+     * meaningful to pick beyond the session itself. Given a selected session's
+     * select2 data, resolves the session's sole activity (or null if the
+     * session isn't a tournament, or doesn't have exactly one activity).
+     */
+    USCTDP_Admin.resolveTournamentActivity = async function (sessionId, sessionData) {
+        if (!sessionData || USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(sessionData.category) === -1) {
+            return null;
+        }
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.select2_search_action,
+                    security: usctdp_mgmt_admin.select2_search_nonce,
+                    target: 'activity',
+                    session_id: sessionId,
+                    q: ''
+                }
+            });
+            const items = (response && response.items) ? response.items : [];
+            if (items.length !== 1) {
+                return null;
+            }
+            return items[0];
+        } catch (error) {
+            console.error('Resolve Tournament Activity Failed:', error.statusText || error.message);
+            return null;
+        }
+    }
+
     USCTDP_Admin.ajax_addWaitlistStudent = async function (student_id, activity_id) {
         try {
             const response = await $.ajax({
@@ -457,6 +494,32 @@
                 complete: val && (!nextId || nextId.length === 0),
                 state: this.state
             });
+
+            if (val && settings.autoSelectChild) {
+                const { id: childId, resolve } = settings.autoSelectChild;
+                Promise.resolve(resolve(val, $el)).then((resolved) => {
+                    if (resolved) {
+                        this.setSilently(childId, resolved);
+                    }
+                });
+            }
+        }
+
+        /**
+         * Programmatically select a value on a select2-driven selector without
+         * revealing its section - used when a parent selector can determine a
+         * child's value on its own (e.g. a session with only one possible
+         * activity), so the user is never shown a selector with nothing to
+         * meaningfully pick. `entry` should carry the same fields the target's
+         * own remote search would have returned, since consumers read extra
+         * fields (e.g. `type`, `product_id`) off `$el.select2('data')[0]`.
+         */
+        setSilently(id, entry) {
+            const $el = $(`#${id}`);
+            $el.empty();
+            const newOption = new Option(entry.text, entry.id, true, true);
+            $(newOption).data('data', entry);
+            $el.append(newOption).trigger('change');
         }
 
         resetAndHide(id) {

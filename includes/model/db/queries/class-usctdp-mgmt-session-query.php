@@ -23,7 +23,8 @@ class Usctdp_Mgmt_Session_Query extends Query
             SELECT 
                 sesh.id as id,
                 sesh.title as title,
-                rst.drive_id as drive_id
+                rst.drive_id as drive_id,
+                rst.updated_at as generated_at
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             LEFT JOIN {$wpdb->prefix}usctdp_roster_link as rst ON sesh.id = rst.entity_id
             WHERE sesh.is_active = 1
@@ -35,7 +36,7 @@ class Usctdp_Mgmt_Session_Query extends Query
     public function search_sessions($query, $active = null, $category = null, $limit = 10)
     {
         global $wpdb;
-        $sql = "SELECT id, title FROM {$wpdb->prefix}{$this->table_name}";
+        $sql = "SELECT id, title, category FROM {$wpdb->prefix}{$this->table_name}";
         $args = [];
         $conditions = [];
         if ($query) {
@@ -102,7 +103,8 @@ class Usctdp_Mgmt_Session_Query extends Query
             SELECT 
                 sesh.id as id,
                 sesh.title as title,
-                rst.drive_id as drive_id
+                rst.drive_id as drive_id,
+                rst.updated_at as generated_at
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             LEFT JOIN {$wpdb->prefix}usctdp_roster_link as rst ON sesh.id = rst.entity_id
             {$where_clause}

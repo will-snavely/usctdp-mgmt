@@ -232,7 +232,7 @@
                         icon: 'success',
                         confirmButtonText: 'OK'
                     }).then(function () {
-                        var rosterUrl = `admin.php?page=usctdp-admin-clinic-rosters&activity_id=${activityId}`;
+                        var rosterUrl = `admin.php?page=usctdp-admin-rosters&activity_id=${activityId}`;
                         window.location.href = rosterUrl;
                     });
                 })
@@ -411,14 +411,26 @@
                 name: 'session_id',
                 label: 'Session',
                 target: 'session',
-                branches: ['clinic-selector', 'merchandise-selector'],
-                next: function (value) {
+                branches: ['clinic-selector', 'activity-selector', 'merchandise-selector'],
+                next: function (value, $el) {
                     if (value === 'merch_only') {
                         return 'merchandise-selector';
                     } else if (value === 'new_session') {
                         return null;
                     } else {
-                        return 'clinic-selector';
+                        // Tournament sessions have exactly one activity, so
+                        // there's nothing left to pick - skip straight past
+                        // the Clinic/Day selectors.
+                        var sessionData = $el.select2('data')[0];
+                        var isTournament = sessionData &&
+                            USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(sessionData.category) !== -1;
+                        return isTournament ? null : 'clinic-selector';
+                    }
+                },
+                autoSelectChild: {
+                    id: 'activity-selector',
+                    resolve: function (value, $el) {
+                        return USCTDP_Admin.resolveTournamentActivity(value, $el.select2('data')[0]);
                     }
                 },
                 pinnedOptions: [

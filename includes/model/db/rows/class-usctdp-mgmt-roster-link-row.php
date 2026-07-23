@@ -14,5 +14,8 @@ class Usctdp_Mgmt_Roster_Link_Row extends Row
         $this->id = (int) $this->id;
         $this->entity_id = (int) $this->entity_id;
         $this->drive_id = (string) $this->drive_id;
+        if (!empty($this->updated_at)) {
+            $this->updated_at = DateTime::createFromFormat('Y-m-d H:i:s', $this->updated_at);
+        }
     }
 }

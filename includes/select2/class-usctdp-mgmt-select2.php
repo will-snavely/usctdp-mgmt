@@ -81,7 +81,8 @@ class Usctdp_Mgmt_Select2
             foreach ($query_results as $result) {
                 $results[] = array(
                     'id' => $result->id,
-                    'text' => $result->title
+                    'text' => $result->title,
+                    'category' => intval($result->category)
                 );
             }
         }

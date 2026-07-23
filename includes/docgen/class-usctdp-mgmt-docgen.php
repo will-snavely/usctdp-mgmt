@@ -58,15 +58,15 @@ class Usctdp_Mgmt_Docgen
         }
     }
 
-    private function get_clinic_registrations($clinic_id)
+    private function get_activity_registrations($activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
-            'activity_id' => $clinic_id
+            'activity_id' => $activity_id
         ]);
         return $reg_query->items;
     }
 
-    private function get_drive_id($entity_id)
+    public function get_roster_link($entity_id)
     {
         $reg_query = new Usctdp_Mgmt_Roster_Link_Query([
             'entity_id' => $entity_id,
@@ -75,7 +75,7 @@ class Usctdp_Mgmt_Docgen
         if (empty($reg_query->items)) {
             return null;
         }
-        return $reg_query->items[0]->drive_id;
+        return $reg_query->items[0];
     }
 
     public function generate_clinic_roster($clinic_id)
@@ -83,6 +83,14 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor = new TemplateProcessor($this->roster_template_file);
         $templateProcessor->cloneBlock('roster', 1, true, true);
         $this->generate_clinic_roster_impl($templateProcessor, $clinic_id, '1');
+        return $templateProcessor;
+    }
+
+    public function generate_tournament_roster($tournament_id)
+    {
+        $templateProcessor = new TemplateProcessor($this->roster_template_file);
+        $templateProcessor->cloneBlock('roster', 1, true, true);
+        $this->generate_tournament_roster_impl($templateProcessor, $tournament_id, '1');
         return $templateProcessor;
     }
 
@@ -102,6 +110,12 @@ class Usctdp_Mgmt_Docgen
         foreach ($activity_query->items as $item) {
             if ($item->type === 'clinic') {
                 $this->generate_clinic_roster_impl($templateProcessor, $item->id, $index);
+            } elseif ($item->type === 'tournament') {
+                $this->generate_tournament_roster_impl($templateProcessor, $item->id, $index);
+            } else {
+                Usctdp_Mgmt::logger()->log_info(
+                    'Skipping roster block for unsupported activity type: ' . $item->type . ' (activity ' . $item->id . ')'
+                );
             }
             $index++;
         }
@@ -120,7 +134,8 @@ class Usctdp_Mgmt_Docgen
         $client = $this->create_google_client();
         $drive = new Drive($client);
 
-        $drive_id = $this->get_drive_id($entity_id);
+        $roster_link = $this->get_roster_link($entity_id);
+        $drive_id = $roster_link ? $roster_link->drive_id : null;
         $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
 
         ob_start();
@@ -140,6 +155,11 @@ class Usctdp_Mgmt_Docgen
                 'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 'uploadType' => 'multipart',
                 'fields' => 'id, webViewLink'
+            ]);
+
+            $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
+            $link_query->update_item($roster_link->id, [
+                'updated_at' => current_time('mysql')
             ]);
         } else {
             if (!empty($destinationFolderId)) {
@@ -161,7 +181,8 @@ class Usctdp_Mgmt_Docgen
             $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
             $link_query->add_item([
                 'entity_id' => $entity_id,
-                'drive_id' => $file->id
+                'drive_id' => $file->id,
+                'updated_at' => current_time('mysql')
             ]);
         }
         return $file;
@@ -255,7 +276,6 @@ class Usctdp_Mgmt_Docgen
             throw new ErrorException('Clinic not found');
         }
         $clinic_fields = $clinic_data['data'][0];
-        $registrations = $this->get_clinic_registrations($clinic_id);
         $session_name = $clinic_fields->session_name;
         $age_group = $clinic_fields->product_age_group;
 
@@ -283,6 +303,50 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("insts#$block_id", '');
         $templateProcessor->setValue("skipped_clinics#$block_id", '');
         $templateProcessor->setValue("session_short_code#$block_id", '');
+
+        $this->fill_roster_students($templateProcessor, $clinic_id, $block_id);
+    }
+
+    private function generate_tournament_roster_impl($templateProcessor, $tournament_id, $block_id)
+    {
+        $tournament_query = new Usctdp_Mgmt_Tournament_Query();
+        $tournament_data = $tournament_query->get_tournament_data([
+            'id' => $tournament_id,
+            'number' => 1
+        ]);
+        if (empty($tournament_data['data'])) {
+            throw new ErrorException('Tournament not found');
+        }
+        $tournament_fields = $tournament_data['data'][0];
+        $session_name = $tournament_fields->session_name;
+        $age_group = $tournament_fields->product_age_group;
+
+        $start_date_raw = $tournament_fields->tournament_start_date;
+        $start_date = $start_date_raw ? DateTime::createFromFormat('Y-m-d', $start_date_raw)->format('m/d/Y') : '';
+        $end_date_raw = $tournament_fields->tournament_start_date_addtl;
+        $end_date = $end_date_raw ? DateTime::createFromFormat('Y-m-d', $end_date_raw)->format('m/d/Y') : '';
+
+        $templateProcessor->setValue("session_title#$block_id", $session_name);
+        $templateProcessor->setValue("dow#$block_id", '');
+        $templateProcessor->setValue("stime#$block_id", '');
+        $templateProcessor->setValue("etime#$block_id", '');
+        $templateProcessor->setValue("clinic_level#$block_id", $tournament_fields->activity_level);
+        $templateProcessor->setValue("cap#$block_id", $tournament_fields->activity_capacity);
+        $templateProcessor->setValue("age_group#$block_id", $this->int_to_age_group($age_group));
+        $templateProcessor->setValue("sdate#$block_id", $start_date);
+        $templateProcessor->setValue("edate#$block_id", $end_date);
+
+        // TODO: Add instructors
+        $templateProcessor->setValue("insts#$block_id", '');
+        $templateProcessor->setValue("skipped_clinics#$block_id", '');
+        $templateProcessor->setValue("session_short_code#$block_id", '');
+
+        $this->fill_roster_students($templateProcessor, $tournament_id, $block_id);
+    }
+
+    private function fill_roster_students($templateProcessor, $activity_id, $block_id)
+    {
+        $registrations = $this->get_activity_registrations($activity_id);
 
         $student_table_data = [];
         $idx = 1;

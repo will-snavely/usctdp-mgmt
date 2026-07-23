@@ -29,6 +29,12 @@ class Usctdp_Mgmt_Roster_Link_Schema extends Schema
             'name' => 'drive_id',
             'type' => 'tinytext',
             'default' => ''
+        ],
+
+        'updated_at' => [
+            'name' => 'updated_at',
+            'type' => 'datetime',
+            'allow_null' => true
         ]
     ];
 }
