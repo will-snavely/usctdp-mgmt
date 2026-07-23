@@ -191,6 +191,15 @@ class Usctdp_Mgmt
             10,
             2,
         );
+        $this->loader->add_filter(
+            'woocommerce_product_tabs',
+            $commerce_handler,
+            'remove_additional_information_tab',
+            // WooCommerce adds the tab via woocommerce_default_product_tabs (priority
+            // 10) and sorts via woocommerce_sort_product_tabs (priority 99); run after
+            // both regardless of plugin load order, or the tab gets added back after us.
+            9999 ,
+        );
         $this->loader->add_action(
             'woocommerce_before_variations_form',
             $commerce_handler,

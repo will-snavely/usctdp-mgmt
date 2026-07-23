@@ -139,6 +139,22 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         return $sold_individually;
     }
 
+    /**
+     * Drop the "Additional information" tab from the single product page.
+     *
+     * Unsetting it here (rather than just removing the
+     * woocommerce_product_additional_information content action) is what
+     * actually removes the tab from the tab bar - WooCommerce still adds an
+     * (empty) tab whenever $product->has_attributes() is true, which it is
+     * for our variable clinic/tournament products (Session, Days Per Week
+     * variation attributes).
+     */
+    public function remove_additional_information_tab($tabs)
+    {
+        unset($tabs['additional_information']);
+        return $tabs;
+    }
+
     public function display_before_variations_table()
     {
         global $product;

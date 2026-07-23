@@ -424,17 +424,28 @@
                 success: function (response) {
                     if (response.success) {
                         newFamilyModal.close();
-                        alert("Family created successfully!");
-                        const familyId = response.data.family_id;
-                        const familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + familyId;
-                        window.location.href = familyUrl;
+                        Swal.fire({
+                            title: 'Success',
+                            text: 'Family created successfully!',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            const familyId = response.data.family_id;
+                            const familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + familyId;
+                            window.location.href = familyUrl;
+                        });
                     }
                 },
                 error: function (response) {
                     const responseMessage = response.responseJSON.data;
                     var userMessage = "Failed to create family.\n\n" + responseMessage;
                     userMessage += "\n\nTry again or inform a developer.";
-                    alert(userMessage);
+                    Swal.fire({
+                        title: 'Error',
+                        text: userMessage,
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
                 }
             });
         });
