@@ -38,5 +38,8 @@ class Usctdp_Mgmt_Activator
             "includes/model/class-usctdp-mgmt-model.php";
         $model = new Usctdp_Mgmt_Model();
         $model->install_berlindb_entities();
+
+        add_rewrite_endpoint('family', EP_ROOT | EP_PAGES);
+        flush_rewrite_rules();
     }
 }

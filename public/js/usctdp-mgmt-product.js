@@ -179,6 +179,31 @@
       populateStudentSelect($('#student_select'), initial_value);
     }
 
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    function populate_birthdate_selectors() {
+      const $month = $('#modal_birth_month');
+      monthNames.forEach(function (name, index) {
+        const value = String(index + 1).padStart(2, '0');
+        $month.append($('<option></option>').attr('value', value).text(name));
+      });
+
+      const $day = $('#modal_birth_day');
+      for (let day = 1; day <= 31; day++) {
+        const value = String(day).padStart(2, '0');
+        $day.append($('<option></option>').attr('value', value).text(day));
+      }
+
+      const $year = $('#modal_birth_year');
+      const currentYear = new Date().getFullYear();
+      for (let year = currentYear; year >= currentYear - 100; year--) {
+        $year.append($('<option></option>').attr('value', year).text(year));
+      }
+    }
+
     function highlightSelectedSession(session) {
       var $infoCards = $('.usctdp-session-info');
       $infoCards.removeClass('usctdp-session-selected');
@@ -316,6 +341,10 @@
       const studentForm = document.querySelector('#new-student-form');
       const formData = new FormData(studentForm);
       const studentData = Object.fromEntries(formData.entries());
+      const birthMonth = $('#modal_birth_month').val();
+      const birthDay = $('#modal_birth_day').val();
+      const birthYear = $('#modal_birth_year').val();
+      studentData.birthdate = `${birthYear}-${birthMonth}-${birthDay}`;
 
       try {
         const response = await fetch(siteData.root + 'usctdp-mgmt/v1/students/', {
@@ -395,6 +424,7 @@
       refreshAllDayStatuses();
     });
 
+    populate_birthdate_selectors();
     refreshStudentDropDown();
   });
 })(jQuery);

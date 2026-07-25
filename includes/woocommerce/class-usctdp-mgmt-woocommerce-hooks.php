@@ -7,8 +7,207 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     {
     }
 
+    /**
+     * Register the "family" endpoint (My Account > Family) so /my-account/family/
+     * resolves. Rewrite rules are cached, so a fresh install/deploy of this needs
+     * one rewrite flush (see Usctdp_Mgmt_Activator::activate()) before the URL works.
+     */
+    public function register_family_account_endpoint()
+    {
+        add_rewrite_endpoint('family', EP_ROOT | EP_PAGES);
+    }
+
+    public function family_endpoint_title($title, $endpoint)
+    {
+        if ($endpoint === 'family') {
+            return __('Family', 'usctdp-mgmt');
+        }
+        return $title;
+    }
+
+    /**
+     * Insert the Family tab right after Dashboard in the account nav.
+     * customer-logout is expected by WooCommerce to stay last, so this
+     * inserts rather than appends.
+     */
+    public function add_family_menu_item($items)
+    {
+        $keys = array_keys($items);
+        $dashboard_index = array_search('dashboard', $keys, true);
+        $insert_at = $dashboard_index === false ? 0 : $dashboard_index + 1;
+        $before = array_slice($items, 0, $insert_at, true);
+        $after = array_slice($items, $insert_at, null, true);
+        return $before + ['family' => __('Family', 'usctdp-mgmt')] + $after;
+    }
+
+    private function get_current_user_family()
+    {
+        $family_query = new Usctdp_Mgmt_Family_Query([
+            'user_id' => get_current_user_id(),
+            'number' => 1,
+        ]);
+        return $family_query->items[0] ?? null;
+    }
+
+    /**
+     * Renders My Account > Family: the account's students plus an add-student
+     * form. wc_get_template() here resolves to the theme's
+     * woocommerce/myaccount/family.blade.php via generoi/sage-woocommerce, the
+     * same mechanism the login/lost-password templates already use.
+     */
+    public function render_family_endpoint()
+    {
+        $family = $this->get_current_user_family();
+        $students = [];
+        if ($family) {
+            $student_query = new Usctdp_Mgmt_Student_Query([
+                'family_id' => $family->id,
+                'orderby' => 'first',
+                'order' => 'ASC',
+            ]);
+            $students = $student_query->items;
+        }
+        wc_get_template('myaccount/family.php', [
+            'family' => $family,
+            'students' => $students,
+        ]);
+    }
+
+    /**
+     * Handles the "Add a Student" form on My Account > Family. Mirrors
+     * WC_Form_Handler's own registration handler: validate, wc_add_notice()
+     * on failure, redirect-on-success (PRG) to avoid resubmission.
+     */
+    public function handle_add_student()
+    {
+        if (empty($_POST['usctdp_add_student']) || !is_user_logged_in()) {
+            return;
+        }
+
+        $nonce = isset($_POST['usctdp_add_student_nonce']) ? wp_unslash($_POST['usctdp_add_student_nonce']) : '';
+        if (!wp_verify_nonce($nonce, 'usctdp_add_student')) {
+            wc_add_notice(__('Security check failed. Please try again.', 'usctdp-mgmt'), 'error');
+            return;
+        }
+
+        $family = $this->get_current_user_family();
+        if (!$family) {
+            wc_add_notice(__('No family account was found for your login. Please contact the office.', 'usctdp-mgmt'), 'error');
+            return;
+        }
+
+        $first_name = isset($_POST['first_name']) ? sanitize_text_field(wp_unslash($_POST['first_name'])) : '';
+        $last_name = isset($_POST['last_name']) ? sanitize_text_field(wp_unslash($_POST['last_name'])) : '';
+        $birth_date = isset($_POST['birth_date']) ? sanitize_text_field(wp_unslash($_POST['birth_date'])) : '';
+
+        if (empty($first_name)) {
+            wc_add_notice(__('Please enter the student\'s first name.', 'usctdp-mgmt'), 'error');
+        }
+        if (empty($last_name)) {
+            wc_add_notice(__('Please enter the student\'s last name.', 'usctdp-mgmt'), 'error');
+        }
+        $parsed_birth_date = empty($birth_date) ? false : DateTime::createFromFormat('Y-m-d', $birth_date);
+        if (empty($birth_date) || !$parsed_birth_date || $parsed_birth_date->format('Y-m-d') !== $birth_date) {
+            wc_add_notice(__('Please enter a valid birth date.', 'usctdp-mgmt'), 'error');
+        }
+
+        if (wc_notice_count('error') > 0) {
+            return;
+        }
+
+        $student_query = new Usctdp_Mgmt_Student_Query();
+        $result = $student_query->create_student($first_name, $last_name, $family->id, $birth_date, '');
+        if (!$result) {
+            wc_add_notice(__('Something went wrong adding the student. Please try again.', 'usctdp-mgmt'), 'error');
+            return;
+        }
+
+        wc_add_notice(sprintf(
+            /* translators: %s: student's full name */
+            __('%s was added successfully.', 'usctdp-mgmt'),
+            $first_name . ' ' . $last_name
+        ));
+        wp_safe_redirect(wc_get_endpoint_url('family', '', wc_get_page_permalink('myaccount')));
+        exit;
+    }
+
+    /**
+     * Require first/last name on the My Account registration form (phone is
+     * optional). Runs before wc_create_new_customer(), so adding errors here
+     * blocks account creation the same way WooCommerce's own email/password
+     * checks do.
+     */
+    public function validate_registration_fields($validation_error, $username, $password, $email)
+    {
+        $first_name = isset($_POST['first_name']) ? sanitize_text_field(wp_unslash($_POST['first_name'])) : '';
+        $last_name = isset($_POST['last_name']) ? sanitize_text_field(wp_unslash($_POST['last_name'])) : '';
+
+        if (empty($first_name)) {
+            $validation_error->add('registration-error-missing-first-name', __('Please enter your first name.', 'usctdp-mgmt'));
+        }
+        if (empty($last_name)) {
+            $validation_error->add('registration-error-missing-last-name', __('Please enter your last name.', 'usctdp-mgmt'));
+        }
+
+        return $validation_error;
+    }
+
+    /**
+     * Carry the first/last name fields from the registration form into the
+     * new user's wp_insert_user() args, so the WP account itself (not just
+     * the usctdp_family row) has a proper name.
+     */
+    public function add_name_to_customer_data($customer_data)
+    {
+        if (!empty($_POST['first_name'])) {
+            $customer_data['first_name'] = sanitize_text_field(wp_unslash($_POST['first_name']));
+        }
+        if (!empty($_POST['last_name'])) {
+            $customer_data['last_name'] = sanitize_text_field(wp_unslash($_POST['last_name']));
+        }
+        return $customer_data;
+    }
+
+    /**
+     * Create the usctdp_family row for a newly self-registered customer.
+     * Every other family lookup in this plugin keys off usctdp_family.user_id
+     * (see create_purchase_and_ledger_entries(), Usctdp_Mgmt_Public::get_user_family()),
+     * so a customer account without one is unable to register students or check out.
+     */
+    public function create_family_on_registration($customer_id, $new_customer_data, $password_generated)
+    {
+        try {
+            $first_name = $new_customer_data['first_name'] ?? '';
+            $last_name = $new_customer_data['last_name'] ?? '';
+            $email = $new_customer_data['user_email'] ?? '';
+            $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
+
+            $title = trim($first_name . ' ' . $last_name);
+
+            $family_query = new Usctdp_Mgmt_Family_Query();
+            $family_query->add_item([
+                'user_id' => $customer_id,
+                'title' => $title,
+                'search_term' => Usctdp_Mgmt_Model::append_token_suffix($title),
+                'last' => $last_name,
+                'phone_numbers' => json_encode($phone ? [$phone] : []),
+                'emails' => json_encode($email ? [$email] : []),
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('create_family_on_registration', $e);
+        }
+    }
+
     public function display_before_single_product()
     {
+        if (!is_user_logged_in()) {
+            // Registration requires an account (to attach a student/family), so
+            // swap out WooCommerce's own variation add-to-cart button for a
+            // login prompt in the same slot. Must happen before
+            // woocommerce_single_variation fires later in this same request.
+            remove_action('woocommerce_single_variation', 'woocommerce_single_variation_add_to_cart_button', 20);
+            add_action('woocommerce_single_variation', [$this, 'render_login_to_purchase_button'], 20);
+        }
         ?>
         <dialog id="new-student-modal">
             <form id="new-student-form" method="dialog">
@@ -24,8 +223,18 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 </div>
 
                 <div class="student_field">
-                    <label for="modal_birthdate">Birthday</label>
-                    <input type="date" id="modal_birthdate" name="birthdate" required>
+                    <label for="modal_birth_month">Birthday</label>
+                    <div class="usctdp-birthdate-group">
+                        <select id="modal_birth_month" required>
+                            <option value="" disabled selected>Month</option>
+                        </select>
+                        <select id="modal_birth_day" required>
+                            <option value="" disabled selected>Day</option>
+                        </select>
+                        <select id="modal_birth_year" required>
+                            <option value="" disabled selected>Year</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="actions">
@@ -34,6 +243,22 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 </div>
             </form>
         </dialog>
+        <?php
+    }
+
+    /**
+     * Guest replacement for woocommerce_single_variation_add_to_cart_button().
+     * Rendered in the same wrapper/slot so existing JS that shows/hides
+     * .variations_button on variation selection still works.
+     */
+    public function render_login_to_purchase_button()
+    {
+        ?>
+        <div class="woocommerce-variation-add-to-cart variations_button usctdp-login-to-purchase">
+            <p>
+                <a href="<?php echo esc_url(wp_login_url(get_permalink())); ?>">Please log in</a> to register.
+            </p>
+        </div>
         <?php
     }
 
@@ -260,6 +485,10 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
     public function display_after_variations_table()
     {
+        if (!is_user_logged_in()) {
+            return;
+        }
+
         $current_user_id = get_current_user_id();
         if (current_user_can('register_student')) {
             $this->render_admin_shop_options();

@@ -259,6 +259,57 @@ class Usctdp_Mgmt
         $this->define_product_page_display_hooks($commerce_handler);
 
         $this->loader->add_filter(
+            'woocommerce_process_registration_errors',
+            $commerce_handler,
+            'validate_registration_fields',
+            10,
+            4
+        );
+        $this->loader->add_filter(
+            'woocommerce_new_customer_data',
+            $commerce_handler,
+            'add_name_to_customer_data',
+            10,
+            1
+        );
+        $this->loader->add_action(
+            'woocommerce_created_customer',
+            $commerce_handler,
+            'create_family_on_registration',
+            10,
+            3
+        );
+
+        $this->loader->add_action(
+            'init',
+            $commerce_handler,
+            'register_family_account_endpoint'
+        );
+        $this->loader->add_filter(
+            'woocommerce_account_menu_items',
+            $commerce_handler,
+            'add_family_menu_item'
+        );
+        $this->loader->add_filter(
+            'woocommerce_endpoint_family_title',
+            $commerce_handler,
+            'family_endpoint_title',
+            10,
+            2
+        );
+        $this->loader->add_action(
+            'woocommerce_account_family_endpoint',
+            $commerce_handler,
+            'render_family_endpoint'
+        );
+        $this->loader->add_action(
+            'wp_loaded',
+            $commerce_handler,
+            'handle_add_student',
+            20
+        );
+
+        $this->loader->add_filter(
             'woocommerce_add_cart_item_data',
             $commerce_handler,
             'add_cart_item_data',

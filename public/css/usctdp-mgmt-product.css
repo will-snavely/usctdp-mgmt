@@ -215,6 +215,23 @@ dialog#new-student-modal .student_field input {
     width: 100%;
 }
 
+dialog#new-student-modal .usctdp-birthdate-group {
+    grid-area: sel;
+    display: flex;
+    gap: 8px;
+}
+
+dialog#new-student-modal .usctdp-birthdate-group select {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
 .force-hidden {
     display: none !important;
 }
