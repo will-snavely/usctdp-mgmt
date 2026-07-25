@@ -723,7 +723,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     500
                 );
             }
-            $family_query = new Usctdp_Mgmt_Family_Query();
+            $family_query = new Usctdp_Mgmt_Family_Query(); 
             if (!$family_query->update_item($family_id, ['user_id' => $user_id])) {
                 wp_delete_user($user_id);
                 throw new Web_Request_Exception('Failed to link user account to family.', 500);

@@ -108,6 +108,9 @@ class Usctdp_Mgmt
             "includes/woocommerce/class-usctdp-mgmt-woocommerce-hooks.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/woocommerce/class-usctdp-mgmt-import-confirm-hooks.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/woocommerce/class-usctdp-mgmt-woocommerce.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -318,6 +321,14 @@ class Usctdp_Mgmt
             'wp_loaded',
             $commerce_handler,
             'handle_add_student',
+            20
+        );
+
+        $import_confirm_handler = new Usctdp_Mgmt_Import_Confirm_Hooks();
+        $this->loader->add_action(
+            'wp_loaded',
+            $import_confirm_handler,
+            'handle_confirm_submission',
             20
         );
 

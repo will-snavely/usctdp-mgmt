@@ -179,21 +179,25 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     }
 
     /**
-     * Require first/last name on the My Account registration form (phone is
-     * optional). Runs before wc_create_new_customer(), so adding errors here
-     * blocks account creation the same way WooCommerce's own email/password
-     * checks do.
+     * Require first/last name and phone on the My Account registration form.
+     * Runs before wc_create_new_customer(), so adding errors here blocks
+     * account creation the same way WooCommerce's own email/password checks
+     * do.
      */
     public function validate_registration_fields($validation_error, $username, $password, $email)
     {
         $first_name = isset($_POST['first_name']) ? sanitize_text_field(wp_unslash($_POST['first_name'])) : '';
         $last_name = isset($_POST['last_name']) ? sanitize_text_field(wp_unslash($_POST['last_name'])) : '';
+        $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
 
         if (empty($first_name)) {
             $validation_error->add('registration-error-missing-first-name', __('Please enter your first name.', 'usctdp-mgmt'));
         }
         if (empty($last_name)) {
             $validation_error->add('registration-error-missing-last-name', __('Please enter your last name.', 'usctdp-mgmt'));
+        }
+        if (empty($phone)) {
+            $validation_error->add('registration-error-missing-phone', __('Please enter your phone number.', 'usctdp-mgmt'));
         }
 
         return $validation_error;
@@ -224,12 +228,12 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function create_family_on_registration($customer_id, $new_customer_data, $password_generated)
     {
         try {
-            $first_name = $new_customer_data['first_name'] ?? '';
             $last_name = $new_customer_data['last_name'] ?? '';
             $email = $new_customer_data['user_email'] ?? '';
             $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
+            $last_four = substr(trim($phone), -4);
 
-            $title = trim($first_name . ' ' . $last_name);
+            $title = trim($last_name . ' ' . $last_four);
 
             $family_query = new Usctdp_Mgmt_Family_Query();
             $family_query->add_item([

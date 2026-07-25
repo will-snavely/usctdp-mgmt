@@ -30,6 +30,12 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-import-family-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-stage-legacy-families.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-send-legacy-import-invites.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-import-staff-data.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -92,6 +98,73 @@ class Usctdp_Cli_Command
         }
         $generator = new Usctdp_Import_Family_Data();
         $generator->import($file_path, $mock);
+    }
+
+    /**
+     * Stage legacy family/student data (same JSON shape as `import_families`)
+     * into usctdp_import_pending for the opt-in import flow, instead of
+     * writing directly into usctdp_family/usctdp_student. Matches against
+     * existing accounts by email so returning customers get linked to their
+     * current account rather than a duplicate placeholder.
+     *
+     * ## OPTIONS
+     *
+     * <file>
+     * : Path to the legacy families JSON file.
+     *
+     * [--dry-run]
+     * : Log what would happen without creating accounts or staging rows.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp stage_legacy_families data/legacy_families.json --dry-run
+     *     wp usctdp stage_legacy_families data/legacy_families.json
+     */
+    public function stage_legacy_families($args, $assoc_args)
+    {
+        $file_path = '';
+        if ($args && count($args) > 0) {
+            $file_path = $args[0];
+        } else {
+            WP_CLI::error('File path not provided');
+            return;
+        }
+        $dry_run = \WP_CLI\Utils\get_flag_value($assoc_args, 'dry-run', false);
+        $stager = new Usctdp_Stage_Legacy_Families();
+        $stager->stage($file_path, $dry_run);
+    }
+
+    /**
+     * Emails everyone staged by `stage_legacy_families` (and not yet
+     * invited or confirmed) a link to review and confirm their data.
+     *
+     * ## OPTIONS
+     *
+     * [--dry-run]
+     * : Log who would be emailed without sending anything or generating keys.
+     *
+     * [--resend]
+     * : Also re-email families that were already invited (but haven't
+     * confirmed yet) - e.g. after their first link expired.
+     *
+     * [--limit=<number>]
+     * : Only send to this many families. Useful for a small test batch
+     * before emailing everyone.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp send_legacy_import_invites --dry-run
+     *     wp usctdp send_legacy_import_invites --limit=5
+     *     wp usctdp send_legacy_import_invites
+     *     wp usctdp send_legacy_import_invites --resend
+     */
+    public function send_legacy_import_invites($args, $assoc_args)
+    {
+        $dry_run = \WP_CLI\Utils\get_flag_value($assoc_args, 'dry-run', false);
+        $resend = \WP_CLI\Utils\get_flag_value($assoc_args, 'resend', false);
+        $limit = \WP_CLI\Utils\get_flag_value($assoc_args, 'limit', null);
+        $sender = new Usctdp_Send_Legacy_Import_Invites();
+        $sender->send($dry_run, $resend, $limit !== null ? intval($limit) : null);
     }
 
     public function import_products($args, $assoc_args)
