@@ -158,6 +158,9 @@ class Usctdp_Mgmt_Admin_Ajax
 
     private function check_nonce($handler)
     {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('You do not have permission to perform this action.', 403);
+        }
         if (!check_ajax_referer($handler . '_nonce', 'security', false)) {
             wp_send_json_error('Security check failed. Invalid Nonce.', 400);
         }
