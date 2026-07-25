@@ -180,8 +180,8 @@
     }
 
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
 
     function populate_birthdate_selectors() {
@@ -195,12 +195,6 @@
       for (let day = 1; day <= 31; day++) {
         const value = String(day).padStart(2, '0');
         $day.append($('<option></option>').attr('value', value).text(day));
-      }
-
-      const $year = $('#modal_birth_year');
-      const currentYear = new Date().getFullYear();
-      for (let year = currentYear; year >= currentYear - 100; year--) {
-        $year.append($('<option></option>').attr('value', year).text(year));
       }
     }
 

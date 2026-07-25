@@ -221,16 +221,18 @@ dialog#new-student-modal .usctdp-birthdate-group {
     gap: 8px;
 }
 
-dialog#new-student-modal .usctdp-birthdate-group select {
+dialog#new-student-modal .usctdp-birthdate-group select,
+dialog#new-student-modal .usctdp-birthdate-group input {
     flex: 1;
     min-width: 0;
-    padding: 10px 8px;
+    padding: 10px 4px;
     border: 1px solid #ccc;
     border-radius: 6px;
     font-size: 1rem;
     outline: none;
     transition: border-color 0.2s;
 }
+
 
 .force-hidden {
     display: none !important;

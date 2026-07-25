@@ -8,36 +8,52 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     }
 
     /**
-     * Register the "family" endpoint (My Account > Family) so /my-account/family/
-     * resolves. Rewrite rules are cached, so a fresh install/deploy of this needs
-     * one rewrite flush (see Usctdp_Mgmt_Activator::activate()) before the URL works.
+     * Register the "family" and "registrations" endpoints (My Account > My Family,
+     * My Account > My Registrations) so /my-account/family/ and
+     * /my-account/registrations/ resolve. Rewrite rules are cached, so a fresh
+     * install/deploy of this needs one rewrite flush (see
+     * Usctdp_Mgmt_Activator::activate()) before the URLs work.
      */
     public function register_family_account_endpoint()
     {
         add_rewrite_endpoint('family', EP_ROOT | EP_PAGES);
+        add_rewrite_endpoint('registrations', EP_ROOT | EP_PAGES);
     }
 
     public function family_endpoint_title($title, $endpoint)
     {
         if ($endpoint === 'family') {
-            return __('Family', 'usctdp-mgmt');
+            return __('My Family', 'usctdp-mgmt');
+        }
+        if ($endpoint === 'registrations') {
+            return __('My Registrations', 'usctdp-mgmt');
         }
         return $title;
     }
 
     /**
-     * Insert the Family tab right after Dashboard in the account nav.
+     * Insert a new tab into the account nav right after $after_key.
      * customer-logout is expected by WooCommerce to stay last, so this
-     * inserts rather than appends.
+     * inserts rather than appends; if $after_key isn't found, the new tab
+     * goes just before whatever's last (customer-logout) rather than first.
      */
-    public function add_family_menu_item($items)
+    private function insert_menu_item($items, $after_key, $new_key, $label)
     {
         $keys = array_keys($items);
-        $dashboard_index = array_search('dashboard', $keys, true);
-        $insert_at = $dashboard_index === false ? 0 : $dashboard_index + 1;
+        $index = array_search($after_key, $keys, true);
+        $insert_at = $index === false ? max(count($items) - 1, 0) : $index + 1;
         $before = array_slice($items, 0, $insert_at, true);
         $after = array_slice($items, $insert_at, null, true);
-        return $before + ['family' => __('Family', 'usctdp-mgmt')] + $after;
+        return $before + [$new_key => $label] + $after;
+    }
+
+    /**
+     * Insert the My Family and My Registrations tabs right after Dashboard.
+     */
+    public function add_account_menu_items($items)
+    {
+        $items = $this->insert_menu_item($items, 'dashboard', 'family', __('My Family', 'usctdp-mgmt'));
+        return $this->insert_menu_item($items, 'family', 'registrations', __('My Registrations', 'usctdp-mgmt'));
     }
 
     private function get_current_user_family()
@@ -74,6 +90,27 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     }
 
     /**
+     * Renders My Account > Registrations: every activity registration across
+     * the account's students. get_registration_data() already does the
+     * student/activity/session join for the admin registrations datatable,
+     * so this just reuses it scoped to the current family.
+     */
+    public function render_registrations_endpoint()
+    {
+        $family = $this->get_current_user_family();
+        $registrations = [];
+        if ($family) {
+            $registration_query = new Usctdp_Mgmt_Registration_Query();
+            $result = $registration_query->get_registration_data(['family_id' => $family->id]);
+            $registrations = $result['data'];
+        }
+        wc_get_template('myaccount/registrations.php', [
+            'family' => $family,
+            'registrations' => $registrations,
+        ]);
+    }
+
+    /**
      * Handles the "Add a Student" form on My Account > Family. Mirrors
      * WC_Form_Handler's own registration handler: validate, wc_add_notice()
      * on failure, redirect-on-success (PRG) to avoid resubmission.
@@ -98,7 +135,12 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
         $first_name = isset($_POST['first_name']) ? sanitize_text_field(wp_unslash($_POST['first_name'])) : '';
         $last_name = isset($_POST['last_name']) ? sanitize_text_field(wp_unslash($_POST['last_name'])) : '';
-        $birth_date = isset($_POST['birth_date']) ? sanitize_text_field(wp_unslash($_POST['birth_date'])) : '';
+        $birth_month = isset($_POST['birth_month']) ? sanitize_text_field(wp_unslash($_POST['birth_month'])) : '';
+        $birth_day = isset($_POST['birth_day']) ? sanitize_text_field(wp_unslash($_POST['birth_day'])) : '';
+        $birth_year = isset($_POST['birth_year']) ? sanitize_text_field(wp_unslash($_POST['birth_year'])) : '';
+        $birth_date = $birth_year && $birth_month && $birth_day
+            ? "$birth_year-$birth_month-$birth_day"
+            : '';
 
         if (empty($first_name)) {
             wc_add_notice(__('Please enter the student\'s first name.', 'usctdp-mgmt'), 'error');
@@ -106,8 +148,13 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         if (empty($last_name)) {
             wc_add_notice(__('Please enter the student\'s last name.', 'usctdp-mgmt'), 'error');
         }
+        $current_year = (int) date('Y');
         $parsed_birth_date = empty($birth_date) ? false : DateTime::createFromFormat('Y-m-d', $birth_date);
-        if (empty($birth_date) || !$parsed_birth_date || $parsed_birth_date->format('Y-m-d') !== $birth_date) {
+        $year_in_range = ctype_digit($birth_year) && $birth_year >= $current_year - 100 && $birth_year <= $current_year;
+        if (
+            empty($birth_date) || !$parsed_birth_date || $parsed_birth_date->format('Y-m-d') !== $birth_date
+            || !$year_in_range
+        ) {
             wc_add_notice(__('Please enter a valid birth date.', 'usctdp-mgmt'), 'error');
         }
 
@@ -231,9 +278,9 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         <select id="modal_birth_day" required>
                             <option value="" disabled selected>Day</option>
                         </select>
-                        <select id="modal_birth_year" required>
-                            <option value="" disabled selected>Year</option>
-                        </select>
+                        <input type="number" id="modal_birth_year" inputmode="numeric" placeholder="Year"
+                            min="<?php echo esc_attr(gmdate('Y') - 100); ?>" max="<?php echo esc_attr(gmdate('Y')); ?>"
+                            required>
                     </div>
                 </div>
 
@@ -389,9 +436,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
         $session_map = get_post_meta($product->get_id(), '_session_post_ids', true);
         if (empty($session_map) || !is_array($session_map)) {
-
             return;
-
         }
 
         $session_query = new Usctdp_Mgmt_Session_Query([

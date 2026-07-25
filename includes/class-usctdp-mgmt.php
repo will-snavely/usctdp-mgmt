@@ -288,10 +288,17 @@ class Usctdp_Mgmt
         $this->loader->add_filter(
             'woocommerce_account_menu_items',
             $commerce_handler,
-            'add_family_menu_item'
+            'add_account_menu_items'
         );
         $this->loader->add_filter(
             'woocommerce_endpoint_family_title',
+            $commerce_handler,
+            'family_endpoint_title',
+            10,
+            2
+        );
+        $this->loader->add_filter(
+            'woocommerce_endpoint_registrations_title',
             $commerce_handler,
             'family_endpoint_title',
             10,
@@ -301,6 +308,11 @@ class Usctdp_Mgmt
             'woocommerce_account_family_endpoint',
             $commerce_handler,
             'render_family_endpoint'
+        );
+        $this->loader->add_action(
+            'woocommerce_account_registrations_endpoint',
+            $commerce_handler,
+            'render_registrations_endpoint'
         );
         $this->loader->add_action(
             'wp_loaded',

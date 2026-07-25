@@ -40,6 +40,7 @@ class Usctdp_Mgmt_Activator
         $model->install_berlindb_entities();
 
         add_rewrite_endpoint('family', EP_ROOT | EP_PAGES);
+        add_rewrite_endpoint('registrations', EP_ROOT | EP_PAGES);
         flush_rewrite_rules();
     }
 }
