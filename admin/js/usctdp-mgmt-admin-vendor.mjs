@@ -1,3 +1,5 @@
+import '../css/usctdp-mgmt-admin-vendor.css';
+
 import 'select2';
 import DataTable from 'datatables.net-dt';
 import Swal from 'sweetalert2';

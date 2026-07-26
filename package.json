@@ -4,16 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "npx mix",
-    "watch": "npx mix watch",
-    "prod": "npx mix --production"
+    "dev": "npm run prod",
+    "watch": "vite build --watch",
+    "prod": "vite build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "laravel-mix": "^6.0.49"
+    "vite": "^6.2.0"
   },
   "dependencies": {
     "@tanstack/query-core": "^5.90.20",

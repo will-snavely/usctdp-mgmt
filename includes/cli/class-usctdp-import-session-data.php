@@ -6,7 +6,6 @@ class Usctdp_Import_Session_Data
     private $sessions_by_category;
     private $sessions_by_name;
     private $active_session_ids;
-
     public function __construct()
     {
         $this->session_data = [];
@@ -46,6 +45,8 @@ class Usctdp_Import_Session_Data
             'junior: advanced' => 2,
             'adult' => 3,
             'cardio tennis' => 4,
+            'junior tournaments' => 5,
+            'adult tournaments' => 6,
         ];
         $normalized_cat = strtolower(trim($cat));
         return $cats[$normalized_cat] ?? false;
@@ -295,7 +296,7 @@ class Usctdp_Import_Session_Data
             $sorting[$clinic_id][1] += 1;
             $primary_sort_order = $sorting[$clinic_id][0];
             $secondary_sort_order = $sorting[$clinic_id][1];
-            
+
             $dow = $class['day'];
             $start_time = new DateTime($class['start_time']);
             $end_time = new DateTime($class['end_time']);
