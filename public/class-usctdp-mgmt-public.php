@@ -171,7 +171,6 @@ class Usctdp_Mgmt_Public
     {
         global $wpdb;
         $current_user_id = get_current_user_id();
-        error_log("Current user ID: " . $current_user_id);
         $family_query = new Usctdp_Mgmt_Family_Query([
             "user_id" => $current_user_id,
             "number" => 1
@@ -282,8 +281,6 @@ class Usctdp_Mgmt_Public
         );
         if (!$result) {
             error_log("Failed to create student.");
-            error_log('REST API reached: ' . $request->get_route());
-            error_log(print_r($request->get_params(), true));
             return new WP_Error("create_student_failed", "Failed to create student", [
                 'status' => 400
             ]);
@@ -349,8 +346,6 @@ class Usctdp_Mgmt_Public
         ]);
         if (!$result) {
             error_log("Failed to create waitlist entry.");
-            error_log('REST API reached: ' . $request->get_route());
-            error_log(print_r($request->get_params(), true));
             return new WP_Error("create_waitlist_failed", "Failed to add student to waitlist", [
                 'status' => 400
             ]);

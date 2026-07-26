@@ -11,6 +11,10 @@ class Usctdp_Mgmt_Admin_Google
             return;
         }
 
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
         if (isset($_GET['usctdp_google_auth']) && $_GET['usctdp_google_auth'] === '1') {
             Usctdp_Mgmt::logger()->log_info('Google OAuth Initiated');
             $scopes = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/documents'];
