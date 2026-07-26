@@ -4,9 +4,17 @@
  * Loads legacy family data (the same JSON shape Usctdp_Import_Family_Data
  * consumes) into usctdp_import_pending instead of writing directly to
  * usctdp_family/usctdp_student. Nothing here is visible to the rest of the
- * plugin until a customer clicks their opt-in email and confirms it (a
- * later step) - this command only prepares that data and, where needed, a
- * placeholder account for the confirmation link to attach to.
+ * plugin until a customer confirms it (a later step) - this command only
+ * prepares that data.
+ *
+ * No WP account is created here, even for families with no existing login -
+ * only families that already have one (found by email) get linked to it
+ * (matched_existing_user = true); everyone else stays account-less
+ * (user_id = 0) until they either click the confirm-import email (which
+ * creates the account then) or just register normally on the site, which a
+ * separate hook detects and reconciles against this row. Creating a
+ * placeholder account here instead would make WooCommerce's own "email
+ * already registered" check block that normal registration outright.
  */
 class Usctdp_Stage_Legacy_Families
 {
@@ -94,32 +102,12 @@ class Usctdp_Stage_Legacy_Families
                 'Would stage family "%s" (%s) - %s',
                 $external_id,
                 $email,
-                $matched_existing_user ? 'matches existing account #' . $existing_user->ID : 'new placeholder account'
+                $matched_existing_user ? 'matches existing account #' . $existing_user->ID : 'no account yet'
             ));
             return $matched_existing_user ? 'staged_matched' : 'staged_new';
         }
 
-        if ($existing_user) {
-            $user_id = $existing_user->ID;
-        } else {
-            $user_id = wp_insert_user([
-                'user_login' => $this->generate_user_login($external_id, $last_name),
-                'user_pass' => bin2hex(random_bytes(32)),
-                'user_email' => $email,
-                'first_name' => 'Family',
-                'last_name' => $last_name,
-                'display_name' => $external_id,
-                'role' => 'subscriber',
-            ]);
-            if (is_wp_error($user_id)) {
-                WP_CLI::warning(sprintf(
-                    'Skipping family "%s": failed to create placeholder account (%s).',
-                    $external_id,
-                    $user_id->get_error_message()
-                ));
-                return 'skipped';
-            }
-        }
+        $user_id = $existing_user ? $existing_user->ID : 0;
 
         $emails = array_values(array_filter([$family['email1'] ?? '', $family['email2'] ?? '']));
         $phone_numbers = is_array($family['phone'] ?? null) ? $family['phone'] : [];
@@ -168,17 +156,5 @@ class Usctdp_Stage_Legacy_Families
             ];
         }
         return $students;
-    }
-
-    private function generate_user_login($external_id, $last_name)
-    {
-        $base = sanitize_user(str_replace(' ', '', strtolower($external_id ?: $last_name)), true);
-        $login = $base;
-        $suffix = 1;
-        while (username_exists($login)) {
-            $suffix++;
-            $login = $base . $suffix;
-        }
-        return $login;
     }
 }

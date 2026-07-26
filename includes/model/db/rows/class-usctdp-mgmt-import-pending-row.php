@@ -49,5 +49,15 @@ class Usctdp_Mgmt_Import_Pending_Row extends Row
         $this->students = $student_result;
 
         $this->notes = (string) $this->notes;
+
+        // MySQL's zero-date sentinel ('0000-00-00 00:00:00') can still show
+        // up here even with nullable columns (e.g. a raw query that inserts
+        // '' instead of omitting the key) - normalize to '' so every
+        // empty($row->x) check elsewhere means what it looks like it means.
+        foreach (['invited_at', 'confirmed_at', 'confirm_token_expires_at'] as $date_field) {
+            if ($this->$date_field === '0000-00-00 00:00:00') {
+                $this->$date_field = '';
+            }
+        }
     }
 }

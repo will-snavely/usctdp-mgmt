@@ -2,37 +2,78 @@
 
 /**
  * Handles the "confirm your legacy family data" flow: a customer clicks the
- * emailed link (?usctdp_login=...&usctdp_key=...), reviews/edits the data
- * staged in usctdp_import_pending by `wp usctdp stage_legacy_families`, and
- * on submit that data is written into the real usctdp_family/usctdp_student
- * tables for the first time - nothing before this point is visible anywhere
- * else in the plugin.
+ * emailed link (?usctdp_import=<pending id>&usctdp_key=...), reviews/edits
+ * the data staged in usctdp_import_pending by
+ * `wp usctdp stage_legacy_families`, and on submit that data is written into
+ * the real usctdp_family/usctdp_student tables for the first time - nothing
+ * before this point is visible anywhere else in the plugin.
  *
- * The emailed key is always a real WP password-reset key
- * (get_password_reset_key()/check_password_reset_key()) - clicking it proves
- * mail ownership regardless of whether the account is a brand new
- * placeholder or one that already existed, which matters because a lapsed
- * customer opting back in may not remember their old password either. The
- * only thing matched_existing_user changes is whether the form asks them to
- * set a new password: for a pre-existing account we don't want to overwrite
- * a password they didn't ask to change, so that account keeps whatever
- * password it already had.
+ * Two kinds of key, matching the two kinds of staged row:
+ * - matched_existing_user rows already have a real WP account (found by
+ *   email at staging time), so this reuses WordPress's own password-reset
+ *   key (get_password_reset_key()/check_password_reset_key()). Only the
+ *   review form is shown - their existing password is left untouched.
+ * - Everyone else has no account at all yet - staging deliberately doesn't
+ *   create one, so a legacy customer who registers normally before ever
+ *   seeing this email doesn't hit a false "email already registered" error
+ *   (see create_family_on_registration() for that reconciliation path).
+ *   For these, the emailed key is a token this class generates itself
+ *   (Usctdp_Send_Legacy_Import_Invites), and the account is created here,
+ *   for the first time, only once the form is submitted with a password.
  */
 class Usctdp_Mgmt_Import_Confirm_Hooks
 {
     const NONCE_ACTION = 'usctdp_confirm_import';
 
-    private function get_pending_for_login($login)
+    private function get_pending_by_id($pending_id)
     {
-        $user = get_user_by('login', $login);
-        if (!$user) {
+        if (empty($pending_id)) {
             return null;
         }
         $query = new Usctdp_Mgmt_Import_Pending_Query([
-            'user_id' => $user->ID,
+            'id' => $pending_id,
             'number' => 1,
         ]);
         return $query->items[0] ?? null;
+    }
+
+    private function verify_token($pending, $key)
+    {
+        if (empty($pending->confirm_token_hash) || empty($pending->confirm_token_expires_at)) {
+            return false;
+        }
+        if (strtotime($pending->confirm_token_expires_at) < current_time('timestamp')) {
+            return false;
+        }
+        return hash_equals($pending->confirm_token_hash, hash('sha256', $key));
+    }
+
+    /**
+     * Validates a pending-row-id + key pair. Returns ['pending' => row,
+     * 'user' => WP_User|null] on success - 'user' is null when the account
+     * doesn't exist yet, which handle_confirm_submission() creates only
+     * after every other validation has passed. Returns null on any failure
+     * (unknown row, already confirmed, bad/expired key).
+     */
+    private function validate_confirm_request($pending_id, $key)
+    {
+        $pending = $this->get_pending_by_id($pending_id);
+        if (!$pending || $pending->confirmed_at || empty($key)) {
+            return null;
+        }
+
+        if ($pending->matched_existing_user) {
+            $user = get_userdata($pending->user_id);
+            if (!$user || is_wp_error(check_password_reset_key($key, $user->user_login))) {
+                return null;
+            }
+            return ['pending' => $pending, 'user' => $user];
+        }
+
+        if (!$this->verify_token($pending, $key)) {
+            return null;
+        }
+        return ['pending' => $pending, 'user' => null];
     }
 
     /**
@@ -42,33 +83,43 @@ class Usctdp_Mgmt_Import_Confirm_Hooks
      */
     public function get_confirm_context()
     {
-        $login = isset($_REQUEST['usctdp_login']) ? sanitize_user(wp_unslash($_REQUEST['usctdp_login'])) : '';
+        $pending_id = isset($_REQUEST['usctdp_import']) ? intval($_REQUEST['usctdp_import']) : 0;
         $key = isset($_REQUEST['usctdp_key']) ? sanitize_text_field(wp_unslash($_REQUEST['usctdp_key'])) : '';
 
-        if (empty($login) || empty($key)) {
-            return ['state' => 'invalid'];
-        }
-
-        $pending = $this->get_pending_for_login($login);
-        if (!$pending) {
-            return ['state' => 'invalid'];
-        }
-        if ($pending->confirmed_at) {
+        $pending_row = $this->get_pending_by_id($pending_id);
+        if ($pending_row && $pending_row->confirmed_at) {
             return ['state' => 'already_confirmed'];
         }
 
-        $user = check_password_reset_key($key, $login);
-        if (is_wp_error($user)) {
+        $result = $this->validate_confirm_request($pending_id, $key);
+        if (!$result) {
             return ['state' => 'invalid'];
         }
 
         return [
             'state' => 'form',
-            'requires_password' => !$pending->matched_existing_user,
-            'pending' => $pending,
-            'login' => $login,
+            'requires_password' => !$result['pending']->matched_existing_user,
+            'pending' => $result['pending'],
+            'pending_id' => $pending_id,
             'key' => $key,
         ];
+    }
+
+    /**
+     * Builds a unique username for a brand-new account from the staged
+     * external id (falling back to last name), the same way
+     * Usctdp_Import_Family_Data does for the bulk CLI importer.
+     */
+    private function generate_user_login($pending)
+    {
+        $base = sanitize_user(str_replace(' ', '', strtolower($pending->external_id ?: $pending->last)), true);
+        $login = $base;
+        $suffix = 1;
+        while (username_exists($login)) {
+            $suffix++;
+            $login = $base . $suffix;
+        }
+        return $login;
     }
 
     /**
@@ -89,20 +140,16 @@ class Usctdp_Mgmt_Import_Confirm_Hooks
             return;
         }
 
-        $login = isset($_POST['usctdp_login']) ? sanitize_user(wp_unslash($_POST['usctdp_login'])) : '';
+        $pending_id = isset($_POST['usctdp_import']) ? intval($_POST['usctdp_import']) : 0;
         $key = isset($_POST['usctdp_key']) ? sanitize_text_field(wp_unslash($_POST['usctdp_key'])) : '';
 
-        $pending = $this->get_pending_for_login($login);
-        if (!$pending || $pending->confirmed_at) {
-            wc_add_notice(__('This import link is no longer valid.', 'usctdp-mgmt'), 'error');
+        $result = $this->validate_confirm_request($pending_id, $key);
+        if (!$result) {
+            wc_add_notice(__('This import link is invalid, expired, or has already been used. Please contact the office for a new one.', 'usctdp-mgmt'), 'error');
             return;
         }
-
-        $user = check_password_reset_key($key, $login);
-        if (is_wp_error($user)) {
-            wc_add_notice(__('This import link is invalid or has expired. Please contact the office for a new one.', 'usctdp-mgmt'), 'error');
-            return;
-        }
+        $pending = $result['pending'];
+        $user = $result['user'];
 
         $last_name = isset($_POST['last_name']) ? sanitize_text_field(wp_unslash($_POST['last_name'])) : '';
         $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
@@ -119,7 +166,7 @@ class Usctdp_Mgmt_Import_Confirm_Hooks
         if (empty($phone)) {
             wc_add_notice(__('Please enter a phone number.', 'usctdp-mgmt'), 'error');
         }
-        if (!$pending->matched_existing_user && strlen($new_password) < 8) {
+        if (!$user && strlen($new_password) < 8) {
             wc_add_notice(__('Please choose a password with at least 8 characters.', 'usctdp-mgmt'), 'error');
         }
 
@@ -141,6 +188,22 @@ class Usctdp_Mgmt_Import_Confirm_Hooks
         }
 
         try {
+            if (!$user) {
+                $user_id = wp_insert_user([
+                    'user_login' => $this->generate_user_login($pending),
+                    'user_pass' => $new_password,
+                    'user_email' => $email ?: ($pending->emails[0] ?? ''),
+                    'first_name' => 'Family',
+                    'last_name' => $last_name,
+                    'display_name' => trim($last_name . ' ' . substr(trim($phone), -4)),
+                    'role' => 'subscriber',
+                ]);
+                if (is_wp_error($user_id)) {
+                    throw new Exception('Failed to create account: ' . $user_id->get_error_message());
+                }
+                $user = get_userdata($user_id);
+            }
+
             $last_four = substr(trim($phone), -4);
             $title = trim($last_name . ' ' . $last_four);
 
@@ -167,9 +230,6 @@ class Usctdp_Mgmt_Import_Confirm_Hooks
                 $student_query->create_student($student['first'], $student['last'], $family_id, $student['birth_date'], '');
             }
 
-            if (!$pending->matched_existing_user) {
-                wp_set_password($new_password, $user->ID);
-            }
             wc_set_customer_auth_cookie($user->ID);
 
             $pending_query = new Usctdp_Mgmt_Import_Pending_Query();

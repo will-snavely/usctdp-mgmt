@@ -225,6 +225,33 @@ class Usctdp_Mgmt_Woocommerce_Hooks
      * (see create_purchase_and_ledger_entries(), Usctdp_Mgmt_Public::get_user_family()),
      * so a customer account without one is unable to register students or check out.
      */
+    /**
+     * A legacy import can be staged (Usctdp_Stage_Legacy_Families) for a
+     * family with no WP account yet - that's deliberate, so a self-
+     * registration before the invite email ever gets read doesn't hit
+     * WooCommerce's "email already registered" error. This is the other
+     * half of that: if the email just registered matches an unconfirmed,
+     * not-yet-matched staged row, pull its historical students/address/notes
+     * into the new account instead of leaving that data to rot unclaimed in
+     * usctdp_import_pending.
+     */
+    private function find_matching_pending_import($email)
+    {
+        if (empty($email)) {
+            return null;
+        }
+        $pending_query = new Usctdp_Mgmt_Import_Pending_Query(['number' => false]);
+        foreach ($pending_query->items as $pending) {
+            if (!empty($pending->confirmed_at) || $pending->matched_existing_user) {
+                continue;
+            }
+            if (in_array($email, $pending->emails, true)) {
+                return $pending;
+            }
+        }
+        return null;
+    }
+
     public function create_family_on_registration($customer_id, $new_customer_data, $password_generated)
     {
         try {
@@ -235,15 +262,34 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
             $title = trim($last_name . ' ' . $last_four);
 
+            // The registration form only collects name/email/phone, so
+            // address/city/state/zip/notes (when a staged match exists) can
+            // only come from the legacy data - nothing here overwrites what
+            // the customer just typed.
+            $pending = $this->find_matching_pending_import($email);
+
             $family_query = new Usctdp_Mgmt_Family_Query();
-            $family_query->add_item([
+            $family_id = $family_query->add_item([
                 'user_id' => $customer_id,
                 'title' => $title,
                 'search_term' => Usctdp_Mgmt_Model::append_token_suffix($title),
                 'last' => $last_name,
+                'address' => $pending ? $pending->address : '',
+                'city' => $pending ? $pending->city : '',
+                'state' => $pending ? $pending->state : '',
+                'zip' => $pending ? $pending->zip : '',
                 'phone_numbers' => json_encode($phone ? [$phone] : []),
                 'emails' => json_encode($email ? [$email] : []),
+                'notes' => $pending ? $pending->notes : '',
             ]);
+
+            if ($pending && $family_id) {
+                $student_query = new Usctdp_Mgmt_Student_Query();
+                foreach ($pending->students as $student) {
+                    $student_query->create_student($student->first, $student->last, $family_id, $student->birth_date, '');
+                }
+                (new Usctdp_Mgmt_Import_Pending_Query())->update_item($pending->id, ['confirmed_at' => current_time('mysql')]);
+            }
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('create_family_on_registration', $e);
         }

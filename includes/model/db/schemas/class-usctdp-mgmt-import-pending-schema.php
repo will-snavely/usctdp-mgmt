@@ -20,6 +20,7 @@ class Usctdp_Mgmt_Import_Pending_Schema extends Schema
             'length' => '20',
             'unsigned' => true,
             'index' => true,
+            'default' => 0,
         ],
         'external_id' => [
             'name' => 'external_id',
@@ -67,6 +68,15 @@ class Usctdp_Mgmt_Import_Pending_Schema extends Schema
         'students' => [
             'name' => 'students',
             'type' => 'json',
+        ],
+        'confirm_token_hash' => [
+            'name' => 'confirm_token_hash',
+            'type' => 'varchar',
+            'length' => '64',
+        ],
+        'confirm_token_expires_at' => [
+            'name' => 'confirm_token_expires_at',
+            'type' => 'datetime',
         ],
         'invited_at' => [
             'name' => 'invited_at',

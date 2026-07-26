@@ -3,14 +3,24 @@
 /**
  * Emails everyone staged in usctdp_import_pending (by
  * `wp usctdp stage_legacy_families`) a link to review and confirm their
- * data at the "Confirm Import" page. The reset key is generated here, at
- * send time, rather than when the row was staged - staging can happen long
+ * data at the "Confirm Import" page. The key is generated here, at send
+ * time, rather than when the row was staged - staging can happen long
  * before you're ready to email people, and a key's expiration clock starts
  * the moment it's generated.
+ *
+ * Two kinds of key, matching the two kinds of staged row:
+ * - matched_existing_user rows already have a real WP account, so this
+ *   reuses WordPress's own password-reset key (get_password_reset_key() /
+ *   check_password_reset_key()).
+ * - Everyone else has no account yet (staging deliberately doesn't create
+ *   one - see class-usctdp-stage-legacy-families.php), so there's no user
+ *   row for WP's reset-key mechanism to attach to. This generates its own
+ *   token instead, storing only its hash on the pending row, exactly like
+ *   WP does for reset keys.
  */
 class Usctdp_Send_Legacy_Import_Invites
 {
-    const RESET_KEY_TTL = 30 * DAY_IN_SECONDS;
+    const KEY_TTL = 30 * DAY_IN_SECONDS;
 
     public function send($dry_run = false, $resend = false, $limit = null)
     {
@@ -36,14 +46,7 @@ class Usctdp_Send_Legacy_Import_Invites
                 break;
             }
 
-            $user = get_userdata($pending->user_id);
-            if (!$user) {
-                WP_CLI::warning(sprintf('Skipping pending import #%d: linked user #%d no longer exists.', $pending->id, $pending->user_id));
-                $skipped++;
-                continue;
-            }
-
-            $email = $pending->emails[0] ?? $user->user_email;
+            $email = $pending->emails[0] ?? '';
             if (empty($email)) {
                 WP_CLI::warning(sprintf('Skipping "%s": no email on file.', $pending->last));
                 $skipped++;
@@ -56,18 +59,17 @@ class Usctdp_Send_Legacy_Import_Invites
                 continue;
             }
 
-            add_filter('password_reset_expiration', [$this, 'extend_reset_expiration']);
-            $key = get_password_reset_key($user);
-            remove_filter('password_reset_expiration', [$this, 'extend_reset_expiration']);
+            $key = $pending->matched_existing_user
+                ? $this->generate_reset_key_for($pending)
+                : $this->generate_token_for($pending);
 
-            if (is_wp_error($key)) {
-                WP_CLI::warning(sprintf('Skipping "%s": failed to generate a confirmation link (%s).', $pending->last, $key->get_error_message()));
+            if ($key === null) {
                 $skipped++;
                 continue;
             }
 
             $confirm_url = esc_url_raw(add_query_arg([
-                'usctdp_login' => $user->user_login,
+                'usctdp_import' => $pending->id,
                 'usctdp_key' => $key,
             ], $confirm_url_base));
 
@@ -88,7 +90,53 @@ class Usctdp_Send_Legacy_Import_Invites
 
     public function extend_reset_expiration()
     {
-        return self::RESET_KEY_TTL;
+        return self::KEY_TTL;
+    }
+
+    /**
+     * Returns the plaintext reset key, or null (after logging a warning) on
+     * failure.
+     */
+    private function generate_reset_key_for($pending)
+    {
+        $user = get_userdata($pending->user_id);
+        if (!$user) {
+            WP_CLI::warning(sprintf('Skipping pending import #%d: linked user #%d no longer exists.', $pending->id, $pending->user_id));
+            return null;
+        }
+
+        add_filter('password_reset_expiration', [$this, 'extend_reset_expiration']);
+        $key = get_password_reset_key($user);
+        remove_filter('password_reset_expiration', [$this, 'extend_reset_expiration']);
+
+        if (is_wp_error($key)) {
+            WP_CLI::warning(sprintf('Skipping "%s": failed to generate a confirmation link (%s).', $pending->last, $key->get_error_message()));
+            return null;
+        }
+
+        return $key;
+    }
+
+    /**
+     * Returns the plaintext token (only its hash is persisted, same as WP
+     * does for its own reset keys), or null on failure.
+     */
+    private function generate_token_for($pending)
+    {
+        $token = wp_generate_password(32, false);
+        $expires_at = date('Y-m-d H:i:s', current_time('timestamp') + self::KEY_TTL);
+
+        $updated = (new Usctdp_Mgmt_Import_Pending_Query())->update_item($pending->id, [
+            'confirm_token_hash' => hash('sha256', $token),
+            'confirm_token_expires_at' => $expires_at,
+        ]);
+
+        if (!$updated) {
+            WP_CLI::warning(sprintf('Skipping "%s": failed to store a confirmation token.', $pending->last));
+            return null;
+        }
+
+        return $token;
     }
 
     private function send_invite_email($to, $last_name, $confirm_url)
