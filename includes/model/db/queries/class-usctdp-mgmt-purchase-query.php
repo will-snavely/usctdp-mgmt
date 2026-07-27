@@ -81,7 +81,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     pur.created_by as purchase_created_by,
                     pur.notes as purchase_notes,
                     pur.discounts as purchase_discounts,
-                    prod.title as product_name, prod.id as product_id,
+                    prod.title as product_name, prod.id as product_id, prod.type as product_type,
                     ledger.total_fees as total_fees,
                     ledger.total_adjustments as total_adjustments,
                     ledger.total_payments as total_payments,

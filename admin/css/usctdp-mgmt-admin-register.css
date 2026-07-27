@@ -139,7 +139,7 @@
     padding-bottom: 8px;
 }
 
-#clinic_base_price {
+#activity_base_price {
     width: 60px;
 }
 
@@ -196,8 +196,8 @@
     max-width: 330px;
 }
 
-#clinic-capacity,
-#clinic-waitlist {
+#activity-capacity,
+#activity-waitlist {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: subgrid;
@@ -206,12 +206,12 @@
     padding: 10px 0;
 }
 
-.clinic-capacity-label {
+.activity-capacity-label {
     font-weight: bold;
     color: #555;
 }
 
-.clinic-capacity-value {
+.activity-capacity-value {
     font-family: monospace;
     font-size: 1.1rem;
     text-align: center;
@@ -224,14 +224,14 @@
     white-space: nowrap;
 }
 
-.clinic-capacity-separator {
+.activity-capacity-separator {
     font-size: 14px;
     font-weight: 400;
     color: #000000;
     margin: 0 4px;
 }
 
-.clinic-capacity-waiting {
+.activity-capacity-waiting {
     font-size: 14px;
     font-weight: 400;
     color: #000000;
@@ -288,8 +288,8 @@
         max-width: 100%;
     }
 
-    #clinic-capacity,
-    #clinic-waitlist {
+    #activity-capacity,
+    #activity-waitlist {
         display: grid;
         grid-template-columns: 1fr auto;
         align-items: center;
@@ -298,11 +298,11 @@
         width: 100%;
     }
 
-    .clinic-capacity-label {
+    .activity-capacity-label {
         grid-column: 1 / -1;
     }
 
-    .clinic-capacity-value {
+    .activity-capacity-value {
         grid-column: 1;
         justify-self: start;
     }

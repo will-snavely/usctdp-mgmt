@@ -587,6 +587,34 @@
         }
     }
 
+    USCTDP_Admin.EarlySignupDiscount = class extends USCTDP_Admin.Discount {
+        constructor(amount) {
+            super({
+                code: 'early_signup',
+                value: amount,
+                reason: 'Early Signup Discount'
+            });
+        }
+
+        amount(base_price) {
+            return this.value;
+        }
+    }
+
+    USCTDP_Admin.WithClinicDiscount = class extends USCTDP_Admin.Discount {
+        constructor(amount) {
+            super({
+                code: 'with_clinic',
+                value: amount,
+                reason: 'With Clinic Discount'
+            });
+        }
+
+        amount(base_price) {
+            return this.value;
+        }
+    }
+
     USCTDP_Admin.SiblingDiscount = class extends USCTDP_Admin.Discount {
         constructor(percent) {
             super({
@@ -1415,6 +1443,10 @@
                     const displayVal = USCTDP_Admin.formatUsd(d.amount);
                     if (d.code === 'second_day') {
                         label = 'Second Day';
+                    } else if (d.code === 'early_signup') {
+                        label = 'Early Signup';
+                    } else if (d.code === 'with_clinic') {
+                        label = 'With Clinic';
                     } else if (d.code === 'sibling_10') {
                         label = 'Sibling 10% (rounded)';
                     } else if (d.code === 'sibling_20') {

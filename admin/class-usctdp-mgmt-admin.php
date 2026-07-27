@@ -285,7 +285,7 @@ class Usctdp_Mgmt_Admin
         add_action('load-' . $main_menu_page, function () {
             $this->enqueue_usctdp_page_script('main');
             $this->enqueue_usctdp_page_style('main');
-            $main_ajax = ['gen_roster', 'select2_search', 'session_rosters', 'toggle_session_active'];
+            $main_ajax = ['gen_roster', 'select2_search', 'session_rosters', 'toggle_session_active', 'recent_registrations'];
             $this->load_admin_page('main', $main_ajax, [], []);
         });
 

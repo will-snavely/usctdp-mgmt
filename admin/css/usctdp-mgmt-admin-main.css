@@ -1,145 +1,211 @@
-.grid-layout {
+.usctdp-dashboard {
+    margin-top: 10px;
+}
+
+.dashboard-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-    grid-template-rows: 150px auto;
-
-    grid-template-areas:
-        'fam fam bal bal goog goog'
-        'srost srost . . . .';
-    gap: 10px;
-    height: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    align-items: start;
 }
 
-.grid-header {
-    display: block;
-    font-size: 1.75em;
-    font-weight: bold;
+.card-wide {
+    grid-column: 1 / -1;
 }
 
-.grid-square {
-    display: grid;
-    background: #7cc4f0;
-    grid-template-rows: 2rem 1fr;
-    grid-template-columns: 1fr;
-    gap: 5px;
+.dashboard-grid-split {
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    margin-top: 16px;
 }
 
-.grid-square-header {
-    background-color: #c1f1f1;
-    padding: 5px;
-    font-weight: bold;
-    text-align: center;
-}
-
-.grid-square-content {
+.dashboard-card {
+    display: flex;
+    flex-direction: column;
     background-color: #ffffff;
-    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.06);
     min-width: 0;
+    overflow: hidden;
 }
 
-#item-0 {
-    grid-area: fam;
-    grid-column: span 2;
-    padding: 5px;
+.dashboard-card-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid #eef1f5;
+    background-color: #f8fafc;
 }
 
-#item-1 {
-    grid-area: bal;
-    grid-column: span 2;
-    padding: 5px;
+.card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #334155;
 }
 
-#item-2 {
-    grid-area: goog;
-    grid-column: span 2;
-    padding: 5px;
-}
-
-#item-3 {
-    grid-area: srost;
-    grid-column: span 2;
-    padding: 5px;
-    min-width: 0;
-}
-
-#usctdp-families-manager {
+.dashboard-card-body {
     display: flex;
     flex-direction: column;
     gap: 10px;
-}
-
-#families-select2 {
-    width: 200px;
-}
-
-#manage-family-btn {
-    width: 120px;
-}
-
-#usctdp-oustanding-balances-manager {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-#balances-report-link {
-    display: inline-block;
-    text-align: center;
-    width: 100px;
-}
-
-#usctdp-google-authorization-manager {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-#usctdp-session-rosters-manager {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    padding: 18px;
     min-width: 0;
+    flex: 1;
 }
 
-#session-rosters-container {
+.card-description {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.card-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+#families-select2,
+#active-sessions-select2 {
+    width: 220px;
+}
+
+/* Stat tile (used by the Balances widget) */
+.stat-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+}
+
+.stat-value.status-good {
+    color: #0ca30c;
+}
+
+.stat-value.status-critical {
+    color: #d03b3b;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+}
+
+.stat-subtext {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+/* Status badge (icon/dot + label - color never carries meaning alone) */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-badge.status-good .status-dot {
+    background-color: #0ca30c;
+}
+
+.status-badge.status-critical .status-dot {
+    background-color: #d03b3b;
+}
+
+.status-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Mini tables used inside dashboard cards */
+.table-scroll {
     width: 100%;
     overflow-x: auto;
+    max-height: 360px;
+    overflow-y: auto;
+    border: 1px solid #eef1f5;
+    border-radius: 8px;
+}
+
+/* Horizontal-only variant for tables that manage their own vertical
+   scrolling (e.g. DataTables with scrollY) - pairing this with
+   .table-scroll's own overflow-y would nest two vertical scrollbars. */
+.table-scroll-x {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #eef1f5;
+    border-radius: 8px;
+}
+
+.usctdp-mini-table {
+    table-layout: fixed;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.usctdp-mini-table thead tr th {
+    position: sticky;
+    top: 0;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #475569;
+    background-color: #f1f5f9;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.usctdp-mini-table tbody tr td {
+    padding: 10px 12px;
+    vertical-align: middle;
+    font-size: 0.85rem;
+    color: #1e293b;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.usctdp-mini-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.usctdp-mini-table tbody tr:hover td {
+    background-color: #f8fafc;
+}
+
+.usctdp-mini-table .loading-row td,
+.usctdp-mini-table .empty-row td {
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
 }
 
 #session-rosters-select-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 8px;
     min-width: 0;
-}
-
-#active-sessions-select2 {
-    width: 200px;
-}
-
-#session-rosters-table {
-    table-layout: fixed;
-}
-
-#session-rosters-table tbody tr td {
-    vertical-align: middle;
-}
-
-#session-rosters-table thead tr th {
-    font-weight: bold;
-    background-color: #83cdf5;
-}
-
-#session-rosters-table tbody tr {
-    height: auto;
-}
-
-#session-rosters-table tbody tr:nth-child(odd) {
-    background-color: #d5d1d1;
-}
-
-#session-rosters-table tbody tr:nth-child(even) {
-    background-color: #f1f1f1;
+    margin-bottom: 12px;
 }
 
 .session-actions {

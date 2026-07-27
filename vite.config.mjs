@@ -17,10 +17,23 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // it loads first - the vendor bundle should reference that global rather
 // than bundling its own copy.
 export default defineConfig({
+  // @tanstack/query-core (and other deps) reference process.env.NODE_ENV
+  // for dev-only warnings, assuming the bundler statically replaces it the
+  // way Webpack's DefinePlugin did under the old Laravel Mix build. Vite's
+  // lib mode doesn't do this replacement automatically, so without this the
+  // literal `process.env.NODE_ENV` reaches the browser bundle and throws
+  // "process is not defined" the first time that code path runs.
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: false,
     manifest: false,
+    // Hidden: emit a .map file for real stack traces without shipping a
+    // //# sourceMappingURL comment (this bundle is fetched directly by
+    // browsers, not proxied through devtools-only tooling).
+    sourcemap: 'hidden',
     lib: {
       entry: resolve(__dirname, 'admin/js/usctdp-mgmt-admin-vendor.mjs'),
       name: 'UsctdpMgmtAdminVendor',

@@ -144,7 +144,7 @@ class Usctdp_Mgmt_Docgen
 
         $clean_title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
         $metadata_args = [
-            'name' => 'Roster: ' . $clean_title,
+            'name' => $clean_title,
             'mimeType' => 'application/vnd.google-apps.document',
         ];
 
@@ -234,7 +234,13 @@ class Usctdp_Mgmt_Docgen
                 'purchase_id' => $purchase_id,
                 'account' => $purchase_fields->purchase_type . '_fees'
             ])['data'];
-            $session = $purchase_fields->session_name . ', ' . $purchase_fields->activity_name;
+            $session = '';
+            if ($purchase_fields->product_type === "tournament") {
+                $session = $purchase_fields->session_name;
+
+            } else {
+                $session = $purchase_fields->session_name . ', ' . $purchase_fields->activity_name;
+            }
             $first = true;
             foreach ($ledger_events as $item) {
                 $charge = floatval($item->charge_amount);

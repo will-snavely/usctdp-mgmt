@@ -17,6 +17,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
+        'recent_registrations' => 'ajax_recent_registrations',
         'registrations_datatable' => 'ajax_registrations_datatable',
         'roster_link' => 'ajax_get_roster_link',
         'select2_search' => 'ajax_select2_search',
@@ -1044,6 +1045,48 @@ class Usctdp_Mgmt_Admin_Ajax
             "data" => $results['data']
         );
         wp_send_json($response);
+    }
+
+    public function ajax_recent_registrations()
+    {
+        $this->check_nonce('recent_registrations');
+
+        $limit = isset($_POST['limit']) ? intval($_POST['limit']) : 8;
+
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT
+                    stud.first as student_first,
+                    stud.last as student_last,
+                    fam.title as family_name,
+                    sesh.title as session_name,
+                    act.title as activity_name,
+                    reg.created_at as created_at
+                FROM {$wpdb->prefix}usctdp_registration AS reg
+                JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
+                JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
+                JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
+                WHERE reg.status = 'active'
+                ORDER BY reg.id DESC
+                LIMIT %d",
+            $limit
+        );
+
+        $query_results = $wpdb->get_results($query);
+        $output_data = [];
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $output_data[] = [
+                    "student_name" => $result->student_first . ' ' . $result->student_last,
+                    "family_name" => $result->family_name,
+                    "session_name" => $result->session_name,
+                    "activity_name" => $result->activity_name,
+                    "created_at" => $result->created_at,
+                ];
+            }
+        }
+        wp_send_json_success($output_data);
     }
 
     public function ajax_registrations_datatable()

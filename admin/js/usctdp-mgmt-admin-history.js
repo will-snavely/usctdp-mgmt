@@ -609,6 +609,32 @@
             }
         }
 
+        function generateBulkStatement(purchases) {
+            if (purchases.length === 0) {
+                return;
+            }
+            const familyId = purchases[0].family_id;
+            const purchaseIds = purchases.map((purchase) => purchase.purchase_id);
+            const $btn = $('#apply-bulk-btn');
+            $btn.prop('disabled', true);
+            $btn.html('<span class="spinner is-active"></span> Generating...');
+            USCTDP_Admin.ajax_generateStatement(familyId, purchaseIds)
+                .then((response) => {
+                    window.open(response.doc_url, '_blank');
+                })
+                .catch((error) => {
+                    window.Swal.fire({
+                        title: "Error",
+                        text: "Failed to generate statement. Inform a developer.",
+                        icon: "error"
+                    });
+                })
+                .finally(() => {
+                    $btn.prop('disabled', false);
+                    $btn.html('Apply');
+                });
+        }
+
         const refundMode = $('#refund-mode');
         const methodWrapper = $('#method-field-wrapper');
         const modeDesc = $('#mode-description');
@@ -814,6 +840,8 @@
 
             if (action === 'post-payments') {
                 openPostPaymentModal(purchases);
+            } else if (action === 'generate-statement') {
+                generateBulkStatement(purchases);
             }
         });
 

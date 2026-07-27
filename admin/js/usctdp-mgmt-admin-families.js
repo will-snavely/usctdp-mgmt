@@ -485,10 +485,9 @@
                 preloadedData['family-selector'] = {
                     id: preloadedFamily.id,
                     text: preloadedFamily.title,
-                    disable: true
+                    disable: false
                 }
                 selectHandler.applyData(preloadedData);
-                $("#selection-section").addClass("hidden");
             }
         }
     });

@@ -87,14 +87,22 @@
             }
         }
 
-        function update_clinic_sale_price() {
-            let base_price = USCTDP_Admin.safeParseFloat($('#clinic_base_price').val());
+        function update_sale_price() {
+            let base_price = USCTDP_Admin.safeParseFloat($('#activity_base_price').val());
             let computed_price = base_price;
             let discount_objects = [];
 
             if ($('#discount-additional-day').is(':checked')) {
-                const addtl_day_discount_amount = $('#clinic-preorder').data('additional_day_discount');
+                const addtl_day_discount_amount = $('#activity-preorder').data('additional_day_discount');
                 discount_objects.push(new USCTDP_Admin.AdditionalDayDiscount(addtl_day_discount_amount));
+            }
+            if ($('#discount-early-signup').is(':checked')) {
+                const tier_price = $('#discount-early-signup').data('tier_price');
+                discount_objects.push(new USCTDP_Admin.EarlySignupDiscount(base_price - tier_price));
+            }
+            if ($('#discount-with-clinic').is(':checked')) {
+                const tier_price = $('#discount-with-clinic').data('tier_price');
+                discount_objects.push(new USCTDP_Admin.WithClinicDiscount(base_price - tier_price));
             }
             if ($('#discount-sibling').is(':checked') && $('#discount-sibling-percent').val()) {
                 const sibling_discount_percent = parseFloat($('#discount-sibling-percent').val());
@@ -115,46 +123,96 @@
             $('#sale-price-value').text(USCTDP_Admin.formatUsd(computed_price));
         }
 
-        function bind_clinic_info(info) {
-            const { active, waitlist, capacity, pricing, student_level } = info;
+        function bind_activity_basic_info(info) {
+            const { active, waitlist, capacity, student_level } = info;
             const full = active >= capacity;
+
+            $('#activity-preorder input[type="checkbox"]').prop('checked', false);
+            $('#activity-preorder input[type="text"]').val('');
+            $('#activity-current-size').text(active);
+            $('#activity-waitlist-size').text(waitlist);
+            $('#activity-max-size').text(capacity);
+            $('#activity-capacity .activity-capacity-value').removeClass('red-bg green-bg');
+            $('#activity-capacity .activity-capacity-value').addClass(full ? 'red-bg' : 'green-bg');
+            $('#student-level').val(student_level);
+            $('#discount-sibling-percent').prop('disabled', true);
+        }
+
+        function bind_tournament_info(info) {
+            const { pricing } = info;
+            const base_price = parseFloat(pricing.base);
+            const early_signup_price = (pricing.early_signup !== null && pricing.early_signup !== undefined)
+                ? parseFloat(pricing.early_signup) : null;
+            const with_clinic_price = (pricing.with_clinic !== null && pricing.with_clinic !== undefined)
+                ? parseFloat(pricing.with_clinic) : null;
+            const hasTiers = early_signup_price !== null || with_clinic_price !== null;
+
+            $('#activity_base_price').val(base_price.toFixed(2));
+            $('#clinic-only-discounts').addClass('hidden');
+            $('#tournament-only-discounts').toggleClass('hidden', !hasTiers);
+
+            $('#discount-early-signup').closest('.discount-field').toggleClass('hidden', early_signup_price === null);
+            $('#discount-with-clinic').closest('.discount-field').toggleClass('hidden', with_clinic_price === null);
+            $('#discount-early-signup-value').text(
+                early_signup_price !== null ? '(' + USCTDP_Admin.formatUsd(early_signup_price) + ')' : ''
+            );
+            $('#discount-with-clinic-value').text(
+                with_clinic_price !== null ? '(' + USCTDP_Admin.formatUsd(with_clinic_price) + ')' : ''
+            );
+            $('#discount-early-signup').data('tier_price', early_signup_price);
+            $('#discount-with-clinic').data('tier_price', with_clinic_price);
+
+            update_sale_price();
+            $("#activity-preorder").removeData();
+            $("#activity-preorder").data('pricing', pricing);
+        }
+
+        function bind_clinic_info(info) {
+            const { pricing } = info;
             const one_day_price = parseFloat(pricing['One']);
             const two_day_price = parseFloat(pricing['Two']);
             const diff = two_day_price - one_day_price;
             const discount = one_day_price - diff;
 
-            $('#clinic-preorder input[type="checkbox"]').prop('checked', false);
-            $('#clinic-preorder input[type="text"]').val('');
-            $('#clinic-current-size').text(active);
-            $('#clinic-waitlist-size').text(waitlist);
-            $('#clinic-max-size').text(capacity);
-            $('#clinic-capacity .clinic-capacity-value').removeClass('red-bg green-bg');
-            $('#clinic-capacity .clinic-capacity-value').addClass(full ? 'red-bg' : 'green-bg');
-            $('#student-level').val(student_level);
-            $('#clinic_base_price').val(one_day_price.toFixed(2));
+            $('#activity_base_price').val(one_day_price.toFixed(2));
+            $('#tournament-only-discounts').addClass('hidden');
+            $('#clinic-only-discounts').removeClass('hidden');
             $('#discount-additional-day-value').text('($' + discount.toFixed(2) + ')');
             $('#discount-additional-day').data('discount_value', discount);
-            $('#discount-sibling-percent').prop('disabled', true);
-            update_clinic_sale_price();
-            $("#clinic-preorder").removeData();
-            $("#clinic-preorder").data('pricing', pricing);
-            $("#clinic-preorder").data('additional_day_discount', discount);
+            update_sale_price();
+            $("#activity-preorder").removeData();
+            $("#activity-preorder").data('pricing', pricing);
+            $("#activity-preorder").data('additional_day_discount', discount);
         }
 
-        $('#clinic_base_price').on('change', function () {
-            update_clinic_sale_price();
+        $('#activity_base_price').on('change', function () {
+            update_sale_price();
         });
 
         $('#discount-additional-day').on('change', function () {
-            update_clinic_sale_price();
+            update_sale_price();
+        });
+
+        $('#discount-early-signup').on('change', function () {
+            if ($(this).is(':checked')) {
+                $('#discount-with-clinic').prop('checked', false);
+            }
+            update_sale_price();
+        });
+
+        $('#discount-with-clinic').on('change', function () {
+            if ($(this).is(':checked')) {
+                $('#discount-early-signup').prop('checked', false);
+            }
+            update_sale_price();
         });
 
         $('#discount-sibling').on('change', function () {
-            update_clinic_sale_price();
+            update_sale_price();
         });
 
         $('#discount-sibling-percent').on('change', function () {
-            update_clinic_sale_price();
+            update_sale_price();
         });
 
         function bind_merchandise_info(info) {
@@ -169,6 +227,7 @@
         async function loadClinicRegistration(clinicId, studentId) {
             try {
                 const info = await getPreregistrationInfo(clinicId, studentId);
+                bind_activity_basic_info(info);
                 bind_clinic_info(info);
                 discounts = [];
                 if (info.student_registered) {
@@ -184,7 +243,7 @@
                         true
                     );
                 } else {
-                    togglePreorderDetails(true, "clinic-preorder");
+                    togglePreorderDetails(true, "activity-preorder");
                 }
             } catch (error) {
                 console.log("Error: ", error);
@@ -192,10 +251,39 @@
             }
         }
 
+        async function loadTournamentRegistration(tournamentId, studentId) {
+            try {
+                const info = await getPreregistrationInfo(tournamentId, studentId);
+                bind_activity_basic_info(info);
+                bind_tournament_info(info);
+                discounts = [];
+                if (info.student_registered) {
+                    set_notification(
+                        'student-registered',
+                        'This student is already registered for this activity.',
+                        false
+                    );
+                } else if (info.active >= info.capacity) {
+                    set_notification(
+                        'activity-full',
+                        'This activity is full.',
+                        true
+                    );
+                } else {
+                    togglePreorderDetails(true, "activity-preorder");
+                }
+            } catch (error) {
+                console.log("Error: ", error);
+                alert("Failed to load tournament registration data. Try again or report this to a developer.");
+            }
+        }
+
         async function loadActivityRegistration(activityId, activityType, studentId) {
             clearNotifications();
             if (activityType === "clinic") { // Clinic
                 await loadClinicRegistration(activityId, studentId);
+            } else if (activityType === "tournament") {
+                await loadTournamentRegistration(activityId, studentId);
             }
         }
 
@@ -218,7 +306,7 @@
 
         $('#notifications-section').on('click', '#activity-full-notification #ignore-notification-btn', function () {
             clearNotifications();
-            togglePreorderDetails(true, "clinic-preorder");
+            togglePreorderDetails(true, "activity-preorder");
         });
 
         $('#notifications-section').on('click', '#activity-full-notification #waitlist-student-btn', function () {
@@ -246,7 +334,7 @@
                 });
         });
 
-        $('#add-clinic-registration').on('click', function () {
+        $('#add-activity-registration').on('click', function () {
             var displayActivityName = checkoutActivityName(selectedActivity.name);
             const familyId = $("#family-selector").val();
 
@@ -262,10 +350,10 @@
                 session_id: selectedActivity.session_id,
                 session_name: selectedActivity.session_name,
                 discounts: discounts,
-                notes: $('#clinic-notes').val()
+                notes: $('#activity-notes').val()
             };
 
-            const basePrice = USCTDP_Admin.safeParseFloat($('#clinic_base_price').val());
+            const basePrice = USCTDP_Admin.safeParseFloat($('#activity_base_price').val());
             const additionalDayDiscount = $('#discount-additional-day').data('discount_value');
             const result = paymentTable.addNewRegistration(
                 registration,
@@ -418,9 +506,6 @@
                     } else if (value === 'new_session') {
                         return null;
                     } else {
-                        // Tournament sessions have exactly one activity, so
-                        // there's nothing left to pick - skip straight past
-                        // the Clinic/Day selectors.
                         var sessionData = $el.select2('data')[0];
                         var isTournament = sessionData &&
                             USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(sessionData.category) !== -1;
@@ -660,7 +745,7 @@
         });
 
         $('#view-roster-btn').on('click', function () {
-            $('#roster-clinic-name').text(selectedActivity.name);
+            $('#roster-activity-name').text(selectedActivity.name);
             viewRosterModal.showModal();
             viewRosterTable.ajax.reload();
         });
@@ -670,7 +755,7 @@
         });
 
         $('#view-waitlist-btn').on('click', function () {
-            $('#waitlist-clinic-name').text(selectedActivity.name);
+            $('#waitlist-activity-name').text(selectedActivity.name);
             viewWaitlistModal.showModal();
             viewWaitlistTable.ajax.reload();
         });

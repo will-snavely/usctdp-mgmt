@@ -2,49 +2,11 @@
     "use strict";
 
     $(document).ready(function () {
-        function toggleLoading(isLoading, $button) {
-            if (isLoading) {
-                $button.find('.button-text').text('Working...');
-                $button.addClass('is-loading');
-            } else {
-                $button.find('.button-text').text('Refresh');
-                $button.removeClass('is-loading');
-            }
-        }
-
         $('#clinic-rosters-table').DataTable({
             paging: false,
             "initComplete": function () {
                 $('#clinic-rosters-table').removeClass('hidden');
             }
-        });
-
-        $('#session-rosters-table').on('click', '.refresh-session-roster', function () {
-            var id = $(this).data('session-id');
-            var $row = $(this).closest('tr');
-            $row.find('a').addClass('disabled');
-            toggleLoading(true, $row.find('button'));
-
-            $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.gen_roster_action,
-                    security: usctdp_mgmt_admin.gen_roster_nonce,
-                    session_id: id,
-                },
-                success: function (response) {
-                    $row.find('a').removeClass('disabled');
-                    toggleLoading(false, $row.find('button'));
-                    $row.find('a').attr('href', response.data.doc_url);
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("AJAX Error:", textStatus, errorThrown);
-                    $row.find('a').removeClass('disabled');
-                    toggleLoading(false, $row.find('button'));
-                }
-            });
         });
 
         $('#families-select2').select2(
@@ -169,9 +131,38 @@
         });
 
         $('#session-rosters-table').on('click', 'button.view-session-roster', function () {
-            var drive_id = $(this).attr('data-drive_id');
-            var drive_link = 'https://drive.google.com/file/d/' + drive_id + '/edit';
-            window.open(drive_link, '_blank');
+            var $btn = $(this);
+            var sessionId = $btn.attr('data-id');
+            var originalText = $btn.text();
+
+            $btn.prop('disabled', true);
+            $btn.html('<span class="spinner is-active"></span> Generating...');
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                    session_id: sessionId,
+                },
+                success: function (response) {
+                    window.open(response.data.doc_url, '_blank');
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    window.Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to generate roster. Inform a developer.',
+                        icon: 'error'
+                    });
+                },
+                complete: function () {
+                    $btn.prop('disabled', false);
+                    $btn.text(originalText);
+                }
+            });
         });
 
         $('#families-select2').on('change', function () {
@@ -189,5 +180,42 @@
             var id = dataArray[0].id;
             window.location.href = usctdp_mgmt_admin.family_url + '&family_id=' + id;
         });
+
+        function loadRecentRegistrations() {
+            var $tbody = $('#recent-registrations-table-body');
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.recent_registrations_action,
+                    security: usctdp_mgmt_admin.recent_registrations_nonce,
+                    limit: 8
+                },
+                success: function (response) {
+                    $tbody.empty();
+                    var rows = (response && response.data) || [];
+                    if (rows.length === 0) {
+                        $tbody.append('<tr class="empty-row"><td colspan="4">No recent registrations.</td></tr>');
+                        return;
+                    }
+                    rows.forEach(function (row) {
+                        var $tr = $('<tr></tr>');
+                        $tr.append($('<td></td>').text(row.student_name));
+                        $tr.append($('<td></td>').text(row.family_name));
+                        $tr.append($('<td></td>').text(row.session_name));
+                        $tr.append($('<td></td>').text(row.activity_name));
+                        $tbody.append($tr);
+                    });
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    $tbody.empty();
+                    $tbody.append('<tr class="empty-row"><td colspan="4">Failed to load recent registrations.</td></tr>');
+                }
+            });
+        }
+
+        loadRecentRegistrations();
     });
 })(jQuery);

@@ -158,6 +158,7 @@
                                         <select id="bulk-action-selector">
                                             <option value=""></option>
                                             <option value="post-payments">Post Payment</option>
+                                            <option value="generate-statement">Generate Statement</option>
                                         </select>
                                         <button id="apply-bulk-btn" class="button action" disabled>
                                             Apply
