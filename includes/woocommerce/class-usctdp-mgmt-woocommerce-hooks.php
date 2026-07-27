@@ -299,14 +299,29 @@ class Usctdp_Mgmt_Woocommerce_Hooks
      * Prevents WooCommerce's default post-registration auto-login
      * (wc_set_customer_auth_cookie() in WC_Form_Handler::process_registration())
      * so a new account isn't usable until the customer proves they control
-     * the email address. Paired with send_set_password_email_on_registration()
-     * below: WooCommerce still sets a real (randomly-generated) password on
-     * account creation, but nobody is ever told what it is - the customer
-     * can only log in after setting their own password via the emailed
-     * reset link, so WP core's own password-reset flow is the verification
+     * the email address. WooCommerce still sets a real (randomly-generated)
+     * password on account creation, but nobody is ever told what it is -
+     * the customer can only log in after setting their own password via
+     * the link in WooCommerce's own "Customer new account" email
+     * (WC_Email_Customer_New_Account::generate_set_password_url(), which
+     * already calls get_password_reset_key() and points at the correctly
+     * themed my-account/lost-password page on every send - nothing extra
+     * needed here). WP core's own password-reset flow is the verification
      * gate, not a separate "verified" meta flag to maintain.
      *
-     * DEV_SKIP_REGISTRATION_LOGOUT lets that be skipped locally (e.g. to
+     * There used to be a second method here (send_set_password_email_on_registration)
+     * that also called retrieve_password() to send our own reset-key email.
+     * Don't reintroduce it: WC_Email_Customer_New_Account::trigger() calls
+     * get_password_reset_key() unconditionally on every registration
+     * regardless of whether our own hook also runs, and get_password_reset_key()
+     * overwrites the single stored key each time it's called - so the two
+     * emails raced to set the account's reset key, and whichever ran second
+     * silently invalidated the link in the other (usually surfacing as
+     * "Your password reset link appears to be invalid" on WordPress core's
+     * bare wp-login.php?action=rp screen, which is where retrieve_password()'s
+     * own email - unlike WooCommerce's - actually points).
+     *
+     * DEV_SKIP_REGISTRATION_LOGOUT lets this be skipped locally (e.g. to
      * create test accounts without a Mailpit round trip). Gated on WP_ENV
      * being exactly "development" in addition to the env var itself, so
      * this can't do anything even if that var somehow ended up set in a
@@ -322,20 +337,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         wc_clear_notices();
         wc_add_notice(__('Your account was created successfully. Check your email to set your password before logging in.', 'usctdp-mgmt'));
         return false;
-    }
-
-    /**
-     * Sends the standard WP "set your password" reset-key email in place of
-     * WooCommerce's own "a password has been emailed to you" notice - same
-     * check_password_reset_key()/get_password_reset_key() mechanism already
-     * used for legacy-import confirmation (see Usctdp_Mgmt_Import_Confirm_Hooks).
-     */
-    public function send_set_password_email_on_registration($customer_id, $new_customer_data, $password_generated)
-    {
-        $user = get_userdata($customer_id);
-        if ($user) {
-            retrieve_password($user->user_login);
-        }
     }
 
     public function display_before_single_product()
