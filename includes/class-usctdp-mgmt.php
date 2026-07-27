@@ -282,6 +282,20 @@ class Usctdp_Mgmt
             10,
             3
         );
+        $this->loader->add_filter(
+            'woocommerce_registration_auth_new_customer',
+            $commerce_handler,
+            'prevent_auto_login_on_registration',
+            10,
+            2
+        );
+        $this->loader->add_action(
+            'woocommerce_created_customer',
+            $commerce_handler,
+            'send_set_password_email_on_registration',
+            10,
+            3
+        );
 
         $this->loader->add_action(
             'init',
