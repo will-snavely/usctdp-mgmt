@@ -120,7 +120,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         if (empty($_POST['usctdp_add_student']) || !is_user_logged_in()) {
             return;
         }
-
         $nonce = isset($_POST['usctdp_add_student_nonce']) ? wp_unslash($_POST['usctdp_add_student_nonce']) : '';
         if (!wp_verify_nonce($nonce, 'usctdp_add_student')) {
             wc_add_notice(__('Security check failed. Please try again.', 'usctdp-mgmt'), 'error');
@@ -703,6 +702,53 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         return $this->int_to_day($clinic->day_of_week) . " at " . $clinic->start_time->format('g:i A');
     }
 
+    private function get_tournament_display($activity_id)
+    {
+        $activity_query = new Usctdp_Mgmt_Activity_Query([
+            'id' => $activity_id,
+            'number' => 1,
+        ]);
+        $activity = $activity_query->items[0] ?? null;
+        return $activity ? $activity->title : '';
+    }
+
+    /**
+     * Resolve the single usctdp_activity for a tournament variation. Unlike
+     * clinics (day_of_week_1/2 posted from a picker built from several
+     * candidate activities), a tournament session has exactly one activity,
+     * so it's looked up server-side from the posted product/variation
+     * instead of relying on a client-submitted activity id. Returns null for
+     * non-tournament products (so callers can invoke it unconditionally) or
+     * if the variation's session can't be resolved to an activity.
+     */
+    private function resolve_tournament_activity($product_id, $variation_id)
+    {
+        if (!$variation_id) {
+            return null;
+        }
+        $product_query = new Usctdp_Mgmt_Product_Query([
+            'woocommerce_id' => $product_id,
+            'number' => 1,
+        ]);
+        $usctdp_product = $product_query->items[0] ?? null;
+        if (!$usctdp_product || $usctdp_product->type !== 'tournament') {
+            return null;
+        }
+
+        $session_name = get_post_meta($variation_id, 'attribute_session', true);
+        $session_map = get_post_meta($product_id, '_session_post_ids', true);
+        if (empty($session_name) || empty($session_map[$session_name])) {
+            return null;
+        }
+
+        $activity_query = new Usctdp_Mgmt_Activity_Query([
+            'session_id' => $session_map[$session_name],
+            'product_id' => $usctdp_product->id,
+            'number' => 1,
+        ]);
+        return $activity_query->items[0] ?? null;
+    }
+
     public function add_cart_item_data($cart_item_data, $product_id, $variation_id, $quantity)
     {
         $activities = [];
@@ -718,6 +764,13 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             $id = intval($_POST['day_of_week_2']);
             $activities[] = $id;
             $cart_item_data['day_of_week_2'] = $id;
+        }
+        if (empty($activities)) {
+            $tournament_activity = $this->resolve_tournament_activity($product_id, $variation_id);
+            if ($tournament_activity) {
+                $activities[] = $tournament_activity->id;
+                $cart_item_data['tournament_activity_id'] = $tournament_activity->id;
+            }
         }
         $cart_item_data['activities'] = $activities;
         $cart_item_data['tracking_id'] = uniqid("usctdp_", true);
@@ -752,6 +805,14 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 'key' => 'Day 2',
                 'value' => $clinic_id,
                 'display' => $this->get_clinic_display($clinic_id)
+            );
+        }
+        if (isset($cart_item['tournament_activity_id'])) {
+            $activity_id = intval($cart_item['tournament_activity_id']);
+            $item_data[] = array(
+                'key' => 'Activity',
+                'value' => $activity_id,
+                'display' => $this->get_tournament_display($activity_id)
             );
         }
         return $item_data;
@@ -958,6 +1019,10 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             $item->add_meta_data('_day_2_id', $values['day_of_week_2']);
             $item->add_meta_data('Day 2', $this->get_clinic_display($values['day_of_week_2']));
         }
+        if (isset($values['tournament_activity_id'])) {
+            $item->add_meta_data('_tournament_activity_id', $values['tournament_activity_id']);
+            $item->add_meta_data('Activity', $this->get_tournament_display($values['tournament_activity_id']));
+        }
         $item->add_meta_data('_activities', $values['activities']);
         $item->add_meta_data('_tracking_id', $values['tracking_id']);
     }
@@ -1039,17 +1104,12 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 }
 
                 $tracking_id = $item->get_meta('_tracking_id');
-                $day_1_id = $item->get_meta('_day_1_id');
-                $day_2_id = $item->get_meta('_day_2_id');
                 $item_total = floatval($item->get_total());
 
-                $activity_ids = [];
-                if ($day_1_id) {
-                    $activity_ids[] = intval($day_1_id);
-                }
-                if ($day_2_id) {
-                    $activity_ids[] = intval($day_2_id);
-                }
+                // '_activities' already carries every activity id for the item
+                // (one for a tournament, one or two for a clinic's day picks),
+                // in the same order they were added in add_cart_item_data().
+                $activity_ids = array_map('intval', (array) $item->get_meta('_activities'));
                 if (empty($activity_ids)) {
                     continue;
                 }
