@@ -14,6 +14,7 @@ class Usctdp_Mgmt_Product_Row extends Row
         $this->id = (int) $this->id;
         $this->code = (string) $this->code;
         $this->wp_image_id = $this->wp_image_id !== null ? (int) $this->wp_image_id : null;
+        $this->wp_flyer_id = $this->wp_flyer_id !== null ? (int) $this->wp_flyer_id : null;
         $this->woocommerce_id = (int) $this->woocommerce_id;
         $this->type = (string) $this->type;
         $this->title = (string) $this->title;

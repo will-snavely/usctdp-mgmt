@@ -11,8 +11,10 @@ class Usctdp_Mgmt_Product_Table extends Table
     public $name = 'usctdp_product';
     protected $db_version_key = 'usctdp_product_version';
     public $description = 'USCTDP Products';
-    protected $version = '1.0.0';
-    protected $upgrades = array();
+    protected $version = '1.0.1';
+    protected $upgrades = array(
+        '1.0.1' => 'upgrade_1_0_1',
+    );
 
     public static function create_title($clinic_name, $dow, $start_time)
     {
@@ -27,6 +29,7 @@ class Usctdp_Mgmt_Product_Table extends Table
             woocommerce_id bigint(20) unsigned NOT NULL,
             code tinytext NOT NULL,
             wp_image_id bigint(20) unsigned NULL,
+            wp_flyer_id bigint(20) unsigned NULL,
             type varchar(50),
             level varchar(50),
             age_group varchar(50),
@@ -42,5 +45,15 @@ class Usctdp_Mgmt_Product_Table extends Table
             INDEX code (code),
             FULLTEXT search (search_term)
         ";
+    }
+
+    public function upgrade_1_0_1()
+    {
+        $db = $this->get_db();
+        if (empty($db)) {
+            return false;
+        }
+        $result = $db->query("ALTER TABLE {$this->table_name} ADD COLUMN wp_flyer_id bigint(20) unsigned NULL AFTER wp_image_id");
+        return $this->is_success($result);
     }
 }

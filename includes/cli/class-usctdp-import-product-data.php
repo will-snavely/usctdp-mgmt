@@ -3,6 +3,7 @@
 class Usctdp_Import_Product_Data
 {
     private $image_map;
+    private $flyer_map;
 
     public function __construct()
     {
@@ -10,6 +11,7 @@ class Usctdp_Import_Product_Data
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         require_once(ABSPATH . 'wp-admin/includes/media.php');
         $this->image_map = [];
+        $this->flyer_map = [];
     }
 
     private function get_category_int(string $cat)
@@ -168,9 +170,11 @@ class Usctdp_Import_Product_Data
             $query->update_item($tourney_id, [
                 "woocommerce_id" => $product_id,
                 "wp_image_id" => $this->image_map[$tournament['image_id']] ?? null,
+                "wp_flyer_id" => $this->flyer_map[$tournament['flyer_id']] ?? null,
                 "description" => $tournament['description'],
                 "short_description" => $tournament['short_description'],
                 "level" => strtolower($tournament['level']),
+                "meta" => isset($tournament['meta']) ? json_encode($tournament['meta']) : '{}',
             ]);
             return $tourney_id;
         }
@@ -178,6 +182,7 @@ class Usctdp_Import_Product_Data
         return $query->add_item([
             "woocommerce_id" => $product_id,
             "wp_image_id" => $this->image_map[$tournament['image_id']] ?? null,
+            "wp_flyer_id" => $this->flyer_map[$tournament['flyer_id']] ?? null,
             "title" => $title,
             "search_term" => $search_term,
             "code" => $tournament['code'],
@@ -187,6 +192,7 @@ class Usctdp_Import_Product_Data
             "level" => strtolower($tournament['level']),
             "session_category" => $this->get_category_int($tournament['session_category']),
             "age_group" => strtolower($tournament['age_group']),
+            "meta" => isset($tournament['meta']) ? json_encode($tournament['meta']) : '{}',
         ]);
     }
 
@@ -203,6 +209,8 @@ class Usctdp_Import_Product_Data
             WP_CLI::log("Existing clinic $title found with id $clinic_id");
             $query->update_item($clinic_id, [
                 "woocommerce_id" => $product_id,
+                "wp_flyer_id" => $this->flyer_map[$clinic['flyer_id']] ?? null,
+                "meta" => isset($clinic['meta']) ? json_encode($clinic['meta']) : '{}',
             ]);
             return $clinic_id;
         }
@@ -210,6 +218,7 @@ class Usctdp_Import_Product_Data
         return $query->add_item([
             "woocommerce_id" => $product_id,
             "wp_image_id" => $this->image_map[$clinic['image_id']] ?? null,
+            "wp_flyer_id" => $this->flyer_map[$clinic['flyer_id']] ?? null,
             "title" => $title,
             "search_term" => $search_term,
             "code" => $clinic['code'],
@@ -220,6 +229,7 @@ class Usctdp_Import_Product_Data
             "short_description" => $clinic['short_description'],
             "session_category" => $this->get_category_int($clinic['session_category']),
             "age_group" => strtolower($clinic['age_group']),
+            "meta" => isset($clinic['meta']) ? json_encode($clinic['meta']) : '{}',
         ]);
     }
 
@@ -297,6 +307,36 @@ class Usctdp_Import_Product_Data
 
             $attachment_id = $this->get_or_import_image($path, $image_id);
             $this->image_map[$image_id] = $attachment_id;
+            $idx += 1;
+        }
+
+        $flyer_ids = [];
+        foreach ($data["clinics"] as $clinic) {
+            if (!empty($clinic["flyer_id"])) {
+                $flyer_ids[] = $clinic["flyer_id"];
+            }
+        }
+        foreach ($data["tournaments"] as $tournament) {
+            if (!empty($tournament["flyer_id"])) {
+                $flyer_ids[] = $tournament["flyer_id"];
+            }
+        }
+        $flyer_ids = array_values(array_unique($flyer_ids));
+
+        $idx = 1;
+        $this->flyer_map = [];
+        foreach ($flyer_ids as $flyer_id) {
+            $url = $url_pref . $flyer_id;
+            $path = "/tmp/flyer-$idx.pdf";
+
+            if (!$skip_download) {
+                $curl_cmd = "curl -L '$url' -o $path";
+                WP_CLI::log($curl_cmd);
+                shell_exec($curl_cmd);
+            }
+
+            $attachment_id = $this->get_or_import_image($path, $flyer_id);
+            $this->flyer_map[$flyer_id] = $attachment_id;
             $idx += 1;
         }
 

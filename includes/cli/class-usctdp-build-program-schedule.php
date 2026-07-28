@@ -17,6 +17,7 @@ class Usctdp_Build_Program_Schedule
                     sess.season as session_season,
                     sess.meta as session_meta,
                     prod.wp_image_id as product_image_id,
+                    prod.wp_flyer_id as product_flyer_id,
                     prod.title as product_name,
                     prod.code as product_code,
                     prod.id as product_id,
@@ -26,7 +27,8 @@ class Usctdp_Build_Program_Schedule
                     prod.short_description as product_short_description,
                     prod.age_group as product_age_group,
                     prod.age_range as product_age_range,
-                    prod.woocommerce_id as product_woocommerce_id
+                    prod.woocommerce_id as product_woocommerce_id,
+                    prod.meta as product_meta
                 FROM {$wpdb->prefix}usctdp_activity AS act
                 JOIN {$wpdb->prefix}usctdp_clinic AS clinic ON act.id = clinic.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
@@ -48,6 +50,7 @@ class Usctdp_Build_Program_Schedule
                     sess.season as session_season,
                     sess.meta as session_meta,
                     prod.wp_image_id as product_image_id,
+                    prod.wp_flyer_id as product_flyer_id,
                     prod.title as product_name,
                     prod.code as product_code,
                     prod.id as product_id,
@@ -57,7 +60,8 @@ class Usctdp_Build_Program_Schedule
                     prod.short_description as product_short_description,
                     prod.age_group as product_age_group,
                     prod.age_range as product_age_range,
-                    prod.woocommerce_id as product_woocommerce_id
+                    prod.woocommerce_id as product_woocommerce_id,
+                    prod.meta as product_meta
                 FROM {$wpdb->prefix}usctdp_activity AS act
                 JOIN {$wpdb->prefix}usctdp_tournament AS tourn ON act.id = tourn.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
@@ -130,6 +134,7 @@ class Usctdp_Build_Program_Schedule
     {
         $product_id = $row->product_id;
         if (!isset($products[$product_id])) {
+            $productMeta = json_decode($row->product_meta ?? '', true) ?: [];
             $products[$product_id] = [
                 "id" => $product_id,
                 "name" => $row->product_name,
@@ -137,8 +142,11 @@ class Usctdp_Build_Program_Schedule
                 "description" => $row->product_description,
                 "short_description" => $row->product_short_description,
                 "image_id" => $row->product_image_id,
+                "flyer_id" => $row->product_flyer_id ? (int) $row->product_flyer_id : null,
+                "flyer_url" => $row->product_flyer_id ? wp_get_attachment_url($row->product_flyer_id) : null,
                 "level" => strtolower($row->product_level),
-                "level_label" => ucfirst(strtolower($row->product_level)),
+                "level_label" => $productMeta['level_text'] ?? ucfirst(strtolower($row->product_level)),
+                "subtitle_label" => $productMeta['subtitle_text'] ?? ('Ages ' . $row->product_age_range),
                 "type" => strtolower($row->product_type),
                 "ball_color" => $this->get_level_color($row->product_level),
                 "age_group" => $row->product_age_group,

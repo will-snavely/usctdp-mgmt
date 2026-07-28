@@ -34,6 +34,13 @@ class Usctdp_Mgmt_Product_Schema extends Schema
             'unsigned' => true,
             'allow_null' => true,
         ],
+        'wp_flyer_id' => [
+            'name' => 'wp_flyer_id',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'allow_null' => true,
+        ],
         'title' => [
             'name' => 'title',
             'type' => 'tinytext',
