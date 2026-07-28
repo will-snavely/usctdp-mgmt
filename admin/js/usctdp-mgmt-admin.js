@@ -1163,7 +1163,7 @@
             this.container.find(".credit-summary .total").text(USCTDP_Admin.formatUsd(credit));
             this.container.find(".balance-summary .total").text(USCTDP_Admin.formatUsd(balance));
             this.container.find(".house-credit-apply-field input").val(this.houseCreditApplied.toFixed(2));
-            this.updatePaymentMethodConstraints(credit, balance);
+            this.updatePaymentMethodConstraints(credit, this.houseCreditApplied, balance);
         }
 
         updatePaymentMethodConstraints(creditTotal, houseCredit, balance) {

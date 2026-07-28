@@ -20,6 +20,10 @@
     const modal = document.querySelector('#new-student-modal');
     const waitlistedEntries = new Set();
     let cartBlocked = false;
+    // Set to the tournament's activity (from /activities/) when it's full -
+    // clinics track "full" per selected day-selector option instead, since
+    // they have several activities to choose between.
+    let tournamentActivity = null;
 
     function waitlistKey(studentId, activityId) {
       return studentId + ':' + activityId;
@@ -27,6 +31,7 @@
 
     function clear_day_selectors() {
       $('#usctdp-day-selectors').empty();
+      tournamentActivity = null;
       cartBlocked = false;
       $('.single_add_to_cart_button').removeClass('usctdp-cart-disabled');
     }
@@ -64,9 +69,10 @@
     }
 
     function updateCartAvailability() {
-      cartBlocked = $('.usctdp-day-selector select').toArray().some(function (el) {
+      const dayFull = $('.usctdp-day-selector select').toArray().some(function (el) {
         return $(el).find(':selected').data('full') === true;
       });
+      cartBlocked = dayFull || !!tournamentActivity;
       $('.single_add_to_cart_button').toggleClass('usctdp-cart-disabled', cartBlocked);
     }
 
@@ -88,11 +94,54 @@
       updateCartAvailability();
     }
 
+    function updateTournamentWaitlistButton($btn) {
+      const activityId = String(tournamentActivity.id);
+      const studentId = $('#student_select').val();
+      const alreadyWaitlisted = !!studentId && waitlistedEntries.has(waitlistKey(studentId, activityId));
+      $btn.data('activity-id', activityId);
+      $btn.prop('disabled', alreadyWaitlisted);
+      $btn.text(alreadyWaitlisted ? 'Added to Waitlist' : 'Add to Waitlist');
+    }
+
     function refreshAllDayStatuses() {
       $('.usctdp-day-selector').each(function () {
         const $wrapper = $(this);
-        updateDayStatus($wrapper.find('select'), $wrapper.find('.usctdp-day-status'));
+        const $select = $wrapper.find('select');
+        if ($select.length) {
+          updateDayStatus($select, $wrapper.find('.usctdp-day-status'));
+        } else if (tournamentActivity) {
+          updateTournamentWaitlistButton($wrapper.find('.add-waitlist-btn'));
+        }
       });
+    }
+
+    /**
+     * Renders the "This tournament is full" / Add to Waitlist block for a
+     * full tournament activity - the tournament equivalent of the per-day
+     * status rendered inside add_day_selector() below, minus the <select>
+     * since there's only ever one activity to consider. No-op (and clears
+     * any prior full state) when there's room.
+     */
+    function render_tournament_status(activity) {
+      tournamentActivity = (activity.enrolled_count >= activity.capacity) ? activity : null;
+      if (!tournamentActivity) {
+        updateCartAvailability();
+        return;
+      }
+
+      const wrapper = $('<div></div>').addClass('usctdp-day-selector usctdp-tournament-status');
+      const statusWrap = $('<div></div>').addClass('usctdp-day-status');
+      statusWrap.append($('<span></span>').addClass('usctdp-full-message').text('This tournament is full.'));
+      const btn = $('<button></button>')
+        .attr('type', 'button')
+        .addClass('button add-waitlist-btn')
+        .text('Add to Waitlist');
+      statusWrap.append(btn);
+      wrapper.append(statusWrap);
+      $('#usctdp-day-selectors').append(wrapper);
+
+      updateTournamentWaitlistButton(btn);
+      updateCartAvailability();
     }
 
     function add_day_selector(clinics, day_index, label_text, session_label) {
@@ -220,14 +269,32 @@
     $('.variations_form').on('found_variation', function (event, variation) {
       $('#usctdp-woocommerce-extra').removeClass('force-hidden');
 
-      var daysPerWeekStr = variation.attributes["attribute_days-per-week"];
-      if (!daysPerWeekStr) {
-        // Product has no days-per-week variation (e.g. tournaments) - no day selectors to show.
-        clear_day_selectors();
-        return;
-      }
       var session = variation.attributes["attribute_session"];
       var session_id = siteData.session_map[session];
+
+      var daysPerWeekStr = variation.attributes["attribute_days-per-week"];
+      if (!daysPerWeekStr) {
+        clear_day_selectors();
+        if (siteData.product_type !== 'tournament') {
+          // No days-per-week variation and not a tournament - nothing to show.
+          return;
+        }
+        fetch(siteData.root + 'usctdp-mgmt/v1/activities/' + session_id + '/' + siteData.usctdp_id, {
+          method: 'GET',
+          headers: {
+            'X-WP-Nonce': siteData.nonce
+          }
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data && data.length) {
+              render_tournament_status(data[0]);
+            }
+          })
+          .catch(error => console.error('Error loading tournament activity:', error));
+        return;
+      }
+
       fetch(siteData.root + 'usctdp-mgmt/v1/clinics/' + session_id + '/' + siteData.usctdp_id, {
         method: 'GET',
         headers: {
@@ -409,7 +476,10 @@
     $('.variations_form').on('submit', function (e) {
       if (cartBlocked) {
         e.preventDefault();
-        alert('One or more selected days are full. Please choose a different day, or add the student to the waitlist instead.');
+        var message = tournamentActivity
+          ? 'This tournament is full. Please add the student to the waitlist instead.'
+          : 'One or more selected days are full. Please choose a different day, or add the student to the waitlist instead.';
+        alert(message);
       }
     });
 

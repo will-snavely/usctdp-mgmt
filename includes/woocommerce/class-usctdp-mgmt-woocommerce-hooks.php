@@ -1000,6 +1000,44 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         }
     }
 
+    /**
+     * WooCommerce itself already puts the session name on the order line
+     * item - WC_Order_Item_Product::set_variation() (called from
+     * WC_Checkout::create_order_line_items() before this hook fires) adds
+     * the variation's attribute_session value as meta key 'session', which
+     * order templates display under the "Session" label (from the product's
+     * attribute name). Session titles/names repeat across years (e.g. a
+     * "Winter Junior Open" every year), so this appends the session's start
+     * year to that value for display, e.g. "Winter Junior Open 2026".
+     */
+    private function append_session_year($item, $values)
+    {
+        $session_name = $item->get_meta('session');
+        if (empty($session_name) || empty($values['activities'])) {
+            return;
+        }
+
+        $activity_query = new Usctdp_Mgmt_Activity_Query([
+            'id' => reset($values['activities']),
+            'number' => 1,
+        ]);
+        $activity = $activity_query->items[0] ?? null;
+        if (!$activity) {
+            return;
+        }
+
+        $session_query = new Usctdp_Mgmt_Session_Query([
+            'id' => $activity->session_id,
+            'number' => 1,
+        ]);
+        $session = $session_query->items[0] ?? null;
+        if (!$session) {
+            return;
+        }
+
+        $item->update_meta_data('session', $session_name . ' ' . $session->start_date->format('Y'));
+    }
+
     public function checkout_create_order_line_item($item, $cart_item_key, $values, $order)
     {
         if (isset($values['student_id'])) {
@@ -1023,6 +1061,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             $item->add_meta_data('_tournament_activity_id', $values['tournament_activity_id']);
             $item->add_meta_data('Activity', $this->get_tournament_display($values['tournament_activity_id']));
         }
+        $this->append_session_year($item, $values);
         $item->add_meta_data('_activities', $values['activities']);
         $item->add_meta_data('_tracking_id', $values['tracking_id']);
     }

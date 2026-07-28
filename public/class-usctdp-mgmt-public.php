@@ -76,6 +76,26 @@ class Usctdp_Mgmt_Public
             },
         ]);
 
+        register_rest_route($rest_id, '/activities/(?P<session_id>\d+)/(?P<product_id>\d+)', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_activities'],
+            'args' => [
+                'session_id' => [
+                    'validate_callback' => function ($param, $request, $key) {
+                        return is_numeric($param);
+                    },
+                ],
+                'product_id' => [
+                    'validate_callback' => function ($param, $request, $key) {
+                        return is_numeric($param);
+                    },
+                ],
+            ],
+            'permission_callback' => function () {
+                return is_user_logged_in();
+            },
+        ]);
+
         register_rest_route($rest_id, '/students/', [
             'methods' => 'GET',
             'callback' => [$this, 'get_students'],
@@ -179,6 +199,39 @@ class Usctdp_Mgmt_Public
             return null;
         }
         return $family_query->items[0];
+    }
+
+    /**
+     * Generic (session, product) -> activities lookup with enrollment counts.
+     * Unlike get_clinics() below, this doesn't join usctdp_clinic - it works
+     * for any activity type, since capacity/enrollment live on usctdp_activity
+     * itself. For a clinic session this returns every class time-slot; for a
+     * tournament session it returns exactly one activity.
+     */
+    public function get_activities($request)
+    {
+        global $wpdb;
+        $session_id = $request->get_param('session_id');
+        $product_id = $request->get_param('product_id');
+        $activity_table = $wpdb->prefix . 'usctdp_activity';
+        $registration_table = $wpdb->prefix . 'usctdp_registration';
+
+        $activity_query = $wpdb->prepare(
+            "SELECT act.*, COUNT(reg.id) as enrolled_count
+            FROM $activity_table as act
+            LEFT JOIN $registration_table as reg ON act.id = reg.activity_id
+            WHERE act.session_id = %d AND act.product_id = %d
+            GROUP BY act.id",
+            $session_id,
+            $product_id
+        );
+
+        $results = $wpdb->get_results($activity_query);
+        foreach ($results as &$activity) {
+            $activity->capacity = (int) $activity->capacity;
+            $activity->enrolled_count = (int) $activity->enrolled_count;
+        }
+        return $results;
     }
 
     public function get_clinics($request)
