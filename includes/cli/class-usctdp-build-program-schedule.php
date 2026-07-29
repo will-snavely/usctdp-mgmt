@@ -115,10 +115,10 @@ class Usctdp_Build_Program_Schedule
     private function get_level_color($level)
     {
         $colors = [
-            "beginner"     => "#e03535",
+            "beginner" => "#e03535",
             "intermediate" => "#e87722",
-            "advanced"     => "#3a9e5f",
-            "varies"       => "#466be5",
+            "advanced" => "#3a9e5f",
+            "varies" => "#466be5",
         ];
         return $colors[strtolower($level)] ?? "#3893de";
     }
@@ -146,7 +146,7 @@ class Usctdp_Build_Program_Schedule
                 "flyer_url" => $row->product_flyer_id ? wp_get_attachment_url($row->product_flyer_id) : null,
                 "level" => strtolower($row->product_level),
                 "level_label" => $productMeta['level_text'] ?? ucfirst(strtolower($row->product_level)),
-                "subtitle_label" => $productMeta['subtitle_text'] ?? ('Ages ' . $row->product_age_range),
+                "subtitle_label" => $productMeta['subtitle_text'] ?? (!empty($row->product_age_range) ? $row->product_age_range : ''),
                 "type" => strtolower($row->product_type),
                 "ball_color" => $this->get_level_color($row->product_level),
                 "age_group" => $row->product_age_group,
