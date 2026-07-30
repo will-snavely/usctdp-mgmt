@@ -1,6 +1,31 @@
 (function ($) {
     window.USCTDP_Admin = window.USCTDP_Admin || {};
 
+    // A native <dialog> shown via showModal() is promoted to the browser's
+    // top layer, which renders above ALL regular content regardless of
+    // z-index - so a Swal fired while a <dialog> is still open (e.g. an
+    // error handler that doesn't close the dialog first) renders behind it.
+    // Point Swal at the open dialog instead of document.body so its popup
+    // becomes a descendant of that same top-layer subtree, where normal
+    // stacking applies. Patched here, once, so every call site across every
+    // admin page is covered without each one having to close its dialog
+    // first. Deferred to document.ready since window.Swal comes from the
+    // vendor bundle, whose load order relative to this file isn't guaranteed.
+    $(document).ready(function () {
+        if (window.Swal && typeof window.Swal.fire === 'function' && !window.Swal.__usctdpDialogPatched) {
+            var originalFire = window.Swal.fire.bind(window.Swal);
+            window.Swal.fire = function () {
+                var args = Array.prototype.slice.call(arguments);
+                var openDialog = document.querySelector('dialog[open]');
+                if (openDialog && typeof args[0] === 'object' && args[0] !== null && args[0].target === undefined) {
+                    args[0] = Object.assign({}, args[0], { target: openDialog });
+                }
+                return originalFire.apply(window.Swal, args);
+            };
+            window.Swal.__usctdpDialogPatched = true;
+        }
+    });
+
     USCTDP_Admin.ajax_saveRegistrationFields = async function (id, fields) {
         const response = await $.ajax({
             url: usctdp_mgmt_admin.ajax_url,

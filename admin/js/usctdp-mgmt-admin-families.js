@@ -63,6 +63,25 @@
             }
         }
 
+        function refreshFamilyBalance() {
+            if (!currentId) return;
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.get_family_balance_action,
+                    security: usctdp_mgmt_admin.get_family_balance_nonce,
+                    family_id: currentId
+                },
+                success: function (response) {
+                    $('#family-total-balance').text(USCTDP_Admin.formatUsd(response.data.balance));
+                    $('#family-total-balance').toggleClass('red-bg', response.data.balance > 0);
+                    $('#family-total-balance').toggleClass('green-bg', response.data.balance <= 0);
+                    $('#family-total-house-credit').text(USCTDP_Admin.formatUsd(response.data.house_credit));
+                }
+            });
+        }
+
         var pendingChanges = {};
         var currentId = null;
         const queryClient = new window.QueryClient({
@@ -302,6 +321,7 @@
         var preloadedData = {};
         const newStudentModal = document.querySelector('#new-student-modal');
         const newFamilyModal = document.querySelector('#new-family-modal');
+        const issueHouseCreditModal = document.querySelector('#issue-house-credit-modal');
 
         var membersTable = $('#family-members-table').DataTable({
             processing: true,
@@ -450,6 +470,64 @@
             });
         });
 
+        $('#issue-house-credit-btn').on('click', (e) => {
+            e.preventDefault();
+            $('#issue-house-credit-form')[0].reset();
+            issueHouseCreditModal.showModal();
+        });
+
+        $('#close-house-credit-modal').on('click', () => {
+            issueHouseCreditModal.close();
+        });
+
+        $('#issue-house-credit-form').on('submit', (e) => {
+            const form = $('#issue-house-credit-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+
+            const $btn = $('#save-house-credit-modal');
+            $btn.prop('disabled', true);
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.issue_house_credit_action,
+                    security: usctdp_mgmt_admin.issue_house_credit_nonce,
+                    family_id: currentId,
+                    amount: $('#house-credit-amount').val(),
+                    reason: $('#house-credit-reason').val(),
+                },
+                success: function (response) {
+                    if (response.success) {
+                        issueHouseCreditModal.close();
+                        refreshFamilyBalance();
+                        Swal.fire({
+                            title: 'Success',
+                            text: 'House credit issued successfully!',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                },
+                error: function (response) {
+                    const responseMessage = response.responseJSON ? response.responseJSON.data : 'Unknown error';
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to issue house credit.\n\n' + responseMessage,
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                },
+                complete: function () {
+                    $btn.prop('disabled', false);
+                }
+            });
+        });
+
         const selectorConfig = {
             'family-selector': {
                 name: 'family_id',
@@ -472,6 +550,7 @@
             });
             if (value) {
                 membersTable.ajax.reload();
+                refreshFamilyBalance();
                 const historyHref = 'admin.php?page=usctdp-admin-history&family_id=' + value;
                 $('#family-registration-history-link').attr('href', historyHref);
                 $('#family-title').text(text);

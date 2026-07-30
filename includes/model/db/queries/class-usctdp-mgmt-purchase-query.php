@@ -54,6 +54,10 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $conditions[] = "pur.type = %s";
             $where_args[] = $args['type'];
         }
+        if (isset($args["exclude_type"])) {
+            $conditions[] = "pur.type != %s";
+            $where_args[] = $args['exclude_type'];
+        }
         if (isset($args["status"])) {
             $conditions[] = "reg.status = %s";
             $where_args[] = $args['status'];

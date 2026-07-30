@@ -254,6 +254,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function create_family_on_registration($customer_id, $new_customer_data, $password_generated)
     {
         try {
+            $first_name = $new_customer_data['first_name'] ?? '';
             $last_name = $new_customer_data['last_name'] ?? '';
             $email = $new_customer_data['user_email'] ?? '';
             $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
@@ -282,12 +283,16 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 'notes' => $pending ? $pending->notes : '',
             ]);
 
-            if ($pending && $family_id) {
+            if ($family_id) {
                 $student_query = new Usctdp_Mgmt_Student_Query();
-                foreach ($pending->students as $student) {
-                    $student_query->create_student($student->first, $student->last, $family_id, $student->birth_date, '');
+                $student_query->create_student($first_name, $last_name, $family_id, '', '');
+
+                if ($pending) {
+                    foreach ($pending->students as $student) {
+                        $student_query->create_student($student->first, $student->last, $family_id, $student->birth_date, '');
+                    }
+                    (new Usctdp_Mgmt_Import_Pending_Query())->update_item($pending->id, ['confirmed_at' => current_time('mysql')]);
                 }
-                (new Usctdp_Mgmt_Import_Pending_Query())->update_item($pending->id, ['confirmed_at' => current_time('mysql')]);
             }
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('create_family_on_registration', $e);

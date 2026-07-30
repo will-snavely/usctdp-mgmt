@@ -34,6 +34,7 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
             'length' => '20',
             'unsigned' => true,
             'index' => true,
+            'allow_null' => true,
         ],
         'status' => [
             'name' => 'status',

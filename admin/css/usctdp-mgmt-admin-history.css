@@ -27,46 +27,8 @@
     /* Override any 'nowrap' settings */
 }
 
-/* 
- * Styling for family financial summary blocks,
- * e.g. overall account balance, house credit, etc.
- */
-
-.family-financial-summary {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 15px;
-    padding: 10px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    font-family: sans-serif;
-    border: 1px solid #eee;
-    width: fit-content;
-}
-
-.family-financial-summary label {
-    font-weight: 600;
-    color: #666;
-    margin-right: 8px;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-}
-
-.family-financial-summary span {
-    font-weight: 700;
-    color: #333;
-    font-size: 1.1rem;
-}
-
-.family-financial-summary .balance-amt {
-    padding: 4px 8px;
-    border-radius: 4px;
-    color: #000000;
-}
-
-/* 
- * Styling for the overall purchase table 
+/*
+ * Styling for the overall purchase table
  * and the filters above the table
  */
 

@@ -14,6 +14,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'gen_statement' => 'ajax_gen_statement',
         'get_family' => 'ajax_get_family',
         'get_family_balance' => 'ajax_get_family_balance',
+        'issue_house_credit' => 'ajax_issue_house_credit',
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
@@ -668,6 +669,136 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    // Reserved placeholder product that imported/historical house credit
+    // purchases attach to (see ajax_issue_house_credit) - product_id on
+    // usctdp_purchase is NOT NULL, so a real row is needed even though this
+    // one is never sold. Found-or-created lazily by its fixed `code` rather
+    // than provisioned via activation, so it's self-healing if ever deleted.
+    private function get_or_create_credit_import_product()
+    {
+        $code = 'house-credit-import';
+        $product_query = new Usctdp_Mgmt_Product_Query([
+            'code' => $code,
+            'number' => 1
+        ]);
+        if (!empty($product_query->items)) {
+            return $product_query->items[0]->id;
+        }
+
+        $product_query = new Usctdp_Mgmt_Product_Query();
+        $product_id = $product_query->add_item([
+            'woocommerce_id' => 0,
+            'code' => $code,
+            'type' => 'system',
+            'title' => 'House Credit Import',
+            'description' => 'Internal placeholder used to attach imported/historical house credit ledger entries. Not a real, purchasable product.',
+        ]);
+        if (!$product_id) {
+            throw new Web_Request_Exception('Failed to create house credit import product.');
+        }
+        return $product_id;
+    }
+
+    // Issues house credit not tied to any real purchase or payment - e.g.
+    // importing a balance a family already had in a prior system. Still
+    // double-entry: debits a `credit_import_fees` account that no balance
+    // query ever sums (so it doesn't affect what's owed) and credits
+    // `payment_house_credit` (which get_house_credit_balance() does sum) -
+    // the same pair createPayoutLedger(purchase_type, 'house_credit') would
+    // produce for a real purchase, just attached to a placeholder purchase
+    // instead. That placeholder purchase is typed 'credit_import' and has no
+    // student, so it's excluded from Purchase History (see
+    // ajax_purchase_history_datatable).
+    public function ajax_issue_house_credit()
+    {
+        $this->check_nonce('issue_house_credit');
+
+        $family_id = $this->get_sanitized_post_field_int('family_id');
+        $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
+        $reason = isset($_POST['reason']) ? sanitize_text_field(stripslashes($_POST['reason'])) : '';
+
+        if (empty($family_id)) {
+            wp_send_json_error('Family ID is required.', 400);
+        }
+        if ($amount <= 0) {
+            wp_send_json_error('A positive amount is required.', 400);
+        }
+        if (empty($reason)) {
+            wp_send_json_error('A reason is required.', 400);
+        }
+
+        global $wpdb;
+        $transaction_started = false;
+        try {
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+
+            $product_id = $this->get_or_create_credit_import_product();
+
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            $purchase_id = $purchase_query->add_item([
+                'product_id' => $product_id,
+                'family_id' => $family_id,
+                'student_id' => null,
+                'type' => 'credit_import',
+                'created_at' => current_time('mysql'),
+                'created_by' => get_current_user_id(),
+                'notes' => $reason,
+            ]);
+            if (!$purchase_id) {
+                throw new Web_Request_Exception('Failed to create purchase record for house credit.');
+            }
+
+            $amount_display = number_format($amount, 2, '.', '');
+            $ledger_base = [
+                'event_id' => 'credit_import_' . time() . '_' . $purchase_id,
+                'event' => 'House Credit Import',
+                'family_id' => $family_id,
+                'purchase_id' => $purchase_id,
+                'description' => 'Payout - House Credit - ' . $reason,
+                'entry_type' => 'house_credit',
+            ];
+            $entries = [
+                array_merge($ledger_base, [
+                    'account' => 'credit_import_fees',
+                    'debit' => $amount_display,
+                    'credit' => '0.00',
+                ]),
+                array_merge($ledger_base, [
+                    'account' => 'payment_house_credit',
+                    'debit' => '0.00',
+                    'credit' => $amount_display,
+                ]),
+            ];
+            foreach ($entries as $entry) {
+                if (!$this->create_ledger_entry($entry)) {
+                    throw new Web_Request_Exception('Failed to create ledger entry for house credit.');
+                }
+            }
+
+            $wpdb->query('COMMIT');
+            $transaction_started = false;
+
+            wp_send_json_success([
+                'purchase_id' => $purchase_id,
+                'balance' => $this->get_family_balance($family_id),
+                'house_credit' => $this->get_house_credit_balance($family_id),
+            ]);
+        } catch (Web_Request_Exception $e) {
+            if ($transaction_started) {
+                $wpdb->query('ROLLBACK');
+            }
+            Usctdp_Mgmt::logger()->log_exception('ajax_issue_house_credit', $e);
+            wp_send_json_error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            if ($transaction_started) {
+                $wpdb->query('ROLLBACK');
+            }
+            Usctdp_Mgmt::logger()->log_exception('ajax_issue_house_credit', $e);
+            wp_send_json_error('An unexpected server error occurred while issuing house credit.', 500);
+        }
+    }
+
     public function ajax_create_family()
     {
         $this->check_nonce('create_family');
@@ -1016,6 +1147,10 @@ class Usctdp_Mgmt_Admin_Ajax
         $args = [
             'number' => $length,
             'offset' => $start,
+            // credit_import purchases are internal placeholders used to attach
+            // imported house credit to a ledger entry (see ajax_issue_house_credit)
+            // - they have no student and nothing to show, so never list them here.
+            'exclude_type' => 'credit_import',
         ];
         if ($family_id) {
             $args['family_id'] = $family_id;

@@ -35,6 +35,8 @@ class Usctdp_Mgmt_Admin
                     'create_family',
                     'create_student',
                     'update_family',
+                    'get_family_balance',
+                    'issue_house_credit',
                 ],
                 'context' => ['family_id']
             ],

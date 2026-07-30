@@ -76,6 +76,27 @@
             </form>
         </dialog>
 
+        <dialog id="issue-house-credit-modal">
+            <form id="issue-house-credit-form" method="dialog">
+                <h2>Issue House Credit</h2>
+                <div class="modal_field">
+                    <label for="house-credit-amount">Amount ($)</label>
+                    <input type="number" id="house-credit-amount" name="amount" step="0.01" min="0.01" required
+                        placeholder="0.00">
+                </div>
+                <div class="modal_field">
+                    <label for="house-credit-reason">Reason</label>
+                    <input type="text" id="house-credit-reason" name="reason" required
+                        placeholder="e.g., Imported credit balance from legacy system">
+                </div>
+
+                <div class="actions-footer">
+                    <button type="submit" class="button" id="save-house-credit-modal">Issue Credit</button>
+                    <button type="button" class="button" id="close-house-credit-modal">Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
         <div id="selection-section">
             <div id="context-selectors"></div>
             <div id="new-family-section">
@@ -93,6 +114,19 @@
                         View Registration History...
                     </a>
                 </div>
+
+                <div id="family-balance-section" class="flex-row gap-10 align-center">
+                    <div class="family-financial-summary">
+                        <label>Balance</label>
+                        <span id="family-total-balance" class="balance-amt"></span>
+                    </div>
+                    <div class="family-financial-summary">
+                        <label>Credit</label>
+                        <span id="family-total-house-credit" class="balance-amt green-bg"></span>
+                    </div>
+                    <button type="button" class="button" id="issue-house-credit-btn">Issue House Credit...</button>
+                </div>
+
                 <div id="fields-panel">
                     <div id="fields-container">
                     </div>
