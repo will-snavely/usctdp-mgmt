@@ -289,6 +289,13 @@ class Usctdp_Mgmt
             10,
             2
         );
+        $this->loader->add_filter(
+            'retrieve_password_message',
+            $commerce_handler,
+            'use_themed_reset_password_url',
+            10,
+            3
+        );
 
         $this->loader->add_action(
             'init',

@@ -343,6 +343,27 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         return false;
     }
 
+    /**
+     * WordPress core's own password-reset email - sent by the "Send
+     * password reset" link on wp-admin's Edit User screen, which calls
+     * core's retrieve_password() rather than anything WooCommerce provides
+     * - points at the bare, unstyled wp-login.php?action=rp screen instead
+     * of the themed my-account/lost-password page WooCommerce's own new
+     * account/reset emails use. Both read/write the exact same reset key
+     * via get_password_reset_key()/check_password_reset_key(), so swapping
+     * the URL text here doesn't touch the key itself - it's the same link,
+     * just pointed at the page customers actually recognize.
+     */
+    public function use_themed_reset_password_url($message, $key, $user_login)
+    {
+        $core_url = network_site_url('wp-login.php?action=rp&key=' . $key . '&login=' . rawurlencode($user_login), 'login');
+        $themed_url = add_query_arg(
+            ['key' => $key, 'login' => rawurlencode($user_login)],
+            wc_get_endpoint_url('lost-password', '', wc_get_page_permalink('myaccount'))
+        );
+        return str_replace($core_url, $themed_url, $message);
+    }
+
     public function display_before_single_product()
     {
         if (!is_user_logged_in()) {
