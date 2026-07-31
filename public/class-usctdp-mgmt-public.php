@@ -155,6 +155,21 @@ class Usctdp_Mgmt_Public
         if (is_product()) {
             global $product;
 
+            // $product isn't reliably a WC_Product here: WooCommerce's own
+            // "Coming Soon" store mode (ComingSoonRequestHandler) renders
+            // this same is_product() page via a direct get_header() call
+            // rather than the normal single-product template flow, and
+            // doesn't set up the global the usual way - $product ends up
+            // holding the "product" query var (a plain string, the post
+            // slug) instead. Re-fetch explicitly rather than trusting the
+            // global, and bail if there's still nothing real to work with.
+            if (!($product instanceof WC_Product)) {
+                $product = wc_get_product(get_queried_object_id());
+            }
+            if (!($product instanceof WC_Product)) {
+                return;
+            }
+
             $product_script = 'usctdp-mgmt-product-script';
             wp_enqueue_script(
                 $product_script,
