@@ -1223,39 +1223,56 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     $price = $activity_prices[$activity_id];
                     $activity_title = $activities[$activity_id]->title;
 
-                    $ledger_query->add_item([
+                    $ledger_base = [
                         'purchase_id' => $purchase_id,
                         'family_id' => $family_id,
                         'order_id' => $order_id,
                         'event_id' => 'wc_order' . $order_id,
                         'event' => 'WooCommerce Order ' . $order_id,
+                        'payment_method' => $payment_method,
+                        'reference_id' => $reference_id,
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
+                    ];
+
+                    // Charge: mirrors build_ledger_entries_for_line_item()'s
+                    // "is_new" pair in class-usctdp-mgmt-admin-ajax.php - Dr
+                    // registration_fees, Cr revenue, recognizing the sale.
+                    $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'registration_fees',
                         'entry_type' => 'charge',
                         'description' => 'Order placed in online store.',
-                        'payment_method' => $payment_method,
-                        'reference_id' => $reference_id,
                         'debit' => $price,
                         'credit' => 0,
-                        'created_at' => $created_at,
-                        'created_by' => $created_by,
-                    ]);
+                    ]));
+                    $ledger_query->add_item(array_merge($ledger_base, [
+                        'account' => 'revenue',
+                        'entry_type' => 'charge',
+                        'description' => 'Order placed in online store.',
+                        'debit' => 0,
+                        'credit' => $price,
+                    ]));
 
-                    $ledger_query->add_item([
-                        'purchase_id' => $purchase_id,
-                        'family_id' => $family_id,
-                        'order_id' => $order_id,
-                        'event_id' => 'wc_order' . $order_id,
-                        'event' => 'WooCommerce Order ' . $order_id,
+                    // Payment: mirrors that same file's payment pair - Dr
+                    // payment_<method> (money actually received), Cr
+                    // registration_fees (clearing the receivable). COD moves
+                    // straight to "processing", so both pairs are booked
+                    // together here rather than split across two hook calls
+                    // like the admin invoicing flow's deferred-card case.
+                    $ledger_query->add_item(array_merge($ledger_base, [
+                        'account' => 'payment_' . $payment_method,
+                        'entry_type' => 'payment',
+                        'description' => 'Order paid in online store.',
+                        'debit' => $price,
+                        'credit' => 0,
+                    ]));
+                    $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'registration_fees',
                         'entry_type' => 'payment',
                         'description' => 'Order paid in online store.',
-                        'payment_method' => $payment_method,
-                        'reference_id' => $reference_id,
                         'debit' => 0,
                         'credit' => $price,
-                        'created_at' => $created_at,
-                        'created_by' => $created_by,
-                    ]);
+                    ]));
                 }
             }
 
