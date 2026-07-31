@@ -819,13 +819,13 @@ class Usctdp_Mgmt_Admin_Ajax
                 'title' => function ($raw) {
                     $phone = trim($this->get_sanitized_post_field_text('phone'));
                     $last_four = substr($phone, -4);
-                    $last_name = sanitize_text_field($raw);
+                    $last_name = $this->get_sanitized_post_field_text('last');
                     return $last_name . ' ' . $last_four;
                 },
                 'search_term' => function ($raw) {
                     $phone = trim($this->get_sanitized_post_field_text('phone'));
                     $last_four = substr($phone, -4);
-                    $last_name = sanitize_text_field($raw);
+                    $last_name = $this->get_sanitized_post_field_text('last');
                     return Usctdp_Mgmt_Model::append_token_suffix($last_name . ' ' . $last_four);
                 },
             ];
