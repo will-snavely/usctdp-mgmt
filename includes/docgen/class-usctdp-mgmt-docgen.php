@@ -284,6 +284,12 @@ class Usctdp_Mgmt_Docgen
         $clinic_fields = $clinic_data['data'][0];
         $session_name = $clinic_fields->session_name;
         $age_group = $clinic_fields->product_age_group;
+        $product_name = $clinic_fields->product_name;
+        $session_title = $session_name . ": " . $product_name;
+        $activity_meta = json_decode($clinic_fields->clinic_meta, true);
+        if(isset($activity_meta['session_title'])) {
+            $session_title = $activity_meta['session_title'];
+        }
 
         $start_date_raw = $clinic_fields->session_start_date;
         $start_date = $start_date_raw ? DateTime::createFromFormat('Y-m-d', $start_date_raw)->format('m/d/Y') : '';
@@ -295,7 +301,7 @@ class Usctdp_Mgmt_Docgen
         $end_time_raw = $clinic_fields->clinic_end_time;
         $end_time = $end_time_raw ? DateTime::createFromFormat('H:i:s', $end_time_raw)->format('g:i A') : '';
 
-        $templateProcessor->setValue("session_title#$block_id", $session_name);
+        $templateProcessor->setValue("session_title#$block_id", $session_title);
         $templateProcessor->setValue("dow#$block_id", $this->int_to_day($clinic_fields->clinic_day_of_week));
         $templateProcessor->setValue("stime#$block_id", $start_time);
         $templateProcessor->setValue("etime#$block_id", $end_time);

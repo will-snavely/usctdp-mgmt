@@ -120,8 +120,10 @@
         });
 
         function generateSessionRosterRow($btn, sessionId, openWhenDone) {
+            var $spinner = $('<span class="spinner is-active"></span>');
             $btn.prop('disabled', true);
-            $btn.html('<span class="spinner is-active"></span> Regenerating...');
+            $btn.text('Working...');
+            $btn.after($spinner);
             return USCTDP_Admin.ajax_generateSessionRoster(sessionId)
                 .then(function (response) {
                     var row = sessionsRosterTable.row('#session-row-' + sessionId);
@@ -147,6 +149,7 @@
                 .finally(function () {
                     $btn.prop('disabled', false);
                     $btn.text('Regenerate & Open');
+                    $spinner.remove();
                 });
         }
 
@@ -210,7 +213,7 @@
 
         function toggleLoading(isLoading) {
             if (isLoading) {
-                $('#print-roster-button .button-text').text('Regenerating...');
+                $('#print-roster-button .button-text').text('Working...');
                 $('#print-roster-button').addClass('is-loading');
                 $('.selector').attr('disabled', true);
             } else {

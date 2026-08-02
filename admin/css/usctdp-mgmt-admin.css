@@ -393,6 +393,15 @@ dialog#payment-history-modal .text-right {
     border-color: #005670;
 }
 
+/* Loading spinners placed after a button via JS (button.after($spinner)) -
+   override WP core's float so they sit inline next to the button instead
+   of stretching its container. */
+button + .spinner.is-active {
+    float: none;
+    vertical-align: middle;
+    margin: 0 0 0 6px;
+}
+
 /* Remove spinner from number inputs */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {

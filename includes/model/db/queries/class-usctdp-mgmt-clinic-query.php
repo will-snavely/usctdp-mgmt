@@ -83,7 +83,8 @@ class Usctdp_Mgmt_Clinic_Query extends Query
         $query = $wpdb->prepare(
             "   SELECT
                     act.id as clinic_id, act.title as clinic_name, act.capacity as clinic_capacity,
-                    act.level as clinic_level, clin.day_of_week as clinic_day_of_week,
+                    act.level as clinic_level, act.meta as clinic_meta,
+                    clin.day_of_week as clinic_day_of_week,
                     clin.start_time as clinic_start_time, clin.end_time as clinic_end_time,
                     sess.id as session_id, sess.title as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,

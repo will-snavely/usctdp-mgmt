@@ -1660,8 +1660,10 @@
 
             this.container.on('click', '#generate-statement-btn', () => {
                 const $btn = this.container.find('#generate-statement-btn');
+                const $spinner = $('<span class="spinner is-active"></span>');
                 $btn.prop('disabled', true);
-                $btn.html('<span class="spinner is-active"></span> Generating...');
+                $btn.text('Working...');
+                $btn.after($spinner);
                 USCTDP_Admin.ajax_generateStatement(this.familyId, [this.purchaseId])
                     .then((response) => {
                         window.open(response.doc_url, '_blank');
@@ -1676,7 +1678,8 @@
                     })
                     .finally(() => {
                         $btn.prop('disabled', false);
-                        $btn.html('Print Statement');
+                        $btn.text('Print Statement');
+                        $spinner.remove();
                     });
             });
         }

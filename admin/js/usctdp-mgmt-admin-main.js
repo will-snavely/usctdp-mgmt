@@ -134,9 +134,11 @@
             var $btn = $(this);
             var sessionId = $btn.attr('data-id');
             var originalText = $btn.text();
+            var $spinner = $('<span class="spinner is-active"></span>');
 
             $btn.prop('disabled', true);
-            $btn.html('<span class="spinner is-active"></span> Generating...');
+            $btn.text('Working...');
+            $btn.after($spinner);
 
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -161,6 +163,7 @@
                 complete: function () {
                     $btn.prop('disabled', false);
                     $btn.text(originalText);
+                    $spinner.remove();
                 }
             });
         });

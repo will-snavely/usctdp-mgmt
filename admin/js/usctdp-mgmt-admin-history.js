@@ -518,8 +518,10 @@
             const familyId = purchases[0].family_id;
             const purchaseIds = purchases.map((purchase) => purchase.purchase_id);
             const $btn = $('#apply-bulk-btn');
+            const $spinner = $('<span class="spinner is-active"></span>');
             $btn.prop('disabled', true);
-            $btn.html('<span class="spinner is-active"></span> Generating...');
+            $btn.text('Working...');
+            $btn.after($spinner);
             USCTDP_Admin.ajax_generateStatement(familyId, purchaseIds)
                 .then((response) => {
                     window.open(response.doc_url, '_blank');
@@ -533,7 +535,8 @@
                 })
                 .finally(() => {
                     $btn.prop('disabled', false);
-                    $btn.html('Apply');
+                    $btn.text('Apply');
+                    $spinner.remove();
                 });
         }
 
