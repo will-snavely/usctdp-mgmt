@@ -6,7 +6,7 @@ $balance_query =
             COUNT(id) as total_count,
             SUM(debit) - SUM(credit) as total_balance
         FROM {$wpdb->prefix}usctdp_ledger
-        WHERE account in ('registration_fees')";
+        WHERE account in ('registration_fees', 'merchandise_fees')";
 
 $balance_results = $wpdb->get_row($balance_query);
 $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
@@ -57,7 +57,7 @@ $google_timestamp = get_option('usctdp_google_refresh_token_timestamp');
                         <span class="stat-label">Outstanding Balance</span>
                     </div>
                     <span class="stat-subtext"><?php echo esc_html($outstanding_count); ?> outstanding
-                        registration(s)</span>
+                        purchase(s)</span>
                     <div class="card-controls">
                         <a href="<?php echo admin_url('admin.php?page=usctdp-admin-balances'); ?>"
                             id="balances-report-link" type="button" class="button">View Report</a>
