@@ -2,6 +2,28 @@
     margin: 15px 0;
 }
 
+/* The family/student selects here use dropdownParent: $('#waitlist-student-modal')
+   (see waitlistSelectors in usctdp-mgmt-admin-rosters.js) so their select2
+   dropdown stays inside the dialog's own top-layer stacking - otherwise,
+   since dialogs are promoted to the browser's top layer while open, a
+   dropdown appended to document.body (select2's default) would render
+   BEHIND the dialog regardless of z-index. The tradeoff: an open <dialog>
+   gets `overflow: auto` from the browser's own UA stylesheet, which then
+   clips that dropdown and turns it into a scrollbar that doesn't actually
+   scroll the (absolutely-positioned) dropdown anywhere useful.
+   Override the dialog's overflow to visible so the dropdown can escape the
+   dialog's clipping.
+ */
+#waitlist-student-modal {
+    overflow: visible;
+    min-width: 420px;
+}
+
+/* Make the dialog tall enough to show both selectors without resizing.*/
+#waitlist-selectors {
+    min-height: 120px;
+}
+
 #regenerate-all-status {
     font-style: italic;
     color: #555;
