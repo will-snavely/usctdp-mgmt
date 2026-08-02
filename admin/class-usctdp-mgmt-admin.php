@@ -80,6 +80,7 @@ class Usctdp_Mgmt_Admin
                     'purchase_history_datatable',
                     'update_registration',
                     'update_purchase',
+                    'set_registration_status',
                     'get_family_balance',
                     'gen_statement',
                     'submit_payment',
@@ -98,6 +99,7 @@ class Usctdp_Mgmt_Admin
                     'datatable_balances_detail',
                     'ledger_datatable',
                     'ledger_events_datatable',
+                    'gen_statement',
                 ],
                 'context' => ['family_id', 'student_id']
             ],

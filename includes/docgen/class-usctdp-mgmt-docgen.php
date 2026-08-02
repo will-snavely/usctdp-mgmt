@@ -159,7 +159,7 @@ class Usctdp_Mgmt_Docgen
 
             $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
             $link_query->update_item($roster_link->id, [
-                'updated_at' => current_time('mysql')
+                'updated_at' => current_time('mysql', true)
             ]);
         } else {
             if (!empty($destinationFolderId)) {
@@ -182,7 +182,7 @@ class Usctdp_Mgmt_Docgen
             $link_query->add_item([
                 'entity_id' => $entity_id,
                 'drive_id' => $file->id,
-                'updated_at' => current_time('mysql')
+                'updated_at' => current_time('mysql', true)
             ]);
         }
         return $file;

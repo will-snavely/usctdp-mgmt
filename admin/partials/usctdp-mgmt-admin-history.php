@@ -68,38 +68,7 @@
             </form>
         </dialog>
 
-        <dialog id="payment-history-modal">
-            <h2>Payment History</h2>
-            <div class="usctdp-ledger-summary">
-                <div class="summary-group">
-                    <span class="summary-label">Status</span>
-                    <div id="ledger-status-text" class="summary-value status-pending">Loading...</div>
-                </div>
-                <div class="summary-group text-right">
-                    <span class="summary-label">Balance</span>
-                    <div id="ledger-total-balance" class="summary-value balance-amount">$0.00</div>
-                </div>
-            </div>
-            <div id="payment-history-table-wrap">
-                <table id="payment-history-table" class="usctdp-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Event</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                            <th>Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody id="payment-history-table-body"></tbody>
-                </table>
-            </div>
-            <div class="actions-footer">
-                <button type="button" class="button button-primary" id="generate-statement-btn">Print Statement</button>
-                <button type="button" class="button button-secondary" id="close-payment-history-modal">Close</button>
-            </div>
-        </dialog>
+        <div id="payment-history-modal-container"></div>
 
         <div id="context-selectors">
         </div>

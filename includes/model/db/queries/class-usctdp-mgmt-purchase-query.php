@@ -27,6 +27,10 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $conditions[] = "pur.id = %d";
             $where_args[] = $args['purchase_id'];
         }
+        if (isset($args["status"])) {
+            $conditions[] = "pur.status = %s";
+            $where_args[] = $args['status'];
+        }
         if (isset($args["activity_id"])) {
             $conditions[] = "reg.activity_id = %d";
             $where_args[] = $args['activity_id'];
@@ -58,10 +62,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $conditions[] = "pur.type != %s";
             $where_args[] = $args['exclude_type'];
         }
-        if (isset($args["status"])) {
-            $conditions[] = "reg.status = %s";
-            $where_args[] = $args['status'];
-        }
+
         if ($conditions) {
             $where_clause = "WHERE " . implode(" AND ", $conditions);
         }
@@ -76,6 +77,8 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $limit_clause .= " OFFSET %d";
             $limit_args[] = $args['offset'];
         }
+
+        $from_clause = $this->get_purchase_from_clause();
 
         $query = $wpdb->prepare(
             "   SELECT
@@ -103,25 +106,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     sesh.id as session_id,
                     reg.id as registration_id, reg.status as registration_status,
                     reg.student_level as registration_student_level
-                FROM {$wpdb->prefix}usctdp_purchase AS pur
-                JOIN {$wpdb->prefix}usctdp_student AS stud ON pur.student_id = stud.id
-                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
-                JOIN {$wpdb->prefix}usctdp_product AS prod ON pur.product_id = prod.id
-                LEFT JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.purchase_id
-                LEFT JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
-                LEFT JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                LEFT JOIN (
-                    SELECT 
-                        purchase_id,
-                        SUM(CASE WHEN entry_type = 'charge' THEN (debit - credit) ELSE 0 END) as total_fees,
-                        SUM(CASE WHEN entry_type = 'adjustment' THEN (credit - debit) ELSE 0 END) as total_adjustments,
-                        SUM(CASE WHEN entry_type = 'payment' THEN (credit - debit) ELSE 0 END) as total_payments,
-                        SUM(CASE WHEN entry_type = 'house_credit' THEN (debit - credit) ELSE 0 END) as total_house,
-                        SUM(CASE WHEN entry_type = 'refund' THEN (debit - credit) ELSE 0 END) as total_refunds
-                    FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE account IN ('registration_fees', 'merchandise_fees')
-                    GROUP BY purchase_id
-                ) AS ledger ON ledger.purchase_id = pur.id
+                {$from_clause}
                 {$where_clause}
                 ORDER BY pur.id DESC
                 {$limit_clause}",
@@ -130,25 +115,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
         $window = $wpdb->get_results($query);
 
         $count_sql = "SELECT COUNT(*) as count
-                FROM {$wpdb->prefix}usctdp_purchase AS pur
-                JOIN {$wpdb->prefix}usctdp_student AS stud ON pur.student_id = stud.id
-                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
-                JOIN {$wpdb->prefix}usctdp_product AS prod ON pur.product_id = prod.id
-                LEFT JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.purchase_id
-                LEFT JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
-                LEFT JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                LEFT JOIN (
-                    SELECT 
-                        purchase_id,
-                        SUM(CASE WHEN entry_type = 'charge' THEN (debit - credit) ELSE 0 END) as total_fees,
-                        SUM(CASE WHEN entry_type = 'adjustment' THEN (credit - debit) ELSE 0 END) as total_adjustments,
-                        SUM(CASE WHEN entry_type = 'payment' THEN (credit - debit) ELSE 0 END) as total_payments,
-                        SUM(CASE WHEN entry_type = 'house_credit' THEN (debit - credit) ELSE 0 END) as total_house,
-                        SUM(CASE WHEN entry_type = 'refund' THEN (debit - credit) ELSE 0 END) as total_refunds
-                    FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE account IN ('registration_fees', 'merchandise_fees')
-                    GROUP BY purchase_id
-                ) AS ledger ON ledger.purchase_id = pur.id
+                {$from_clause}
                 {$where_clause}";
         $count_query = $count_sql;
         if (!empty($where_args)) {
@@ -159,5 +126,30 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             'data' => $window,
             'count' => $count
         ];
+    }
+
+    private function get_purchase_from_clause()
+    {
+        global $wpdb;
+
+        return "FROM {$wpdb->prefix}usctdp_purchase AS pur
+                JOIN {$wpdb->prefix}usctdp_student AS stud ON pur.student_id = stud.id
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
+                JOIN {$wpdb->prefix}usctdp_product AS prod ON pur.product_id = prod.id
+                LEFT JOIN {$wpdb->prefix}usctdp_registration AS reg ON pur.id = reg.purchase_id
+                LEFT JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
+                LEFT JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
+                LEFT JOIN (
+                    SELECT
+                        purchase_id,
+                        SUM(CASE WHEN entry_type = 'charge' THEN (debit - credit) ELSE 0 END) as total_fees,
+                        SUM(CASE WHEN entry_type = 'adjustment' THEN (credit - debit) ELSE 0 END) as total_adjustments,
+                        SUM(CASE WHEN entry_type = 'payment' THEN (credit - debit) ELSE 0 END) as total_payments,
+                        SUM(CASE WHEN entry_type = 'house_credit' THEN (debit - credit) ELSE 0 END) as total_house,
+                        SUM(CASE WHEN entry_type = 'refund' THEN (debit - credit) ELSE 0 END) as total_refunds
+                    FROM {$wpdb->prefix}usctdp_ledger
+                    WHERE account IN ('registration_fees', 'merchandise_fees')
+                    GROUP BY purchase_id
+                ) AS ledger ON ledger.purchase_id = pur.id";
     }
 }

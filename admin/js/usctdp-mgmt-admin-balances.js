@@ -3,6 +3,7 @@
     $(document).ready(function () {
         var selectedFamilyId = null;
         var selectedFamilyName = null;
+        var paymentHistoryModal = new USCTDP_Admin.PaymentHistoryModal('payment-history-modal-container');
 
         $('#balances-table').DataTable({
             processing: true,
@@ -76,10 +77,10 @@
             },
             autoWidth: false,
             columnDefs: [
-                { width: "15%", targets: 0 },
-                { width: "25%", targets: 1 },
-                { width: "50%", targets: 2 },
-                { width: "10%", targets: 3 },
+                { width: "20%", targets: 0 },
+                { width: "45%", targets: 1 },
+                { width: "20%", targets: 2 },
+                { width: "15%", targets: 3 },
             ],
             columns: [
                 {
@@ -87,18 +88,29 @@
                     defaultContent: '',
                 },
                 {
-                    data: 'session_name',
-                    defaultContent: '',
-                },
-                {
-                    data: 'activity_name',
+                    data: 'item',
                     defaultContent: '',
                 },
                 {
                     data: 'balance',
                     defaultContent: '',
+                },
+                {
+                    data: 'purchase_id',
+                    defaultContent: '',
+                    render: function (data, type, row) {
+                        return '<button type="button" class="button button-small payment-history-btn" '
+                            + 'data-purchase-id="' + row.purchase_id + '" '
+                            + 'data-account="' + row.purchase_type + '_fees" '
+                            + 'data-family-id="' + row.family_id + '">History</button>';
+                    }
                 }
             ]
+        });
+
+        $('#balances-table-detail').on('click', '.payment-history-btn', function () {
+            var $btn = $(this);
+            paymentHistoryModal.show($btn.data('purchase-id'), $btn.data('account'), $btn.data('family-id'));
         });
 
         $('#balances-table').on('click', 'button', function () {

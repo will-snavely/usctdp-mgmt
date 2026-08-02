@@ -44,10 +44,6 @@
     width: 160px;
 }
 
-table#payment-history-table td {
-    vertical-align: top !important;
-}
-
 .table-header-controls {
     display: flex;
     flex-direction: row;
@@ -68,8 +64,8 @@ table#payment-history-table td {
 
 .purchase-card {
     display: flex;
-    max-width: 100%;
-    width: fit-content;
+    width: 100%;
+    max-width: 920px;
     flex-direction: column;
     align-items: flex-start;
     gap: 20px;
@@ -195,7 +191,7 @@ table#payment-history-table td {
 
 .registration-fields .level-wrap {
     width: 10%;
-    max-width: 60px;
+    max-width: 50px;
 }
 
 /* Payment information section*/
@@ -302,84 +298,7 @@ textarea[readonly] {
     width: 150px;
 }
 
-/* 
- * Styling for the payment history modal
- */
-
-dialog#payment-history-modal .usctdp-ledger-summary {
-    display: flex;
-    justify-content: space-between;
-    background: #f9f9f9;
-    padding: 15px 20px;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    margin-bottom: 20px;
-}
-
-dialog#payment-history-modal .summary-label {
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: #646970;
-    margin-bottom: 4px;
-}
-
-dialog#payment-history-modal .summary-value {
-    font-size: 18px;
-    font-weight: 700;
-}
-
-dialog#payment-history-modal #payment-history-table-wrap {
-    max-height: 320px;
-    overflow-y: auto;
-}
-
-dialog#payment-history-modal #payment-history-table.dataTable {
-    border-collapse: collapse !important;
-}
-
-dialog#payment-history-modal #payment-history-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: #f0f0f1;
-    color: #2c3338;
-    padding: 12px !important;
-    font-size: 12px;
-    border-bottom: 2px solid #dcdcde !important;
-}
-
-dialog#payment-history-modal #payment-history-table tbody td {
-    padding: 12px !important;
-    vertical-align: top;
-    border-bottom: 1px solid #f0f0f1;
-}
-
-dialog#payment-history-modal .num-col {
-    text-align: right !important;
-    font-family: 'Courier New', Courier, monospace;
-    font-weight: 500;
-}
-
-dialog#payment-history-modal .text-red {
-    color: #d63638;
-}
-
-dialog#payment-history-modal .text-green {
-    color: #00a32a;
-}
-
-dialog#payment-history-modal .balance-col {
-    background-color: #f6f7f7;
-    font-weight: 700;
-}
-
-dialog#payment-history-modal .text-right {
-    text-align: right;
-}
-
-/* 
+/*
  * Styling for the post refund modal
  */
 
@@ -417,9 +336,4 @@ dialog#post-refund-modal #refund-check-number {
 
 dialog#refund-action {
     width: 100%;
-}
-
-dialog#payment-history-modal {
-    width: 100%;
-    max-width: 800px;
 }

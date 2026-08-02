@@ -24,6 +24,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
+        'set_registration_status' => 'ajax_set_registration_status',
         'student_datatable' => 'ajax_student_datatable',
         'submit_payment' => 'ajax_submit_payment',
         'toggle_session_active' => 'ajax_toggle_session_active',
@@ -266,7 +267,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'message' => 'Roster generated successfully',
                 'doc_id' => $drive_file->id,
                 'doc_url' => $drive_file->webViewLink,
-                'generated_at' => current_time('mysql')
+                'generated_at' => gmdate('Y-m-d\TH:i:s\Z')
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
@@ -296,7 +297,7 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_success([
                 'drive_id' => $roster_link->drive_id,
                 'doc_url' => 'https://drive.google.com/file/d/' . $roster_link->drive_id . '/edit',
-                'generated_at' => $roster_link->updated_at ? $roster_link->updated_at->format('Y-m-d H:i:s') : null
+                'generated_at' => $roster_link->updated_at ? $roster_link->updated_at->format('Y-m-d\TH:i:s\Z') : null
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_roster_link', $e);
@@ -515,6 +516,61 @@ class Usctdp_Mgmt_Admin_Ajax
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_registration', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    public function ajax_set_registration_status()
+    {
+        $this->check_nonce('set_registration_status');
+
+        $entity_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter registration_id', 400);
+        }
+
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
+        if (!in_array($status, ['active', 'void'], true)) {
+            wp_send_json_error('Invalid status.', 400);
+        }
+
+        $registration = Usctdp_Mgmt_Model::get_registration($entity_id);
+        if (!$registration) {
+            wp_send_json_error('No registration found with id: ' . $entity_id, 400);
+        }
+
+        global $wpdb;
+        $transaction_started = false;
+        try {
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+
+            $registration_result = $this->save_entity(
+                $entity_id,
+                $_POST,
+                'Usctdp_Mgmt_Registration_Query',
+                ['status' => sanitize_text_field(...)]
+            );
+
+            $purchase_result = $this->save_entity(
+                $registration->purchase_id,
+                $_POST,
+                'Usctdp_Mgmt_Purchase_Query',
+                ['status' => sanitize_text_field(...)]
+            );
+
+            $wpdb->query('COMMIT');
+            $transaction_started = false;
+
+            wp_send_json_success([
+                'registration' => $registration_result,
+                'purchase' => $purchase_result,
+            ]);
+        } catch (Throwable $e) {
+            if ($transaction_started) {
+                $wpdb->query('ROLLBACK');
+            }
+            Usctdp_Mgmt::logger()->log_exception('ajax_set_registration_status', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
@@ -741,7 +797,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'family_id' => $family_id,
                 'student_id' => null,
                 'type' => 'credit_import',
-                'created_at' => current_time('mysql'),
+                'created_at' => current_time('mysql', true),
                 'created_by' => get_current_user_id(),
                 'notes' => $reason,
             ]);
@@ -948,7 +1004,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 return get_current_user_id();
             },
             'created_at' => function ($raw) {
-                return current_time('mysql');
+                return current_time('mysql', true);
             },
         ];
         return $this->create_entity($source, 'Usctdp_Mgmt_Ledger_Query', $fields);
@@ -1339,61 +1395,37 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_error('No family ID provided.', 400);
         }
 
-        global $wpdb;
-        $query = $wpdb->prepare(
-            "   SELECT 
-                    reg.id as registration_id,
-                    act.title as activity_name,
-                    sesh.title as session_name,
-                    stud.first as student_first,
-                    stud.last as student_last,
-                    ledger_sums.total_debit,
-                    ledger_sums.total_credit,
-                    (ledger_sums.total_debit - ledger_sums.total_credit) as balance_due,
-                    COUNT(*) OVER() as grand_total
-                FROM {$wpdb->prefix}usctdp_registration AS reg
-                JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
-                JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
-                JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                INNER JOIN (
-                    SELECT 
-                        purchase_id,
-                        SUM(debit) as total_debit,
-                        SUM(credit) as total_credit
-                    FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE account in ('registration_fees', 'merchandise_fees')
-                    GROUP BY purchase_id
-                    HAVING (SUM(debit) - SUM(credit)) > 0
-                ) AS ledger_sums ON ledger_sums.purchase_id = reg.id
-                WHERE stud.family_id = %d
-                ORDER BY reg.id ASC
-                LIMIT %d OFFSET %d",
-            $family_id,
-            $length,
-            $start
-        );
+        $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);
+        $results = $purchase_query->get_purchase_data([
+            'number' => $length,
+            'offset' => $start,
+            'family_id' => $family_id,
+            'owes' => 1,
+            'exclude_type' => 'credit_import',
+        ]);
 
-        $query_results = $wpdb->get_results($query);
         $output_data = [];
-        $grand_total = 0;
-        if ($query_results) {
-            $grand_total = $query_results[0]->grand_total;
-            foreach ($query_results as $result) {
-                $output_data[] = [
-                    "activity_name" => $result->activity_name,
-                    "student_name" => $result->student_first . ' ' . $result->student_last,
-                    "session_name" => $result->session_name,
-                    "credit" => $amount_fmt->format($result->total_credit),
-                    "debit" => $amount_fmt->format($result->total_debit),
-                    "balance" => $amount_fmt->format($result->balance_due)
-                ];
-            }
+        foreach ($results['data'] as $result) {
+            $balance_due = ($result->total_fees - $result->total_adjustments)
+                - ($result->total_payments - $result->total_refunds - $result->total_house_credits);
+            $item_name = $result->purchase_type === 'registration'
+                ? $result->session_name . ' - ' . $result->activity_name
+                : $result->product_name;
+
+            $output_data[] = [
+                "student_name" => $result->student_first . ' ' . $result->student_last,
+                "item" => $item_name,
+                "balance" => $amount_fmt->format($balance_due),
+                "purchase_id" => $result->purchase_id,
+                "purchase_type" => $result->purchase_type,
+                "family_id" => $result->family_id,
+            ];
         }
 
         $response = array(
             "draw" => $draw,
-            "recordsTotal" => $grand_total,
-            "recordsFiltered" => $grand_total,
+            "recordsTotal" => $results['count'],
+            "recordsFiltered" => $results['count'],
             "data" => $output_data,
         );
         wp_send_json($response);
@@ -1531,7 +1563,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'family_id' => $record['family']->id,
             'student_id' => $record['student']->id,
             'type' => 'merchandise',
-            'created_at' => current_time('mysql'),
+            'created_at' => current_time('mysql', true),
             'created_by' => get_current_user_id(),
         ]);
         if (!$purchase_id) {
@@ -1560,7 +1592,7 @@ class Usctdp_Mgmt_Admin_Ajax
     private function create_purchase_and_registration($args)
     {
         $created_by = get_current_user_id();
-        $created_at = current_time('mysql');
+        $created_at = current_time('mysql', true);
         $purchase_query = new Usctdp_Mgmt_Purchase_Query();
         $purchase_args = [
             'product_id' => $args['product_id'],
@@ -1693,7 +1725,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     'student_id' => $record['student']->id,
                     'discounts' => $record['sql_args']['discounts'],
                     'type' => 'merchandise',
-                    'created_at' => current_time('mysql'),
+                    'created_at' => current_time('mysql', true),
                     'created_by' => get_current_user_id(),
                 ]);
                 if (!$purchase_id) {
@@ -2127,7 +2159,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $result = $waitlist_query->add_item([
                 'activity_id' => $activity_id,
                 'student_id' => $student_id,
-                'created_at' => current_time('mysql'),
+                'created_at' => current_time('mysql', true),
                 'status' => 'pending',
             ]);
             if ($result) {

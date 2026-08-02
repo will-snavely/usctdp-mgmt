@@ -202,17 +202,14 @@
                 return `<span class="purchase-badge green-bg upper-heavy">Merchandise</span>`;
             }
 
-            _renderMiddleSection() {
-                return `
-                    <div class="product-wrap" style="padding: 10px 0;">
-                        <span class="product-name"><strong>Product:</strong> ${this.data.product_name}</span>
-                    </div>`;
+            _renderAdditionalBadges() {
+                return `<span class="activity-name product-name">${this.data.product_name}</span>`;
             }
         }
 
         var preloadedData = {};
         var newPurchases = null;
-        const paymentHistoryModal = document.querySelector('#payment-history-modal');
+        const paymentHistoryModal = new USCTDP_Admin.PaymentHistoryModal('payment-history-modal-container');
         const postPaymentModal = document.querySelector('#post-payment-modal');
         const postRefundModal = document.querySelector('#post-refund-modal');
         const paymentSettings = {
@@ -353,93 +350,6 @@
             return response;
         }
 
-        var paymentHistoryTable = $('#payment-history-table').DataTable({
-            processing: true,
-            serverSide: false,
-            ordering: false,
-            paging: false,
-            searching: false,
-            info: false,
-            deferLoading: 0,
-
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                type: 'POST',
-                data: function (d) {
-                    d.action = usctdp_mgmt_admin.ledger_events_datatable_action;
-                    d.security = usctdp_mgmt_admin.ledger_events_datatable_nonce;
-                    d.purchase_id = $('#payment-history-modal').data("purchaseId");
-                    d.account = $('#payment-history-modal').data("account");
-                    d.length = -1;
-                },
-                dataSrc: function (json) {
-                    var runningBalance = 0;
-                    for (var i = 0; i < json.data.length; i++) {
-                        var charge = USCTDP_Admin.safeParseFloat(json.data[i].charge_amount);
-                        var payment = USCTDP_Admin.safeParseFloat(json.data[i].payment_amount);
-                        runningBalance += (charge - payment);
-                        json.data[i].calculated_balance = runningBalance;
-                    }
-                    return json.data;
-                },
-                beforeSend: function (jqXHR, settings) {
-                    var pId = $('#payment-history-modal').data("purchaseId");
-                    if (!pId) {
-                        return false; // This cancels the Ajax request
-                    }
-                },
-            },
-            columns: [
-                {
-                    data: 'event_date',
-                    render: function (data, type, row, meta) {
-                        return new Date(data).toLocaleString();
-                    }
-                },
-                { data: 'entry_type' },
-                { data: 'event_description' },
-                {
-                    data: 'charge_amount',
-                    render: function (data, type, row, meta) {
-                        return USCTDP_Admin.formatUsd(data);
-                    },
-                    className: 'num-col text-red'
-                },
-                {
-                    data: 'payment_amount',
-                    render: function (data, type, row, meta) {
-                        return USCTDP_Admin.formatUsd(data);
-                    },
-                    className: 'num-col text-green'
-                },
-                {
-                    data: 'calculated_balance',
-                    className: 'num-col balance-col',
-                    render: function (data) {
-                        return USCTDP_Admin.formatUsd(data);
-                    }
-                }
-            ],
-            // Update the Summary Bar after the data loads
-            drawCallback: function () {
-                var api = this.api();
-                var totalBalance = 0;
-
-                api.rows().every(function () {
-                    var d = this.data();
-                    totalBalance += (USCTDP_Admin.safeParseFloat(d.charge_amount) - USCTDP_Admin.safeParseFloat(d.payment_amount));
-                });
-
-                $('#ledger-total-balance').text(USCTDP_Admin.formatUsd(totalBalance));
-
-                if (totalBalance <= 0) {
-                    $('#ledger-status-text').text('PAID').css('color', '#00a32a');
-                } else {
-                    $('#ledger-status-text').text('BALANCE DUE').css('color', '#d63638');
-                }
-            }
-        });
-
         var historyTable = $('#history-table').DataTable({
             processing: true,
             responsive: true,
@@ -569,14 +479,6 @@
                 $btn.prop('disabled', true);
                 $('#selection-status').addClass("hidden");
             }
-        }
-
-        function openPaymentHistoryModal(purchaseId, account, familyId) {
-            $('#payment-history-modal').data("purchaseId", purchaseId);
-            $('#payment-history-modal').data("account", account);
-            $('#payment-history-modal').data("familyId", familyId);
-            paymentHistoryTable.ajax.reload();
-            paymentHistoryModal.showModal();
         }
 
         function openPostPaymentModal(purchases) {
@@ -880,34 +782,6 @@
             postPaymentModal.close();
         });
 
-        $('#close-payment-history-modal').on('click', () => {
-            paymentHistoryModal.close();
-        });
-
-        $('#generate-statement-btn').on('click', () => {
-            const familyId = $('#payment-history-modal').data("familyId");
-            const purchaseId = $('#payment-history-modal').data("purchaseId");
-            const $btn = $('#generate-statement-btn');
-            $btn.prop('disabled', true);
-            $btn.html('<span class="spinner is-active"></span> Generating...');
-            USCTDP_Admin.ajax_generateStatement(familyId, [purchaseId])
-                .then((response) => {
-                    window.open(response.doc_url, '_blank');
-                })
-                .catch((error) => {
-                    paymentHistoryModal.close();
-                    window.Swal.fire({
-                        title: "Error",
-                        text: "Failed to generate statement. Inform a developer.",
-                        icon: "error"
-                    });
-                })
-                .finally(() => {
-                    $btn.prop('disabled', false);
-                    $btn.html('Print Statement');
-                });
-        });
-
         $('#history-table tbody').on('change', '.payment-action-select', function () {
             const $row = $(this).closest('tr');
             const $select = $(this);
@@ -1000,10 +874,6 @@
             var rowData = historyTable.row($row).data();
             const studentName = `${rowData.student_first} ${rowData.student_last}`;
 
-            var update = {
-                status: 'void'
-            };
-
             window.Swal.fire({
                 title: "Confirm Void Registration",
                 html: `
@@ -1016,10 +886,7 @@
                 denyButtonText: `No`
             }).then((result) => {
                 if (result.isConfirmed) {
-                    savePurchaseFields(rowData.purchase_id, update)
-                        .then(() => {
-                            return USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
-                        })
+                    USCTDP_Admin.ajax_setRegistrationStatus(rowData.registration_id, 'void')
                         .catch((error) => {
                             window.Swal.fire({
                                 icon: "error",
@@ -1040,10 +907,6 @@
             var rowData = historyTable.row($row).data();
             const studentName = `${rowData.student_first} ${rowData.student_last}`;
 
-            var update = {
-                status: 'active'
-            };
-
             window.Swal.fire({
                 title: "Confirm Restore Registration",
                 html: `
@@ -1056,10 +919,7 @@
                 denyButtonText: `No`
             }).then((result) => {
                 if (result.isConfirmed) {
-                    savePurchaseFields(rowData.purchase_id, update)
-                        .then(() => {
-                            return USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, update)
-                        })
+                    USCTDP_Admin.ajax_setRegistrationStatus(rowData.registration_id, 'active')
                         .catch((error) => {
                             window.Swal.fire({
                                 icon: "error",
@@ -1087,7 +947,7 @@
             const purchaseId = rowData.purchase_id;
             const account = rowData.purchase_type + "_fees";
             const familyId = rowData.family_id;
-            openPaymentHistoryModal(purchaseId, account, familyId);
+            paymentHistoryModal.show(purchaseId, account, familyId);
         });
 
         function load_registration_history(title) {

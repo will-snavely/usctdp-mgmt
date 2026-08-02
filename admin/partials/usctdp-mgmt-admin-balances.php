@@ -1,5 +1,6 @@
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+    <div id="payment-history-modal-container"></div>
     <div class="wp-dashboard-wrapper">
         <aside class="master-pane">
             <div id="master-content">
@@ -30,9 +31,9 @@
                         <thead>
                             <tr>
                                 <th>Student</th>
-                                <th>Session</th>
-                                <th>Class</th>
+                                <th>Item</th>
                                 <th>Balance</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>

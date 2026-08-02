@@ -41,6 +41,21 @@
         return response;
     }
 
+    USCTDP_Admin.ajax_setRegistrationStatus = async function (id, status) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.set_registration_status_action,
+                security: usctdp_mgmt_admin.set_registration_status_nonce,
+                registration_id: id,
+                status: status
+            }
+        });
+        return response;
+    }
+
     USCTDP_Admin.ajax_generateStatement = async function (family_id, purchase_ids) {
         try {
             const response = await $.ajax({
@@ -829,7 +844,7 @@
                                 <option value="card" disabled>Card</option>
                                 <option value="check" disabled>Check</option>
                                 <option value="cash" disabled>Cash</option>
-                                <option value="house_credit_only" disabled>House Credit</option>
+                                <option value="house_credit_only" disabled hidden>House Credit</option>
                                 ${payLaterHtml}
                             </select>
                         </div>
@@ -1173,10 +1188,12 @@
         }
 
         updateHouseCreditUI() {
+            const hasHouseCredit = this.houseCreditAvailable > 0;
             const $section = this.container.find('.house-credit-section');
-            $section.toggleClass('hidden', this.items.length === 0);
+            $section.toggleClass('hidden', this.items.length === 0 || !hasHouseCredit);
             this.container.find('.house-credit-available-value').text(USCTDP_Admin.formatUsd(this.houseCreditAvailable));
             this.container.find(`#${this.getId('house_credit_apply')}`).prop('disabled', this.houseCreditAvailable <= 0);
+            this.container.find(`#${this.getId('payment_method')} option[value='house_credit_only']`).prop('hidden', !hasHouseCredit);
             this.updatePaymentTotals();
         }
 
@@ -1493,6 +1510,183 @@
             this.container.find('#total-savings-display').text(`-${USCTDP_Admin.formatUsd(this.totalSavings)}`);
             this.container.find('#final-price-display').text(USCTDP_Admin.formatUsd(this.salePrice));
             this.trigger('updated', { totalSavings: this.totalSavings, salePrice: this.salePrice });
+        }
+    }
+
+    USCTDP_Admin.PaymentHistoryModal = class {
+        constructor(containerId) {
+            this.container = $(`#${containerId}`);
+            this.purchaseId = null;
+            this.account = null;
+            this.familyId = null;
+            this.init();
+        }
+
+        init() {
+            this.renderLayout();
+            this.modal = this.container.find('#payment-history-modal')[0];
+            this.initTable();
+            this.bindEvents();
+        }
+
+        renderLayout() {
+            const html = `
+                <dialog id="payment-history-modal">
+                    <h2>Payment History</h2>
+                    <div class="usctdp-ledger-summary">
+                        <div class="summary-group">
+                            <span class="summary-label">Status</span>
+                            <div id="ledger-status-text" class="summary-value status-pending">Loading...</div>
+                        </div>
+                        <div class="summary-group text-right">
+                            <span class="summary-label">Balance</span>
+                            <div id="ledger-total-balance" class="summary-value balance-amount">$0.00</div>
+                        </div>
+                    </div>
+                    <div id="payment-history-table-wrap">
+                        <table id="payment-history-table" class="usctdp-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Event</th>
+                                    <th>Debit</th>
+                                    <th>Credit</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payment-history-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="actions-footer">
+                        <button type="button" class="button button-primary" id="generate-statement-btn">Print Statement</button>
+                        <button type="button" class="button button-secondary" id="close-payment-history-modal">Close</button>
+                    </div>
+                </dialog>`;
+            this.container.append(html);
+        }
+
+        initTable() {
+            this.table = this.container.find('#payment-history-table').DataTable({
+                processing: true,
+                serverSide: false,
+                ordering: false,
+                paging: false,
+                searching: false,
+                info: false,
+                deferLoading: 0,
+
+                ajax: {
+                    url: usctdp_mgmt_admin.ajax_url,
+                    type: 'POST',
+                    data: (d) => {
+                        d.action = usctdp_mgmt_admin.ledger_events_datatable_action;
+                        d.security = usctdp_mgmt_admin.ledger_events_datatable_nonce;
+                        d.purchase_id = this.purchaseId;
+                        d.account = this.account;
+                        d.length = -1;
+                    },
+                    dataSrc: function (json) {
+                        var runningBalance = 0;
+                        for (var i = 0; i < json.data.length; i++) {
+                            var charge = USCTDP_Admin.safeParseFloat(json.data[i].charge_amount);
+                            var payment = USCTDP_Admin.safeParseFloat(json.data[i].payment_amount);
+                            runningBalance += (charge - payment);
+                            json.data[i].calculated_balance = runningBalance;
+                        }
+                        return json.data;
+                    },
+                    beforeSend: () => {
+                        if (!this.purchaseId) {
+                            return false; // This cancels the Ajax request
+                        }
+                    },
+                },
+                columns: [
+                    {
+                        data: 'event_date',
+                        render: function (data, type, row, meta) {
+                            return new Date(data).toLocaleString();
+                        }
+                    },
+                    { data: 'entry_type' },
+                    { data: 'event_description' },
+                    {
+                        data: 'charge_amount',
+                        render: function (data, type, row, meta) {
+                            return USCTDP_Admin.formatUsd(data);
+                        },
+                        className: 'num-col text-red'
+                    },
+                    {
+                        data: 'payment_amount',
+                        render: function (data, type, row, meta) {
+                            return USCTDP_Admin.formatUsd(data);
+                        },
+                        className: 'num-col text-green'
+                    },
+                    {
+                        data: 'calculated_balance',
+                        className: 'num-col balance-col',
+                        render: function (data) {
+                            return USCTDP_Admin.formatUsd(data);
+                        }
+                    }
+                ],
+                // Update the Summary Bar after the data loads
+                drawCallback: (settings) => {
+                    var api = new $.fn.dataTable.Api(settings);
+                    var totalBalance = 0;
+                    api.rows().every(function () {
+                        var d = this.data();
+                        totalBalance += (USCTDP_Admin.safeParseFloat(d.charge_amount) - USCTDP_Admin.safeParseFloat(d.payment_amount));
+                    });
+
+                    this.container.find('#ledger-total-balance').text(USCTDP_Admin.formatUsd(totalBalance));
+
+                    if (totalBalance <= 0) {
+                        this.container.find('#ledger-status-text').text('PAID').css('color', '#00a32a');
+                    } else {
+                        this.container.find('#ledger-status-text').text('BALANCE DUE').css('color', '#d63638');
+                    }
+                }
+            });
+        }
+
+        bindEvents() {
+            this.container.on('click', '#close-payment-history-modal', () => {
+                this.modal.close();
+            });
+
+            this.container.on('click', '#generate-statement-btn', () => {
+                const $btn = this.container.find('#generate-statement-btn');
+                $btn.prop('disabled', true);
+                $btn.html('<span class="spinner is-active"></span> Generating...');
+                USCTDP_Admin.ajax_generateStatement(this.familyId, [this.purchaseId])
+                    .then((response) => {
+                        window.open(response.doc_url, '_blank');
+                    })
+                    .catch((error) => {
+                        this.modal.close();
+                        window.Swal.fire({
+                            title: "Error",
+                            text: "Failed to generate statement. Inform a developer.",
+                            icon: "error"
+                        });
+                    })
+                    .finally(() => {
+                        $btn.prop('disabled', false);
+                        $btn.html('Print Statement');
+                    });
+            });
+        }
+
+        show(purchaseId, account, familyId) {
+            this.purchaseId = purchaseId;
+            this.account = account;
+            this.familyId = familyId;
+            this.table.ajax.reload();
+            this.modal.showModal();
         }
     }
 })(jQuery);

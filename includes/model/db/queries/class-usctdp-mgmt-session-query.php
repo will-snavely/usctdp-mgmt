@@ -20,11 +20,11 @@ class Usctdp_Mgmt_Session_Query extends Query
         global $wpdb;
         $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
         $session_roster_query = "   
-            SELECT 
+            SELECT
                 sesh.id as id,
                 sesh.title as title,
                 rst.drive_id as drive_id,
-                rst.updated_at as generated_at
+                DATE_FORMAT(rst.updated_at, '%Y-%m-%dT%T.%fZ') as generated_at
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             LEFT JOIN {$wpdb->prefix}usctdp_roster_link as rst ON sesh.id = rst.entity_id
             WHERE sesh.is_active = 1
@@ -100,11 +100,11 @@ class Usctdp_Mgmt_Session_Query extends Query
         }
 
         $query = $wpdb->prepare("   
-            SELECT 
+            SELECT
                 sesh.id as id,
                 sesh.title as title,
                 rst.drive_id as drive_id,
-                rst.updated_at as generated_at
+                DATE_FORMAT(rst.updated_at, '%%Y-%%m-%%dT%%T.%%fZ') as generated_at
             FROM {$wpdb->prefix}{$this->table_name} AS sesh
             LEFT JOIN {$wpdb->prefix}usctdp_roster_link as rst ON sesh.id = rst.entity_id
             {$where_clause}
