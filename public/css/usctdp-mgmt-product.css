@@ -420,3 +420,9 @@ dialog#usctdp-full-schedule-modal::backdrop {
     font-style: italic;
     text-align: left;
 }
+
+.usctdp-schedule-empty {
+    margin: 0;
+    color: #777;
+    font-style: italic;
+}

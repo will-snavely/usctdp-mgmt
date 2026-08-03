@@ -607,6 +607,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 $price_lines = $usctdp_product
                     ? $this->get_session_price_lines($usctdp_product, $session)
                     : [];
+                $show_days = !empty($meta['show_days']) && is_array($meta['show_days']) ? $meta['show_days'] : null;
                 ?>
                 <div class="usctdp-session-info" data-session="<?php echo esc_attr($session_name); ?>">
                     <?php if (!$is_single_session): ?>
@@ -629,7 +630,10 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         </p>
                     <?php endif; ?>
                     <?php if ($has_full_schedule): ?>
-                        <button type="button" class="usctdp-view-schedule-btn">View Full Schedule &rarr;</button>
+                        <button type="button" class="usctdp-view-schedule-btn"
+                            <?php if ($show_days): ?>data-show-days="<?php echo esc_attr(implode(',', $show_days)); ?>"<?php endif; ?>>
+                            View Full Schedule &rarr;
+                        </button>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
@@ -637,7 +641,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         <?php if ($has_full_schedule) {
             $this->render_full_schedule_dialog($full_schedule);
         } ?>
-        <?php
+    <?php
     }
 
     /**
@@ -646,6 +650,11 @@ class Usctdp_Mgmt_Woocommerce_Hooks
      * <dialog>/showModal() pattern #new-student-modal already uses on this
      * page rather than the theme's Alpine-based schedule-drawer, since this
      * template has no Alpine/Blade available.
+     *
+     * Always renders every day - a session's show_days meta narrows which
+     * days are visible client-side (see usctdp-mgmt-product.js), keyed off
+     * each day block's data-day attribute, rather than this method rendering
+     * a separate filtered dialog per session.
      */
     private function render_full_schedule_dialog($schedule)
     {
@@ -662,7 +671,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         continue;
                     }
                     ?>
-                    <div class="usctdp-schedule-day">
+                    <div class="usctdp-schedule-day" data-day="<?php echo esc_attr($day_info['day_full']); ?>">
                         <p class="usctdp-schedule-day-label"><?php echo esc_html($day_info['day_full']); ?></p>
                         <div class="usctdp-schedule-times">
                             <?php foreach ($day_info['times'] as $time): ?>
@@ -684,6 +693,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         </div>
                     </div>
                 <?php endforeach; ?>
+                <p class="usctdp-schedule-empty" style="display: none;">No scheduled days to show.</p>
             </div>
         </dialog>
         <?php

@@ -396,10 +396,24 @@
       modal.close();
     });
 
-    // Open the full schedule popup from any session card
+    // Open the full schedule popup from any session card. A session with
+    // show_days meta narrows the shared dialog down to just its days
+    // (e.g. a session that only meets Mondays out of a product that runs
+    // Mon/Wed/Fri); a session without it shows every day.
     if (fullScheduleModal) {
       $(document).on('click', '.usctdp-view-schedule-btn', function (e) {
         e.preventDefault();
+        const showDays = $(this).data('show-days');
+        const allowedDays = showDays ? String(showDays).split(',') : null;
+
+        let anyVisible = false;
+        $(fullScheduleModal).find('.usctdp-schedule-day').each(function () {
+          const visible = !allowedDays || allowedDays.includes($(this).data('day'));
+          $(this).toggle(visible);
+          anyVisible = anyVisible || visible;
+        });
+        $(fullScheduleModal).find('.usctdp-schedule-empty').toggle(!anyVisible);
+
         fullScheduleModal.showModal();
       });
 
