@@ -353,8 +353,29 @@
           return $(this).val() !== '';
         });
         if ($realOptions.length === 1) {
-          if ($select.val() !== $realOptions.first().val()) {
-            $select.val($realOptions.first().val()).trigger('change');
+          var value = $realOptions.first().val();
+          if ($select.val() !== value) {
+            // This runs from inside WooCommerce's own
+            // woocommerce_update_variation_values handling (itself triggered
+            // synchronously by the Session select's change), so triggering
+            // another 'change' here re-enters WooCommerce's variation-form
+            // event chain one level deeper. That nested re-entry doesn't
+            // reliably cascade through to found_variation - the day/student
+            // selectors below just never appear even though this select's
+            // value visibly updates. Deferring to the next tick lets
+            // WooCommerce finish processing the current change first.
+            setTimeout(function () {
+              // Re-check: an even faster second Session change could have
+              // run (and resolved) between scheduling this callback and it
+              // firing, leaving this select narrowed to a different value
+              // (or not narrowed at all) by now.
+              var stillNarrowed = $select.find('option').filter(function () {
+                return $(this).val() !== '';
+              });
+              if (stillNarrowed.length === 1 && stillNarrowed.first().val() === value && $select.val() !== value) {
+                $select.val(value).trigger('change');
+              }
+            }, 0);
           }
           $select.addClass('usctdp-select-locked');
         } else {
