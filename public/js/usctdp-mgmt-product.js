@@ -451,7 +451,7 @@
       });
     }
 
-    // Handle Form Submission
+    // Handle Form Submission, again
     $('#new-student-form').on('submit', async (e) => {
       // Prevent the default form close for the API call
       e.preventDefault();
