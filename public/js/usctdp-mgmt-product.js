@@ -18,6 +18,7 @@
     };
 
     const modal = document.querySelector('#new-student-modal');
+    const fullScheduleModal = document.querySelector('#usctdp-full-schedule-modal');
     const waitlistedEntries = new Set();
     let cartBlocked = false;
     // Set to the tournament's activity (from /activities/) when it's full -
@@ -394,6 +395,26 @@
     $('#close-modal').on('click', () => {
       modal.close();
     });
+
+    // Open the full schedule popup from any session card
+    if (fullScheduleModal) {
+      $(document).on('click', '.usctdp-view-schedule-btn', function (e) {
+        e.preventDefault();
+        fullScheduleModal.showModal();
+      });
+
+      $('#usctdp-close-full-schedule').on('click', () => {
+        fullScheduleModal.close();
+      });
+
+      // Close on backdrop click - a click lands on the <dialog> element
+      // itself (rather than its content) only when it hits the backdrop.
+      fullScheduleModal.addEventListener('click', (e) => {
+        if (e.target === fullScheduleModal) {
+          fullScheduleModal.close();
+        }
+      });
+    }
 
     // Handle Form Submission
     $('#new-student-form').on('submit', async (e) => {

@@ -571,6 +571,29 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             'number' => 1,
         ]);
         $usctdp_product = $product_query->items[0] ?? null;
+
+        // Same usctdp_program_schedule.data blob the theme's program-card /
+        // schedule-drawer components render on the /programs listing pages
+        // (see ProgramsRepository::getProgramming()) - the weekly day/time
+        // grid is per-product, not per-session, so every session on this
+        // product shares the same "full schedule" popup.
+        $full_schedule = [];
+        if ($usctdp_product) {
+            $schedule_query = new Usctdp_Mgmt_Program_Schedule_Query([
+                'product_id' => $usctdp_product->id,
+                'number' => 1,
+            ]);
+            if (!empty($schedule_query->items)) {
+                $full_schedule = $schedule_query->items[0]->data['schedule'] ?? [];
+            }
+        }
+        $has_full_schedule = false;
+        foreach ($full_schedule as $day_info) {
+            if (!empty($day_info['times'])) {
+                $has_full_schedule = true;
+                break;
+            }
+        }
         ?>
         <?php $is_single_session = count($session_map) === 1; ?>
         <div id="usctdp-session-info-list">
@@ -605,9 +628,64 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                             <?php endforeach; ?>
                         </p>
                     <?php endif; ?>
+                    <?php if ($has_full_schedule): ?>
+                        <button type="button" class="usctdp-view-schedule-btn">View Full Schedule &rarr;</button>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>
+        <?php if ($has_full_schedule) {
+            $this->render_full_schedule_dialog($full_schedule);
+        } ?>
+        <?php
+    }
+
+    /**
+     * Renders the shared "Full Schedule" <dialog>, opened from the "View
+     * Full Schedule" button on any session-info card. Mirrors the native
+     * <dialog>/showModal() pattern #new-student-modal already uses on this
+     * page rather than the theme's Alpine-based schedule-drawer, since this
+     * template has no Alpine/Blade available.
+     */
+    private function render_full_schedule_dialog($schedule)
+    {
+        ?>
+        <dialog id="usctdp-full-schedule-modal">
+            <div class="usctdp-full-schedule-header">
+                <h2>Full Schedule</h2>
+                <button type="button" id="usctdp-close-full-schedule" class="usctdp-full-schedule-close"
+                    aria-label="Close">&times;</button>
+            </div>
+            <div class="usctdp-full-schedule-body">
+                <?php foreach ($schedule as $day_info):
+                    if (empty($day_info['times'])) {
+                        continue;
+                    }
+                    ?>
+                    <div class="usctdp-schedule-day">
+                        <p class="usctdp-schedule-day-label"><?php echo esc_html($day_info['day_full']); ?></p>
+                        <div class="usctdp-schedule-times">
+                            <?php foreach ($day_info['times'] as $time): ?>
+                                <div class="usctdp-schedule-time">
+                                    <span class="usctdp-schedule-time-range">
+                                        <?php echo esc_html($time['start_time'] . ' - ' . $time['end_time']); ?>
+                                    </span>
+                                    <?php if (!empty($time['level_label'])): ?>
+                                        <span class="usctdp-schedule-level"
+                                            style="background-color: <?php echo esc_attr($time['level_color']); ?>1a; color: <?php echo esc_attr($time['level_color']); ?>;">
+                                            <?php echo esc_html($time['level_label']); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($time['note'])): ?>
+                                        <span class="usctdp-schedule-note"><?php echo esc_html($time['note']); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </dialog>
         <?php
     }
 

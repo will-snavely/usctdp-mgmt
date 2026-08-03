@@ -250,6 +250,7 @@ dialog#new-student-modal .usctdp-birthdate-group input {
     border: 1px solid #ddd;
     border-radius: 6px;
     padding: 14px 16px;
+    text-align: left;
 }
 
 .usctdp-session-info-title {
@@ -301,4 +302,121 @@ dialog#new-student-modal .usctdp-birthdate-group input {
 
 .usctdp-session-info.usctdp-session-selected .usctdp-session-info-badge {
     display: inline-block;
+}
+
+.usctdp-view-schedule-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: #3893de;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.usctdp-view-schedule-btn:hover {
+    text-decoration: underline;
+}
+
+/* Full schedule modal */
+dialog#usctdp-full-schedule-modal {
+    border: none;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    background-color: #ffffff;
+    margin: auto;
+    position: fixed;
+    inset: 0;
+}
+
+dialog#usctdp-full-schedule-modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.usctdp-full-schedule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.usctdp-full-schedule-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #333;
+}
+
+.usctdp-full-schedule-close {
+    border: none;
+    background: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #888;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.usctdp-full-schedule-close:hover {
+    color: #333;
+}
+
+.usctdp-full-schedule-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.usctdp-schedule-day-label {
+    margin: 0 0 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #777;
+}
+
+.usctdp-schedule-times {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.usctdp-schedule-time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 9rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: #333;
+    text-align: left;
+}
+
+.usctdp-schedule-level {
+    display: inline-flex;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.usctdp-schedule-note {
+    font-size: 0.75rem;
+    color: #777;
+    font-style: italic;
+    text-align: left;
 }
