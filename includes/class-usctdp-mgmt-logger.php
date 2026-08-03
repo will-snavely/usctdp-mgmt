@@ -60,6 +60,7 @@ class Usctdp_Mgmt_Logger
         if (self::$sentry_active) {
             \Sentry\init([
                 'dsn' => $dsn,
+                'enable_logs' => true,
                 'environment' => defined('WP_ENV') ? WP_ENV : 'production',
             ]);
         }
