@@ -1,20 +1,30 @@
 <?php
 
 /**
- * Finds registrations whose purchase has no matching usctdp_ledger rows -
- * the exact inconsistency the unchecked add_item() calls in
- * create_purchase_and_ledger_entries()/record_deferred_payment() could leave
- * behind (see class-usctdp-mgmt-woocommerce-hooks.php). Report-only by
- * default; --fix attempts to backfill the missing ledger entries for the
- * self-checkout path (create_purchase_and_ledger_entries's case) by
- * re-deriving them from the original WooCommerce order.
+ * Finds and backfills two related gaps left by create_purchase_and_ledger_entries()
+ * (class-usctdp-mgmt-woocommerce-hooks.php) not completing for an order:
  *
- * Deliberately does NOT rely on registration.order_id - that column doesn't
- * exist (no such schema column, no meta table either), so any filter or
- * update keyed on it is a silent no-op. Purchase<->ledger is joined on
- * purchase_id (a real column on both tables); purchase<->order is joined by
- * matching usctdp_purchase.tracking_id against the '_tracking_id' order item
- * meta checkout_create_order_line_item() writes.
+ *   1. Orphaned purchases: a purchase was created but its four ledger rows
+ *      never were - the unchecked add_item() calls that method used to have
+ *      let this happen silently (e.g. the payment_method varchar(20)
+ *      truncation bug).
+ *   2. Orphaned registrations: a registration was activated
+ *      (confirm_registration(), a separate, non-transactional hook callback
+ *      on the same action) but purchase_id is still 0 - the purchase step
+ *      never ran at all. Plausible cause: the web container getting
+ *      recreated (or the request otherwise dying) between
+ *      confirm_registration() (priority 10) and create_purchase_and_ledger_entries()
+ *      (priority 20) on the same woocommerce_order_status_processing /
+ *      woocommerce_payment_complete hook.
+ *
+ * Report-only by default; --fix backfills both by re-deriving everything
+ * from the original WooCommerce order.
+ *
+ * Deliberately does NOT rely on registration.order_id for locating the
+ * order - purchase<->order (and registration<->order, for case 2) is
+ * resolved by matching tracking_id against the '_tracking_id' order item
+ * meta checkout_create_order_line_item() writes, since that's resolvable
+ * even for historical rows from before order_id existed as a real column.
  */
 class Usctdp_Reconcile_Ledger
 {
@@ -55,6 +65,40 @@ class Usctdp_Reconcile_Ledger
     }
 
     /**
+     * 'active' registrations with no purchase attached at all - purchase_id
+     * stays 0 until create_purchase_and_ledger_entries() sets it, so this is
+     * a registration that got activated (confirm_registration(), a separate
+     * hook callback) without that method ever having run to completion for
+     * it. Scoped to 'active' only: every freshly-created registration
+     * starts at purchase_id=0 while still 'pending' (normal, mid-checkout,
+     * pre-payment) - only 'active' + purchase_id=0 together are the anomaly.
+     */
+    private function find_registrations_without_purchase()
+    {
+        global $wpdb;
+
+        return $wpdb->get_results(
+            "   SELECT
+                    reg.id AS registration_id,
+                    reg.activity_id AS activity_id,
+                    reg.tracking_id AS tracking_id,
+                    reg.created_at AS registration_created_at,
+                    stud.id AS student_id,
+                    stud.first AS student_first,
+                    stud.last AS student_last,
+                    stud.family_id AS family_id,
+                    act.title AS activity_title,
+                    act.product_id AS product_id
+                FROM {$wpdb->prefix}usctdp_registration AS reg
+                JOIN {$wpdb->prefix}usctdp_student AS stud ON stud.id = reg.student_id
+                JOIN {$wpdb->prefix}usctdp_activity AS act ON act.id = reg.activity_id
+                WHERE reg.status = 'active'
+                AND reg.purchase_id = 0
+                ORDER BY reg.id ASC"
+        );
+    }
+
+    /**
      * Finds the order whose line item carries this tracking_id in its
      * '_tracking_id' meta - the same key checkout_create_order_line_item()
      * writes at checkout. Assumes traditional (non-HPOS) order item storage,
@@ -74,6 +118,50 @@ class Usctdp_Reconcile_Ledger
                 LIMIT 1",
             $tracking_id
         ));
+    }
+
+    /**
+     * Resolves a tracking_id all the way to the WC_Order it belongs to.
+     * Shared by both backfill paths - orphaned purchases already have a
+     * tracking_id on the purchase row, orphaned registrations have one on
+     * the registration row directly.
+     */
+    private function find_order_for_tracking_id($tracking_id, $context_label)
+    {
+        if (empty($tracking_id)) {
+            throw new Exception("$context_label has no tracking_id to locate its order by.");
+        }
+
+        $order_id = $this->find_order_id_by_tracking_id($tracking_id);
+        if (!$order_id) {
+            throw new Exception("No order found with a line item tracking_id of '$tracking_id'.");
+        }
+
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            throw new Exception("Order $order_id (from tracking_id '$tracking_id') no longer exists.");
+        }
+
+        return $order;
+    }
+
+    /**
+     * Finds the specific line item on $order carrying $tracking_id that
+     * covers $activity_id, and every activity_id that line item covers
+     * (one for a tournament, one or two for a clinic's day picks).
+     */
+    private function find_order_line_item($order, $tracking_id, $activity_id, $order_id)
+    {
+        foreach ($order->get_items() as $item) {
+            if ($item->get_meta('_tracking_id') !== $tracking_id) {
+                continue;
+            }
+            $activity_ids = array_map('intval', (array) $item->get_meta('_activities'));
+            if (in_array((int) $activity_id, $activity_ids, true)) {
+                return [$item, $activity_ids];
+            }
+        }
+        throw new Exception("Order $order_id has no line item covering activity $activity_id.");
     }
 
     /**
@@ -114,57 +202,15 @@ class Usctdp_Reconcile_Ledger
     }
 
     /**
-     * Backfills the four ledger rows (charge x2, payment x2) for one
-     * orphaned purchase, mirroring create_purchase_and_ledger_entries()
-     * exactly but reusing the purchase that already exists instead of
-     * creating a new one. Wrapped in its own transaction so one bad row
-     * can't take others down with it; every add_item() is checked, per the
-     * fix already applied to the source of this bug.
+     * Builds the four ledger entry arrays (charge x2, payment x2) that
+     * create_purchase_and_ledger_entries() would have, for a given purchase
+     * and price. Doesn't insert anything - see insert_ledger_entries().
      */
-    private function backfill_one($row)
+    private function build_ledger_entries($purchase_id, $family_id, $order_id, $payment_method, $reference_id, $created_at, $created_by, $price)
     {
-        global $wpdb;
-
-        if (empty($row->tracking_id)) {
-            throw new Exception("Purchase {$row->purchase_id} has no tracking_id to locate its order by.");
-        }
-
-        $order_id = $this->find_order_id_by_tracking_id($row->tracking_id);
-        if (!$order_id) {
-            throw new Exception("No order found with a line item tracking_id of '{$row->tracking_id}'.");
-        }
-
-        $order = wc_get_order($order_id);
-        if (!$order) {
-            throw new Exception("Order $order_id (from tracking_id '{$row->tracking_id}') no longer exists.");
-        }
-
-        $matching_item = null;
-        $activity_ids = [];
-        foreach ($order->get_items() as $item) {
-            if ($item->get_meta('_tracking_id') !== $row->tracking_id) {
-                continue;
-            }
-            $ids = array_map('intval', (array) $item->get_meta('_activities'));
-            if (in_array((int) $row->activity_id, $ids, true)) {
-                $matching_item = $item;
-                $activity_ids = $ids;
-                break;
-            }
-        }
-        if (!$matching_item) {
-            throw new Exception("Order $order_id has no line item covering activity {$row->activity_id}.");
-        }
-
-        $price = $this->get_activity_price($matching_item, (int) $row->activity_id, $activity_ids, $order_id);
-        $payment_method = $order->get_payment_method();
-        $reference_id = $order->get_transaction_id() ?: (string) $order_id;
-        $created_at = current_time('mysql');
-        $created_by = get_current_user_id();
-
         $ledger_base = [
-            'purchase_id' => $row->purchase_id,
-            'family_id' => $row->family_id,
+            'purchase_id' => $purchase_id,
+            'family_id' => $family_id,
             'order_id' => $order_id,
             'event_id' => 'wc_order' . $order_id,
             'event' => 'WooCommerce Order ' . $order_id,
@@ -174,7 +220,7 @@ class Usctdp_Reconcile_Ledger
             'created_by' => $created_by,
         ];
 
-        $entries = [
+        return [
             array_merge($ledger_base, [
                 'account' => 'registration_fees',
                 'entry_type' => 'charge',
@@ -204,26 +250,132 @@ class Usctdp_Reconcile_Ledger
                 'credit' => $price,
             ]),
         ];
+    }
+
+    /**
+     * Inserts every entry from build_ledger_entries(), checking each
+     * add_item() call - it silently returns false (no exception, no $wpdb
+     * error surfaced) rather than erroring, which is exactly the bug this
+     * whole tool exists to clean up after. Dumps the failing entry and
+     * $wpdb->last_error on failure, since add_item() only calls
+     * $wpdb->insert() at all if validate_item() didn't already bail (e.g.
+     * on a null field) - so last_error can be empty/stale even on a real
+     * failure.
+     */
+    private function insert_ledger_entries($entries)
+    {
+        global $wpdb;
+        $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+        foreach ($entries as $entry) {
+            $entry_id = $ledger_query->add_item($entry);
+            if (!$entry_id) {
+                throw new Exception(
+                    "Failed to insert '{$entry['account']}' {$entry['entry_type']} ledger entry. "
+                    . 'Entry: ' . wp_json_encode($entry) . '. '
+                    . 'wpdb->last_error: ' . ($wpdb->last_error ?: '(empty)')
+                );
+            }
+        }
+    }
+
+    /**
+     * Backfills the four ledger rows for one orphaned purchase, mirroring
+     * create_purchase_and_ledger_entries() exactly but reusing the purchase
+     * that already exists instead of creating a new one. Wrapped in its own
+     * transaction so one bad row can't take others down with it.
+     */
+    private function backfill_orphaned_purchase($row)
+    {
+        global $wpdb;
+
+        $order = $this->find_order_for_tracking_id($row->tracking_id, "Purchase {$row->purchase_id}");
+        $order_id = $order->get_id();
+        [$item, $activity_ids] = $this->find_order_line_item($order, $row->tracking_id, $row->activity_id, $order_id);
+
+        $price = $this->get_activity_price($item, (int) $row->activity_id, $activity_ids, $order_id);
+        $payment_method = $order->get_payment_method();
+        $reference_id = $order->get_transaction_id() ?: (string) $order_id;
+        $created_at = current_time('mysql');
+        $created_by = get_current_user_id();
+
+        $entries = $this->build_ledger_entries(
+            $row->purchase_id,
+            $row->family_id,
+            $order_id,
+            $payment_method,
+            $reference_id,
+            $created_at,
+            $created_by,
+            $price
+        );
 
         $wpdb->query('START TRANSACTION');
         try {
-            $ledger_query = new Usctdp_Mgmt_Ledger_Query();
-            foreach ($entries as $entry) {
-                $entry_id = $ledger_query->add_item($entry);
-                if (!$entry_id) {
-                    // add_item() only calls $wpdb->insert() at all if
-                    // validate_item() didn't already bail (e.g. on a null
-                    // field) - so $wpdb->last_error can be empty/stale even
-                    // on a real failure here. Dumping the entry itself
-                    // covers that case: an unexpected null will show up
-                    // directly instead of us having to guess at it again.
-                    throw new Exception(
-                        "Failed to insert '{$entry['account']}' {$entry['entry_type']} ledger entry. "
-                        . 'Entry: ' . wp_json_encode($entry) . '. '
-                        . 'wpdb->last_error: ' . ($wpdb->last_error ?: '(empty)')
-                    );
-                }
+            $this->insert_ledger_entries($entries);
+            $wpdb->query('COMMIT');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            throw $e;
+        }
+
+        return $order_id;
+    }
+
+    /**
+     * Backfills an 'active' registration that never got a purchase at all -
+     * creates the purchase (mirroring create_purchase_and_ledger_entries()'s
+     * own purchase-creation step), links it to the registration, and
+     * inserts the same four ledger rows backfill_orphaned_purchase() does.
+     * One transaction covering all of it, so a failure partway through
+     * (e.g. the ledger insert) rolls back the purchase creation too, rather
+     * than leaving a purchase with no ledger - the exact problem this tool
+     * already exists to detect.
+     */
+    private function backfill_missing_purchase($row)
+    {
+        global $wpdb;
+
+        $order = $this->find_order_for_tracking_id($row->tracking_id, "Registration {$row->registration_id}");
+        $order_id = $order->get_id();
+        [$item, $activity_ids] = $this->find_order_line_item($order, $row->tracking_id, $row->activity_id, $order_id);
+
+        $price = $this->get_activity_price($item, (int) $row->activity_id, $activity_ids, $order_id);
+        $payment_method = $order->get_payment_method();
+        $reference_id = $order->get_transaction_id() ?: (string) $order_id;
+        $created_at = current_time('mysql');
+        $created_by = get_current_user_id();
+
+        $wpdb->query('START TRANSACTION');
+        try {
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            $purchase_id = $purchase_query->add_item([
+                'product_id' => $row->product_id,
+                'family_id' => $row->family_id,
+                'student_id' => $row->student_id,
+                'tracking_id' => $row->tracking_id,
+                'type' => 'registration',
+                'created_at' => $created_at,
+                'created_by' => $created_by,
+            ]);
+            if (!$purchase_id) {
+                throw new Exception("Failed to create purchase for registration {$row->registration_id}.");
             }
+
+            $reg_query = new Usctdp_Mgmt_Registration_Query();
+            $reg_query->update_item($row->registration_id, ['purchase_id' => $purchase_id]);
+
+            $entries = $this->build_ledger_entries(
+                $purchase_id,
+                $row->family_id,
+                $order_id,
+                $payment_method,
+                $reference_id,
+                $created_at,
+                $created_by,
+                $price
+            );
+            $this->insert_ledger_entries($entries);
+
             $wpdb->query('COMMIT');
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
@@ -235,52 +387,88 @@ class Usctdp_Reconcile_Ledger
 
     public function reconcile($fix = false)
     {
-        $orphans = $this->find_orphaned_purchases();
+        $orphaned_purchases = $this->find_orphaned_purchases();
+        $missing_purchases = $this->find_registrations_without_purchase();
 
-        if (empty($orphans)) {
-            WP_CLI::success('No orphaned purchases found - every purchase has matching ledger entries.');
+        if (empty($orphaned_purchases) && empty($missing_purchases)) {
+            WP_CLI::success('No orphaned purchases or unpaid active registrations found.');
             return;
         }
-
-        WP_CLI::log(sprintf('Found %d purchase(s) with no ledger entries:', count($orphans)));
-        WP_CLI::log('');
 
         $fixed = 0;
         $failed = 0;
 
-        foreach ($orphans as $row) {
-            $student_name = trim($row->student_first . ' ' . $row->student_last);
-            WP_CLI::log(sprintf(
-                'registration #%d | purchase #%d (%s) | %s | %s | tracking_id=%s | created %s',
-                $row->registration_id,
-                $row->purchase_id,
-                $row->purchase_type,
-                $student_name,
-                $row->activity_title,
-                $row->tracking_id ?: '(none)',
-                $row->purchase_created_at
-            ));
+        if (!empty($orphaned_purchases)) {
+            WP_CLI::log(sprintf('Found %d purchase(s) with no ledger entries:', count($orphaned_purchases)));
+            WP_CLI::log('');
 
-            if (!$fix) {
-                continue;
-            }
+            foreach ($orphaned_purchases as $row) {
+                $student_name = trim($row->student_first . ' ' . $row->student_last);
+                WP_CLI::log(sprintf(
+                    'registration #%d | purchase #%d (%s) | %s | %s | tracking_id=%s | created %s',
+                    $row->registration_id,
+                    $row->purchase_id,
+                    $row->purchase_type,
+                    $student_name,
+                    $row->activity_title,
+                    $row->tracking_id ?: '(none)',
+                    $row->purchase_created_at
+                ));
 
-            try {
-                $order_id = $this->backfill_one($row);
-                WP_CLI::log("  -> backfilled from order #$order_id");
-                $fixed++;
-            } catch (Throwable $e) {
-                WP_CLI::log('  -> SKIPPED: ' . $e->getMessage());
-                Usctdp_Mgmt::logger()->log_exception('USCTDP: reconcile_ledger backfill', $e);
-                $failed++;
+                if (!$fix) {
+                    continue;
+                }
+
+                try {
+                    $order_id = $this->backfill_orphaned_purchase($row);
+                    WP_CLI::log("  -> backfilled from order #$order_id");
+                    $fixed++;
+                } catch (Throwable $e) {
+                    WP_CLI::log('  -> SKIPPED: ' . $e->getMessage());
+                    Usctdp_Mgmt::logger()->log_exception('USCTDP: reconcile_ledger backfill', $e);
+                    $failed++;
+                }
             }
+            WP_CLI::log('');
         }
 
-        WP_CLI::log('');
+        if (!empty($missing_purchases)) {
+            WP_CLI::log(sprintf('Found %d active registration(s) with no purchase at all:', count($missing_purchases)));
+            WP_CLI::log('');
+
+            foreach ($missing_purchases as $row) {
+                $student_name = trim($row->student_first . ' ' . $row->student_last);
+                WP_CLI::log(sprintf(
+                    'registration #%d | %s | %s | tracking_id=%s | registered %s',
+                    $row->registration_id,
+                    $student_name,
+                    $row->activity_title,
+                    $row->tracking_id ?: '(none)',
+                    $row->registration_created_at
+                ));
+
+                if (!$fix) {
+                    continue;
+                }
+
+                try {
+                    $order_id = $this->backfill_missing_purchase($row);
+                    WP_CLI::log("  -> created purchase and backfilled from order #$order_id");
+                    $fixed++;
+                } catch (Throwable $e) {
+                    WP_CLI::log('  -> SKIPPED: ' . $e->getMessage());
+                    Usctdp_Mgmt::logger()->log_exception('USCTDP: reconcile_ledger backfill (missing purchase)', $e);
+                    $failed++;
+                }
+            }
+            WP_CLI::log('');
+        }
+
+        $total = count($orphaned_purchases) + count($missing_purchases);
         if ($fix) {
-            WP_CLI::log(sprintf('Backfilled %d, skipped %d, out of %d orphaned purchase(s).', $fixed, $failed, count($orphans)));
+            WP_CLI::log(sprintf('Backfilled %d, skipped %d, out of %d issue(s) found.', $fixed, $failed, $total));
         } else {
-            WP_CLI::log(sprintf('%d orphaned purchase(s) found. Re-run with --fix to attempt backfilling them.', count($orphans)));
+            WP_CLI::log(sprintf('%d issue(s) found. Re-run with --fix to attempt backfilling them.', $total));
         }
     }
 }

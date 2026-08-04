@@ -339,16 +339,22 @@ class Usctdp_Cli_Command
     }
 
     /**
-     * Finds purchases with no matching usctdp_ledger rows (see the null-insert
-     * gap fixed in create_purchase_and_ledger_entries()/record_deferred_payment(),
-     * class-usctdp-mgmt-woocommerce-hooks.php) and, with --fix, backfills the
-     * missing entries by re-deriving them from the original WooCommerce order.
+     * Finds two related gaps left by create_purchase_and_ledger_entries()
+     * (class-usctdp-mgmt-woocommerce-hooks.php) not completing for an order,
+     * and with --fix, backfills both by re-deriving everything from the
+     * original WooCommerce order:
+     *
+     *   - Purchases with no matching usctdp_ledger rows (the null-insert gap
+     *     that method used to have).
+     *   - 'active' registrations with no purchase at all (purchase_id = 0) -
+     *     e.g. the web container getting recreated mid-request between
+     *     confirm_registration() and create_purchase_and_ledger_entries().
      *
      * ## OPTIONS
      *
      * [--fix]
-     * : Attempt to backfill the missing ledger entries. Without this flag,
-     * only reports what's orphaned.
+     * : Attempt to backfill both kinds of gap. Without this flag, only
+     * reports what's found.
      *
      * ## EXAMPLES
      *
