@@ -211,7 +211,17 @@ class Usctdp_Reconcile_Ledger
             foreach ($entries as $entry) {
                 $entry_id = $ledger_query->add_item($entry);
                 if (!$entry_id) {
-                    throw new Exception("Failed to insert '{$entry['account']}' {$entry['entry_type']} ledger entry.");
+                    // add_item() only calls $wpdb->insert() at all if
+                    // validate_item() didn't already bail (e.g. on a null
+                    // field) - so $wpdb->last_error can be empty/stale even
+                    // on a real failure here. Dumping the entry itself
+                    // covers that case: an unexpected null will show up
+                    // directly instead of us having to guess at it again.
+                    throw new Exception(
+                        "Failed to insert '{$entry['account']}' {$entry['entry_type']} ledger entry. "
+                        . 'Entry: ' . wp_json_encode($entry) . '. '
+                        . 'wpdb->last_error: ' . ($wpdb->last_error ?: '(empty)')
+                    );
                 }
             }
             $wpdb->query('COMMIT');
