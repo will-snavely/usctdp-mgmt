@@ -258,6 +258,13 @@ dialog#new-student-modal .usctdp-birthdate-group input {
     font-weight: 600;
 }
 
+.usctdp-session-info-dates-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .usctdp-session-info-dates {
     margin: 2px 0 0;
     font-size: 0.9rem;
@@ -308,7 +315,6 @@ dialog#new-student-modal .usctdp-birthdate-group input {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    margin-top: 8px;
     padding: 0;
     border: none;
     background: none;
@@ -397,13 +403,27 @@ dialog#usctdp-full-schedule-modal::backdrop {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
-    min-width: 9rem;
+    width: 11rem;
+    box-sizing: border-box;
     border: 1px solid #ddd;
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 0.85rem;
     color: #333;
     text-align: left;
+}
+
+.usctdp-schedule-time--has-note {
+    width: 13rem;
+}
+
+.usctdp-schedule-time--has-note .usctdp-schedule-level {
+    align-self: center;
+}
+
+.usctdp-schedule-time-range {
+    width: 100%;
+    text-align: center;
 }
 
 .usctdp-schedule-level {

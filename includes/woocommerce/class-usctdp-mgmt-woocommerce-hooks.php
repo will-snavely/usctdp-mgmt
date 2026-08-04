@@ -521,11 +521,29 @@ class Usctdp_Mgmt_Woocommerce_Hooks
      * when they're both 1, its own template renders a hidden qty=1 field
      * instead of the spinner, so the counter disappears as a side effect.
      * Simple products (e.g. merch) are unaffected.
+     *
+     * is_sold_individually() applies this filter with $this as whichever
+     * product object is asking, and that's NOT always the parent - the
+     * product page's add-to-cart form calls it on the WC_Product_Variable
+     * itself, but cart/checkout rendering (WC_Cart_Session, WC_Cart::add_to_cart's
+     * quantity check) calls it on the specific WC_Product_Variation line
+     * item instead, whose is_type() is 'variation', not 'variable'. Without
+     * checking the variation's parent too, the qty spinner reappeared in
+     * the cart even though it was correctly hidden on the product page.
      */
     public function force_sold_individually_for_variable_products($sold_individually, $product)
     {
-        if ($product && $product->is_type('variable')) {
+        if (!$product) {
+            return $sold_individually;
+        }
+        if ($product->is_type('variable')) {
             return true;
+        }
+        if ($product->is_type('variation')) {
+            $parent = wc_get_product($product->get_parent_id());
+            if ($parent && $parent->is_type('variable')) {
+                return true;
+            }
         }
         return $sold_individually;
     }
@@ -614,11 +632,19 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         <span class="usctdp-session-info-badge">Selected</span>
                     <?php endif; ?>
                     <p class="usctdp-session-info-title"><?php echo esc_html($session_name); ?></p>
-                    <p class="usctdp-session-info-dates">
-                        <?php echo esc_html($session->start_date->format('M j, Y')); ?>
-                        &ndash;
-                        <?php echo esc_html($session->end_date->format('M j, Y')); ?>
-                    </p>
+                    <div class="usctdp-session-info-dates-row">
+                        <p class="usctdp-session-info-dates">
+                            <?php echo esc_html($session->start_date->format('M j, Y')); ?>
+                            &ndash;
+                            <?php echo esc_html($session->end_date->format('M j, Y')); ?>
+                        </p>
+                        <?php if ($has_full_schedule): ?>
+                            <button type="button" class="usctdp-view-schedule-btn"
+                                <?php if ($show_days): ?>data-show-days="<?php echo esc_attr(implode(',', $show_days)); ?>"<?php endif; ?>>
+                                View Full Schedule &rarr;
+                            </button>
+                        <?php endif; ?>
+                    </div>
                     <?php if (!empty($note)): ?>
                         <p class="usctdp-session-info-note"><?php echo esc_html($note); ?></p>
                     <?php endif; ?>
@@ -628,12 +654,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                                 <span class="usctdp-session-info-price-line"><?php echo $line; ?></span>
                             <?php endforeach; ?>
                         </p>
-                    <?php endif; ?>
-                    <?php if ($has_full_schedule): ?>
-                        <button type="button" class="usctdp-view-schedule-btn"
-                            <?php if ($show_days): ?>data-show-days="<?php echo esc_attr(implode(',', $show_days)); ?>"<?php endif; ?>>
-                            View Full Schedule &rarr;
-                        </button>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
@@ -675,7 +695,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         <p class="usctdp-schedule-day-label"><?php echo esc_html($day_info['day_full']); ?></p>
                         <div class="usctdp-schedule-times">
                             <?php foreach ($day_info['times'] as $time): ?>
-                                <div class="usctdp-schedule-time">
+                                <div class="usctdp-schedule-time<?php echo !empty($time['note']) ? ' usctdp-schedule-time--has-note' : ''; ?>">
                                     <span class="usctdp-schedule-time-range">
                                         <?php echo esc_html($time['start_time'] . ' - ' . $time['end_time']); ?>
                                     </span>
