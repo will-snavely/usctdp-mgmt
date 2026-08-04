@@ -203,6 +203,41 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     }
 
     /**
+     * Points customers at the lost-password page when they hit the
+     * "already registered" error - specifically for people who never
+     * completed the account they already have. Registration never collects
+     * a password here (see pre_option_woocommerce_registration_generate_password
+     * in filters.php); WooCommerce emails a "set your password" link
+     * instead. If that email gets lost/marked spam, the customer has no way
+     * to log in and, not realizing an account already exists, tries to
+     * register again - hitting this exact error with no path forward,
+     * since "please log in" doesn't help someone who never set a password.
+     *
+     * Hooked to woocommerce_add_error rather than a more specific filter:
+     * wc_create_new_customer()'s "email exists" WP_Error has no filter of
+     * its own to hook (unlike the checkout-registration flow's equivalent
+     * message, which passes through woocommerce_registration_error_email_exists
+     * in class-wc-checkout.php - not the path this site's login-required
+     * setup actually uses), and process_registration()
+     * (class-wc-form-handler.php) just re-throws that raw message straight
+     * into wc_add_notice(). woocommerce_add_error is the one point every
+     * error notice - from either flow - passes through on its way to
+     * display, so matching on it here covers both regardless of which
+     * WooCommerce ever routes through.
+     */
+    public function add_lost_password_link_to_existing_account_error($message)
+    {
+        if (is_string($message) && stripos($message, 'already registered') !== false) {
+            $message .= ' ' . sprintf(
+                /* translators: %s: lost password page URL */
+                __('If you\'re trying to get back into an account you already have, <a href="%s">reset your password here</a> instead of registering again.', 'usctdp-mgmt'),
+                esc_url(wc_lostpassword_url())
+            );
+        }
+        return $message;
+    }
+
+    /**
      * Carry the first/last name fields from the registration form into the
      * new user's wp_insert_user() args, so the WP account itself (not just
      * the usctdp_family row) has a proper name.

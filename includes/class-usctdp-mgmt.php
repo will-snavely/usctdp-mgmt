@@ -269,6 +269,11 @@ class Usctdp_Mgmt
             4
         );
         $this->loader->add_filter(
+            'woocommerce_add_error',
+            $commerce_handler,
+            'add_lost_password_link_to_existing_account_error'
+        );
+        $this->loader->add_filter(
             'woocommerce_new_customer_data',
             $commerce_handler,
             'add_name_to_customer_data',
