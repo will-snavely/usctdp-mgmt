@@ -21,6 +21,14 @@ class Usctdp_Mgmt_Registration_Schema extends Schema
             'unsigned' => true,
             'index' => true,
         ],
+        'order_id' => [
+            'name' => 'order_id',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'index' => true,
+            'allow_null' => true,
+        ],
         'activity_id' => [
             'name' => 'activity_id',
             'type' => 'bigint',

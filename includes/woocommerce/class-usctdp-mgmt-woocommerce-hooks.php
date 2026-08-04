@@ -1047,7 +1047,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             }
 
             foreach ($registrations as $reg) {
-                $cart_item = $reg["cart_item"];
                 $student = $students[$reg["student_id"]];
                 $activity = $activities[$reg["activity_id"]];
                 $already_reserved = false;
@@ -1200,6 +1199,16 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         $item->add_meta_data('_tracking_id', $values['tracking_id']);
     }
 
+    /**
+     * Links each pending registration to the order it just became part of.
+     * Looked up per line item by student_id + activity_id + tracking_id +
+     * status='pending' - tracking_id (not order_id) is what disambiguates
+     * *which* pending registration this is, since order_id doesn't exist
+     * yet at the point after_checkout_validation() created it. Once found,
+     * order_id gets filled in for every later, order-scoped lookup
+     * (confirm_registration(), create_purchase_and_ledger_entries(),
+     * release_registrations_for_order()) to use directly.
+     */
     public function checkout_order_processed($order_id, $data, $order)
     {
         foreach ($order->get_items() as $item_id => $item) {
@@ -1212,6 +1221,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     'activity_id' => $activity_id,
                     'tracking_id' => $tracking_id,
                     'status' => 'pending',
+                    'number' => 1,
                 ]);
                 if (!empty($query->items)) {
                     $query->update_item($query->items[0]->id, [
@@ -1227,6 +1237,21 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         }
     }
 
+    /**
+     * order_id was intentionally removed from usctdp_registration in
+     * f7cfe73 ("Revising model for payments") in favor of tracking_id, but
+     * this query (and create_purchase_and_ledger_entries()'s) were never
+     * updated off of it - they kept filtering by 'order_id' => $order_id, a
+     * key with no matching schema column at the time, which BerlinDB
+     * silently dropped from the WHERE clause instead of erroring. This
+     * query in particular actually ran as bare ['status' => 'pending'],
+     * activating up to 100 unrelated pending registrations (the base
+     * class's default limit) on every successful order - including other
+     * customers' failed or abandoned ones that were never supposed to be
+     * activated. order_id is real again now (see
+     * class-usctdp-mgmt-registration-table.php), set by
+     * checkout_order_processed() right after the order is created.
+     */
     public function confirm_registration($order_id)
     {
         $query = new Usctdp_Mgmt_Registration_Query([
@@ -1236,8 +1261,40 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         foreach ($query->items as $item) {
             $query->update_item($item->id, [
                 "status" => "active",
-                "last_modified_at" => current_time('mysql'),
-                "last_modified_by" => get_current_user_id(),
+                "modified_at" => current_time('mysql'),
+                "modified_by" => get_current_user_id(),
+            ]);
+        }
+    }
+
+    /**
+     * Voids any still-pending registrations tied to an order that failed or
+     * was cancelled before payment completed. Without this, an abandoned
+     * checkout attempt leaves its capacity reservation sitting in 'pending'
+     * forever - nothing else ever expires it - which does two bad things:
+     * blocks a legitimate retry with a false "already enrolled" error if
+     * the customer's cart tracking_id changes between attempts (see
+     * after_checkout_validation()'s tracking_id comparison), and previously
+     * let it get silently activated by any unrelated customer's later
+     * successful order via confirm_registration()'s no-op'd order_id filter.
+     *
+     * 'void' (not a new status) mirrors what ajax_set_registration_status()
+     * already accepts for "this registration doesn't count" - and is
+     * deliberately excluded from after_checkout_validation()'s
+     * already_enrolled check ([active, pending] only), so a voided
+     * registration no longer blocks a fresh attempt.
+     */
+    public function release_registrations_for_order($order_id)
+    {
+        $query = new Usctdp_Mgmt_Registration_Query([
+            'order_id' => $order_id,
+            'status' => 'pending',
+        ]);
+        foreach ($query->items as $item) {
+            $query->update_item($item->id, [
+                'status' => 'void',
+                'modified_at' => current_time('mysql'),
+                'modified_by' => get_current_user_id(),
             ]);
         }
     }

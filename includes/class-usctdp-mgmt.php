@@ -415,6 +415,16 @@ class Usctdp_Mgmt
             'record_deferred_payment',
             20
         );
+        $this->loader->add_action(
+            'woocommerce_order_status_failed',
+            $commerce_handler,
+            'release_registrations_for_order'
+        );
+        $this->loader->add_action(
+            'woocommerce_order_status_cancelled',
+            $commerce_handler,
+            'release_registrations_for_order'
+        );
     }
 
     /**

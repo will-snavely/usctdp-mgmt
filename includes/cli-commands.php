@@ -58,6 +58,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-reconcile-ledger.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-audit-registrations.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -357,6 +360,24 @@ class Usctdp_Cli_Command
         $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
         $reconciler = new Usctdp_Reconcile_Ledger();
         $reconciler->reconcile($fix);
+    }
+
+    /**
+     * Finds 'active' registrations with no evidence of payment (no purchase
+     * attached, or a purchase with no ledger rows) - the signature left
+     * behind by confirm_registration()'s previously no-op'd order_id filter
+     * incorrectly activating registrations tied to a different, unrelated
+     * order. Report-only; deciding what to do with each one (void it, chase
+     * the payment, leave it) is a judgment call, not something to automate.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp audit_registrations
+     */
+    public function audit_registrations($args, $assoc_args)
+    {
+        $auditor = new Usctdp_Audit_Registrations();
+        $auditor->audit();
     }
 }
 
