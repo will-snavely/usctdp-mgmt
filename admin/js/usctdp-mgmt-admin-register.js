@@ -170,9 +170,12 @@
         function bind_clinic_info(info) {
             const { pricing } = info;
             const one_day_price = parseFloat(pricing['One']);
-            const two_day_price = parseFloat(pricing['Two']);
-            const diff = two_day_price - one_day_price;
-            const discount = one_day_price - diff;
+            var discount = 20;
+            if (pricing['Two']) {
+                const two_day_price = parseFloat(pricing['Two']);
+                const diff = two_day_price - one_day_price;
+                discount = one_day_price - diff;
+            }
 
             $('#activity_base_price').val(one_day_price.toFixed(2));
             $('#tournament-only-discounts').addClass('hidden');

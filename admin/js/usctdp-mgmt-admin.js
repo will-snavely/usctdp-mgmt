@@ -1227,17 +1227,17 @@
                 } else if (selectedVal === 'pay_later' || selectedVal === 'house_credit_only') {
                     $method.val('').trigger('change');
                 }
-            } else if (balance <= 0) {
-                if (this.settings.allowPayLater) {
+            } else {
+                if (balance <= 0) {
+                    $paymentNote.text("Payment balance is currently zero.");
+                    $method.val('').trigger('change');
+                } else if (this.settings.allowPayLater) {
                     $paymentNote.text("Payment amount is currently zero, 'Pay Later' must be selected.");
                     $method.val('pay_later').trigger('change');
                 } else {
-                    $paymentNote.text("Payment balance is currently zero.");
+                    $paymentNote.text("Please input a payment amount above, or apply enough house credit, to proceed.");
                     $method.val('').trigger('change');
                 }
-            } else {
-                $paymentNote.text("Please input a payment amount above, or apply enough house credit, to proceed.");
-                $method.val('').trigger('change');
             }
         }
 
