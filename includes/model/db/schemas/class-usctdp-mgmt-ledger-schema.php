@@ -57,7 +57,7 @@ class Usctdp_Mgmt_Ledger_Schema extends Schema
         'payment_method' => [
             'name' => 'payment_method',
             'type' => 'varchar',
-            'length' => 20,
+            'length' => 100,
             'default' => ''
         ],
         'reference_id' => [
