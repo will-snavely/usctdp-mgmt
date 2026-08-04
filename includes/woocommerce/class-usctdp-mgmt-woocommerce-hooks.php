@@ -1364,23 +1364,39 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         'created_by' => $created_by,
                     ];
 
+                    // Every add_item() call below is checked: BerlinDB's
+                    // Query::add_item() silently returns false (no exception,
+                    // no $wpdb error surfaced) if ANY field is null and that
+                    // column doesn't explicitly allow_null - and every column
+                    // on usctdp_ledger disallows null. An unchecked failure
+                    // here previously let a purchase get created and its
+                    // registration get linked/activated while all four
+                    // ledger rows silently never existed, with nothing in
+                    // the logs to show it happened.
+
                     // Charge: mirrors build_ledger_entries_for_line_item()'s
                     // "is_new" pair in class-usctdp-mgmt-admin-ajax.php - Dr
                     // registration_fees, Cr revenue, recognizing the sale.
-                    $ledger_query->add_item(array_merge($ledger_base, [
+                    $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'registration_fees',
                         'entry_type' => 'charge',
                         'description' => 'Order placed in online store.',
                         'debit' => $price,
                         'credit' => 0,
                     ]));
-                    $ledger_query->add_item(array_merge($ledger_base, [
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create registration_fees charge ledger entry for order $order_id, activity $activity_id.");
+                    }
+                    $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'revenue',
                         'entry_type' => 'charge',
                         'description' => 'Order placed in online store.',
                         'debit' => 0,
                         'credit' => $price,
                     ]));
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create revenue charge ledger entry for order $order_id, activity $activity_id.");
+                    }
 
                     // Payment: mirrors that same file's payment pair - Dr
                     // payment_<method> (money actually received), Cr
@@ -1388,20 +1404,26 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     // straight to "processing", so both pairs are booked
                     // together here rather than split across two hook calls
                     // like the admin invoicing flow's deferred-card case.
-                    $ledger_query->add_item(array_merge($ledger_base, [
+                    $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'payment_' . $payment_method,
                         'entry_type' => 'payment',
                         'description' => 'Order paid in online store.',
                         'debit' => $price,
                         'credit' => 0,
                     ]));
-                    $ledger_query->add_item(array_merge($ledger_base, [
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create payment_$payment_method payment ledger entry for order $order_id, activity $activity_id.");
+                    }
+                    $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'registration_fees',
                         'entry_type' => 'payment',
                         'description' => 'Order paid in online store.',
                         'debit' => 0,
                         'credit' => $price,
                     ]));
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create registration_fees payment ledger entry for order $order_id, activity $activity_id.");
+                    }
                 }
             }
 
@@ -1474,7 +1496,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 $price = floatval($item->get_total());
 
                 $ledger_query = new Usctdp_Mgmt_Ledger_Query();
-                $ledger_query->add_item([
+                $entry_id = $ledger_query->add_item([
                     'purchase_id' => $purchase_id,
                     'family_id' => $purchase->family_id,
                     'order_id' => $order_id,
@@ -1490,8 +1512,11 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     'created_at' => $created_at,
                     'created_by' => $created_by,
                 ]);
+                if (!$entry_id) {
+                    throw new Exception("Failed to create payment_$payment_method payment ledger entry for order $order_id, purchase $purchase_id.");
+                }
 
-                $ledger_query->add_item([
+                $entry_id = $ledger_query->add_item([
                     'purchase_id' => $purchase_id,
                     'family_id' => $purchase->family_id,
                     'order_id' => $order_id,
@@ -1507,6 +1532,9 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     'created_at' => $created_at,
                     'created_by' => $created_by,
                 ]);
+                if (!$entry_id) {
+                    throw new Exception("Failed to create {$purchase->type}_fees payment ledger entry for order $order_id, purchase $purchase_id.");
+                }
             }
 
             $wpdb->query('COMMIT');

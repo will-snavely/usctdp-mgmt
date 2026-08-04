@@ -55,6 +55,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-meta.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-reconcile-ledger.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -330,6 +333,30 @@ class Usctdp_Cli_Command
     {
         $cleaner = new Usctdp_Clean_Products();
         $cleaner->clean_products();
+    }
+
+    /**
+     * Finds purchases with no matching usctdp_ledger rows (see the null-insert
+     * gap fixed in create_purchase_and_ledger_entries()/record_deferred_payment(),
+     * class-usctdp-mgmt-woocommerce-hooks.php) and, with --fix, backfills the
+     * missing entries by re-deriving them from the original WooCommerce order.
+     *
+     * ## OPTIONS
+     *
+     * [--fix]
+     * : Attempt to backfill the missing ledger entries. Without this flag,
+     * only reports what's orphaned.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp reconcile_ledger
+     *     wp usctdp reconcile_ledger --fix
+     */
+    public function reconcile_ledger($args, $assoc_args)
+    {
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $reconciler = new Usctdp_Reconcile_Ledger();
+        $reconciler->reconcile($fix);
     }
 }
 
