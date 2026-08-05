@@ -33,7 +33,7 @@ class Usctdp_Mgmt_Session_Query extends Query
         return $wpdb->get_results($session_roster_query);
     }
 
-    public function search_sessions($query, $active = null, $category = null, $limit = 10)
+    public function search_sessions($query, $active = null, $category = null, $limit = 10, $exclude_grouped = false)
     {
         global $wpdb;
         $sql = "SELECT id, title, category FROM {$wpdb->prefix}{$this->table_name}";
@@ -55,6 +55,10 @@ class Usctdp_Mgmt_Session_Query extends Query
         if ($category !== null) {
             $conditions[] = "category = %d";
             $args[] = $category;
+        }
+        if ($exclude_grouped) {
+            // A session can only belong to one roster group at a time.
+            $conditions[] = "id NOT IN (SELECT session_id FROM {$wpdb->prefix}usctdp_roster_group_session)";
         }
         if ($conditions) {
             $sql .= " WHERE " . implode(" AND ", $conditions);

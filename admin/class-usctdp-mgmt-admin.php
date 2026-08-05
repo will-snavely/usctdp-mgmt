@@ -53,6 +53,10 @@ class Usctdp_Mgmt_Admin
                     'waitlist_add',
                     'waitlist_remove',
                     'roster_link',
+                    'roster_regenerate_all',
+                    'roster_rename',
+                    'roster_add_session',
+                    'roster_remove_session',
                 ],
                 'context' => ['activity_id']
             ],

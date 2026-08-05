@@ -24,6 +24,31 @@
     min-height: 120px;
 }
 
+/* Same reasoning as #waitlist-student-modal above - the "add session"
+   select2 here is parented to this dialog, so it needs the same overflow
+   override to escape the dialog's default clipping. */
+#edit-roster-modal {
+    overflow: visible;
+    min-width: 420px;
+}
+
+#edit-roster-sessions-list {
+    min-height: 40px;
+}
+
+.roster-session-item {
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #f6f7f7;
+    border-radius: 6px;
+}
+
+.roster-name-cell .roster-session-list {
+    font-size: 0.85em;
+    color: #555;
+}
+
 #regenerate-all-status {
     font-style: italic;
     color: #555;

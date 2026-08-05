@@ -20,7 +20,11 @@ class Usctdp_Mgmt_Admin_Ajax
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
         'recent_registrations' => 'ajax_recent_registrations',
         'registrations_datatable' => 'ajax_registrations_datatable',
+        'roster_add_session' => 'ajax_roster_add_session',
         'roster_link' => 'ajax_get_roster_link',
+        'roster_regenerate_all' => 'ajax_roster_regenerate_all',
+        'roster_remove_session' => 'ajax_roster_remove_session',
+        'roster_rename' => 'ajax_roster_rename',
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
@@ -252,17 +256,23 @@ class Usctdp_Mgmt_Admin_Ajax
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
             $document = null;
+            $drive_file = null;
             if ($target['type'] === 'clinic') {
                 $document = $doc_gen->generate_clinic_roster($target['id']);
             } elseif ($target['type'] === 'tournament') {
                 $document = $doc_gen->generate_tournament_roster($target['id']);
             } elseif ($target['type'] === 'session') {
-                $document = $doc_gen->generate_session_roster($target['id']);
+                // Transparently covers the case where this session has been
+                // merged into a multi-session roster - see
+                // Usctdp_Mgmt_Docgen::generate_and_upload_session_roster().
+                $drive_file = $doc_gen->generate_and_upload_session_roster($target['id'], $target['title']);
             }
-            if (!$document) {
+            if (!$document && !$drive_file) {
                 wp_send_json_error('Document not generated.', 400);
             }
-            $drive_file = $doc_gen->upload_to_google_drive($document, $target['id'], $target['title']);
+            if (!$drive_file) {
+                $drive_file = $doc_gen->upload_to_google_drive($document, $target['id'], $target['title']);
+            }
             wp_send_json_success([
                 'message' => 'Roster generated successfully',
                 'doc_id' => $drive_file->id,
@@ -1090,12 +1100,10 @@ class Usctdp_Mgmt_Admin_Ajax
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
-        $active = isset($_POST['active']) ? intval($_POST['active']) : null;
         $search_val = isset($_POST['search']['value']) ? sanitize_text_field($_POST['search']['value']) : '';
-        $session_query = new Usctdp_Mgmt_Session_Query();
-        $result = $session_query->search_session_rosters([
+        $roster_query = new Usctdp_Mgmt_Roster_Group_Query();
+        $result = $roster_query->search_rosters([
             "q" => $search_val,
-            "active" => $active,
             "number" => $length,
             "offset" => $start
         ]);
@@ -1106,6 +1114,102 @@ class Usctdp_Mgmt_Admin_Ajax
             "data" => $result['data'],
         );
         wp_send_json($response);
+    }
+
+    /**
+     * Feeds the Rosters page's "Regenerate All Rosters" button - one entry
+     * per roster (a multi-session group counts once, not once per member).
+     * Deliberately separate from ajax_session_rosters(), which the main
+     * dashboard's active-sessions widget also consumes and which must stay
+     * one-row-per-session for its per-session Hide/Show controls.
+     */
+    public function ajax_roster_regenerate_all()
+    {
+        $this->check_nonce('roster_regenerate_all');
+
+        $results = [];
+        try {
+            $roster_query = new Usctdp_Mgmt_Roster_Group_Query();
+            $rosters = $roster_query->search_rosters([])['data'];
+            $results = array_map(function ($roster) {
+                return [
+                    'id' => $roster['id'],
+                    'title' => $roster['name']
+                ];
+            }, $rosters);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_roster_regenerate_all', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json(array('data' => $results));
+    }
+
+    public function ajax_roster_rename()
+    {
+        $this->check_nonce('roster_rename');
+
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+        if (!$session_id) {
+            wp_send_json_error('Session ID is required.', 400);
+        }
+        try {
+            $group_query = new Usctdp_Mgmt_Roster_Group_Query();
+            $group = $group_query->get_or_create_for_session($session_id);
+            $group_query->rename($group->id, $name);
+        } catch (Roster_Group_Exception $e) {
+            wp_send_json_error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_roster_rename', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json_success(['message' => 'Roster renamed successfully.']);
+    }
+
+    public function ajax_roster_add_session()
+    {
+        $this->check_nonce('roster_add_session');
+
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        $add_session_id = isset($_POST['add_session_id']) ? intval($_POST['add_session_id']) : 0;
+        if (!$session_id || !$add_session_id) {
+            wp_send_json_error('Both session_id and add_session_id are required.', 400);
+        }
+        if ($session_id === $add_session_id) {
+            wp_send_json_error('Cannot add a session to itself.', 400);
+        }
+        try {
+            $group_query = new Usctdp_Mgmt_Roster_Group_Query();
+            $group = $group_query->get_or_create_for_session($session_id);
+            $group_query->add_session($group->id, $add_session_id);
+        } catch (Roster_Group_Exception $e) {
+            wp_send_json_error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_roster_add_session', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json_success(['message' => 'Session added to roster successfully.']);
+    }
+
+    public function ajax_roster_remove_session()
+    {
+        $this->check_nonce('roster_remove_session');
+
+        $roster_group_id = isset($_POST['roster_group_id']) ? intval($_POST['roster_group_id']) : 0;
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        if (!$roster_group_id || !$session_id) {
+            wp_send_json_error('Both roster_group_id and session_id are required.', 400);
+        }
+        try {
+            $group_query = new Usctdp_Mgmt_Roster_Group_Query();
+            $group_query->remove_session($roster_group_id, $session_id);
+        } catch (Roster_Group_Exception $e) {
+            wp_send_json_error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_roster_remove_session', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json_success(['message' => 'Session removed from roster successfully.']);
     }
 
     public function ajax_toggle_session_active()

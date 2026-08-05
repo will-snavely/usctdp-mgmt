@@ -51,6 +51,9 @@ class Usctdp_Cli_Command
             "includes/cli/class-usctdp-roster-generator.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-seed-roster-groups.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-clean-products.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -87,6 +90,24 @@ class Usctdp_Cli_Command
     {
         $generator = new Usctdp_Roster_Generator();
         $generator->create_rosters();
+    }
+
+    /**
+     * Materializes an explicit roster group (containing just that session)
+     * for every session that doesn't already have one. Roster groups are
+     * normally created lazily the first time a roster is edited in the
+     * admin UI - this pre-seeds prod so every session starts with its own
+     * explicit group already in place. Safe to re-run: already-grouped
+     * sessions are skipped.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp seed_roster_groups
+     */
+    public function seed_roster_groups($args, $assoc_args)
+    {
+        $seeder = new Usctdp_Seed_Roster_Groups();
+        $seeder->seed();
     }
 
     public function import_families($args, $assoc_args)

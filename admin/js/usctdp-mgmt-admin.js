@@ -102,6 +102,78 @@
         }
     }
 
+    USCTDP_Admin.ajax_renameRoster = async function (session_id, name) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.roster_rename_action,
+                    security: usctdp_mgmt_admin.roster_rename_nonce,
+                    session_id: session_id,
+                    name: name
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Rename Roster Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_addSessionToRoster = async function (session_id, add_session_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.roster_add_session_action,
+                    security: usctdp_mgmt_admin.roster_add_session_nonce,
+                    session_id: session_id,
+                    add_session_id: add_session_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Add Session To Roster Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_removeSessionFromRoster = async function (roster_group_id, session_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.roster_remove_session_action,
+                    security: usctdp_mgmt_admin.roster_remove_session_nonce,
+                    roster_group_id: roster_group_id,
+                    session_id: session_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Remove Session From Roster Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     // Usctdp_Session_Category::Junior_Tournament / Adult_Tournament
     USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES = [5, 6];
 

@@ -69,6 +69,7 @@ class Usctdp_Import_Session_Data
 
     private function import_sessions($data)
     {
+        $roster_group_query = new Usctdp_Mgmt_Roster_Group_Query();
         foreach ($data["sessions"] as $session) {
             $start_date = new DateTime($session['start_date']);
             $end_date = new DateTime($session['end_date']);
@@ -104,6 +105,11 @@ class Usctdp_Import_Session_Data
                     "meta" => isset($session['meta']) ? json_encode($session['meta']) : '{}'
                 ]);
             }
+            // Every session starts with its own explicit roster group,
+            // rather than relying on the admin UI's lazy creation - see
+            // Usctdp_Mgmt_Roster_Group_Query::get_or_create_for_session().
+            // A no-op for sessions that already have one.
+            $roster_group_query->get_or_create_for_session($session_id);
             if (!isset($this->sessions_by_category[$session_category->value])) {
                 $this->sessions_by_category[$session_category->value] = [];
             }

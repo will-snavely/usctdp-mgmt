@@ -18,8 +18,8 @@
             <table id="session-rosters-table" class="usctdp-datatable hidden">
                 <thead>
                     <tr>
-                        <th>Session</th>
                         <th>Roster</th>
+                        <th>Document</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -27,6 +27,40 @@
                 </tbody>
             </table>
         </div>
+
+        <dialog id="edit-roster-modal">
+            <div class="modal-wrap">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Edit Roster</h2>
+                    </div>
+                    <div class="modal-body flex-col gap-10">
+                        <form id="edit-roster-name-form" class="flex-row gap-10 align-center">
+                            <div class="modal_field">
+                                <label for="edit-roster-name-input">Roster Name</label>
+                                <input type="text" id="edit-roster-name-input" placeholder="Defaults to the primary session's name">
+                            </div>
+                            <button type="submit" id="edit-roster-save-name-btn" class="button button-secondary">Save Name</button>
+                        </form>
+
+                        <div id="edit-roster-sessions-wrap">
+                            <label>Sessions in this roster</label>
+                            <div id="edit-roster-sessions-list" class="flex-col gap-5"></div>
+                        </div>
+
+                        <div id="edit-roster-add-session-wrap" class="flex-row gap-10 align-center">
+                            <div id="edit-roster-add-session-select-wrap">
+                                <select id="edit-roster-add-session-select"></select>
+                            </div>
+                            <button type="button" id="edit-roster-add-session-btn" class="button button-secondary">Add Session</button>
+                        </div>
+                    </div>
+                    <div class="actions-footer modal-footer">
+                        <button type="button" class="button" id="edit-roster-close-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+        </dialog>
     </div>
 
     <div id="activities-tab" class="roster-tab-panel hidden">

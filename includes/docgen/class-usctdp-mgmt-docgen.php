@@ -96,18 +96,35 @@ class Usctdp_Mgmt_Docgen
 
     public function generate_session_roster($session_id)
     {
-        $activity_query = new Usctdp_Mgmt_Activity_Query([
-            'session_id' => $session_id,
-            'orderby' => [
-                'primary_sort_order',
-                'secondary_sort_order',
-            ],
-            "order" => 'ASC'
-        ]);
+        return $this->generate_roster_for_sessions([$session_id]);
+    }
+
+    /**
+     * Builds one roster document spanning every activity across all of the
+     * given sessions. Each activity block already stamps its own session's
+     * title (see generate_clinic_roster_impl/generate_tournament_roster_impl),
+     * so blocks from different sessions can simply be concatenated - no
+     * template changes needed to support multi-session rosters.
+     */
+    public function generate_roster_for_sessions(array $session_ids)
+    {
+        $activity_items = [];
+        foreach ($session_ids as $session_id) {
+            $activity_query = new Usctdp_Mgmt_Activity_Query([
+                'session_id' => $session_id,
+                'orderby' => [
+                    'primary_sort_order',
+                    'secondary_sort_order',
+                ],
+                "order" => 'ASC'
+            ]);
+            array_push($activity_items, ...$activity_query->items);
+        }
+
         $templateProcessor = new TemplateProcessor($this->roster_template_file);
-        $templateProcessor->cloneBlock('roster', count($activity_query->items), true, true);
+        $templateProcessor->cloneBlock('roster', count($activity_items), true, true);
         $index = 1;
-        foreach ($activity_query->items as $item) {
+        foreach ($activity_items as $item) {
             if ($item->type === 'clinic') {
                 $this->generate_clinic_roster_impl($templateProcessor, $item->id, $index);
             } elseif ($item->type === 'tournament') {
@@ -122,6 +139,30 @@ class Usctdp_Mgmt_Docgen
         return $templateProcessor;
     }
 
+    /**
+     * Generates and uploads the roster for a single session, transparently
+     * honoring roster grouping: if the session has been merged into a
+     * multi-session roster, the document covers every member session and is
+     * persisted against that roster group; otherwise this is identical to
+     * generate_session_roster()+upload_to_google_drive() for that session
+     * alone. This is the single entry point session-level roster generation
+     * should go through (ajax_gen_roster's "session" target, "Regenerate
+     * All Rosters", and the WP-CLI roster generator all use it).
+     */
+    public function generate_and_upload_session_roster($session_id, $fallback_title)
+    {
+        $group_query = new Usctdp_Mgmt_Roster_Group_Query();
+        $roster_group = $group_query->find_group_for_session($session_id);
+        if ($roster_group) {
+            $member_session_ids = $group_query->get_member_session_ids($roster_group->id);
+            $document = $this->generate_roster_for_sessions($member_session_ids);
+            $title = $roster_group->name ? $roster_group->name : $fallback_title;
+            return $this->upload_roster_group_document($document, $roster_group, $title);
+        }
+        $document = $this->generate_session_roster($session_id);
+        return $this->upload_to_google_drive($document, $session_id, $fallback_title);
+    }
+
     public function generate_financial_statement($family_id, $purchase_ids)
     {
         $templateProcessor = new TemplateProcessor($this->statement_template_file);
@@ -131,11 +172,55 @@ class Usctdp_Mgmt_Docgen
 
     public function upload_to_google_drive($templateProcessor, $entity_id, $title)
     {
-        $client = $this->create_google_client();
-        $drive = new Drive($client);
-
         $roster_link = $this->get_roster_link($entity_id);
         $drive_id = $roster_link ? $roster_link->drive_id : null;
+
+        $file = $this->upload_document_to_drive($templateProcessor, $drive_id, $title);
+
+        if ($roster_link) {
+            $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
+            $link_query->update_item($roster_link->id, [
+                'updated_at' => current_time('mysql', true)
+            ]);
+        } else {
+            $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
+            $link_query->add_item([
+                'entity_id' => $entity_id,
+                'drive_id' => $file->id,
+                'updated_at' => current_time('mysql', true)
+            ]);
+        }
+        return $file;
+    }
+
+    /**
+     * Uploads/updates a roster group's own Drive doc and persists the
+     * result directly on the usctdp_roster_group row. Deliberately does NOT
+     * go through usctdp_roster_link - that table is shared (untyped) with
+     * activity/clinic/tournament rosters and family statements, and a
+     * roster_group.id could collide with an unrelated entity_id there.
+     */
+    public function upload_roster_group_document($templateProcessor, $roster_group, $title)
+    {
+        $file = $this->upload_document_to_drive($templateProcessor, $roster_group->drive_id ?: null, $title);
+
+        $group_query = new Usctdp_Mgmt_Roster_Group_Query();
+        $group_query->update_item($roster_group->id, [
+            'drive_id' => $file->id,
+            'updated_at' => current_time('mysql', true)
+        ]);
+        return $file;
+    }
+
+    /**
+     * Pure Drive create-or-update call: writes $templateProcessor's content
+     * to $existing_drive_id if given, otherwise creates a new file. Doesn't
+     * know or care how the caller persists the resulting file id.
+     */
+    private function upload_document_to_drive($templateProcessor, $existing_drive_id, $title)
+    {
+        $client = $this->create_google_client();
+        $drive = new Drive($client);
         $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
 
         ob_start();
@@ -148,43 +233,32 @@ class Usctdp_Mgmt_Docgen
             'mimeType' => 'application/vnd.google-apps.document',
         ];
 
-        if ($drive_id !== null) {
+        if ($existing_drive_id !== null) {
             $fileMetadata = new DriveFile($metadata_args);
-            $file = $drive->files->update($drive_id, $fileMetadata, [
+            return $drive->files->update($existing_drive_id, $fileMetadata, [
                 'data' => $content,
                 'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 'uploadType' => 'multipart',
                 'fields' => 'id, webViewLink'
-            ]);
-
-            $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
-            $link_query->update_item($roster_link->id, [
-                'updated_at' => current_time('mysql', true)
-            ]);
-        } else {
-            if (!empty($destinationFolderId)) {
-                $metadata_args['parents'] = [$destinationFolderId];
-            }
-            $fileMetadata = new DriveFile($metadata_args);
-            $file = $drive->files->create($fileMetadata, [
-                'data' => $content,
-                'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'uploadType' => 'multipart',
-                'fields' => 'id, webViewLink'
-            ]);
-
-            $drive->permissions->create($file->id, new Permission([
-                'type' => 'anyone',
-                'role' => 'writer'
-            ]), ['fields' => 'id']);
-
-            $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
-            $link_query->add_item([
-                'entity_id' => $entity_id,
-                'drive_id' => $file->id,
-                'updated_at' => current_time('mysql', true)
             ]);
         }
+
+        if (!empty($destinationFolderId)) {
+            $metadata_args['parents'] = [$destinationFolderId];
+        }
+        $fileMetadata = new DriveFile($metadata_args);
+        $file = $drive->files->create($fileMetadata, [
+            'data' => $content,
+            'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'uploadType' => 'multipart',
+            'fields' => 'id, webViewLink'
+        ]);
+
+        $drive->permissions->create($file->id, new Permission([
+            'type' => 'anyone',
+            'role' => 'writer'
+        ]), ['fields' => 'id']);
+
         return $file;
     }
 

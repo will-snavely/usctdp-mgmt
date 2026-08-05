@@ -83,7 +83,20 @@
                 }
             },
             columns: [
-                { data: 'title' },
+                {
+                    data: 'name',
+                    render: function (data, type, row) {
+                        if (type !== 'display') {
+                            return row.name;
+                        }
+                        var sessionsList = '';
+                        if (row.sessions && row.sessions.length > 1) {
+                            var titles = row.sessions.map(function (s) { return s.title; }).join(', ');
+                            sessionsList = '<div class="roster-session-list">' + titles + '</div>';
+                        }
+                        return '<div class="roster-name-cell">' + row.name + sessionsList + '</div>';
+                    }
+                },
                 {
                     data: 'drive_id',
                     className: 'roster-link-column',
@@ -101,6 +114,7 @@
                             var $cell = $('<div></div>')
                             $cell.addClass('session-actions')
                             addAction($cell, 'Regenerate & Open', 'print-session-roster', row)
+                            addAction($cell, 'Edit', 'edit-roster', row)
                             return $cell.get(0);
                         }
                         return '';
@@ -171,8 +185,8 @@
                     method: 'POST',
                     dataType: 'json',
                     data: {
-                        action: usctdp_mgmt_admin.session_rosters_action,
-                        security: usctdp_mgmt_admin.session_rosters_nonce,
+                        action: usctdp_mgmt_admin.roster_regenerate_all_action,
+                        security: usctdp_mgmt_admin.roster_regenerate_all_nonce,
                     }
                 });
                 var sessions = (response && response.data) ? response.data : [];
@@ -203,6 +217,152 @@
                     $status.text('');
                 }, 8000);
             }
+        });
+
+        /* ---------------------------------------------------------------
+         * Sessions tab - Edit Roster modal (rename / add / remove sessions)
+         * ------------------------------------------------------------- */
+
+        const editRosterModal = document.getElementById('edit-roster-modal');
+        var editRosterState = { primarySessionId: null, rosterGroupId: null };
+
+        $('#edit-roster-add-session-select').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: 'Search for a session to add...',
+                allowClear: true,
+                target: 'session',
+                dropdownParent: $('#edit-roster-modal'),
+                filter: function () {
+                    return {
+                        active: 1,
+                        exclude_grouped: 1
+                    };
+                }
+            }));
+
+        function renderEditRosterSessions(sessions) {
+            var $list = $('#edit-roster-sessions-list');
+            $list.empty();
+            sessions.forEach(function (session) {
+                var $item = $('<div class="roster-session-item flex-row gap-10"></div>');
+                $item.append($('<span></span>').text(session.title));
+                var $removeBtn = $('<button type="button" class="usctdp-remove-btn remove-roster-session-btn">&times;</button>');
+                $removeBtn.attr('data-session-id', session.id);
+                if (sessions.length <= 1) {
+                    $removeBtn.prop('disabled', true).attr('title', 'A roster must contain at least one session.');
+                }
+                $item.append($removeBtn);
+                $list.append($item);
+            });
+        }
+
+        function openEditRosterModal(rowData) {
+            editRosterState.primarySessionId = rowData.id;
+            editRosterState.rosterGroupId = rowData.roster_group_id;
+            $('#edit-roster-name-input').val(rowData.name);
+            renderEditRosterSessions(rowData.sessions);
+            $('#edit-roster-add-session-select').val(null).trigger('change');
+            editRosterModal.showModal();
+        }
+
+        // Re-pulls the roster's current state from the table's own data
+        // source (rather than trusting the mutation response) so the
+        // modal reflects reality after a rename/add/remove - and picks up
+        // the roster_group_id the first time a still-implicit session gets
+        // promoted to a real group.
+        function refreshEditRosterModal() {
+            sessionsRosterTable.ajax.reload(function () {
+                var match = null;
+                sessionsRosterTable.rows().every(function () {
+                    var rowData = this.data();
+                    if (editRosterState.rosterGroupId && rowData.roster_group_id === editRosterState.rosterGroupId) {
+                        match = rowData;
+                    } else if (!match && rowData.id === editRosterState.primarySessionId) {
+                        match = rowData;
+                    }
+                });
+                if (match) {
+                    editRosterState.primarySessionId = match.id;
+                    editRosterState.rosterGroupId = match.roster_group_id;
+                    renderEditRosterSessions(match.sessions);
+                }
+            }, false);
+        }
+
+        $('#session-rosters-table').on('click', 'button.edit-roster', function () {
+            var $tr = $(this).closest('tr');
+            var rowData = sessionsRosterTable.row($tr).data();
+            openEditRosterModal(rowData);
+        });
+
+        $('#edit-roster-name-form').on('submit', function (e) {
+            e.preventDefault();
+            var $btn = $('#edit-roster-save-name-btn');
+            var name = $('#edit-roster-name-input').val();
+            $btn.prop('disabled', true);
+            USCTDP_Admin.ajax_renameRoster(editRosterState.primarySessionId, name)
+                .then(function () {
+                    refreshEditRosterModal();
+                })
+                .catch(function (error) {
+                    window.Swal.fire({
+                        title: 'Error',
+                        text: error.message || 'Failed to rename roster.',
+                        icon: 'error'
+                    });
+                })
+                .finally(function () {
+                    $btn.prop('disabled', false);
+                });
+        });
+
+        $('#edit-roster-add-session-btn').on('click', function () {
+            var selected = $('#edit-roster-add-session-select').select2('data');
+            if (!selected || selected.length === 0) {
+                return;
+            }
+            var $btn = $(this);
+            $btn.prop('disabled', true);
+            USCTDP_Admin.ajax_addSessionToRoster(editRosterState.primarySessionId, selected[0].id)
+                .then(function () {
+                    $('#edit-roster-add-session-select').val(null).trigger('change');
+                    refreshEditRosterModal();
+                })
+                .catch(function (error) {
+                    window.Swal.fire({
+                        title: 'Error',
+                        text: error.message || 'Failed to add session to roster.',
+                        icon: 'error'
+                    });
+                })
+                .finally(function () {
+                    $btn.prop('disabled', false);
+                });
+        });
+
+        $('#edit-roster-sessions-list').on('click', '.remove-roster-session-btn', function () {
+            var $btn = $(this);
+            if ($btn.prop('disabled') || !editRosterState.rosterGroupId) {
+                return;
+            }
+            var sessionId = $btn.data('session-id');
+            $btn.prop('disabled', true);
+            USCTDP_Admin.ajax_removeSessionFromRoster(editRosterState.rosterGroupId, sessionId)
+                .then(function () {
+                    refreshEditRosterModal();
+                })
+                .catch(function (error) {
+                    window.Swal.fire({
+                        title: 'Error',
+                        text: error.message || 'Failed to remove session from roster.',
+                        icon: 'error'
+                    });
+                    $btn.prop('disabled', false);
+                });
+        });
+
+        $('#edit-roster-close-btn').on('click', function () {
+            editRosterModal.close();
         });
 
         /* ---------------------------------------------------------------
