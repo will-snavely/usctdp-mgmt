@@ -3,59 +3,31 @@
 
     $(document).ready(function () {
 
-        /* ---------------------------------------------------------------
-         * Tab switching
-         * ------------------------------------------------------------- */
-
-        function activateTab(tabId) {
-            $('.roster-tab-panel').addClass('hidden');
-            $('#' + tabId).removeClass('hidden');
-            $('#rosters-tab-nav .nav-tab').removeClass('nav-tab-active');
-            $('#rosters-tab-nav .nav-tab[data-tab="' + tabId + '"]').addClass('nav-tab-active');
-        }
-
-        $('#rosters-tab-nav .nav-tab').on('click', function (e) {
-            e.preventDefault();
-            activateTab($(this).data('tab'));
-        });
-
-        var hasActivityPreload = !!(usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.activity_id);
-        activateTab(hasActivityPreload ? 'activities-tab' : 'sessions-tab');
-
-        /* ---------------------------------------------------------------
-         * Shared helpers
-         * ------------------------------------------------------------- */
-
-        function formatGeneratedAt(value) {
-            if (!value) {
-                return null;
-            }
-            return new Date(value).toLocaleString();
-        }
-
         function renderRosterLink(driveId, generatedAt) {
             if (!driveId) {
                 return '<span class="roster-link-none">Not yet generated</span>';
             }
             var docUrl = 'https://drive.google.com/file/d/' + driveId + '/edit';
-            var generatedStr = formatGeneratedAt(generatedAt);
+            var generatedStr = USCTDP_Admin.formatGeneratedAt(generatedAt);
             return '<div class="roster-link-cell">' +
                 '<a href="' + docUrl + '" target="_blank" rel="noopener noreferrer">View in Drive</a>' +
                 (generatedStr ? '<div class="roster-generated-at">Generated: ' + generatedStr + '</div>' : '') +
                 '</div>';
         }
 
-        /* ---------------------------------------------------------------
-         * Sessions tab
-         * ------------------------------------------------------------- */
-
-        function addAction($cell, text, className, data) {
+        function addAction($cell, text, className, data, disabled, disabledTitle) {
             var $actionItem = $('<div></div>')
             $actionItem.addClass('action-item')
             var $button = $('<button></button>')
             $button.addClass(className)
             $button.addClass("button button-small")
             $button.text(text)
+            if (disabled) {
+                $button.prop('disabled', true)
+                if (disabledTitle) {
+                    $button.attr('title', disabledTitle)
+                }
+            }
             for (var key in data) {
                 $button.attr('data-' + key, data[key])
             }
@@ -113,8 +85,13 @@
                         if (type === 'display') {
                             var $cell = $('<div></div>')
                             $cell.addClass('session-actions')
-                            addAction($cell, 'Regenerate & Open', 'print-session-roster', row)
+                            // Nothing to generate a document from until the
+                            // roster has at least one session in it - grey
+                            // the button out rather than removing it.
+                            var isEmpty = !row.sessions || row.sessions.length === 0;
+                            addAction($cell, 'Regenerate', 'print-session-roster', row, isEmpty, 'There are no sessions in this roster.')
                             addAction($cell, 'Edit', 'edit-roster', row)
+                            addAction($cell, 'Delete', 'delete-roster-group', row)
                             return $cell.get(0);
                         }
                         return '';
@@ -124,9 +101,11 @@
             ],
             autoWidth: false,
             columnDefs: [
-                { width: "45%", targets: 0 },
-                { width: "35%", targets: 1 },
-                { width: "20%", targets: 2 },
+                // The actions column holds up to three buttons side by side,
+                // so it needs enough room not to wrap them.
+                { width: "35%", targets: 0 },
+                { width: "25%", targets: 1 },
+                { width: "40%", targets: 2 },
             ],
             "initComplete": function () {
                 $('#session-rosters-table').removeClass('hidden');
@@ -162,7 +141,7 @@
                 })
                 .finally(function () {
                     $btn.prop('disabled', false);
-                    $btn.text('Regenerate & Open');
+                    $btn.text('Regenerate');
                     $spinner.remove();
                 });
         }
@@ -220,11 +199,19 @@
         });
 
         /* ---------------------------------------------------------------
-         * Sessions tab - Edit Roster modal (rename / add / remove sessions)
+         * Edit Roster modal (rename / add / remove sessions)
          * ------------------------------------------------------------- */
 
         const editRosterModal = document.getElementById('edit-roster-modal');
-        var editRosterState = { primarySessionId: null, rosterGroupId: null };
+        // Every row in the table is a real explicit group (search_rosters()
+        // only returns those), so rosterGroupId is always known here - there
+        // is no "still-implicit roster" case for Edit to worry about.
+        var editRosterState = { primarySessionId: null, rosterGroupId: null, originalName: '', originalSessionIds: [] };
+        // Local working copy of the roster's sessions, edited freely by Add/
+        // Remove below - nothing hits the server until "Save" is clicked,
+        // which diffs this against originalSessionIds to figure out what
+        // actually changed.
+        var editRosterSessions = [];
 
         $('#edit-roster-add-session-select').select2(
             USCTDP_Admin.select2Options({
@@ -235,22 +222,29 @@
                 filter: function () {
                     return {
                         active: 1,
-                        exclude_grouped: 1
+                        // Only hides sessions already saved in this roster -
+                        // a session can belong to more than one now, so it's
+                        // fine (expected, even) to offer one that's already
+                        // in some other group. A session removed locally but
+                        // not yet saved still won't show up here until Save
+                        // actually removes it server-side.
+                        exclude_roster_group_id: editRosterState.rosterGroupId || 0
                     };
                 }
             }));
 
-        function renderEditRosterSessions(sessions) {
+        function renderEditRosterSessions() {
             var $list = $('#edit-roster-sessions-list');
             $list.empty();
-            sessions.forEach(function (session) {
+            if (editRosterSessions.length === 0) {
+                $list.append($('<div class="roster-session-item-empty"></div>').text('No sessions in this roster.'));
+                return;
+            }
+            editRosterSessions.forEach(function (session) {
                 var $item = $('<div class="roster-session-item flex-row gap-10"></div>');
                 $item.append($('<span></span>').text(session.title));
                 var $removeBtn = $('<button type="button" class="usctdp-remove-btn remove-roster-session-btn">&times;</button>');
                 $removeBtn.attr('data-session-id', session.id);
-                if (sessions.length <= 1) {
-                    $removeBtn.prop('disabled', true).attr('title', 'A roster must contain at least one session.');
-                }
                 $item.append($removeBtn);
                 $list.append($item);
             });
@@ -259,34 +253,13 @@
         function openEditRosterModal(rowData) {
             editRosterState.primarySessionId = rowData.id;
             editRosterState.rosterGroupId = rowData.roster_group_id;
+            editRosterState.originalName = rowData.name;
+            editRosterState.originalSessionIds = rowData.sessions.map(function (s) { return s.id; });
+            editRosterSessions = rowData.sessions.map(function (s) { return { id: s.id, title: s.title }; });
             $('#edit-roster-name-input').val(rowData.name);
-            renderEditRosterSessions(rowData.sessions);
+            renderEditRosterSessions();
             $('#edit-roster-add-session-select').val(null).trigger('change');
             editRosterModal.showModal();
-        }
-
-        // Re-pulls the roster's current state from the table's own data
-        // source (rather than trusting the mutation response) so the
-        // modal reflects reality after a rename/add/remove - and picks up
-        // the roster_group_id the first time a still-implicit session gets
-        // promoted to a real group.
-        function refreshEditRosterModal() {
-            sessionsRosterTable.ajax.reload(function () {
-                var match = null;
-                sessionsRosterTable.rows().every(function () {
-                    var rowData = this.data();
-                    if (editRosterState.rosterGroupId && rowData.roster_group_id === editRosterState.rosterGroupId) {
-                        match = rowData;
-                    } else if (!match && rowData.id === editRosterState.primarySessionId) {
-                        match = rowData;
-                    }
-                });
-                if (match) {
-                    editRosterState.primarySessionId = match.id;
-                    editRosterState.rosterGroupId = match.roster_group_id;
-                    renderEditRosterSessions(match.sessions);
-                }
-            }, false);
         }
 
         $('#session-rosters-table').on('click', 'button.edit-roster', function () {
@@ -295,43 +268,181 @@
             openEditRosterModal(rowData);
         });
 
-        $('#edit-roster-name-form').on('submit', function (e) {
-            e.preventDefault();
-            var $btn = $('#edit-roster-save-name-btn');
-            var name = $('#edit-roster-name-input').val();
-            $btn.prop('disabled', true);
-            USCTDP_Admin.ajax_renameRoster(editRosterState.primarySessionId, name)
-                .then(function () {
-                    refreshEditRosterModal();
-                })
-                .catch(function (error) {
-                    window.Swal.fire({
-                        title: 'Error',
-                        text: error.message || 'Failed to rename roster.',
-                        icon: 'error'
-                    });
-                })
-                .finally(function () {
-                    $btn.prop('disabled', false);
-                });
-        });
-
         $('#edit-roster-add-session-btn').on('click', function () {
             var selected = $('#edit-roster-add-session-select').select2('data');
             if (!selected || selected.length === 0) {
                 return;
             }
+            var picked = selected[0];
+            var alreadyAdded = editRosterSessions.some(function (s) { return s.id === picked.id; });
+            if (!alreadyAdded) {
+                editRosterSessions.push({ id: picked.id, title: picked.text });
+                renderEditRosterSessions();
+            }
+            $('#edit-roster-add-session-select').val(null).trigger('change');
+        });
+
+        $('#edit-roster-sessions-list').on('click', '.remove-roster-session-btn', function () {
+            var sessionId = $(this).data('session-id');
+            editRosterSessions = editRosterSessions.filter(function (s) { return s.id !== sessionId; });
+            renderEditRosterSessions();
+        });
+
+        $('#edit-roster-cancel-btn').on('click', function () {
+            editRosterModal.close();
+        });
+
+        // Diffs the local working state against what the roster looked like
+        // when the modal opened, and only sends the calls needed to make the
+        // server match - existing, untouched members are never touched, so
+        // their original add-order (see get_member_session_ids()) survives.
+        $('#edit-roster-save-btn').on('click', async function () {
+            var name = $('#edit-roster-name-input').val();
+            var newIds = editRosterSessions.map(function (s) { return s.id; });
+            var toRemove = editRosterState.originalSessionIds.filter(function (id) { return newIds.indexOf(id) === -1; });
+            var toAdd = newIds.filter(function (id) { return editRosterState.originalSessionIds.indexOf(id) === -1; });
+
             var $btn = $(this);
             $btn.prop('disabled', true);
-            USCTDP_Admin.ajax_addSessionToRoster(editRosterState.primarySessionId, selected[0].id)
-                .then(function () {
-                    $('#edit-roster-add-session-select').val(null).trigger('change');
-                    refreshEditRosterModal();
+            try {
+                if (name !== editRosterState.originalName) {
+                    await USCTDP_Admin.ajax_renameRoster(editRosterState.rosterGroupId, editRosterState.primarySessionId, name);
+                }
+                for (var i = 0; i < toRemove.length; i++) {
+                    await USCTDP_Admin.ajax_removeSessionFromRoster(editRosterState.rosterGroupId, toRemove[i]);
+                }
+                for (var i = 0; i < toAdd.length; i++) {
+                    await USCTDP_Admin.ajax_addSessionToRoster(editRosterState.rosterGroupId, editRosterState.primarySessionId, toAdd[i]);
+                }
+                editRosterModal.close();
+                sessionsRosterTable.ajax.reload(null, false);
+            } catch (error) {
+                window.Swal.fire({
+                    title: 'Error',
+                    text: error.message || 'Failed to save roster changes.',
+                    icon: 'error'
+                });
+            } finally {
+                $btn.prop('disabled', false);
+            }
+        });
+
+        /* ---------------------------------------------------------------
+         * Create Roster modal
+         * ------------------------------------------------------------- */
+
+        const createRosterModal = document.getElementById('create-roster-modal');
+        // Purely client-side until "Create" is clicked - nothing is created
+        // on the server as sessions are added here, unlike the Edit modal's
+        // identical-looking add-session flow (which is editing a group that
+        // already exists).
+        var createRosterSessions = [];
+
+        $('#create-roster-session-select').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: 'Search for a session to add...',
+                allowClear: true,
+                target: 'session',
+                dropdownParent: $('#create-roster-modal'),
+                filter: function () {
+                    return { active: 1 };
+                }
+            }));
+
+        function renderCreateRosterSessions() {
+            var $list = $('#create-roster-sessions-list');
+            $list.empty();
+            if (createRosterSessions.length === 0) {
+                $list.append($('<div class="roster-session-item-empty"></div>').text('No sessions added yet.'));
+                return;
+            }
+            createRosterSessions.forEach(function (session) {
+                var $item = $('<div class="roster-session-item flex-row gap-10"></div>');
+                $item.append($('<span></span>').text(session.title));
+                var $removeBtn = $('<button type="button" class="usctdp-remove-btn remove-create-roster-session-btn">&times;</button>');
+                $removeBtn.attr('data-session-id', session.id);
+                $item.append($removeBtn);
+                $list.append($item);
+            });
+        }
+
+        $('#create-roster-btn').on('click', function () {
+            createRosterSessions = [];
+            renderCreateRosterSessions();
+            $('#create-roster-name-input').val('');
+            $('#create-roster-session-select').val(null).trigger('change');
+            createRosterModal.showModal();
+        });
+
+        $('#create-roster-cancel-btn').on('click', function () {
+            createRosterModal.close();
+        });
+
+        $('#create-roster-add-session-btn').on('click', function () {
+            var selected = $('#create-roster-session-select').select2('data');
+            if (!selected || selected.length === 0) {
+                return;
+            }
+            var picked = selected[0];
+            var alreadyAdded = createRosterSessions.some(function (s) { return s.id === picked.id; });
+            if (!alreadyAdded) {
+                createRosterSessions.push({ id: picked.id, title: picked.text });
+                renderCreateRosterSessions();
+            }
+            $('#create-roster-session-select').val(null).trigger('change');
+        });
+
+        $('#create-roster-sessions-list').on('click', '.remove-create-roster-session-btn', function () {
+            var sessionId = $(this).data('session-id');
+            createRosterSessions = createRosterSessions.filter(function (s) { return s.id !== sessionId; });
+            renderCreateRosterSessions();
+        });
+
+        $('#create-roster-submit-btn').on('click', function () {
+            var name = $('#create-roster-name-input').val().trim();
+            if (!name) {
+                window.Swal.fire({
+                    title: 'Error',
+                    text: 'Enter a name for the roster.',
+                    icon: 'error'
+                });
+                return;
+            }
+            if (createRosterSessions.length === 0) {
+                window.Swal.fire({
+                    title: 'Error',
+                    text: 'Add at least one session to start the roster with.',
+                    icon: 'error'
+                });
+                return;
+            }
+            var sessionIds = createRosterSessions.map(function (s) { return s.id; });
+            var $btn = $(this);
+            $btn.prop('disabled', true);
+            USCTDP_Admin.ajax_createRoster(sessionIds, name)
+                .then(function (response) {
+                    createRosterModal.close();
+                    // Newly-created roster group, opened straight into the
+                    // Edit modal so the same add/rename flows can round it
+                    // out (add more sessions, rename it) without a second,
+                    // largely-duplicate creation UI.
+                    sessionsRosterTable.ajax.reload(function () {
+                        var match = null;
+                        sessionsRosterTable.rows().every(function () {
+                            var rowData = this.data();
+                            if (rowData.roster_group_id === response.roster_group_id) {
+                                match = rowData;
+                            }
+                        });
+                        if (match) {
+                            openEditRosterModal(match);
+                        }
+                    }, false);
                 })
                 .catch(function (error) {
                     window.Swal.fire({
                         title: 'Error',
-                        text: error.message || 'Failed to add session to roster.',
+                        text: error.message || 'Failed to create roster.',
                         icon: 'error'
                     });
                 })
@@ -340,467 +451,39 @@
                 });
         });
 
-        $('#edit-roster-sessions-list').on('click', '.remove-roster-session-btn', function () {
-            var $btn = $(this);
-            if ($btn.prop('disabled') || !editRosterState.rosterGroupId) {
-                return;
-            }
-            var sessionId = $btn.data('session-id');
-            $btn.prop('disabled', true);
-            USCTDP_Admin.ajax_removeSessionFromRoster(editRosterState.rosterGroupId, sessionId)
-                .then(function () {
-                    refreshEditRosterModal();
-                })
-                .catch(function (error) {
-                    window.Swal.fire({
-                        title: 'Error',
-                        text: error.message || 'Failed to remove session from roster.',
-                        icon: 'error'
-                    });
-                    $btn.prop('disabled', false);
-                });
-        });
-
-        $('#edit-roster-close-btn').on('click', function () {
-            editRosterModal.close();
-        });
-
         /* ---------------------------------------------------------------
-         * Activities tab
+         * Delete Roster
          * ------------------------------------------------------------- */
 
-        const waitlistStudentModal = document.getElementById('waitlist-student-modal');
-
-        function toggleLoading(isLoading) {
-            if (isLoading) {
-                $('#print-roster-button .button-text').text('Working...');
-                $('#print-roster-button').addClass('is-loading');
-                $('.selector').attr('disabled', true);
-            } else {
-                $('#print-roster-button .button-text').text('Regenerate & Open');
-                $('#print-roster-button').removeClass('is-loading');
-                $('.selector').attr('disabled', false);
-            }
-        }
-
-        function updateRosterLinkInfo(driveId, generatedAt) {
-            if (driveId) {
-                var docUrl = 'https://drive.google.com/file/d/' + driveId + '/edit';
-                $('#roster-existing-link').attr('href', docUrl);
-                $('#roster-generated-at').text(formatGeneratedAt(generatedAt) || '');
-                $('#roster-link-generated').removeClass('hidden');
-                $('#roster-link-none').addClass('hidden');
-            } else {
-                $('#roster-link-generated').addClass('hidden');
-                $('#roster-link-none').removeClass('hidden');
-            }
-        }
-
-        function refreshRosterLinkInfo(activityId) {
-            $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'GET',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.roster_link_action,
-                    security: usctdp_mgmt_admin.roster_link_nonce,
-                    entity_id: activityId,
-                }
-            }).done(function (response) {
-                if (response.success) {
-                    updateRosterLinkInfo(response.data.drive_id, response.data.generated_at);
-                }
-            }).fail(function () {
-                updateRosterLinkInfo(null, null);
-            });
-        }
-
-        $('#print-roster-button').on('click', function () {
-            const selectedActivityId = $('#activity-selector').val();
-            if (selectedActivityId === '') {
-                return;
-            }
-            $('.print-status').addClass('hidden');
-            toggleLoading(true);
-            $.ajax({
-                url: usctdp_mgmt_admin.ajax_url,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.gen_roster_action,
-                    activity_id: selectedActivityId,
-                    security: usctdp_mgmt_admin.gen_roster_nonce,
-                },
-                success: function (response) {
-                    window.open(response.data.doc_url, '_blank');
-                    updateRosterLinkInfo(response.data.doc_id, response.data.generated_at);
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    $('#roster-print-error').removeClass('hidden');
-                },
-                complete: function () {
-                    toggleLoading(false);
-                }
-            });
-        });
-
-        var rosterTable = $('#roster-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ordering: false,
-            searching: false,
-            paging: true,
-            deferLoading: 0,
-
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                type: 'POST',
-                data: function (d) {
-                    var activityFilterValue = $('#activity-selector').val();
-                    d.action = usctdp_mgmt_admin.registrations_datatable_action;
-                    d.security = usctdp_mgmt_admin.registrations_datatable_nonce;
-                    d.activity_id = activityFilterValue;
-                    d.status = 'active';
-                }
-            },
-            autoWidth: false,
-            columnDefs: [
-                { width: "15%", targets: 0 },
-                { width: "15%", targets: 1 },
-                { width: "10%", targets: 2 },
-                { width: "10%", targets: 3 },
-                { width: "50%", targets: 4 },
-            ],
-            columns: [
-                { data: 'student_first' },
-                { data: 'student_last' },
-                { data: 'student_age' },
-                { data: 'registration_student_level' },
-                {
-                    data: 'family_id',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                            var familyUrl = 'admin.php?page=usctdp-admin-families&family_id=' + data;
-                            return `
-                            <div class="flex-row gap-5">
-                                <div class="action-item">
-                                    <a href="${familyUrl}" class="button button-small">View Family</a>
-                                </div>
-                                <div class="action-item">
-                                    <button class="button button-small remove-roster-btn">Remove</button>
-                                </div>
-                            </div>`;
-                        }
-                        return '';
-                    }
-                }
-            ]
-        });
-
-        var waitlistTable = $('#waitlist-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ordering: false,
-            searching: false,
-            paging: true,
-            deferLoading: 0,
-
-            ajax: {
-                url: usctdp_mgmt_admin.ajax_url,
-                type: 'POST',
-                data: function (d) {
-                    var activityFilterValue = $('#activity-selector').val();
-                    d.action = usctdp_mgmt_admin.waitlist_datatable_action;
-                    d.security = usctdp_mgmt_admin.waitlist_datatable_nonce;
-                    d.activity_id = activityFilterValue;
-                }
-            },
-            autoWidth: false,
-            columnDefs: [
-                { width: "15%", targets: 0 },
-                { width: "15%", targets: 1 },
-                { width: "30%", targets: 2 },
-                { width: "40%", targets: 3 },
-            ],
-            columns: [
-                { data: 'student_first' },
-                { data: 'student_last' },
-                {
-                    data: 'waitlist_created_at',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                            const createdDate = new Date(data).toLocaleString();
-                            return createdDate;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    data: 'activity_id',
-                    render: function (data, type, row) {
-                        if (type === 'display') {
-                            var activity_id = data;
-                            var student_id = row.student_id;
-                            var registerUrl = `admin.php?page=usctdp-admin-register&activity_id=${activity_id}&student_id=${student_id}`;
-                            return `
-                            <div class="flex-row gap-5">
-                                <div class="action-item">
-                                    <a href="${registerUrl}" class="button button-small">Register</a>
-                                </div>
-                                <div class="action-item">
-                                    <button class="button button-small remove-waitlist-btn">Remove</button>
-                                </div>
-                            </div>`;
-                        }
-                        return '';
-                    }
-                }
-            ]
-        });
-
-        const waitlistSelectors = {
-            'family-selector': {
-                name: 'family_id',
-                label: 'Family',
-                target: 'family',
-                next: 'student-selector',
-                dropdownParent: $('#waitlist-student-modal'),
-                isRoot: true,
-                required: true
-            },
-            'student-selector': {
-                name: 'student_id',
-                label: 'Student',
-                target: 'student',
-                next: null,
-                required: true,
-                dropdownParent: $('#waitlist-student-modal'),
-                filter: function () {
-                    return {
-                        family_id: $('#family-selector').val()
-                    };
-                }
-            }
-        };
-
-        const clinicSelectors = {
-            'session-selector': {
-                name: 'session_id',
-                label: 'Session',
-                target: 'session',
-                // Tournament sessions have exactly one activity, so there's
-                // nothing left to pick - skip straight past Product/Day.
-                next: function (value, $el) {
-                    if (!value) {
-                        return 'product-selector';
-                    }
-                    var sessionData = $el.select2('data')[0];
-                    var isTournament = sessionData &&
-                        USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(sessionData.category) !== -1;
-                    return isTournament ? null : 'product-selector';
-                },
-                branches: ['product-selector', 'activity-selector'],
-                autoSelectChild: {
-                    id: 'activity-selector',
-                    resolve: function (value, $el) {
-                        return USCTDP_Admin.resolveTournamentActivity(value, $el.select2('data')[0]);
-                    }
-                },
-                isRoot: true
-            },
-            'product-selector': {
-                name: 'product_id',
-                label: 'Clinic',
-                target: 'product',
-                next: 'activity-selector',
-                filter: function () {
-                    return {
-                        session_id: $('#session-selector').val(),
-                    };
-                }
-            },
-            'activity-selector': {
-                name: 'activity_id',
-                label: 'Day',
-                target: 'activity',
-                next: null,
-                filter: function () {
-                    return {
-                        session_id: $('#session-selector').val(),
-                        product_id: $('#product-selector').val(),
-                    };
-                }
-            }
-        };
-
-        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', clinicSelectors);
-        const waitlistSelectHandler = new USCTDP_Admin.CascasdingSelect('waitlist-selectors', waitlistSelectors);
-
-        $('#context-selectors').on('cascade:change', function (e) {
-            const { selectorId, value, state } = e.detail;
-            $('.print-status').addClass('hidden');
-            $('#listings-section').addClass('hidden');
-            if (selectorId == 'activity-selector') {
-                if (value) {
-                    var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + value;
-                    $('#listings-section').removeClass('hidden');
-                    $('#register-student-button').attr('href', registerUrl);
-                    rosterTable.ajax.reload();
-                    waitlistTable.ajax.reload();
-                    refreshRosterLinkInfo(value);
-                    // Both tables were initialized while this section was
-                    // hidden, so DataTables locked in collapsed column
-                    // widths at init time - recompute now that it's visible.
-                    rosterTable.columns.adjust();
-                    waitlistTable.columns.adjust();
-                }
-            }
-        });
-
-        $("#waitlist-student-btn").on("click", function () {
-            waitlistSelectHandler.reset();
-            waitlistStudentModal.showModal();
-        });
-
-        $("#add-waitlist-btn").on("click", function (e) {
-            const form = $('#waitlist-student-form')[0];
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
-            e.preventDefault();
-
-            const studentId = $('#student-selector').val();
-            const activityId = $('#activity-selector').val();
-            USCTDP_Admin.ajax_addWaitlistStudent(studentId, activityId)
-                .then(function () {
-                    waitlistStudentModal.close();
-                    waitlistTable.ajax.reload();
-                    Swal.fire({
-                        title: 'Success',
-                        text: 'Student added to waitlist.',
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    });
-                })
-                .catch(function (error) {
-                    waitlistStudentModal.close();
-                    waitlistTable.ajax.reload();
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Failed to add student to waitlist. Inform a developer.',
-                        icon: 'error',
-                        confirmButtonText: 'OK'
-                    });
-                });
-        });
-
-        $("#cancel-waitlist-btn").on("click", function () {
-            waitlistStudentModal.close();
-        });
-
-        $('#roster-table').on('click', '.remove-roster-btn', function (e) {
-            const $row = $(this).closest('tr');
-            const rowData = rosterTable.row($row).data();
-            var registrationId = rowData.registration_id;
-            var update = {
-                status: 'void'
-            };
-
+        $('#session-rosters-table').on('click', 'button.delete-roster-group', function () {
+            var $tr = $(this).closest('tr');
+            var rowData = sessionsRosterTable.row($tr).data();
+            var sessionCount = rowData.sessions ? rowData.sessions.length : 0;
+            var warning = sessionCount > 1
+                ? 'This roster groups ' + sessionCount + ' sessions together. Deleting it splits them back into their own individual rosters - the sessions themselves are not affected.'
+                : 'This will delete the roster grouping. The session itself is not affected.';
             window.Swal.fire({
-                title: "Confirm Roster Removal",
-                html: `
-                    Are you sure you want to remove
-                    <b>${rowData.student_first} ${rowData.student_last}</b>
-                    from the roster for
-                    <b> ${rowData.activity_name}</b>?
-                `,
+                title: 'Delete this roster?',
+                html: warning,
                 showDenyButton: true,
-                confirmButtonText: "Yes",
-                denyButtonText: `No`
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    USCTDP_Admin.ajax_saveRegistrationFields(registrationId, update)
-                        .then(function () {
-                            Swal.fire({
-                                icon: "success",
-                                title: "Success!",
-                                text: "Registration voided successfully.",
-                            });
-                            rosterTable.ajax.reload();
-                        })
-                        .catch((error) => {
-                            Swal.fire({
-                                icon: "error",
-                                title: "Error!",
-                                text: "A server error occured. Please inform a developer.",
-                            });
-                        });
+                confirmButtonText: 'Yes, Delete',
+                denyButtonText: 'Cancel'
+            }).then(function (result) {
+                if (!result.isConfirmed) {
+                    return;
                 }
+                USCTDP_Admin.ajax_deleteRosterGroup(rowData.roster_group_id)
+                    .then(function () {
+                        sessionsRosterTable.ajax.reload(null, false);
+                    })
+                    .catch(function (error) {
+                        window.Swal.fire({
+                            title: 'Error',
+                            text: error.message || 'Failed to delete roster.',
+                            icon: 'error'
+                        });
+                    });
             });
         });
-
-        $('#waitlist-table').on('click', '.remove-waitlist-btn', function (e) {
-            const $row = $(this).closest('tr');
-            const rowData = waitlistTable.row($row).data();
-            const studentId = rowData.student_id;
-            const activityId = rowData.activity_id;
-
-            window.Swal.fire({
-                title: "Confirm Waitlist Removal",
-                html: `
-                    Are you sure you want to remove
-                    <b>${rowData.student_first} ${rowData.student_last}</b>
-                    from the waitlist for
-                    <b> ${rowData.activity_name}</b>?
-                `,
-                showDenyButton: true,
-                confirmButtonText: "Yes",
-                denyButtonText: `No`
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    USCTDP_Admin.ajax_removeWaitlistStudent(studentId, activityId)
-                        .then(function () {
-                            waitlistTable.ajax.reload();
-                            Swal.fire({
-                                title: 'Success',
-                                text: 'Student removed from waitlist.',
-                                icon: 'success',
-                                confirmButtonText: 'OK'
-                            });
-                        })
-                        .catch(function (error) {
-                            waitlistTable.ajax.reload();
-                            Swal.fire({
-                                title: 'Error',
-                                text: 'Failed to remove student from waitlist. Please inform a developer.',
-                                icon: 'error',
-                                confirmButtonText: 'OK'
-                            });
-                        });
-                }
-            });
-        });
-
-        var preloadedData = {};
-        if (usctdp_mgmt_admin.preload && usctdp_mgmt_admin.preload.activity_id) {
-            const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
-            preloadedData['session-selector'] = {
-                id: preloadedActivity.session_id,
-                text: preloadedActivity.session_name,
-                disable: false
-            };
-            preloadedData['product-selector'] = {
-                id: preloadedActivity.product_id,
-                text: preloadedActivity.product_name,
-                disable: false
-            };
-            preloadedData['activity-selector'] = {
-                id: preloadedActivity.activity_id,
-                text: preloadedActivity.activity_name,
-                disable: false
-            };
-        }
-        selectHandler.applyData(preloadedData);
     });
 })(jQuery);

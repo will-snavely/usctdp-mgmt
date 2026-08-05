@@ -102,7 +102,13 @@
         }
     }
 
-    USCTDP_Admin.ajax_renameRoster = async function (session_id, name) {
+    // roster_group_id is the roster being edited, when it's already an
+    // explicit group; session_id is its primary session, used as a fallback
+    // to resolve (or create) the group when it isn't explicit yet. A session
+    // can belong to more than one roster now, so roster_group_id - when
+    // known - is what pins these calls to the specific roster open in the
+    // modal, rather than leaving the server to guess from session_id alone.
+    USCTDP_Admin.ajax_renameRoster = async function (roster_group_id, session_id, name) {
         try {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -111,6 +117,7 @@
                 data: {
                     action: usctdp_mgmt_admin.roster_rename_action,
                     security: usctdp_mgmt_admin.roster_rename_nonce,
+                    roster_group_id: roster_group_id,
                     session_id: session_id,
                     name: name
                 }
@@ -126,7 +133,7 @@
         }
     }
 
-    USCTDP_Admin.ajax_addSessionToRoster = async function (session_id, add_session_id) {
+    USCTDP_Admin.ajax_addSessionToRoster = async function (roster_group_id, session_id, add_session_id) {
         try {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -135,6 +142,7 @@
                 data: {
                     action: usctdp_mgmt_admin.roster_add_session_action,
                     security: usctdp_mgmt_admin.roster_add_session_nonce,
+                    roster_group_id: roster_group_id,
                     session_id: session_id,
                     add_session_id: add_session_id
                 }
@@ -150,7 +158,11 @@
         }
     }
 
-    USCTDP_Admin.ajax_removeSessionFromRoster = async function (roster_group_id, session_id) {
+    // Unlike ajax_renameRoster/ajax_addSessionToRoster, this takes only a
+    // roster_group_id - no session_id fallback. There's no such thing as
+    // removing a session from a roster that isn't an explicit group yet, so
+    // there's nothing to derive-or-create here (see ajax_roster_remove_session).
+    USCTDP_Admin.ajax_removeSessionFromRoster = async function (roster_group_id, remove_session_id) {
         try {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -160,7 +172,7 @@
                     action: usctdp_mgmt_admin.roster_remove_session_action,
                     security: usctdp_mgmt_admin.roster_remove_session_nonce,
                     roster_group_id: roster_group_id,
-                    session_id: session_id
+                    remove_session_id: remove_session_id
                 }
             });
             if (response.success) {
@@ -170,6 +182,53 @@
             }
         } catch (error) {
             console.error('Remove Session From Roster Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_createRoster = async function (session_ids, name) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.roster_create_action,
+                    security: usctdp_mgmt_admin.roster_create_nonce,
+                    session_ids: session_ids,
+                    name: name
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Create Roster Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_deleteRosterGroup = async function (roster_group_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.roster_delete_group_action,
+                    security: usctdp_mgmt_admin.roster_delete_group_nonce,
+                    roster_group_id: roster_group_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Delete Roster Group Failed:', error.statusText || error.message);
             throw error;
         }
     }
@@ -446,6 +505,15 @@
             hour12: true
         };
         return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+    }
+
+    // Shared by the Rosters and Activities pages' "Generated: ..." labels
+    // next to a roster's Google Drive link.
+    USCTDP_Admin.formatGeneratedAt = function (value) {
+        if (!value) {
+            return null;
+        }
+        return new Date(value).toLocaleString();
     }
 
     USCTDP_Admin.applyReplacements = function (input, replacements) {

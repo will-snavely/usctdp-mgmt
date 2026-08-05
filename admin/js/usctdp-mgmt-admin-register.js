@@ -323,7 +323,7 @@
                         icon: 'success',
                         confirmButtonText: 'OK'
                     }).then(function () {
-                        var rosterUrl = `admin.php?page=usctdp-admin-rosters&activity_id=${activityId}`;
+                        var rosterUrl = `admin.php?page=usctdp-admin-activities&activity_id=${activityId}`;
                         window.location.href = rosterUrl;
                     });
                 })

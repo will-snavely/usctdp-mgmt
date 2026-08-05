@@ -18,9 +18,11 @@ class Usctdp_Mgmt_Select2
                     'active' => intval(...),
                     'category' => intval(...),
                     // Used by the Rosters page's "add session to roster"
-                    // picker so a session already claimed by another roster
-                    // isn't offered - a session can only belong to one.
-                    'exclude_grouped' => intval(...)
+                    // picker so it doesn't offer a session already in the
+                    // specific roster being edited - sessions can belong to
+                    // more than one roster, so this deliberately doesn't
+                    // exclude sessions that are only in some *other* group.
+                    'exclude_roster_group_id' => intval(...)
                 ]
             ],
             'activity' => [
@@ -80,8 +82,8 @@ class Usctdp_Mgmt_Select2
         $query = new Usctdp_Mgmt_Session_Query();
         $active = $filters['active'] ?? null;
         $category = $filters['category'] ?? null;
-        $exclude_grouped = !empty($filters['exclude_grouped']);
-        $query_results = $query->search_sessions($search, $active, $category, self::$limit, $exclude_grouped);
+        $exclude_roster_group_id = $filters['exclude_roster_group_id'] ?? null;
+        $query_results = $query->search_sessions($search, $active, $category, self::$limit, $exclude_roster_group_id);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(

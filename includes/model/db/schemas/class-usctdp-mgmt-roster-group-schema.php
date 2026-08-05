@@ -16,13 +16,20 @@ class Usctdp_Mgmt_Roster_Group_Schema extends Schema
             'default' => 0
         ],
 
-        // Explicit override for the roster's display name. NULL means "use
-        // the default" (the primary member session's title) - see
-        // Usctdp_Mgmt_Roster_Group_Query::search_rosters().
+        // The roster's display name. Normally set at creation time to the
+        // founding session's title (see
+        // Usctdp_Mgmt_Roster_Group_Query::get_or_create_for_session()), but a
+        // blank/NULL name still falls back to the primary member session's
+        // title at read time - see search_rosters().
+        //
+        // 'default' must be NULL explicitly: BerlinDB's Column defaults an
+        // unspecified default to '', which add_item() would then write into
+        // this column instead of leaving it NULL.
         'name' => [
             'name' => 'name',
             'type' => 'tinytext',
-            'allow_null' => true
+            'allow_null' => true,
+            'default' => null
         ],
 
         'drive_id' => [

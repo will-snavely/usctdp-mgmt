@@ -93,16 +93,12 @@ $google_timestamp = get_option('usctdp_google_refresh_token_timestamp');
                     <span class="card-title">Rosters</span>
                 </div>
                 <div id="usctdp-session-rosters-manager" class="dashboard-card-body">
-                    <div id="session-rosters-select-container">
-                        <select id="active-sessions-select2"></select>
-                        <button type="button" id="add-active-session-btn" class="button">Add Session</button>
-                    </div>
                     <div id="session-rosters-container" class="table-scroll-x" width="100%">
                         <table id="session-rosters-table" class="usctdp-mini-table hidden" width="100%"
                             cellspacing="0">
                             <thead>
                                 <tr>
-                                    <th>Session</th>
+                                    <th>Roster</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>

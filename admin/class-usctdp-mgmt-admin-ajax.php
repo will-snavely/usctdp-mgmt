@@ -21,6 +21,8 @@ class Usctdp_Mgmt_Admin_Ajax
         'recent_registrations' => 'ajax_recent_registrations',
         'registrations_datatable' => 'ajax_registrations_datatable',
         'roster_add_session' => 'ajax_roster_add_session',
+        'roster_create' => 'ajax_roster_create',
+        'roster_delete_group' => 'ajax_roster_delete_group',
         'roster_link' => 'ajax_get_roster_link',
         'roster_regenerate_all' => 'ajax_roster_regenerate_all',
         'roster_remove_session' => 'ajax_roster_remove_session',
@@ -1078,14 +1080,21 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json(array('items' => $results));
     }
 
+    /**
+     * Feeds the main dashboard's Rosters widget - every roster group,
+     * unpaginated (that widget renders its whole table in one go, no
+     * DataTables server-side paging). Same data shape as
+     * ajax_session_rosters_datatable(), just without the draw/paging
+     * envelope - see Usctdp_Mgmt_Roster_Group_Query::search_rosters().
+     */
     public function ajax_session_rosters()
     {
         $this->check_nonce('session_rosters');
 
-        $results = [];
+        $query_results = [];
         try {
-            $query = new Usctdp_Mgmt_Session_Query();
-            $query_results = $query->get_active_session_rosters();
+            $roster_query = new Usctdp_Mgmt_Roster_Group_Query();
+            $query_results = $roster_query->search_rosters([])['data'];
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_session_rosters', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
@@ -1148,15 +1157,24 @@ class Usctdp_Mgmt_Admin_Ajax
     {
         $this->check_nonce('roster_rename');
 
+        $roster_group_id = isset($_POST['roster_group_id']) ? intval($_POST['roster_group_id']) : 0;
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
         $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
-        if (!$session_id) {
-            wp_send_json_error('Session ID is required.', 400);
+        if (!$roster_group_id && !$session_id) {
+            wp_send_json_error('A roster_group_id or session_id is required.', 400);
         }
         try {
             $group_query = new Usctdp_Mgmt_Roster_Group_Query();
-            $group = $group_query->get_or_create_for_session($session_id);
-            $group_query->rename($group->id, $name);
+            // The modal always knows its own roster_group_id once the roster
+            // is explicit - prefer that over re-deriving it from session_id,
+            // which is ambiguous now that a session can be in more than one
+            // roster. Only fall back to session_id for a still-implicit
+            // roster, where no group row exists yet to have an id.
+            if (!$roster_group_id) {
+                $group = $group_query->get_or_create_for_session($session_id);
+                $roster_group_id = $group->id;
+            }
+            $group_query->rename($roster_group_id, $name);
         } catch (Roster_Group_Exception $e) {
             wp_send_json_error($e->getMessage(), 400);
         } catch (Throwable $e) {
@@ -1170,18 +1188,24 @@ class Usctdp_Mgmt_Admin_Ajax
     {
         $this->check_nonce('roster_add_session');
 
+        $roster_group_id = isset($_POST['roster_group_id']) ? intval($_POST['roster_group_id']) : 0;
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
         $add_session_id = isset($_POST['add_session_id']) ? intval($_POST['add_session_id']) : 0;
-        if (!$session_id || !$add_session_id) {
-            wp_send_json_error('Both session_id and add_session_id are required.', 400);
+        if ((!$roster_group_id && !$session_id) || !$add_session_id) {
+            wp_send_json_error('A roster_group_id (or session_id) and add_session_id are required.', 400);
         }
-        if ($session_id === $add_session_id) {
+        if ($add_session_id === $session_id) {
             wp_send_json_error('Cannot add a session to itself.', 400);
         }
         try {
             $group_query = new Usctdp_Mgmt_Roster_Group_Query();
-            $group = $group_query->get_or_create_for_session($session_id);
-            $group_query->add_session($group->id, $add_session_id);
+            // See ajax_roster_rename() for why roster_group_id is preferred
+            // over re-deriving the group from session_id.
+            if (!$roster_group_id) {
+                $group = $group_query->get_or_create_for_session($session_id);
+                $roster_group_id = $group->id;
+            }
+            $group_query->add_session($roster_group_id, $add_session_id);
         } catch (Roster_Group_Exception $e) {
             wp_send_json_error($e->getMessage(), 400);
         } catch (Throwable $e) {
@@ -1196,13 +1220,20 @@ class Usctdp_Mgmt_Admin_Ajax
         $this->check_nonce('roster_remove_session');
 
         $roster_group_id = isset($_POST['roster_group_id']) ? intval($_POST['roster_group_id']) : 0;
-        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
-        if (!$roster_group_id || !$session_id) {
-            wp_send_json_error('Both roster_group_id and session_id are required.', 400);
+        $remove_session_id = isset($_POST['remove_session_id']) ? intval($_POST['remove_session_id']) : 0;
+        if (!$roster_group_id || !$remove_session_id) {
+            wp_send_json_error('Both roster_group_id and remove_session_id are required.', 400);
         }
         try {
+            // Unlike rename/add_session, this deliberately does NOT fall
+            // back to get_or_create_for_session() for a still-implicit
+            // roster - there's no real membership row to remove in that
+            // case, so materializing a group here would only be to
+            // immediately empty it back out again. The JS disables removal
+            // for implicit rosters for the same reason; this is the
+            // server-side backstop.
             $group_query = new Usctdp_Mgmt_Roster_Group_Query();
-            $group_query->remove_session($roster_group_id, $session_id);
+            $group_query->remove_session($roster_group_id, $remove_session_id);
         } catch (Roster_Group_Exception $e) {
             wp_send_json_error($e->getMessage(), 400);
         } catch (Throwable $e) {
@@ -1210,6 +1241,63 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
         wp_send_json_success(['message' => 'Session removed from roster successfully.']);
+    }
+
+    /**
+     * Starts a brand-new roster group seeded with one or more sessions, for
+     * the Sessions tab's "Create Roster" button. The name is required on
+     * that form - unlike get_or_create_for_session()'s implicit-roster path,
+     * there's no session to fall back to naming it after here for a group
+     * that never existed until this moment. Always creates a fresh group
+     * (see Usctdp_Mgmt_Roster_Group_Query::create_group()) even if a chosen
+     * session already belongs to another roster - group membership isn't
+     * exclusive.
+     */
+    public function ajax_roster_create()
+    {
+        $this->check_nonce('roster_create');
+
+        $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+        $session_ids = isset($_POST['session_ids']) ? (array) $_POST['session_ids'] : [];
+        $session_ids = array_values(array_filter(array_map('intval', $session_ids)));
+        if (trim($name) === '') {
+            wp_send_json_error('Enter a name for the roster.', 400);
+        }
+        if (empty($session_ids)) {
+            wp_send_json_error('Select at least one session to start the new roster with.', 400);
+        }
+        $group = null;
+        try {
+            $group_query = new Usctdp_Mgmt_Roster_Group_Query();
+            $group = $group_query->create_group($name);
+            foreach ($session_ids as $session_id) {
+                $group_query->add_session($group->id, $session_id);
+            }
+        } catch (Roster_Group_Exception $e) {
+            wp_send_json_error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_roster_create', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json_success(['roster_group_id' => $group->id]);
+    }
+
+    public function ajax_roster_delete_group()
+    {
+        $this->check_nonce('roster_delete_group');
+
+        $roster_group_id = isset($_POST['roster_group_id']) ? intval($_POST['roster_group_id']) : 0;
+        if (!$roster_group_id) {
+            wp_send_json_error('roster_group_id is required.', 400);
+        }
+        try {
+            $group_query = new Usctdp_Mgmt_Roster_Group_Query();
+            $group_query->delete_group($roster_group_id);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_roster_delete_group', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json_success(['message' => 'Roster deleted successfully.']);
     }
 
     public function ajax_toggle_session_active()

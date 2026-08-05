@@ -25,8 +25,9 @@ class Usctdp_Mgmt_Roster_Group_Session_Schema extends Schema
             'default' => 0,
         ],
 
-        // A session belongs to at most one roster group - enforced with a
-        // UNIQUE key in the table schema, not just here.
+        // A session may belong to more than one roster group. Duplicate
+        // membership in the *same* group is still prevented, by a UNIQUE key
+        // on (roster_group_id, session_id) in the table schema.
         'session_id' => [
             'name' => 'session_id',
             'type' => 'bigint',

@@ -693,6 +693,24 @@ dialog .actions-footer {
     max-height: 25px;
 }
 
+/* Actions cell for the session/roster tables. Lives here rather than in a
+   per-page stylesheet because more than one page renders it (the main
+   dashboard's active-sessions widget and the Rosters page's Sessions tab). */
+.session-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Same reasoning as .session-actions above - the roster name cell's
+   multi-session sublist is rendered by both the Rosters page and the main
+   dashboard's Rosters widget. */
+.roster-name-cell .roster-session-list {
+    font-size: 0.85em;
+    color: #555;
+}
+
 .flex-col {
     display: flex;
     flex-direction: column;

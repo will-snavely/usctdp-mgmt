@@ -40,23 +40,34 @@ class Usctdp_Mgmt_Admin
                 ],
                 'context' => ['family_id']
             ],
+            // Sessions/roster-group management only - viewing/managing a
+            // specific activity's roster and waitlist lives on the separate
+            // 'activities' page below (this used to be a second tab here).
             'rosters' => [
                 'title' => 'Rosters',
                 'ajax' => [
                     'gen_roster',
-                    'session_rosters',
-                    'session_rosters_datatable',
-                    'registrations_datatable',
-                    'update_registration',
-                    'waitlist_datatable',
                     'select2_search',
-                    'waitlist_add',
-                    'waitlist_remove',
-                    'roster_link',
+                    'session_rosters_datatable',
                     'roster_regenerate_all',
                     'roster_rename',
                     'roster_add_session',
                     'roster_remove_session',
+                    'roster_create',
+                    'roster_delete_group',
+                ]
+            ],
+            'activities' => [
+                'title' => 'Activities',
+                'ajax' => [
+                    'gen_roster',
+                    'select2_search',
+                    'registrations_datatable',
+                    'update_registration',
+                    'waitlist_datatable',
+                    'waitlist_add',
+                    'waitlist_remove',
+                    'roster_link',
                 ],
                 'context' => ['activity_id']
             ],
@@ -293,7 +304,12 @@ class Usctdp_Mgmt_Admin
         add_action('load-' . $main_menu_page, function () {
             $this->enqueue_usctdp_page_script('main');
             $this->enqueue_usctdp_page_style('main');
-            $main_ajax = ['gen_roster', 'select2_search', 'session_rosters', 'toggle_session_active', 'recent_registrations'];
+            // toggle_session_active dropped - no UI on this page calls it
+            // anymore (the "Add Session"/"Hide" active-session controls were
+            // removed from the Rosters widget). The ajax_toggle_session_active
+            // handler itself is untouched, ready to wire up wherever that
+            // capability ends up living.
+            $main_ajax = ['gen_roster', 'select2_search', 'session_rosters', 'recent_registrations'];
             $this->load_admin_page('main', $main_ajax, [], []);
         });
 

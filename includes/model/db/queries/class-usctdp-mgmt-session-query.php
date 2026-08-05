@@ -15,25 +15,7 @@ class Usctdp_Mgmt_Session_Query extends Query
     protected $item_name_plural = 'sessions';
     protected $item_shape = 'Usctdp_Mgmt_Session_Row';
 
-    public function get_active_session_rosters()
-    {
-        global $wpdb;
-        $token_suffix = Usctdp_Mgmt_Model::$token_suffix;
-        $session_roster_query = "   
-            SELECT
-                sesh.id as id,
-                sesh.title as title,
-                rst.drive_id as drive_id,
-                DATE_FORMAT(rst.updated_at, '%Y-%m-%dT%T.%fZ') as generated_at
-            FROM {$wpdb->prefix}{$this->table_name} AS sesh
-            LEFT JOIN {$wpdb->prefix}usctdp_roster_link as rst ON sesh.id = rst.entity_id
-            WHERE sesh.is_active = 1
-            ORDER BY sesh.title
-        ";
-        return $wpdb->get_results($session_roster_query);
-    }
-
-    public function search_sessions($query, $active = null, $category = null, $limit = 10, $exclude_grouped = false)
+    public function search_sessions($query, $active = null, $category = null, $limit = 10, $exclude_roster_group_id = null)
     {
         global $wpdb;
         $sql = "SELECT id, title, category FROM {$wpdb->prefix}{$this->table_name}";
@@ -56,9 +38,13 @@ class Usctdp_Mgmt_Session_Query extends Query
             $conditions[] = "category = %d";
             $args[] = $category;
         }
-        if ($exclude_grouped) {
-            // A session can only belong to one roster group at a time.
-            $conditions[] = "id NOT IN (SELECT session_id FROM {$wpdb->prefix}usctdp_roster_group_session)";
+        if ($exclude_roster_group_id) {
+            // A session can belong to more than one roster group now, so
+            // this only keeps the "add session" picker from offering
+            // sessions already in the specific group being edited - not
+            // sessions that merely belong to some other group.
+            $conditions[] = "id NOT IN (SELECT session_id FROM {$wpdb->prefix}usctdp_roster_group_session WHERE roster_group_id = %d)";
+            $args[] = $exclude_roster_group_id;
         }
         if ($conditions) {
             $sql .= " WHERE " . implode(" AND ", $conditions);

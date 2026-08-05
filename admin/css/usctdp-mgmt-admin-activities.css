@@ -1,0 +1,103 @@
+/* The family/student selects here use dropdownParent: $('#waitlist-student-modal')
+   (see waitlistSelectors in usctdp-mgmt-admin-activities.js) so their select2
+   dropdown stays inside the dialog's own top-layer stacking - otherwise,
+   since dialogs are promoted to the browser's top layer while open, a
+   dropdown appended to document.body (select2's default) would render
+   BEHIND the dialog regardless of z-index. The tradeoff: an open <dialog>
+   gets `overflow: auto` from the browser's own UA stylesheet, which then
+   clips that dropdown and turns it into a scrollbar that doesn't actually
+   scroll the (absolutely-positioned) dropdown anywhere useful.
+   Override the dialog's overflow to visible so the dropdown can escape the
+   dialog's clipping.
+ */
+#waitlist-student-modal {
+    overflow: visible;
+    min-width: 420px;
+}
+
+/* Make the dialog tall enough to show both selectors without resizing.*/
+#waitlist-selectors {
+    min-height: 120px;
+}
+
+#context-selectors {
+    padding: 10px;
+    margin-left: 10px;
+    margin-top: 15px;
+}
+
+/* Select2 hides the real <select> and renders a sibling .select2-container
+   with its own inline width baked in at init time (which varies per
+   instance depending on that select's state when Select2 measured it, e.g.
+   hidden until the cascade reveals it). Override it so every dropdown in
+   this group is the same width and never wider than its container. */
+#context-selectors .select2-container {
+    width: 100% !important;
+    max-width: 370px;
+    box-sizing: border-box;
+}
+
+#context-selectors .context-selector-wrap {
+    width: 100% !important;
+    max-width: 350px;
+}
+
+#roster-link-info {
+    margin-bottom: 5px;
+}
+
+/* Roster/Waitlist columns: let each take real horizontal space instead of
+   shrinking to fit an empty table, but still wrap to full-width on narrow
+   screens (parent has .flex-wrap). */
+#rosters-section,
+#waitlist-section {
+    flex: 1 1 480px;
+    min-width: 480px;
+    max-width: 100%;
+}
+
+#roster-table-wrap,
+#waitlist-table-wrap {
+    width: 100%;
+}
+
+#roster-table,
+#waitlist-table {
+    width: 100% !important;
+}
+
+/* The Roster column has an extra "generated at" line the Waitlist column
+   doesn't. Give both action areas the same height and bottom-align their
+   contents so the tables below them start at the same vertical position. */
+#roster-actions,
+#waitlist-actions {
+    min-height: 64px;
+    justify-content: flex-end;
+}
+
+@keyframes loading-pulse {
+    0% {
+        opacity: 1;
+        color: white;
+    }
+
+    50% {
+        opacity: 0.6;
+        color: lightgray;
+        transform: scale(0.98);
+    }
+
+    100% {
+        opacity: 1;
+        color: white;
+    }
+}
+
+.is-loading .button-text {
+    animation: loading-pulse 1.5s infinite ease-in-out;
+}
+
+.is-loading {
+    cursor: wait;
+    pointer-events: none;
+}
