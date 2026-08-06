@@ -66,6 +66,14 @@ class Usctdp_Mgmt_Docgen
         return $reg_query->items;
     }
 
+    private function get_activity_waitlist($activity_id)
+    {
+        $reg_query = new Usctdp_Mgmt_Waitlist_Query([
+            'activity_id' => $activity_id
+        ]);
+        return $reg_query->items;
+    }
+
     public function get_roster_link($entity_id)
     {
         $reg_query = new Usctdp_Mgmt_Roster_Link_Query([
@@ -381,7 +389,7 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("etime#$block_id", $end_time);
         $templateProcessor->setValue("clinic_level#$block_id", $clinic_fields->clinic_level);
         $templateProcessor->setValue("cap#$block_id", $clinic_fields->clinic_capacity);
-        $templateProcessor->setValue("age_group#$block_id", $this->int_to_age_group($age_group));
+        $templateProcessor->setValue("age_group#$block_id", $age_group);
         $templateProcessor->setValue("sdate#$block_id", $start_date);
         $templateProcessor->setValue("edate#$block_id", $end_date);
 
@@ -391,6 +399,7 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("session_short_code#$block_id", '');
 
         $this->fill_roster_students($templateProcessor, $clinic_id, $block_id);
+        $this->fill_roster_waitlist($templateProcessor, $clinic_id, $block_id);
     }
 
     private function generate_tournament_roster_impl($templateProcessor, $tournament_id, $block_id)
@@ -418,7 +427,7 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("etime#$block_id", '');
         $templateProcessor->setValue("clinic_level#$block_id", $tournament_fields->activity_level);
         $templateProcessor->setValue("cap#$block_id", $tournament_fields->activity_capacity);
-        $templateProcessor->setValue("age_group#$block_id", $this->int_to_age_group($age_group));
+        $templateProcessor->setValue("age_group#$block_id", $this->$age_group);
         $templateProcessor->setValue("sdate#$block_id", $start_date);
         $templateProcessor->setValue("edate#$block_id", $end_date);
 
@@ -471,7 +480,7 @@ class Usctdp_Mgmt_Docgen
             $idx++;
         }
 
-        while ($idx < 27) {
+        while ($idx < 32) {
             $student_table_data[] = [
                 'att#' . $block_id => '',
                 'last#' . $block_id => '',
@@ -483,5 +492,47 @@ class Usctdp_Mgmt_Docgen
             $idx++;
         }
         $templateProcessor->cloneRowAndSetValues("att#$block_id", $student_table_data);
+    }
+
+    private function fill_roster_waitlist($templateProcessor, $activity_id, $block_id)
+    {
+        $waitlist_entries = $this->get_activity_waitlist($activity_id);
+        $waitlist_table_data = [];
+        $max_display = 10;
+        $count = 0;
+        $idx = 1;
+        foreach ($waitlist_entries as $item) {
+            $count += 1;
+            if($count > $max_display) {
+                break;
+            }
+            $student_query = new Usctdp_Mgmt_Student_Query([
+                'id' => $item->student_id,
+                'number' => 1
+            ]);
+            if (empty($student_query->items)) {
+                throw new ErrorException('Student ' . $registration->student_id . ' not found');
+            }
+            $student_data = $student_query->items[0];
+            $family_query = new Usctdp_Mgmt_Family_Query([
+                'id' => $student_data->family_id,
+                'number' => 1
+            ]);
+            if (empty($family_query->items)) {
+                throw new ErrorException('Family ' . $student_data->family_id . ' not found');
+            }
+            $family_data = $family_query->items[0];
+            $phone = implode('/', $family_data->phone_numbers);
+            $first_name = $student_data->first;
+            $last_name = $student_data->last;
+
+            $waitlist_table_data[] = [
+                'wl_last#' . $block_id => $last_name,
+                'wl_first#' . $block_id => $first_name,
+                'wl_phones#' . $block_id => $phone
+            ];
+            $idx++;
+        }
+        $templateProcessor->cloneRowAndSetValues("wl_last#$block_id", $waitlist_table_data);
     }
 }

@@ -83,6 +83,18 @@ class Usctdp_Import_Session_Data
             $session_id = 0;
             $category_int = $this->get_category_integer($session["category"]);
             $session_category = Usctdp_Session_Category::from($category_int);
+            $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+            $session_data = [
+                "title" => $title,
+                "search_term" => $search_term,
+                "is_active" => 1,
+                "start_date" => $start_date->format("Y-m-d"),
+                "end_date" => $end_date->format("Y-m-d"),
+                "num_weeks" => $session['length_weeks'],
+                "season" => $session['season'],
+                "category" => $session_category->value,
+                "meta" => isset($session['meta']) ? json_encode($session['meta']) : '{}'
+            ];
             $query = new Usctdp_Mgmt_Session_Query([
                 "title" => $title,
                 "start_date" => $start_date->format("Y-m-d"),
@@ -90,20 +102,11 @@ class Usctdp_Import_Session_Data
             ]);
             if (!empty($query->items)) {
                 $session_id = $query->items[0]->id;
-                WP_CLI::log("Session '$name' already exists (id=$session_id)");
+                WP_CLI::log("Session '$name' already exists (id=$session_id), updating");
+                $query->update_item($session_id, $session_data);
             } else {
-                $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
-                $session_id = $query->add_item([
-                    "title" => $title,
-                    "search_term" => $search_term,
-                    "is_active" => 1,
-                    "start_date" => $start_date->format("Y-m-d"),
-                    "end_date" => $end_date->format("Y-m-d"),
-                    "num_weeks" => $session['length_weeks'],
-                    "season" => $session['season'],
-                    "category" => $session_category->value,
-                    "meta" => isset($session['meta']) ? json_encode($session['meta']) : '{}'
-                ]);
+                WP_CLI::log("Creating session '$name'");
+                $session_id = $query->add_item($session_data);
             }
             // Every session starts with its own explicit roster group, named
             // after the session, rather than relying on the admin UI's lazy
@@ -328,6 +331,18 @@ class Usctdp_Import_Session_Data
                     $end_time
                 );
                 $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+                $activity_data = [
+                    "session_id" => $session_id,
+                    "product_id" => $clinic_id,
+                    "type" => "clinic",
+                    "title" => $title,
+                    "search_term" => $search_term,
+                    "capacity" => $class['capacity'],
+                    "primary_sort_order" => $primary_sort_order,
+                    "secondary_sort_order" => $secondary_sort_order,
+                    "level" => (string) $class['level'],
+                    "meta" => isset($class['meta']) ? json_encode($class['meta']) : '{}'
+                ];
                 $activity_query = new Usctdp_Mgmt_Activity_Query([
                     "session_id" => $session_id,
                     "product_id" => $clinic_id,
@@ -335,36 +350,26 @@ class Usctdp_Import_Session_Data
                 ]);
 
                 if (!empty($activity_query->items)) {
-                    WP_CLI::log("Activity exists: $title");
+                    $activity_id = $activity_query->items[0]->id;
+                    WP_CLI::log("Activity exists: $title, updating (id=$activity_id)");
+                    $activity_query->update_item($activity_id, $activity_data);
                 } else {
                     WP_CLI::log("Creating activity: $title");
-                    $activity_id = $activity_query->add_item([
-                        "session_id" => $session_id,
-                        "product_id" => $clinic_id,
-                        "type" => "clinic",
-                        "title" => $title,
-                        "search_term" => $search_term,
-                        "capacity" => $class['capacity'],
-                        "primary_sort_order" => $primary_sort_order,
-                        "secondary_sort_order" => $secondary_sort_order,
-                        "meta" => isset($class['meta']) ? json_encode($class['meta']) : '{}'
-                    ]);
+                    $activity_id = $activity_query->add_item($activity_data);
+                }
 
-                    $clinic_query = new Usctdp_Mgmt_Clinic_Query([
-                        "id" => $activity_id
-                    ]);
-                    if (!empty($clinic_query->items)) {
-                        WP_CLI::log("Unexpected: class already exists (id=$activity_id)");
-                    } else {
-                        $clinic_query->add_item([
-                            "id" => $activity_id,
-                            "day_of_week" => $day_of_week,
-                            "start_time" => $start_time->format("H:i:s"),
-                            "end_time" => $end_time->format("H:i:s"),
-                            "level" => (string) $class['level'],
-                            "notes" => '',
-                        ]);
-                    }
+                $clinic_data = [
+                    "day_of_week" => $day_of_week,
+                    "start_time" => $start_time->format("H:i:s"),
+                    "end_time" => $end_time->format("H:i:s"),
+                ];
+                $clinic_query = new Usctdp_Mgmt_Clinic_Query([
+                    "id" => $activity_id
+                ]);
+                if (!empty($clinic_query->items)) {
+                    $clinic_query->update_item($activity_id, $clinic_data);
+                } else {
+                    $clinic_query->add_item(array_merge(["id" => $activity_id], $clinic_data));
                 }
             }
         }
@@ -406,6 +411,17 @@ class Usctdp_Import_Session_Data
             $title = sanitize_text_field($name);
             $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
 
+            $activity_data = [
+                "session_id" => $session_id,
+                "product_id" => $product->id,
+                "type" => "tournament",
+                "title" => $title,
+                "search_term" => $search_term,
+                "capacity" => $tournament['capacity'],
+                "primary_sort_order" => $primary_sort_order,
+                "secondary_sort_order" => 1,
+                "meta" => isset($tournament['meta']) ? json_encode($tournament['meta']) : '{}'
+            ];
             $activity_query = new Usctdp_Mgmt_Activity_Query([
                 "session_id" => $session_id,
                 "product_id" => $product->id,
@@ -413,39 +429,30 @@ class Usctdp_Import_Session_Data
             ]);
 
             if (!empty($activity_query->items)) {
-                WP_CLI::log("Activity exists: $title");
                 $activity_id = $activity_query->items[0]->id;
+                WP_CLI::log("Activity exists: $title, updating (id=$activity_id)");
+                $activity_query->update_item($activity_id, $activity_data);
             } else {
                 WP_CLI::log("Creating activity: $title");
-                $activity_id = $activity_query->add_item([
-                    "session_id" => $session_id,
-                    "product_id" => $product->id,
-                    "type" => "tournament",
-                    "title" => $title,
-                    "search_term" => $search_term,
-                    "capacity" => $tournament['capacity'],
-                    "primary_sort_order" => $primary_sort_order,
-                    "secondary_sort_order" => 1,
-                    "meta" => isset($tournament['meta']) ? json_encode($tournament['meta']) : '{}'
-                ]);
+                $activity_id = $activity_query->add_item($activity_data);
             }
 
+            $tournament_data = [
+                "start_date" => $start_date->format("Y-m-d"),
+                "start_date_addtl" => $start_date_addtl->format("Y-m-d"),
+                "registration_deadline" => $registration_deadline->format("Y-m-d"),
+                "early_registration_deadline" => $early_registration_deadline
+                    ? $early_registration_deadline->format("Y-m-d")
+                    : null,
+                "schedule" => isset($tournament['schedule']) ? json_encode($tournament['schedule']) : '[]',
+            ];
             $tournament_query = new Usctdp_Mgmt_Tournament_Query([
                 "id" => $activity_id
             ]);
             if (!empty($tournament_query->items)) {
-                WP_CLI::log("Unexpected: tournament already exists (id=$activity_id)");
+                $tournament_query->update_item($activity_id, $tournament_data);
             } else {
-                $result = $tournament_query->add_item([
-                    "id" => $activity_id,
-                    "start_date" => $start_date->format("Y-m-d"),
-                    "start_date_addtl" => $start_date_addtl->format("Y-m-d"),
-                    "registration_deadline" => $registration_deadline->format("Y-m-d"),
-                    "early_registration_deadline" => $early_registration_deadline
-                        ? $early_registration_deadline->format("Y-m-d")
-                        : null,
-                    "schedule" => isset($tournament['schedule']) ? json_encode($tournament['schedule']) : '[]',
-                ]);
+                $tournament_query->add_item(array_merge(["id" => $activity_id], $tournament_data));
             }
         }
     }
