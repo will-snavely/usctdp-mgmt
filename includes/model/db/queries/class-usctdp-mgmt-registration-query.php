@@ -15,6 +15,41 @@ class Usctdp_Mgmt_Registration_Query extends Query
     protected $item_name_plural = 'registrations';
     protected $item_shape = 'Usctdp_Mgmt_Registration_Row';
 
+    /**
+     * Everything Usctdp_Mgmt_Docgen::fill_roster_students() needs to print
+     * an activity's roster, in one query - student + family (for phone
+     * numbers) joined directly onto the registration, rather than issuing
+     * two extra one-off queries per registrant. phone_numbers comes back as
+     * a raw JSON string (same as the column itself); the caller decodes it,
+     * same as Usctdp_Mgmt_Family_Row does.
+     *
+     * Restricted to status = 'active' - matching every other roster-facing
+     * query in this codebase (e.g. the Activities page's own roster
+     * datatable) - so a voided/removed registration, or one still pending
+     * checkout, doesn't print. The code this replaced queried every
+     * registration regardless of status, which was a real (if narrow) bug:
+     * a voided registrant would still show up on the printed roster.
+     */
+    public function get_roster_students($activity_id)
+    {
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT
+                    reg.student_level as student_level,
+                    stud.first as student_first,
+                    stud.last as student_last,
+                    TIMESTAMPDIFF(YEAR, stud.birth_date, CURDATE()) as student_age,
+                    fam.phone_numbers as family_phone_numbers
+                FROM {$wpdb->prefix}usctdp_registration AS reg
+                JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
+                WHERE reg.activity_id = %d AND reg.status = 'active'
+                ORDER BY reg.id DESC",
+            $activity_id
+        );
+        return $wpdb->get_results($query);
+    }
+
     public function get_registration_data($args)
     {
         global $wpdb;

@@ -46,20 +46,22 @@ class Usctdp_Mgmt_Docgen
         }
     }
 
-    private function get_activity_registrations($activity_id)
+    /**
+     * "555-1234/555-5678" from a family's raw phone_numbers JSON column -
+     * same decoding Usctdp_Mgmt_Family_Row does, just without needing a
+     * whole Row/Query round trip for it - see fill_roster_students()/
+     * fill_roster_waitlist(), which get this straight off a JOIN.
+     */
+    private function format_phone_numbers($phone_numbers_json)
     {
-        $reg_query = new Usctdp_Mgmt_Registration_Query([
-            'activity_id' => $activity_id
-        ]);
-        return $reg_query->items;
-    }
-
-    private function get_activity_waitlist($activity_id)
-    {
-        $reg_query = new Usctdp_Mgmt_Waitlist_Query([
-            'activity_id' => $activity_id
-        ]);
-        return $reg_query->items;
+        if (empty($phone_numbers_json)) {
+            return '';
+        }
+        $numbers = json_decode($phone_numbers_json);
+        if (empty($numbers)) {
+            return '';
+        }
+        return implode('/', $numbers);
     }
 
     /**
@@ -461,43 +463,30 @@ class Usctdp_Mgmt_Docgen
 
     }
 
+    /**
+     * Used to be a query per registrant (student, then family) - now one
+     * JOIN query for the whole activity, see
+     * Usctdp_Mgmt_Registration_Query::get_roster_students(). That query
+     * inner-joins student/family, so a registration whose student or family
+     * row has gone missing is silently left off the roster rather than
+     * throwing like this used to - a real behavior change, but throwing
+     * per-row is exactly the per-row cost this was rewritten to avoid.
+     */
     private function fill_roster_students($templateProcessor, $activity_id, $block_id)
     {
-        $registrations = $this->get_activity_registrations($activity_id);
+        $registration_query = new Usctdp_Mgmt_Registration_Query();
+        $registrants = $registration_query->get_roster_students($activity_id);
 
         $student_table_data = [];
         $idx = 1;
-        foreach ($registrations as $registration) {
-            $student_query = new Usctdp_Mgmt_Student_Query([
-                'id' => $registration->student_id,
-                'number' => 1
-            ]);
-            if (empty($student_query->items)) {
-                throw new ErrorException('Student ' . $registration->student_id . ' not found');
-            }
-            $student_data = $student_query->items[0];
-
-            $family_query = new Usctdp_Mgmt_Family_Query([
-                'id' => $student_data->family_id,
-                'number' => 1
-            ]);
-            if (empty($family_query->items)) {
-                throw new ErrorException('Family ' . $student_data->family_id . ' not found');
-            }
-            $family_data = $family_query->items[0];
-            $phone = implode('/', $family_data->phone_numbers);
-            $first_name = $student_data->first;
-            $last_name = $student_data->last;
-            $level = $registration->student_level;
-            $student_age = $student_data->age;
-
+        foreach ($registrants as $registrant) {
             $student_table_data[] = [
                 'att#' . $block_id => "___" . $idx,
-                'last#' . $block_id => $last_name,
-                'first#' . $block_id => $first_name,
-                'age#' . $block_id => $student_age,
-                'lvl#' . $block_id => $level,
-                'phones#' . $block_id => $phone
+                'last#' . $block_id => $registrant->student_last,
+                'first#' . $block_id => $registrant->student_first,
+                'age#' . $block_id => $registrant->student_age,
+                'lvl#' . $block_id => $registrant->student_level,
+                'phones#' . $block_id => $this->format_phone_numbers($registrant->family_phone_numbers)
             ];
             $idx++;
         }
@@ -516,44 +505,25 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->cloneRowAndSetValues("att#$block_id", $student_table_data);
     }
 
+    /**
+     * Same rewrite as fill_roster_students() above, for the same reasons -
+     * see Usctdp_Mgmt_Waitlist_Query::get_roster_waitlist(). The "first 10"
+     * cutoff is now enforced in SQL (a LIMIT) instead of a PHP break, and
+     * ordered oldest-first to actually show who's next in line, rather than
+     * whichever 10 the table's default id-based ordering happened to select.
+     */
     private function fill_roster_waitlist($templateProcessor, $activity_id, $block_id)
     {
-        $waitlist_entries = $this->get_activity_waitlist($activity_id);
-        $waitlist_table_data = [];
-        $max_display = 10;
-        $count = 0;
-        $idx = 1;
-        foreach ($waitlist_entries as $item) {
-            $count += 1;
-            if ($count > $max_display) {
-                break;
-            }
-            $student_query = new Usctdp_Mgmt_Student_Query([
-                'id' => $item->student_id,
-                'number' => 1
-            ]);
-            if (empty($student_query->items)) {
-                throw new ErrorException('Student ' . $registration->student_id . ' not found');
-            }
-            $student_data = $student_query->items[0];
-            $family_query = new Usctdp_Mgmt_Family_Query([
-                'id' => $student_data->family_id,
-                'number' => 1
-            ]);
-            if (empty($family_query->items)) {
-                throw new ErrorException('Family ' . $student_data->family_id . ' not found');
-            }
-            $family_data = $family_query->items[0];
-            $phone = implode('/', $family_data->phone_numbers);
-            $first_name = $student_data->first;
-            $last_name = $student_data->last;
+        $waitlist_query = new Usctdp_Mgmt_Waitlist_Query();
+        $waitlisters = $waitlist_query->get_roster_waitlist($activity_id, 10);
 
+        $waitlist_table_data = [];
+        foreach ($waitlisters as $waitlister) {
             $waitlist_table_data[] = [
-                'wl_last#' . $block_id => $last_name,
-                'wl_first#' . $block_id => $first_name,
-                'wl_phones#' . $block_id => $phone
+                'wl_last#' . $block_id => $waitlister->student_last,
+                'wl_first#' . $block_id => $waitlister->student_first,
+                'wl_phones#' . $block_id => $this->format_phone_numbers($waitlister->family_phone_numbers)
             ];
-            $idx++;
         }
         $templateProcessor->cloneRowAndSetValues("wl_last#$block_id", $waitlist_table_data);
     }

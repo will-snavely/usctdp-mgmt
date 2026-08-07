@@ -15,6 +15,35 @@ class Usctdp_Mgmt_Waitlist_Query extends Query
     protected $item_name_plural = 'waitlists';
     protected $item_shape = 'Usctdp_Mgmt_Waitlist_Row';
 
+    /**
+     * Everything Usctdp_Mgmt_Docgen::fill_roster_waitlist() needs to print
+     * an activity's waitlist, in one query - see get_roster_students()
+     * above for the same reasoning (and phone_numbers handling). Oldest
+     * (longest-waiting) $limit entries first, matching get_waitlist_data()'s
+     * own ordering below - the roster print previously used whatever this
+     * table's default id-based ordering happened to be, which showed the
+     * most-recently-added waitlisters instead.
+     */
+    public function get_roster_waitlist($activity_id, $limit = 10)
+    {
+        global $wpdb;
+        $query = $wpdb->prepare(
+            "   SELECT
+                    stud.first as student_first,
+                    stud.last as student_last,
+                    fam.phone_numbers as family_phone_numbers
+                FROM {$wpdb->prefix}usctdp_waitlist AS wl
+                JOIN {$wpdb->prefix}usctdp_student AS stud ON wl.student_id = stud.id
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
+                WHERE wl.activity_id = %d
+                ORDER BY wl.created_at ASC
+                LIMIT %d",
+            $activity_id,
+            $limit
+        );
+        return $wpdb->get_results($query);
+    }
+
     public function get_waitlist_data($args)
     {
         global $wpdb;
