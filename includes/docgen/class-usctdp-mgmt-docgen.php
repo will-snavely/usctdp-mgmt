@@ -16,6 +16,59 @@ define('PCLZIP_TEMPORARY_DIR', plugin_dir_path(__FILE__) . '/templates/tmp');
 
 class Usctdp_Mgmt_Docgen
 {
+    // Roster page setup (see new_roster_document()). Twips (1/20 pt) unless
+    // noted otherwise.
+    const ROSTER_MARGIN_TOP_BOTTOM = 200;
+    const ROSTER_MARGIN_LEFT_RIGHT = 432;
+    const ROSTER_HEADER_FOOTER_HEIGHT = 720;
+
+    // Table 1 - the per-activity block built by add_roster_activity_block().
+    // Its grid is 4 columns: one wide "schedule" column plus three narrower
+    // ones (see that method's doc comment for why 4 and not the template's
+    // original 5). Row heights are "at least" - real content can still grow
+    // a row taller than this.
+    const ROSTER_TABLE_WIDTH = 11520;
+    const ROSTER_COL_WIDE = 5760;
+    const ROSTER_COL_NARROW = 1920;
+    const ROSTER_ROW_TITLE_HEIGHT = 432;
+    const ROSTER_ROW_INFO_HEIGHT = 300;
+    const ROSTER_ROW_ATTENDANCE_HEIGHT = 1200;
+    const ROSTER_ROW_FOOTER_HEIGHT = 300;
+    const ROSTER_ROW_WAITLIST_HEIGHT = 2547;
+    const ROSTER_TITLE_BORDER_SIZE = 4; // eighths of a point
+    const ROSTER_FIELD_SPACE_BEFORE = 120; // gap above each label group in row 2
+    const BORDER_COLOR = '000000';
+
+    // Font sizes (points).
+    const FONT_SIZE_TITLE = 14;
+    const FONT_SIZE_SCHEDULE = 10;
+    const FONT_SIZE_DETAIL = 8.5;
+    const FONT_SIZE_FOOTER = 10;
+    const FONT_SIZE_TABLE = 8.5;
+
+    // Attendance table, nested inside Table 1's row 3 - see
+    // add_attendance_table(). Column order: Attnd?, Last, First, Age, Level,
+    // Phone Number(s).
+    const ATTENDANCE_TABLE_WIDTH = 11322;
+    const ATTENDANCE_COL_WIDTHS = [1008, 2448, 2448, 864, 864, 3690];
+    const ATTENDANCE_ROW_HEIGHT = 300;
+    // Total data rows (real registrants + blank padding), not counting the
+    // header row - see add_attendance_table()'s doc comment for why this is
+    // padded to a fixed count at all.
+    const ATTENDANCE_DATA_ROWS = 32;
+
+    // Waitlist table, nested inside Table 1's row 5 - see
+    // add_waitlist_table(). Column order: Last, First, Phone.
+    const WAITLIST_TABLE_WIDTH = 5535;
+    const WAITLIST_COL_WIDTHS = [1365, 1530, 2640];
+    const WAITLIST_MAX_ENTRIES = 10;
+
+    const NOTES_LINE_COUNT = 6;
+
+    // See auto_line_spacing() - PhpWord's 'auto' line-spacing rule adds this
+    // many twips as an implicit baseline on top of whatever you pass it.
+    const AUTO_LINE_SPACING_BASELINE = 240;
+
     private $roster_template_file;
     private $statement_template_file;
 
@@ -416,12 +469,12 @@ class Usctdp_Mgmt_Docgen
         $phpWord->setDefaultFontName('Arial');
         $phpWord->setDefaultFontSize(10);
         $section = $phpWord->addSection([
-            'marginTop' => 200,
-            'marginBottom' => 200,
-            'marginLeft' => 432,
-            'marginRight' => 432,
-            'headerHeight' => 720,
-            'footerHeight' => 720,
+            'marginTop' => self::ROSTER_MARGIN_TOP_BOTTOM,
+            'marginBottom' => self::ROSTER_MARGIN_TOP_BOTTOM,
+            'marginLeft' => self::ROSTER_MARGIN_LEFT_RIGHT,
+            'marginRight' => self::ROSTER_MARGIN_LEFT_RIGHT,
+            'headerHeight' => self::ROSTER_HEADER_FOOTER_HEIGHT,
+            'footerHeight' => self::ROSTER_HEADER_FOOTER_HEIGHT,
         ]);
         return [$phpWord, $section];
     }
@@ -548,113 +601,134 @@ class Usctdp_Mgmt_Docgen
     private function add_roster_activity_block($section, $activity_id, array $fields)
     {
         $table = $section->addTable([
-            'width' => 11520,
+            'width' => self::ROSTER_TABLE_WIDTH,
             'unit' => 'dxa',
             'layout' => 'fixed',
         ]);
 
         // Row 1: session title, boxed.
-        $row1 = $table->addRow(432);
-        $titleCell = $row1->addCell(11520, array_merge(
+        $row1 = $table->addRow(self::ROSTER_ROW_TITLE_HEIGHT);
+        $titleCell = $row1->addCell(self::ROSTER_TABLE_WIDTH, array_merge(
             ['gridSpan' => 4, 'vAlign' => 'center'],
-            $this->border_box(4)
+            $this->border_box(self::ROSTER_TITLE_BORDER_SIZE)
         ));
-        $titleCell->addText($fields['session_title'], ['name' => 'Arial', 'bold' => true, 'size' => 14], ['alignment' => 'center']);
+        $titleCell->addText(
+            $fields['session_title'],
+            ['name' => 'Arial', 'bold' => true, 'size' => self::FONT_SIZE_TITLE],
+            ['alignment' => 'center']
+        );
 
         // Row 2: schedule / instructors / level / dates. This row's 4 cells
-        // (widths 5760/1920/1920/1920) are what define the table's actual
-        // grid - see the class doc comment above.
-        $row2 = $table->addRow(300);
+        // (widths WIDE/NARROW/NARROW/NARROW) are what define the table's
+        // actual grid - see the class doc comment above.
+        $row2 = $table->addRow(self::ROSTER_ROW_INFO_HEIGHT);
+        $detailStyle = ['size' => self::FONT_SIZE_DETAIL];
+        $detailLabelStyle = ['italic' => true, 'size' => self::FONT_SIZE_DETAIL];
+        $fieldStart = ['spaceBefore' => self::ROSTER_FIELD_SPACE_BEFORE];
 
-        $scheduleCell = $row2->addCell(5760);
+        $scheduleCell = $row2->addCell(self::ROSTER_COL_WIDE);
         $scheduleCell->addText(
             "Clinic: {$fields['dow']} {$fields['stime']} - {$fields['etime']}",
-            ['bold' => true, 'size' => 11],
-            ['spaceBefore' => 120]
+            ['bold' => true, 'size' => self::FONT_SIZE_SCHEDULE],
+            $fieldStart
         );
         $scheduleCell->addText(
             "Instructor(s): {$fields['insts']}",
-            ['bold' => true, 'italic' => true, 'size' => 9],
+            ['bold' => true, 'italic' => true, 'size' => self::FONT_SIZE_DETAIL],
             ['spaceBefore' => 0, 'spaceAfter' => 0]
         );
         $scheduleCell->addText(
             $fields['skipped_clinics'],
-            ['italic' => true, 'size' => 9],
+            $detailLabelStyle,
             ['spaceBefore' => 0, 'spaceAfter' => 0, 'alignment' => 'left']
         );
 
-        $levelCell = $row2->addCell(1920);
+        $levelCell = $row2->addCell(self::ROSTER_COL_NARROW);
         $levelCell->addText(
             "{$fields['age_group']} Level {$fields['level']}",
-            ['bold' => true, 'size' => 9],
-            ['spaceBefore' => 120]
+            ['bold' => true, 'size' => self::FONT_SIZE_DETAIL],
+            $fieldStart
         );
-        $levelCell->addText('', ['bold' => true, 'size' => 11]);
+        $levelCell->addText('', ['bold' => true, 'size' => self::FONT_SIZE_SCHEDULE]);
 
-        $dateLabelCell = $row2->addCell(1920);
-        $dateLabelCell->addText('Start Date:', ['italic' => true, 'size' => 9], ['spaceBefore' => 120]);
-        $dateLabelCell->addText('End Date:', ['italic' => true, 'size' => 9]);
-        $dateLabelCell->addText('Class Limit:', ['italic' => true, 'size' => 9]);
+        $dateLabelCell = $row2->addCell(self::ROSTER_COL_NARROW);
+        $dateLabelCell->addText('Start Date:', $detailLabelStyle, $fieldStart);
+        $dateLabelCell->addText('End Date:', $detailLabelStyle);
+        $dateLabelCell->addText('Class Limit:', $detailLabelStyle);
 
-        $dateValueCell = $row2->addCell(1920);
-        $dateValueCell->addText((string) $fields['sdate'], ['size' => 9], ['spaceBefore' => 120]);
-        $dateValueCell->addText((string) $fields['edate'], ['size' => 9]);
-        $dateValueCell->addText((string) $fields['cap'], ['size' => 9]);
+        $dateValueCell = $row2->addCell(self::ROSTER_COL_NARROW);
+        $dateValueCell->addText((string) $fields['sdate'], $detailStyle, $fieldStart);
+        $dateValueCell->addText((string) $fields['edate'], $detailStyle);
+        $dateValueCell->addText((string) $fields['cap'], $detailStyle);
 
         // Row 3: attendance table (borderless in the template).
-        $row3 = $table->addRow(1200);
-        $attendanceCell = $row3->addCell(11520, ['gridSpan' => 4]);
+        $row3 = $table->addRow(self::ROSTER_ROW_ATTENDANCE_HEIGHT);
+        $attendanceCell = $row3->addCell(self::ROSTER_TABLE_WIDTH, ['gridSpan' => 4]);
         $this->add_attendance_table($attendanceCell, $activity_id);
 
         // Row 4: attendance total / signature line. Split 50/50 rather than
         // the template's 3840/7680 - see the class doc comment above.
-        $row4 = $table->addRow(300);
-        $row4->addCell(5760)->addText('Attendance Total ___________', ['bold' => true, 'size' => 10]);
-        $row4->addCell(5760, ['gridSpan' => 3])->addText(
+        $footerStyle = ['bold' => true, 'size' => self::FONT_SIZE_FOOTER];
+        $row4 = $table->addRow(self::ROSTER_ROW_FOOTER_HEIGHT);
+        $row4->addCell(self::ROSTER_COL_WIDE)->addText('Attendance Total ___________', $footerStyle);
+        $row4->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3])->addText(
             "Attendance Taker\u{2019}s Signature ____________________",
-            ['bold' => true, 'size' => 10]
+            $footerStyle
         );
 
-        // Row 5: waitlist / absentees & notes.
-        //
-        // Note on the spacing values below: when spacingLineRule is 'auto',
-        // PhpWord's writer treats 'spacing' as *extra* space added on top of
-        // a single line (it adds a fixed 240-twip baseline - see
-        // Writer\Word2007\Style\Spacing::write()), not the final w:line
-        // value. The template's own XML declares w:line values of 240 (the
-        // two headings below - i.e. no extra, single spacing) and 276 (the
-        // notes lines - 36 twips of extra), so that's 0 and 36 here, not
-        // 240 and 276 - passing the template's raw values directly nearly
-        // doubles every one of these lines and was what pushed row 5 (and
-        // the page as a whole) taller than intended.
-        $row5 = $table->addRow(2547);
-        $waitlistCell = $row5->addCell(5760);
-        $waitlistCell->addText('Waitlist', ['bold' => true, 'size' => 10], ['spacing' => 0, 'spacingLineRule' => 'auto']);
+        // Row 5: waitlist / absentees & notes. See auto_line_spacing() for
+        // why the heading/notes-line spacing goes through that helper
+        // instead of a plain 'spacing' value.
+        $row5 = $table->addRow(self::ROSTER_ROW_WAITLIST_HEIGHT);
+        $headingStyle = ['bold' => true, 'size' => self::FONT_SIZE_FOOTER];
+        $headingSpacing = $this->auto_line_spacing(240); // single-spaced
+
+        $waitlistCell = $row5->addCell(self::ROSTER_COL_WIDE);
+        $waitlistCell->addText('Waitlist', $headingStyle, $headingSpacing);
         $this->add_waitlist_table($waitlistCell, $activity_id);
 
-        $notesCell = $row5->addCell(5760, ['gridSpan' => 3]);
-        $notesCell->addText('Absentees/Notes', ['bold' => true, 'size' => 10], ['spacing' => 0, 'spacingLineRule' => 'auto']);
-        for ($i = 0; $i < 6; $i++) {
+        $notesCell = $row5->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3]);
+        $notesCell->addText('Absentees/Notes', $headingStyle, $headingSpacing);
+        $notesLineSpacing = $this->auto_line_spacing(276);
+        for ($i = 0; $i < self::NOTES_LINE_COUNT; $i++) {
             $notesCell->addText(
                 '________________________________________________',
-                ['size' => 10],
-                ['spacing' => 36, 'spacingLineRule' => 'auto']
+                ['size' => self::FONT_SIZE_FOOTER],
+                $notesLineSpacing
             );
         }
 
         $section->addText(
             $fields['session_short_code'],
-            ['name' => 'Arial', 'size' => 10],
+            ['name' => 'Arial', 'size' => self::FONT_SIZE_FOOTER],
             ['alignment' => 'center']
         );
     }
 
     /**
-     * Attendance table for one activity: a header row plus a fixed 31 data
-     * rows, blank-padded when there aren't 31 registrants, so every
-     * activity's block takes up the same page space regardless of how many
-     * students actually registered - this padding is deliberate, not
-     * something left over from the template.
+     * PhpWord's 'spacingLineRule' => 'auto' treats the 'spacing' value as
+     * *extra* space added on top of a fixed AUTO_LINE_SPACING_BASELINE-twip
+     * single-line baseline, not the final w:line value (see
+     * Writer\Word2007\Style\Spacing::write()). This takes the actual w:line
+     * value you want - i.e. what you'd read directly off a template's XML -
+     * and does that conversion, so call sites work in those familiar units
+     * instead of pre-computing "minus 240" by hand. Passing a template's raw
+     * w:line value straight through as 'spacing' silently doubles it.
+     */
+    private function auto_line_spacing($target_line_twips)
+    {
+        return [
+            'spacing' => $target_line_twips - self::AUTO_LINE_SPACING_BASELINE,
+            'spacingLineRule' => 'auto',
+        ];
+    }
+
+    /**
+     * Attendance table for one activity: a header row plus a fixed
+     * ATTENDANCE_DATA_ROWS data rows, blank-padded when there aren't that
+     * many registrants, so every activity's block takes up the same page
+     * space regardless of how many students actually registered - this
+     * padding is deliberate, not something left over from the template.
      *
      * Used to be a query per registrant (student, then family) - now one
      * JOIN query for the whole activity, see
@@ -673,19 +747,19 @@ class Usctdp_Mgmt_Docgen
         // the writer's per-row-derived <w:tblGrid> (see the class doc
         // comment on add_roster_activity_block()) naturally comes out right
         // without needing anything special here.
-        $columnWidths = [1008, 2448, 2448, 864, 864, 3690];
-        $table = $cell->addTable(['width' => 11322, 'unit' => 'dxa', 'layout' => 'fixed']);
+        $columnWidths = self::ATTENDANCE_COL_WIDTHS;
+        $table = $cell->addTable(['width' => self::ATTENDANCE_TABLE_WIDTH, 'unit' => 'dxa', 'layout' => 'fixed']);
 
-        $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => 8.5];
-        $headerRow = $table->addRow(300);
+        $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => self::FONT_SIZE_TABLE];
+        $headerRow = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
         foreach (['Attnd?', 'Last', 'First', 'Age', 'Level', 'Phone Number(s)'] as $i => $label) {
             $headerRow->addCell($columnWidths[$i])->addText($label, $headerStyle);
         }
 
-        $dataStyle = ['size' => 8.5];
+        $dataStyle = ['size' => self::FONT_SIZE_TABLE];
         $idx = 1;
         foreach ($registrants as $registrant) {
-            $row = $table->addRow(300);
+            $row = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
             $row->addCell($columnWidths[0])->addText('___' . $idx, $dataStyle);
             $row->addCell($columnWidths[1])->addText((string) $registrant->student_last, $dataStyle);
             $row->addCell($columnWidths[2])->addText((string) $registrant->student_first, $dataStyle);
@@ -694,8 +768,8 @@ class Usctdp_Mgmt_Docgen
             $row->addCell($columnWidths[5])->addText($this->format_phone_numbers($registrant->family_phone_numbers), $dataStyle);
             $idx++;
         }
-        while ($idx <= 32) {
-            $row = $table->addRow(300);
+        while ($idx <= self::ATTENDANCE_DATA_ROWS) {
+            $row = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
             foreach ($columnWidths as $width) {
                 $row->addCell($width)->addText('', $dataStyle);
             }
@@ -714,15 +788,15 @@ class Usctdp_Mgmt_Docgen
     private function add_waitlist_table($cell, $activity_id)
     {
         $waitlist_query = new Usctdp_Mgmt_Waitlist_Query();
-        $waitlisters = $waitlist_query->get_roster_waitlist($activity_id, 10);
+        $waitlisters = $waitlist_query->get_roster_waitlist($activity_id, self::WAITLIST_MAX_ENTRIES);
         if (empty($waitlisters)) {
             return;
         }
 
-        $columnWidths = [1365, 1530, 2640];
-        $table = $cell->addTable(['width' => 5535, 'unit' => 'dxa', 'layout' => 'fixed']);
+        $columnWidths = self::WAITLIST_COL_WIDTHS;
+        $table = $cell->addTable(['width' => self::WAITLIST_TABLE_WIDTH, 'unit' => 'dxa', 'layout' => 'fixed']);
 
-        $style = ['bold' => true, 'size' => 8.5];
+        $style = ['bold' => true, 'size' => self::FONT_SIZE_TABLE];
         $cellStyle = ['vAlign' => 'top'];
         foreach ($waitlisters as $waitlister) {
             $row = $table->addRow();
@@ -735,10 +809,10 @@ class Usctdp_Mgmt_Docgen
     private function border_box($size)
     {
         return [
-            'borderTopSize' => $size, 'borderTopColor' => '000000', 'borderTopStyle' => 'single',
-            'borderLeftSize' => $size, 'borderLeftColor' => '000000', 'borderLeftStyle' => 'single',
-            'borderBottomSize' => $size, 'borderBottomColor' => '000000', 'borderBottomStyle' => 'single',
-            'borderRightSize' => $size, 'borderRightColor' => '000000', 'borderRightStyle' => 'single',
+            'borderTopSize' => $size, 'borderTopColor' => self::BORDER_COLOR, 'borderTopStyle' => 'single',
+            'borderLeftSize' => $size, 'borderLeftColor' => self::BORDER_COLOR, 'borderLeftStyle' => 'single',
+            'borderBottomSize' => $size, 'borderBottomColor' => self::BORDER_COLOR, 'borderBottomStyle' => 'single',
+            'borderRightSize' => $size, 'borderRightColor' => self::BORDER_COLOR, 'borderRightStyle' => 'single',
         ];
     }
 
