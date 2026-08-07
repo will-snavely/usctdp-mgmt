@@ -129,6 +129,14 @@ class Usctdp_Mgmt_Docgen
      * limit. Building the document as an in-memory element tree and
      * serializing once avoids that; see add_roster_activity_block() for the
      * per-activity content, hand-ported from templates/roster_template.docx.
+     *
+     * Each block's fixed row padding keeps it close to a page tall, but
+     * "close to" isn't "exactly" - actual content (e.g. an instructor list
+     * long enough to wrap) still nudges real height up or down a bit, so a
+     * shorter-than-usual block can leave enough leftover room on the page
+     * for the next one to start creeping onto it. An explicit page break
+     * between blocks is what actually guarantees one activity per page,
+     * rather than leaning on padding alone to get there by coincidence.
      */
     public function generate_roster_for_sessions(array $session_ids)
     {
@@ -146,15 +154,24 @@ class Usctdp_Mgmt_Docgen
         }
 
         [$phpWord, $section] = $this->new_roster_document();
+        $is_first_block = true;
         foreach ($activity_items as $item) {
-            if ($item->type === 'clinic') {
-                $this->add_clinic_roster_block($section, $item->id);
-            } elseif ($item->type === 'tournament') {
-                $this->add_tournament_roster_block($section, $item->id);
-            } else {
+            if ($item->type !== 'clinic' && $item->type !== 'tournament') {
                 Usctdp_Mgmt::logger()->log_info(
                     'Skipping roster block for unsupported activity type: ' . $item->type . ' (activity ' . $item->id . ')'
                 );
+                continue;
+            }
+
+            if (!$is_first_block) {
+                $section->addPageBreak();
+            }
+            $is_first_block = false;
+
+            if ($item->type === 'clinic') {
+                $this->add_clinic_roster_block($section, $item->id);
+            } else {
+                $this->add_tournament_roster_block($section, $item->id);
             }
         }
         return $phpWord;
@@ -399,8 +416,8 @@ class Usctdp_Mgmt_Docgen
         $phpWord->setDefaultFontName('Arial');
         $phpWord->setDefaultFontSize(10);
         $section = $phpWord->addSection([
-            'marginTop' => 432,
-            'marginBottom' => 432,
+            'marginTop' => 200,
+            'marginBottom' => 200,
             'marginLeft' => 432,
             'marginRight' => 432,
             'headerHeight' => 720,
@@ -677,7 +694,7 @@ class Usctdp_Mgmt_Docgen
             $row->addCell($columnWidths[5])->addText($this->format_phone_numbers($registrant->family_phone_numbers), $dataStyle);
             $idx++;
         }
-        while ($idx < 32) {
+        while ($idx <= 32) {
             $row = $table->addRow(300);
             foreach ($columnWidths as $width) {
                 $row->addCell($width)->addText('', $dataStyle);
