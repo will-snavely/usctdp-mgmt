@@ -16,7 +16,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
     protected $item_shape = 'Usctdp_Mgmt_Registration_Row';
 
     /**
-     * Everything Usctdp_Mgmt_Docgen::fill_roster_students() needs to print
+     * Everything Usctdp_Mgmt_Docgen::add_attendance_table() needs to print
      * an activity's roster, in one query - student + family (for phone
      * numbers) joined directly onto the registration, rather than issuing
      * two extra one-off queries per registrant. phone_numbers comes back as

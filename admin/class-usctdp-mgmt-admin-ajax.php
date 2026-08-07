@@ -238,6 +238,17 @@ class Usctdp_Mgmt_Admin_Ajax
     {
         $this->check_nonce('gen_roster');
 
+        // Headroom, not a load-bearing fix: roster generation used to be
+        // O(activities^2) (PhpWord's TemplateProcessor rescans/rewrites the
+        // whole in-progress document on every macro substitution), which is
+        // what actually needed the higher limit. That's fixed now -
+        // Usctdp_Mgmt_Docgen::generate_roster_for_sessions() builds the
+        // document with PhpWord's object-model API instead, which is O(n) -
+        // but a very large multi-session roster_group could still
+        // legitimately take a bit, so this stays as a safety margin above
+        // the host's normal 30s execution limit.
+        set_time_limit(180);
+
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
         $roster_group_id = isset($_POST['roster_group_id']) ? intval($_POST['roster_group_id']) : 0;

@@ -16,7 +16,7 @@ class Usctdp_Mgmt_Waitlist_Query extends Query
     protected $item_shape = 'Usctdp_Mgmt_Waitlist_Row';
 
     /**
-     * Everything Usctdp_Mgmt_Docgen::fill_roster_waitlist() needs to print
+     * Everything Usctdp_Mgmt_Docgen::add_waitlist_table() needs to print
      * an activity's waitlist, in one query - see get_roster_students()
      * above for the same reasoning (and phone_numbers handling). Oldest
      * (longest-waiting) $limit entries first, matching get_waitlist_data()'s

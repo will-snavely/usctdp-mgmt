@@ -8,6 +8,8 @@ use Google\Client;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 use Google\Service\Drive\Permission;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 define('PCLZIP_TEMPORARY_DIR', plugin_dir_path(__FILE__) . '/templates/tmp');
@@ -49,8 +51,8 @@ class Usctdp_Mgmt_Docgen
     /**
      * "555-1234/555-5678" from a family's raw phone_numbers JSON column -
      * same decoding Usctdp_Mgmt_Family_Row does, just without needing a
-     * whole Row/Query round trip for it - see fill_roster_students()/
-     * fill_roster_waitlist(), which get this straight off a JOIN.
+     * whole Row/Query round trip for it - see add_attendance_table()/
+     * add_waitlist_table(), which get this straight off a JOIN.
      */
     private function format_phone_numbers($phone_numbers_json)
     {
@@ -94,18 +96,16 @@ class Usctdp_Mgmt_Docgen
 
     public function generate_clinic_roster($clinic_id)
     {
-        $templateProcessor = new TemplateProcessor($this->roster_template_file);
-        $templateProcessor->cloneBlock('roster', 1, true, true);
-        $this->generate_clinic_roster_impl($templateProcessor, $clinic_id, '1');
-        return $templateProcessor;
+        [$phpWord, $section] = $this->new_roster_document();
+        $this->add_clinic_roster_block($section, $clinic_id);
+        return $phpWord;
     }
 
     public function generate_tournament_roster($tournament_id)
     {
-        $templateProcessor = new TemplateProcessor($this->roster_template_file);
-        $templateProcessor->cloneBlock('roster', 1, true, true);
-        $this->generate_tournament_roster_impl($templateProcessor, $tournament_id, '1');
-        return $templateProcessor;
+        [$phpWord, $section] = $this->new_roster_document();
+        $this->add_tournament_roster_block($section, $tournament_id);
+        return $phpWord;
     }
 
     public function generate_session_roster($session_id)
@@ -116,9 +116,19 @@ class Usctdp_Mgmt_Docgen
     /**
      * Builds one roster document spanning every activity across all of the
      * given sessions. Each activity block already stamps its own session's
-     * title (see generate_clinic_roster_impl/generate_tournament_roster_impl),
-     * so blocks from different sessions can simply be concatenated - no
+     * title (see add_clinic_roster_block/add_tournament_roster_block), so
+     * blocks from different sessions can simply be appended in order - no
      * template changes needed to support multi-session rosters.
+     *
+     * Built with PhpWord's object-model API (PhpWord/Section/Table/Cell)
+     * rather than TemplateProcessor. TemplateProcessor fills a document by
+     * repeatedly doing macro string-replacement over the ENTIRE shared
+     * document XML, so stamping N activities into one growing document costs
+     * O(N^2) - fine for one or two activities, but it's what made rosters for
+     * a few dozen activities slow enough to hit the request's execution time
+     * limit. Building the document as an in-memory element tree and
+     * serializing once avoids that; see add_roster_activity_block() for the
+     * per-activity content, hand-ported from templates/roster_template.docx.
      */
     public function generate_roster_for_sessions(array $session_ids)
     {
@@ -135,22 +145,19 @@ class Usctdp_Mgmt_Docgen
             array_push($activity_items, ...$activity_query->items);
         }
 
-        $templateProcessor = new TemplateProcessor($this->roster_template_file);
-        $templateProcessor->cloneBlock('roster', count($activity_items), true, true);
-        $index = 1;
+        [$phpWord, $section] = $this->new_roster_document();
         foreach ($activity_items as $item) {
             if ($item->type === 'clinic') {
-                $this->generate_clinic_roster_impl($templateProcessor, $item->id, $index);
+                $this->add_clinic_roster_block($section, $item->id);
             } elseif ($item->type === 'tournament') {
-                $this->generate_tournament_roster_impl($templateProcessor, $item->id, $index);
+                $this->add_tournament_roster_block($section, $item->id);
             } else {
                 Usctdp_Mgmt::logger()->log_info(
                     'Skipping roster block for unsupported activity type: ' . $item->type . ' (activity ' . $item->id . ')'
                 );
             }
-            $index++;
         }
-        return $templateProcessor;
+        return $phpWord;
     }
 
     /**
@@ -241,18 +248,26 @@ class Usctdp_Mgmt_Docgen
     }
 
     /**
-     * Pure Drive create-or-update call: writes $templateProcessor's content
-     * to $existing_drive_id if given, otherwise creates a new file. Doesn't
+     * Pure Drive create-or-update call: writes $document's content to
+     * $existing_drive_id if given, otherwise creates a new file. Doesn't
      * know or care how the caller persists the resulting file id.
+     *
+     * $document is either a TemplateProcessor (financial statements, still
+     * template-based) or a PhpWord (rosters, built via the object-model API
+     * - see generate_roster_for_sessions()); each saves differently.
      */
-    private function upload_document_to_drive($templateProcessor, $existing_drive_id, $title)
+    private function upload_document_to_drive($document, $existing_drive_id, $title)
     {
         $client = $this->create_google_client();
         $drive = new Drive($client);
         $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
 
         ob_start();
-        $templateProcessor->saveAs('php://output');
+        if ($document instanceof TemplateProcessor) {
+            $document->saveAs('php://output');
+        } else {
+            IOFactory::createWriter($document, 'Word2007')->save('php://output');
+        }
         $content = ob_get_clean();
 
         $clean_title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
@@ -373,7 +388,28 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("balance_due", $formatter->formatCurrency($runningBalance, 'USD'));
     }
 
-    private function generate_clinic_roster_impl($templateProcessor, $clinic_id, $block_id)
+    /**
+     * Fresh PhpWord + a single Section, styled to match
+     * templates/roster_template.docx's page setup (see
+     * add_roster_activity_block() for the per-activity content).
+     */
+    private function new_roster_document()
+    {
+        $phpWord = new PhpWord();
+        $phpWord->setDefaultFontName('Arial');
+        $phpWord->setDefaultFontSize(10);
+        $section = $phpWord->addSection([
+            'marginTop' => 432,
+            'marginBottom' => 432,
+            'marginLeft' => 432,
+            'marginRight' => 432,
+            'headerHeight' => 720,
+            'footerHeight' => 720,
+        ]);
+        return [$phpWord, $section];
+    }
+
+    private function add_clinic_roster_block($section, $clinic_id)
     {
         $clinic_query = new Usctdp_Mgmt_Clinic_Query();
         $clinic_data = $clinic_query->get_clinic_data([
@@ -396,7 +432,6 @@ class Usctdp_Mgmt_Docgen
             $session_title = $session_no_parens . ": " . $product_name;
         }
 
-
         $start_date_raw = $clinic_fields->session_start_date;
         $start_date = $start_date_raw ? DateTime::createFromFormat('Y-m-d', $start_date_raw)->format('m/d/Y') : '';
         $end_date_raw = $clinic_fields->session_end_date;
@@ -407,25 +442,23 @@ class Usctdp_Mgmt_Docgen
         $end_time_raw = $clinic_fields->clinic_end_time;
         $end_time = $end_time_raw ? DateTime::createFromFormat('H:i:s', $end_time_raw)->format('g:i A') : '';
 
-        $templateProcessor->setValue("session_title#$block_id", $session_title);
-        $templateProcessor->setValue("dow#$block_id", $this->int_to_day($clinic_fields->clinic_day_of_week));
-        $templateProcessor->setValue("stime#$block_id", $start_time);
-        $templateProcessor->setValue("etime#$block_id", $end_time);
-        $templateProcessor->setValue("clinic_level#$block_id", $clinic_fields->clinic_level);
-        $templateProcessor->setValue("cap#$block_id", $clinic_fields->clinic_capacity);
-        $templateProcessor->setValue("age_group#$block_id", $age_group);
-        $templateProcessor->setValue("sdate#$block_id", $start_date);
-        $templateProcessor->setValue("edate#$block_id", $end_date);
-
-        $templateProcessor->setValue("insts#$block_id", $this->get_instructor_names($clinic_id));
-        $templateProcessor->setValue("skipped_clinics#$block_id", '');
-        $templateProcessor->setValue("session_short_code#$block_id", '');
-
-        $this->fill_roster_students($templateProcessor, $clinic_id, $block_id);
-        $this->fill_roster_waitlist($templateProcessor, $clinic_id, $block_id);
+        $this->add_roster_activity_block($section, $clinic_id, [
+            'session_title' => $session_title,
+            'dow' => $this->int_to_day($clinic_fields->clinic_day_of_week),
+            'stime' => $start_time,
+            'etime' => $end_time,
+            'age_group' => $age_group,
+            'level' => $clinic_fields->clinic_level,
+            'cap' => $clinic_fields->clinic_capacity,
+            'sdate' => $start_date,
+            'edate' => $end_date,
+            'insts' => $this->get_instructor_names($clinic_id),
+            'skipped_clinics' => '',
+            'session_short_code' => '',
+        ]);
     }
 
-    private function generate_tournament_roster_impl($templateProcessor, $tournament_id, $block_id)
+    private function add_tournament_roster_block($section, $tournament_id)
     {
         $tournament_query = new Usctdp_Mgmt_Tournament_Query();
         $tournament_data = $tournament_query->get_tournament_data([
@@ -436,34 +469,176 @@ class Usctdp_Mgmt_Docgen
             throw new ErrorException('Tournament not found');
         }
         $tournament_fields = $tournament_data['data'][0];
-        $session_name = $tournament_fields->session_name;
-        $age_group = $tournament_fields->product_age_group;
+        $age_group = ucfirst($tournament_fields->product_age_group);
 
         $start_date_raw = $tournament_fields->tournament_start_date;
         $start_date = $start_date_raw ? DateTime::createFromFormat('Y-m-d', $start_date_raw)->format('m/d/Y') : '';
         $end_date_raw = $tournament_fields->tournament_start_date_addtl;
         $end_date = $end_date_raw ? DateTime::createFromFormat('Y-m-d', $end_date_raw)->format('m/d/Y') : '';
 
-        $templateProcessor->setValue("session_title#$block_id", $session_name);
-        $templateProcessor->setValue("dow#$block_id", '');
-        $templateProcessor->setValue("stime#$block_id", '');
-        $templateProcessor->setValue("etime#$block_id", '');
-        $templateProcessor->setValue("clinic_level#$block_id", $tournament_fields->activity_level);
-        $templateProcessor->setValue("cap#$block_id", $tournament_fields->activity_capacity);
-        $templateProcessor->setValue("age_group#$block_id", $this->$age_group);
-        $templateProcessor->setValue("sdate#$block_id", $start_date);
-        $templateProcessor->setValue("edate#$block_id", $end_date);
-
-        $templateProcessor->setValue("insts#$block_id", $this->get_instructor_names($tournament_id));
-        $templateProcessor->setValue("skipped_clinics#$block_id", '');
-        $templateProcessor->setValue("session_short_code#$block_id", '');
-
-        $this->fill_roster_students($templateProcessor, $tournament_id, $block_id);
-        $this->fill_roster_waitlist($templateProcessor, $tournament_id, $block_id);
-
+        $this->add_roster_activity_block($section, $tournament_id, [
+            'session_title' => $tournament_fields->session_name,
+            'dow' => '',
+            'stime' => '',
+            'etime' => '',
+            'age_group' => $age_group,
+            'level' => $tournament_fields->activity_level,
+            'cap' => $tournament_fields->activity_capacity,
+            'sdate' => $start_date,
+            'edate' => $end_date,
+            'insts' => $this->get_instructor_names($tournament_id),
+            'skipped_clinics' => '',
+            'session_short_code' => '',
+        ]);
     }
 
     /**
+     * Renders one activity's roster block (the repeating "roster" block in
+     * templates/roster_template.docx) directly as PhpWord table/cell/text
+     * elements - structure, fonts, sizes and borders hand-ported from that
+     * template's document.xml. Any visual change to the template needs to be
+     * re-ported here too; there's no longer a live link between the two.
+     *
+     * On borders: Google Docs' docx export writes fully-explicit border
+     * properties on every single cell, and a cell's own border always wins
+     * over the table's default for that side. Reading the template XML shows
+     * nearly every cell in this block (and the whole waitlist table) turns
+     * its own borders off ("nil") even though the table-level default
+     * declares one - so the *visible* result is much sparser than those
+     * declarations suggest: only the title cell (row 1) is actually boxed;
+     * nothing else in the block has a border. That's what's reproduced
+     * below - the table itself is left with no declared border at all
+     * (a cell with no border override falls back to the table's default, so
+     * leaving the table style borderless is what keeps rows 2-5 clean; only
+     * row 1's cell gets an explicit border).
+     *
+     * On the grid: the template's underlying grid is 5 columns (3840, 1920,
+     * 1920, 1920, 1920), with different rows merging different spans of it
+     * via gridSpan. PhpWord's Word2007 writer doesn't compute <w:tblGrid>
+     * from a table style - it derives it from whichever *row* has the most
+     * actual cell objects (see Element\Table::findFirstDefinedCellWidths()),
+     * oblivious to gridSpan. None of the 5 rows below has 5 real (unmerged)
+     * cells, so that row would end up being row 2 (4 real cells: schedule,
+     * level, date labels, date values), collapsing the grid to 4 columns:
+     * [5760, 1920, 1920, 1920] - i.e. the template's first two columns
+     * (3840 + 1920) merged into one. Every row happens to divide cleanly on
+     * that 4-column grid *except* row 4 (attendance total / signature),
+     * which the template splits at 3840 instead of 5760; that one split is
+     * nudged to match (5760 / 5760) rather than fighting the writer with an
+     * invisible spacer row just to preserve an exact 1/3-2/3 proportion on a
+     * signature line.
+     */
+    private function add_roster_activity_block($section, $activity_id, array $fields)
+    {
+        $table = $section->addTable([
+            'width' => 11520,
+            'unit' => 'dxa',
+            'layout' => 'fixed',
+        ]);
+
+        // Row 1: session title, boxed.
+        $row1 = $table->addRow(432);
+        $titleCell = $row1->addCell(11520, array_merge(
+            ['gridSpan' => 4, 'vAlign' => 'center'],
+            $this->border_box(4)
+        ));
+        $titleCell->addText($fields['session_title'], ['name' => 'Arial', 'bold' => true, 'size' => 14], ['alignment' => 'center']);
+
+        // Row 2: schedule / instructors / level / dates. This row's 4 cells
+        // (widths 5760/1920/1920/1920) are what define the table's actual
+        // grid - see the class doc comment above.
+        $row2 = $table->addRow(300);
+
+        $scheduleCell = $row2->addCell(5760);
+        $scheduleCell->addText(
+            "Clinic: {$fields['dow']} {$fields['stime']} - {$fields['etime']}",
+            ['bold' => true, 'size' => 11],
+            ['spaceBefore' => 120]
+        );
+        $scheduleCell->addText(
+            "Instructor(s): {$fields['insts']}",
+            ['bold' => true, 'italic' => true, 'size' => 9],
+            ['spaceBefore' => 0, 'spaceAfter' => 0]
+        );
+        $scheduleCell->addText(
+            $fields['skipped_clinics'],
+            ['italic' => true, 'size' => 9],
+            ['spaceBefore' => 0, 'spaceAfter' => 0, 'alignment' => 'left']
+        );
+
+        $levelCell = $row2->addCell(1920);
+        $levelCell->addText(
+            "{$fields['age_group']} Level {$fields['level']}",
+            ['bold' => true, 'size' => 9],
+            ['spaceBefore' => 120]
+        );
+        $levelCell->addText('', ['bold' => true, 'size' => 11]);
+
+        $dateLabelCell = $row2->addCell(1920);
+        $dateLabelCell->addText('Start Date:', ['italic' => true, 'size' => 9], ['spaceBefore' => 120]);
+        $dateLabelCell->addText('End Date:', ['italic' => true, 'size' => 9]);
+        $dateLabelCell->addText('Class Limit:', ['italic' => true, 'size' => 9]);
+
+        $dateValueCell = $row2->addCell(1920);
+        $dateValueCell->addText((string) $fields['sdate'], ['size' => 9], ['spaceBefore' => 120]);
+        $dateValueCell->addText((string) $fields['edate'], ['size' => 9]);
+        $dateValueCell->addText((string) $fields['cap'], ['size' => 9]);
+
+        // Row 3: attendance table (borderless in the template).
+        $row3 = $table->addRow(1200);
+        $attendanceCell = $row3->addCell(11520, ['gridSpan' => 4]);
+        $this->add_attendance_table($attendanceCell, $activity_id);
+
+        // Row 4: attendance total / signature line. Split 50/50 rather than
+        // the template's 3840/7680 - see the class doc comment above.
+        $row4 = $table->addRow(300);
+        $row4->addCell(5760)->addText('Attendance Total ___________', ['bold' => true, 'size' => 10]);
+        $row4->addCell(5760, ['gridSpan' => 3])->addText(
+            "Attendance Taker\u{2019}s Signature ____________________",
+            ['bold' => true, 'size' => 10]
+        );
+
+        // Row 5: waitlist / absentees & notes.
+        //
+        // Note on the spacing values below: when spacingLineRule is 'auto',
+        // PhpWord's writer treats 'spacing' as *extra* space added on top of
+        // a single line (it adds a fixed 240-twip baseline - see
+        // Writer\Word2007\Style\Spacing::write()), not the final w:line
+        // value. The template's own XML declares w:line values of 240 (the
+        // two headings below - i.e. no extra, single spacing) and 276 (the
+        // notes lines - 36 twips of extra), so that's 0 and 36 here, not
+        // 240 and 276 - passing the template's raw values directly nearly
+        // doubles every one of these lines and was what pushed row 5 (and
+        // the page as a whole) taller than intended.
+        $row5 = $table->addRow(2547);
+        $waitlistCell = $row5->addCell(5760);
+        $waitlistCell->addText('Waitlist', ['bold' => true, 'size' => 10], ['spacing' => 0, 'spacingLineRule' => 'auto']);
+        $this->add_waitlist_table($waitlistCell, $activity_id);
+
+        $notesCell = $row5->addCell(5760, ['gridSpan' => 3]);
+        $notesCell->addText('Absentees/Notes', ['bold' => true, 'size' => 10], ['spacing' => 0, 'spacingLineRule' => 'auto']);
+        for ($i = 0; $i < 6; $i++) {
+            $notesCell->addText(
+                '________________________________________________',
+                ['size' => 10],
+                ['spacing' => 36, 'spacingLineRule' => 'auto']
+            );
+        }
+
+        $section->addText(
+            $fields['session_short_code'],
+            ['name' => 'Arial', 'size' => 10],
+            ['alignment' => 'center']
+        );
+    }
+
+    /**
+     * Attendance table for one activity: a header row plus a fixed 31 data
+     * rows, blank-padded when there aren't 31 registrants, so every
+     * activity's block takes up the same page space regardless of how many
+     * students actually registered - this padding is deliberate, not
+     * something left over from the template.
+     *
      * Used to be a query per registrant (student, then family) - now one
      * JOIN query for the whole activity, see
      * Usctdp_Mgmt_Registration_Query::get_roster_students(). That query
@@ -472,59 +647,82 @@ class Usctdp_Mgmt_Docgen
      * throwing like this used to - a real behavior change, but throwing
      * per-row is exactly the per-row cost this was rewritten to avoid.
      */
-    private function fill_roster_students($templateProcessor, $activity_id, $block_id)
+    private function add_attendance_table($cell, $activity_id)
     {
         $registration_query = new Usctdp_Mgmt_Registration_Query();
         $registrants = $registration_query->get_roster_students($activity_id);
 
-        $student_table_data = [];
-        $idx = 1;
-        foreach ($registrants as $registrant) {
-            $student_table_data[] = [
-                'att#' . $block_id => "___" . $idx,
-                'last#' . $block_id => $registrant->student_last,
-                'first#' . $block_id => $registrant->student_first,
-                'age#' . $block_id => $registrant->student_age,
-                'lvl#' . $block_id => $registrant->student_level,
-                'phones#' . $block_id => $this->format_phone_numbers($registrant->family_phone_numbers)
-            ];
-            $idx++;
+        // Every row below declares all 6 cells explicitly (no gridSpan), so
+        // the writer's per-row-derived <w:tblGrid> (see the class doc
+        // comment on add_roster_activity_block()) naturally comes out right
+        // without needing anything special here.
+        $columnWidths = [1008, 2448, 2448, 864, 864, 3690];
+        $table = $cell->addTable(['width' => 11322, 'unit' => 'dxa', 'layout' => 'fixed']);
+
+        $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => 8.5];
+        $headerRow = $table->addRow(300);
+        foreach (['Attnd?', 'Last', 'First', 'Age', 'Level', 'Phone Number(s)'] as $i => $label) {
+            $headerRow->addCell($columnWidths[$i])->addText($label, $headerStyle);
         }
 
-        while ($idx < 32) {
-            $student_table_data[] = [
-                'att#' . $block_id => '',
-                'last#' . $block_id => '',
-                'first#' . $block_id => '',
-                'age#' . $block_id => '',
-                'lvl#' . $block_id => '',
-                'phones#' . $block_id => ''
-            ];
+        $dataStyle = ['size' => 8.5];
+        $idx = 1;
+        foreach ($registrants as $registrant) {
+            $row = $table->addRow(300);
+            $row->addCell($columnWidths[0])->addText('___' . $idx, $dataStyle);
+            $row->addCell($columnWidths[1])->addText((string) $registrant->student_last, $dataStyle);
+            $row->addCell($columnWidths[2])->addText((string) $registrant->student_first, $dataStyle);
+            $row->addCell($columnWidths[3])->addText((string) $registrant->student_age, $dataStyle);
+            $row->addCell($columnWidths[4])->addText((string) $registrant->student_level, $dataStyle);
+            $row->addCell($columnWidths[5])->addText($this->format_phone_numbers($registrant->family_phone_numbers), $dataStyle);
             $idx++;
         }
-        $templateProcessor->cloneRowAndSetValues("att#$block_id", $student_table_data);
+        while ($idx < 32) {
+            $row = $table->addRow(300);
+            foreach ($columnWidths as $width) {
+                $row->addCell($width)->addText('', $dataStyle);
+            }
+            $idx++;
+        }
     }
 
     /**
-     * Same rewrite as fill_roster_students() above, for the same reasons -
-     * see Usctdp_Mgmt_Waitlist_Query::get_roster_waitlist(). The "first 10"
-     * cutoff is now enforced in SQL (a LIMIT) instead of a PHP break, and
-     * ordered oldest-first to actually show who's next in line, rather than
-     * whichever 10 the table's default id-based ordering happened to select.
+     * Waitlist table for one activity: up to the first 10 waitlisters
+     * (oldest first, no blank-row padding - unlike the attendance table
+     * above, this one was never padded). See
+     * Usctdp_Mgmt_Waitlist_Query::get_roster_waitlist() for the "first 10,
+     * oldest first" query. Omitted entirely when there are none, since a
+     * table with zero rows isn't something Word can open.
      */
-    private function fill_roster_waitlist($templateProcessor, $activity_id, $block_id)
+    private function add_waitlist_table($cell, $activity_id)
     {
         $waitlist_query = new Usctdp_Mgmt_Waitlist_Query();
         $waitlisters = $waitlist_query->get_roster_waitlist($activity_id, 10);
-
-        $waitlist_table_data = [];
-        foreach ($waitlisters as $waitlister) {
-            $waitlist_table_data[] = [
-                'wl_last#' . $block_id => $waitlister->student_last,
-                'wl_first#' . $block_id => $waitlister->student_first,
-                'wl_phones#' . $block_id => $this->format_phone_numbers($waitlister->family_phone_numbers)
-            ];
+        if (empty($waitlisters)) {
+            return;
         }
-        $templateProcessor->cloneRowAndSetValues("wl_last#$block_id", $waitlist_table_data);
+
+        $columnWidths = [1365, 1530, 2640];
+        $table = $cell->addTable(['width' => 5535, 'unit' => 'dxa', 'layout' => 'fixed']);
+
+        $style = ['bold' => true, 'size' => 8.5];
+        $cellStyle = ['vAlign' => 'top'];
+        foreach ($waitlisters as $waitlister) {
+            $row = $table->addRow();
+            $row->addCell($columnWidths[0], $cellStyle)->addText((string) $waitlister->student_last, $style);
+            $row->addCell($columnWidths[1], $cellStyle)->addText((string) $waitlister->student_first, $style);
+            $row->addCell($columnWidths[2], $cellStyle)->addText($this->format_phone_numbers($waitlister->family_phone_numbers), $style);
+        }
     }
+
+    private function border_box($size)
+    {
+        return [
+            'borderTopSize' => $size, 'borderTopColor' => '000000', 'borderTopStyle' => 'single',
+            'borderLeftSize' => $size, 'borderLeftColor' => '000000', 'borderLeftStyle' => 'single',
+            'borderBottomSize' => $size, 'borderBottomColor' => '000000', 'borderBottomStyle' => 'single',
+            'borderRightSize' => $size, 'borderRightColor' => '000000', 'borderRightStyle' => 'single',
+        ];
+    }
+
 }
