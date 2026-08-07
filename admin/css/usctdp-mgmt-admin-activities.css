@@ -74,6 +74,25 @@
     min-height: 40px;
 }
 
+/* Without an explicit width, select2's container sizes itself off the
+   rendered text of whatever's currently shown (placeholder vs. a selected
+   name) - so it was growing/shrinking as a selection was made, shoving the
+   "Add Instructor" button sideways with it. Pinning this wrapper to the
+   flex row's remaining space (button stays flex-shrink: 0 at its natural
+   size) and forcing the select2 container to fill it keeps the button's
+   position stable regardless of what's selected. min-width: 0 overrides
+   flexbox's default min-width: auto, which would otherwise still let the
+   select2 container's intrinsic content width push this wrapper wider than
+   the row has room for. */
+#activity-add-instructor-select-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#activity-add-instructor-select-wrap .select2-container {
+    width: 100% !important;
+}
+
 .instructor-item-empty {
     padding: 6px 10px;
     color: #777;
