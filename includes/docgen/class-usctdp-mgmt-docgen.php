@@ -46,18 +46,6 @@ class Usctdp_Mgmt_Docgen
         }
     }
 
-    private function int_to_age_group($age_group)
-    {
-        switch ($age_group) {
-            case 1:
-                return 'Junior';
-            case 2:
-                return 'Adult';
-            default:
-                return 'Unknown';
-        }
-    }
-
     private function get_activity_registrations($activity_id)
     {
         $reg_query = new Usctdp_Mgmt_Registration_Query([
@@ -72,6 +60,22 @@ class Usctdp_Mgmt_Docgen
             'activity_id' => $activity_id
         ]);
         return $reg_query->items;
+    }
+
+    /**
+     * "First Last, First Last, ..." for every staff member currently
+     * assigned to an activity, in the same name order as
+     * Usctdp_Mgmt_Activity_Staff_Query::get_staff_for_activity() (last name,
+     * then first). Empty string if nobody's assigned.
+     */
+    private function get_instructor_names($activity_id)
+    {
+        $staff_query = new Usctdp_Mgmt_Activity_Staff_Query();
+        $staff = $staff_query->get_staff_for_activity($activity_id);
+        $names = array_map(function ($person) {
+            return trim($person->first_name . ' ' . $person->last_name);
+        }, $staff);
+        return implode(', ', $names);
     }
 
     public function get_roster_link($entity_id)
@@ -365,7 +369,7 @@ class Usctdp_Mgmt_Docgen
         }
         $clinic_fields = $clinic_data['data'][0];
         $session_name = $clinic_fields->session_name;
-        $age_group = $clinic_fields->product_age_group;
+        $age_group = ucfirst($clinic_fields->product_age_group);
         $product_name = $clinic_fields->product_name;
         $session_title = $session_name . ": " . $product_name;
         $activity_meta = json_decode($clinic_fields->clinic_meta, true);
@@ -393,8 +397,7 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("sdate#$block_id", $start_date);
         $templateProcessor->setValue("edate#$block_id", $end_date);
 
-        // TODO: Add instructors
-        $templateProcessor->setValue("insts#$block_id", '');
+        $templateProcessor->setValue("insts#$block_id", $this->get_instructor_names($clinic_id));
         $templateProcessor->setValue("skipped_clinics#$block_id", '');
         $templateProcessor->setValue("session_short_code#$block_id", '');
 
@@ -431,8 +434,7 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("sdate#$block_id", $start_date);
         $templateProcessor->setValue("edate#$block_id", $end_date);
 
-        // TODO: Add instructors
-        $templateProcessor->setValue("insts#$block_id", '');
+        $templateProcessor->setValue("insts#$block_id", $this->get_instructor_names($tournament_id));
         $templateProcessor->setValue("skipped_clinics#$block_id", '');
         $templateProcessor->setValue("session_short_code#$block_id", '');
 

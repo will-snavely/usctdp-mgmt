@@ -3,7 +3,9 @@
 class Usctdp_Mgmt_Admin_Ajax
 {
     public static $ajax_handlers = [
+        'activity_add_instructor' => 'ajax_activity_add_instructor',
         'activity_preregistration' => 'ajax_activity_preregistration',
+        'activity_remove_instructor' => 'ajax_activity_remove_instructor',
         'commit_merchandise' => 'ajax_commit_merchandise',
         'create_family' => 'ajax_create_family',
         'create_ledger_entries' => 'ajax_create_ledger_entries',
@@ -12,6 +14,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
         'gen_roster' => 'ajax_gen_roster',
         'gen_statement' => 'ajax_gen_statement',
+        'get_activity_details' => 'ajax_get_activity_details',
         'get_family' => 'ajax_get_family',
         'get_family_balance' => 'ajax_get_family_balance',
         'issue_house_credit' => 'ajax_issue_house_credit',
@@ -34,6 +37,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'student_datatable' => 'ajax_student_datatable',
         'submit_payment' => 'ajax_submit_payment',
         'toggle_session_active' => 'ajax_toggle_session_active',
+        'update_activity' => 'ajax_update_activity',
         'update_family' => 'ajax_update_family',
         'update_registration' => 'ajax_update_registration',
         'update_purchase' => 'ajax_update_purchase',
@@ -315,6 +319,125 @@ class Usctdp_Mgmt_Admin_Ajax
             Usctdp_Mgmt::logger()->log_exception('ajax_get_roster_link', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
+    }
+
+    /**
+     * Resolves an assigned staff member's display name/photo the same way
+     * Usctdp_Mgmt_Select2::select2_staff_search() does - kept in sync
+     * deliberately, since both read from the same usctdp_staff row shape.
+     */
+    private function format_instructor($staff)
+    {
+        return [
+            'id' => $staff->id,
+            'name' => trim($staff->first_name . ' ' . $staff->last_name),
+            'image_url' => $staff->image_id
+                ? (wp_get_attachment_image_url((int) $staff->image_id, 'thumbnail') ?: null)
+                : null,
+        ];
+    }
+
+    /**
+     * Feeds the Activities page's "Activity Details" panel (level +
+     * instructor list) on activity selection - same GET-on-selector-change
+     * pattern as ajax_get_roster_link() above.
+     */
+    public function ajax_get_activity_details()
+    {
+        $this->check_nonce('get_activity_details');
+
+        $activity_id = isset($_GET['activity_id']) ? intval($_GET['activity_id']) : 0;
+        if (empty($activity_id)) {
+            wp_send_json_error('Missing required parameter activity_id', 400);
+        }
+
+        try {
+            $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+            if (!$activity) {
+                wp_send_json_error('Activity with ID ' . $activity_id . ' not found.', 404);
+            }
+
+            $staff_query = new Usctdp_Mgmt_Activity_Staff_Query();
+            $instructors = array_map(
+                [$this, 'format_instructor'],
+                $staff_query->get_staff_for_activity($activity_id)
+            );
+
+            wp_send_json_success([
+                'level' => $activity->level,
+                'instructors' => $instructors,
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_activity_details', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    public function ajax_update_activity()
+    {
+        $this->check_nonce('update_activity');
+
+        $entity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter activity_id', 400);
+        }
+
+        $post_fields = [
+            'level' => sanitize_text_field(...),
+        ];
+
+        try {
+            $result = $this->save_entity(
+                $entity_id,
+                $_POST,
+                'Usctdp_Mgmt_Activity_Query',
+                $post_fields
+            );
+            wp_send_json_success($result);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_activity', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    public function ajax_activity_add_instructor()
+    {
+        $this->check_nonce('activity_add_instructor');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $staff_id = isset($_POST['staff_id']) ? intval($_POST['staff_id']) : 0;
+        if (!$activity_id || !$staff_id) {
+            wp_send_json_error('Both activity_id and staff_id are required.', 400);
+        }
+
+        try {
+            $staff_query = new Usctdp_Mgmt_Activity_Staff_Query();
+            $staff_query->assign_staff($activity_id, $staff_id);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_activity_add_instructor', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json_success(['message' => 'Instructor added successfully.']);
+    }
+
+    public function ajax_activity_remove_instructor()
+    {
+        $this->check_nonce('activity_remove_instructor');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $staff_id = isset($_POST['staff_id']) ? intval($_POST['staff_id']) : 0;
+        if (!$activity_id || !$staff_id) {
+            wp_send_json_error('Both activity_id and staff_id are required.', 400);
+        }
+
+        try {
+            $staff_query = new Usctdp_Mgmt_Activity_Staff_Query();
+            $staff_query->unassign_staff($activity_id, $staff_id);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_activity_remove_instructor', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+        wp_send_json_success(['message' => 'Instructor removed successfully.']);
     }
 
     public function ajax_gen_statement()

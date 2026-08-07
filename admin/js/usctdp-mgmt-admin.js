@@ -270,6 +270,101 @@
         }
     }
 
+    USCTDP_Admin.ajax_getActivityDetails = async function (activity_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.get_activity_details_action,
+                    security: usctdp_mgmt_admin.get_activity_details_nonce,
+                    activity_id: activity_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Get Activity Details Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_updateActivity = async function (activity_id, fields) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.update_activity_action,
+                    security: usctdp_mgmt_admin.update_activity_nonce,
+                    activity_id: activity_id,
+                    ...fields
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Update Activity Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_addActivityInstructor = async function (activity_id, staff_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.activity_add_instructor_action,
+                    security: usctdp_mgmt_admin.activity_add_instructor_nonce,
+                    activity_id: activity_id,
+                    staff_id: staff_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Add Activity Instructor Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    USCTDP_Admin.ajax_removeActivityInstructor = async function (activity_id, staff_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.activity_remove_instructor_action,
+                    security: usctdp_mgmt_admin.activity_remove_instructor_nonce,
+                    activity_id: activity_id,
+                    staff_id: staff_id
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Remove Activity Instructor Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     USCTDP_Admin.ajax_addWaitlistStudent = async function (student_id, activity_id) {
         try {
             const response = await $.ajax({

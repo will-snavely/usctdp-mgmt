@@ -49,6 +49,15 @@ class Usctdp_Mgmt_Select2
                     'family_id' => intval(...)
                 ]
             ],
+            'staff' => [
+                'callback' => $this->select2_staff_search(...),
+                'filters' => [
+                    // Excludes staff already assigned to the activity being
+                    // edited - same reasoning as 'exclude_roster_group_id' on
+                    // the 'session' target above.
+                    'exclude_activity_id' => intval(...)
+                ]
+            ],
         ];
     }
 
@@ -162,6 +171,35 @@ class Usctdp_Mgmt_Select2
                     'phone_numbers' => json_decode($result->phone_numbers),
                     'emails' => json_decode($result->emails),
                     'notes' => $result->notes,
+                );
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * image_url resolution mirrors StaffRepository::hydrate() on the theme
+     * side (projects/usctdp-bedrock/web/app/themes/usctdp-theme/app/
+     * Repositories/StaffRepository.php) - usctdp_staff only stores a raw
+     * image_id (WP attachment post id), Usctdp_Mgmt_Staff_Row doesn't
+     * resolve it, so every consumer that wants a display URL does the
+     * wp_get_attachment_image_url() call itself.
+     */
+    private function select2_staff_search($search, $filters)
+    {
+        $results = [];
+        $query = new Usctdp_Mgmt_Staff_Query();
+        $exclude_activity_id = $filters['exclude_activity_id'] ?? null;
+        $query_results = $query->search_staff($search, $exclude_activity_id, self::$limit);
+        if ($query_results) {
+            foreach ($query_results as $result) {
+                $image_url = $result->image_id
+                    ? (wp_get_attachment_image_url((int) $result->image_id, 'thumbnail') ?: null)
+                    : null;
+                $results[] = array(
+                    'id' => $result->id,
+                    'text' => trim($result->first_name . ' ' . $result->last_name),
+                    'image_url' => $image_url,
                 );
             }
         }

@@ -49,6 +49,73 @@
             });
         }
 
+        // Avatar+name template for the OPEN dropdown's option list only. The
+        // 40px avatar reads fine there, but templateSelection (the CLOSED
+        // select box) is a fixed-height single line that clips anything
+        // taller than text - so that one deliberately stays plain text
+        // below, rather than reusing this. $('<div>').text(...).html() is
+        // select2's own escaping idiom (see its default templateResult).
+        function formatStaffResult(item) {
+            if (!item.id) {
+                return item.text;
+            }
+            var safeText = $('<div>').text(item.text).html();
+            var avatar = item.image_url
+                ? '<img class="instructor-avatar" src="' + item.image_url + '" alt="">'
+                : '<span class="instructor-avatar instructor-avatar-placeholder"></span>';
+            return $('<span class="flex-row gap-5 align-center">' + avatar + '<span>' + safeText + '</span></span>');
+        }
+
+        $('#activity-add-instructor-select').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: 'Search for an instructor to add...',
+                allowClear: true,
+                target: 'staff',
+                filter: function () {
+                    return { exclude_activity_id: $('#activity-selector').val() || 0 };
+                },
+                templateResult: formatStaffResult
+            }));
+
+        function renderActivityInstructors(instructors) {
+            var $list = $('#activity-instructors-list');
+            $list.empty();
+            if (!instructors || instructors.length === 0) {
+                $list.append($('<div class="instructor-item-empty"></div>').text('No instructors assigned.'));
+                return;
+            }
+            instructors.forEach(function (instructor) {
+                var $item = $('<div class="instructor-item flex-row gap-10 align-center"></div>');
+                if (instructor.image_url) {
+                    $item.append($('<img class="instructor-avatar">').attr('src', instructor.image_url).attr('alt', ''));
+                } else {
+                    $item.append($('<span class="instructor-avatar instructor-avatar-placeholder"></span>'));
+                }
+                $item.append($('<span class="instructor-name"></span>').text(instructor.name));
+                var $removeBtn = $('<button type="button" class="usctdp-remove-btn remove-instructor-btn">&times;</button>');
+                $removeBtn.attr('data-staff-id', instructor.id);
+                $item.append($removeBtn);
+                $list.append($item);
+            });
+        }
+
+        function loadActivityDetails(activityId) {
+            if (!activityId) {
+                $('#activity-level-input').val('');
+                renderActivityInstructors([]);
+                return;
+            }
+            USCTDP_Admin.ajax_getActivityDetails(activityId)
+                .then(function (data) {
+                    $('#activity-level-input').val(data.level || '');
+                    renderActivityInstructors(data.instructors);
+                })
+                .catch(function () {
+                    $('#activity-level-input').val('');
+                    renderActivityInstructors([]);
+                });
+        }
+
         $('#print-roster-button').on('click', function () {
             const selectedActivityId = $('#activity-selector').val();
             if (selectedActivityId === '') {
@@ -282,6 +349,7 @@
                     rosterTable.ajax.reload();
                     waitlistTable.ajax.reload();
                     refreshRosterLinkInfo(value);
+                    loadActivityDetails(value);
                     // Both tables were initialized while this section was
                     // hidden, so DataTables locked in collapsed column
                     // widths at init time - recompute now that it's visible.
@@ -331,6 +399,73 @@
 
         $("#cancel-waitlist-btn").on("click", function () {
             waitlistStudentModal.close();
+        });
+
+        $('#save-activity-level-btn').on('click', function () {
+            const activityId = $('#activity-selector').val();
+            if (!activityId) {
+                return;
+            }
+            const level = $('#activity-level-input').val();
+            USCTDP_Admin.ajax_updateActivity(activityId, { level: level })
+                .then(function () {
+                    Swal.fire({
+                        title: 'Success',
+                        text: 'Level updated.',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    });
+                })
+                .catch(function () {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to update level. Please inform a developer.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                });
+        });
+
+        $('#activity-add-instructor-btn').on('click', function () {
+            const activityId = $('#activity-selector').val();
+            const selected = $('#activity-add-instructor-select').select2('data');
+            if (!activityId || !selected || selected.length === 0) {
+                return;
+            }
+            const staffId = selected[0].id;
+            USCTDP_Admin.ajax_addActivityInstructor(activityId, staffId)
+                .then(function () {
+                    $('#activity-add-instructor-select').val(null).trigger('change');
+                    loadActivityDetails(activityId);
+                })
+                .catch(function () {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to add instructor. Please inform a developer.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                });
+        });
+
+        $('#activity-instructors-list').on('click', '.remove-instructor-btn', function () {
+            const activityId = $('#activity-selector').val();
+            const staffId = $(this).data('staff-id');
+            if (!activityId) {
+                return;
+            }
+            USCTDP_Admin.ajax_removeActivityInstructor(activityId, staffId)
+                .then(function () {
+                    loadActivityDetails(activityId);
+                })
+                .catch(function () {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to remove instructor. Please inform a developer.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                });
         });
 
         $('#roster-table').on('click', '.remove-roster-btn', function (e) {

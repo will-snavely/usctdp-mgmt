@@ -39,6 +39,7 @@ class Usctdp_Mgmt_Model
 
         $berlindb_entities = [
             "activity",
+            "activity-staff",
             "clinic",
             "family",
             "import-pending",
@@ -78,6 +79,7 @@ class Usctdp_Mgmt_Model
     {
         return [
             new Usctdp_Mgmt_Activity_Table(),
+            new Usctdp_Mgmt_Activity_Staff_Table(),
             new Usctdp_Mgmt_Clinic_Table(),
             new Usctdp_Mgmt_Family_Table(),
             new Usctdp_Mgmt_Import_Pending_Table(),

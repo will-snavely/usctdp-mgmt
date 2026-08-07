@@ -23,6 +23,27 @@
             </div>
         </dialog>
 
+        <div id="activity-details-section" class="flex-col gap-10">
+            <h2> Activity Details </h2>
+            <div id="activity-level-wrap" class="flex-row gap-10 align-center">
+                <label for="activity-level-input">Level</label>
+                <input type="text" id="activity-level-input" placeholder="e.g. 1, 1.5, 2.0-2.5">
+                <button type="button" class="button button-secondary" id="save-activity-level-btn">Save</button>
+            </div>
+            <div id="activity-instructors-wrap" class="flex-col gap-5">
+                <label>Instructors</label>
+                <div id="activity-instructors-list" class="flex-col gap-5"></div>
+                <div id="activity-add-instructor-wrap" class="flex-row gap-10 align-center">
+                    <div id="activity-add-instructor-select-wrap">
+                        <select id="activity-add-instructor-select"></select>
+                    </div>
+                    <button type="button" class="button button-secondary" id="activity-add-instructor-btn">
+                        Add Instructor
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div id="rosters-section" class="flex-col gap-10">
             <h2> Roster </h2>
             <div id="roster-actions" class="flex-col gap-5">
