@@ -371,11 +371,15 @@ class Usctdp_Mgmt_Docgen
         $session_name = $clinic_fields->session_name;
         $age_group = ucfirst($clinic_fields->product_age_group);
         $product_name = $clinic_fields->product_name;
-        $session_title = $session_name . ": " . $product_name;
+
         $activity_meta = json_decode($clinic_fields->clinic_meta, true);
-        if(isset($activity_meta['session_title'])) {
+        if (isset($activity_meta['session_title'])) {
             $session_title = $activity_meta['session_title'];
+        } else {
+            $session_no_parens = trim(preg_replace('/\([^)]*\)/', '', $session_name));
+            $session_title = $session_no_parens . ": " . $product_name;
         }
+
 
         $start_date_raw = $clinic_fields->session_start_date;
         $start_date = $start_date_raw ? DateTime::createFromFormat('Y-m-d', $start_date_raw)->format('m/d/Y') : '';
@@ -439,6 +443,8 @@ class Usctdp_Mgmt_Docgen
         $templateProcessor->setValue("session_short_code#$block_id", '');
 
         $this->fill_roster_students($templateProcessor, $tournament_id, $block_id);
+        $this->fill_roster_waitlist($templateProcessor, $tournament_id, $block_id);
+
     }
 
     private function fill_roster_students($templateProcessor, $activity_id, $block_id)
@@ -505,7 +511,7 @@ class Usctdp_Mgmt_Docgen
         $idx = 1;
         foreach ($waitlist_entries as $item) {
             $count += 1;
-            if($count > $max_display) {
+            if ($count > $max_display) {
                 break;
             }
             $student_query = new Usctdp_Mgmt_Student_Query([
