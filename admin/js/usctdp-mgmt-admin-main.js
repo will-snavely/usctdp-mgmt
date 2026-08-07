@@ -124,7 +124,7 @@
                 data: {
                     action: usctdp_mgmt_admin.gen_roster_action,
                     security: usctdp_mgmt_admin.gen_roster_nonce,
-                    session_id: rowData.id,
+                    roster_group_id: rowData.roster_group_id,
                 },
                 success: function (response) {
                     var row = sessionsRosterTable.row($tr);

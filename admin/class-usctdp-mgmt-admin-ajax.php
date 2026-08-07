@@ -226,65 +226,61 @@ class Usctdp_Mgmt_Admin_Ajax
         ]);
     }
 
+    /**
+     * Generates/regenerates a roster document. Takes exactly one of
+     * activity_id, session_id, or roster_group_id - each is handled as its
+     * own precise, self-contained case, rather than trying to infer a
+     * roster group from a session_id (that used to happen transparently
+     * inside Usctdp_Mgmt_Docgen::generate_and_upload_session_roster() - a
+     * plain session_id now always means just that session, full stop).
+     */
     public function ajax_gen_roster()
     {
         $this->check_nonce('gen_roster');
 
-        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : '';
-        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : '';
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        $roster_group_id = isset($_POST['roster_group_id']) ? intval($_POST['roster_group_id']) : 0;
 
-        $target = null;
-        if (!empty($activity_id)) {
-            $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
-            if (!$activity) {
-                wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
-            }
-            $target = [
-                'id' => $activity->id,
-                'title' => $activity->title,
-                'type' => $activity->type,
-            ];
-        } else if (!empty($session_id)) {
-            $session = Usctdp_Mgmt_Model::get_session($session_id);
-            if (!$session) {
-                wp_send_json_error('Session with ID "' . $session_id . '" not found.', 404);
-            }
-            $target = [
-                'id' => $session->id,
-                'title' => $session->title,
-                'type' => "session",
-            ];
+        $provided = array_filter(['activity_id' => $activity_id, 'session_id' => $session_id, 'roster_group_id' => $roster_group_id]);
+        if (count($provided) !== 1) {
+            wp_send_json_error('Exactly one of activity_id, session_id, or roster_group_id is required.', 400);
         }
 
-        if (!$target) {
-            wp_send_json_error('Activity ID or Session ID is required.', 400);
-        }
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
-            $document = null;
-            $drive_file = null;
-            if ($target['type'] === 'clinic') {
-                $document = $doc_gen->generate_clinic_roster($target['id']);
-            } elseif ($target['type'] === 'tournament') {
-                $document = $doc_gen->generate_tournament_roster($target['id']);
-            } elseif ($target['type'] === 'session') {
-                // Transparently covers the case where this session has been
-                // merged into a multi-session roster - see
-                // Usctdp_Mgmt_Docgen::generate_and_upload_session_roster().
-                $drive_file = $doc_gen->generate_and_upload_session_roster($target['id'], $target['title']);
+
+            if ($activity_id) {
+                $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+                if (!$activity) {
+                    wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
+                }
+                if ($activity->type === 'clinic') {
+                    $document = $doc_gen->generate_clinic_roster($activity_id);
+                } elseif ($activity->type === 'tournament') {
+                    $document = $doc_gen->generate_tournament_roster($activity_id);
+                } else {
+                    wp_send_json_error('Unsupported activity type: ' . $activity->type, 400);
+                }
+                $drive_file = $doc_gen->upload_to_google_drive($document, $activity_id, $activity->title);
+            } elseif ($session_id) {
+                $session = Usctdp_Mgmt_Model::get_session($session_id);
+                if (!$session) {
+                    wp_send_json_error('Session with ID "' . $session_id . '" not found.', 404);
+                }
+                $drive_file = $doc_gen->generate_and_upload_session_roster($session_id, $session->title);
+            } else {
+                $drive_file = $doc_gen->generate_and_upload_roster_group($roster_group_id);
             }
-            if (!$document && !$drive_file) {
-                wp_send_json_error('Document not generated.', 400);
-            }
-            if (!$drive_file) {
-                $drive_file = $doc_gen->upload_to_google_drive($document, $target['id'], $target['title']);
-            }
+
             wp_send_json_success([
                 'message' => 'Roster generated successfully',
                 'doc_id' => $drive_file->id,
                 'doc_url' => $drive_file->webViewLink,
                 'generated_at' => gmdate('Y-m-d\TH:i:s\Z')
             ]);
+        } catch (Roster_Group_Exception $e) {
+            wp_send_json_error($e->getMessage(), 400);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
             wp_send_json_error('An unexpected server error occurred during roster generation.', 500);
@@ -1266,6 +1262,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $results = array_map(function ($roster) {
                 return [
                     'id' => $roster['id'],
+                    'roster_group_id' => $roster['roster_group_id'],
                     'title' => $roster['name']
                 ];
             }, $rosters);

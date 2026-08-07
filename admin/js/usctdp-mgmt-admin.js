@@ -79,7 +79,7 @@
         }
     }
 
-    USCTDP_Admin.ajax_generateSessionRoster = async function (session_id) {
+    USCTDP_Admin.ajax_generateRosterGroup = async function (roster_group_id) {
         try {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -87,7 +87,7 @@
                 dataType: 'json',
                 data: {
                     action: usctdp_mgmt_admin.gen_roster_action,
-                    session_id: session_id,
+                    roster_group_id: roster_group_id,
                     security: usctdp_mgmt_admin.gen_roster_nonce,
                 }
             });
@@ -97,7 +97,7 @@
                 throw new Error(response.data || 'Server error');
             }
         } catch (error) {
-            console.error('Generate Session Roster Failed:', error.statusText || error.message);
+            console.error('Generate Roster Group Failed:', error.statusText || error.message);
             throw error;
         }
     }

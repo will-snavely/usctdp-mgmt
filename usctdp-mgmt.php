@@ -84,6 +84,25 @@ require plugin_dir_path(__FILE__) . "includes/class-usctdp-mgmt.php";
 function run_usctdp_mgmt()
 {
     $plugin = new Usctdp_Mgmt();
+
+    // Usctdp_Mgmt_Logger is normally lazy-constructed the first time
+    // something calls Usctdp_Mgmt::logger() - which in practice is always
+    // from inside a catch block or an already-failing code path (grep the
+    // plugin: every call site is one of those). That means \Sentry\init()
+    // (called from the logger's constructor) never runs at all for a
+    // request that fatals before anything gets the chance to catch and log
+    // an exception - so Sentry's own automatic exception/error/fatal-error
+    // handlers, which init() registers, were never armed, and a genuine PHP
+    // fatal (OOM, timeout, or anything else that never reaches a catch
+    // block) is reported nowhere. Forcing construction here, unconditionally
+    // on every request as early as the class is available (right after
+    // $plugin's constructor requires it - see load_dependencies()), makes
+    // sure those handlers are always live before the rest of the plugin's
+    // hooks even get registered. Safe to call repeatedly: Usctdp_Mgmt::
+    // logger()/maybe_init_sentry() are both idempotent, so every later call
+    // (e.g. from inside a catch block) just reuses this same instance.
+    Usctdp_Mgmt::logger();
+
     $plugin->run();
     if (defined('WP_CLI') && WP_CLI) {
         include_once(dirname(__FILE__) . '/includes/cli-commands.php');

@@ -48,7 +48,7 @@
     max-width: 1000px;
 }
 
-/* Keep both action buttons on one line - the spinner generateSessionRosterRow()
+/* Keep both action buttons on one line - the spinner generateRosterGroupRow()
    injects after the button would otherwise push "Edit" onto its own row
    mid-generation. */
 #session-rosters-table .session-actions {

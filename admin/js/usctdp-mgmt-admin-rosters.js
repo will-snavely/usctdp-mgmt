@@ -112,14 +112,18 @@
             }
         });
 
-        function generateSessionRosterRow($btn, sessionId, openWhenDone) {
+        // Operates on whatever row $btn is actually in, rather than
+        // re-locating the row from an id - the row's own primary-session-
+        // keyed DOM id and the roster_group_id being regenerated are two
+        // different things now, so there's no single id to re-locate by.
+        function generateRosterGroupRow($btn, rosterGroupId, openWhenDone) {
             var $spinner = $('<span class="spinner is-active"></span>');
             $btn.prop('disabled', true);
             $btn.text('Working...');
             $btn.after($spinner);
-            return USCTDP_Admin.ajax_generateSessionRoster(sessionId)
+            return USCTDP_Admin.ajax_generateRosterGroup(rosterGroupId)
                 .then(function (response) {
-                    var row = sessionsRosterTable.row('#session-row-' + sessionId);
+                    var row = sessionsRosterTable.row($btn.closest('tr'));
                     if (row.node()) {
                         var rowData = row.data();
                         rowData.drive_id = response.doc_id;
@@ -150,7 +154,7 @@
             var $btn = $(this);
             var $tr = $btn.closest('tr');
             var rowData = sessionsRosterTable.row($tr).data();
-            generateSessionRosterRow($btn, rowData.id, true);
+            generateRosterGroupRow($btn, rowData.roster_group_id, true);
         });
 
         $('#regenerate-all-rosters-btn').on('click', async function () {
@@ -168,27 +172,27 @@
                         security: usctdp_mgmt_admin.roster_regenerate_all_nonce,
                     }
                 });
-                var sessions = (response && response.data) ? response.data : [];
+                var rosters = (response && response.data) ? response.data : [];
 
-                for (var i = 0; i < sessions.length; i++) {
-                    var session = sessions[i];
-                    $status.text('Regenerating ' + (i + 1) + ' of ' + sessions.length + '… (' + session.title + ')');
-                    var $row = $('#session-row-' + session.id).find('button.print-session-roster');
+                for (var i = 0; i < rosters.length; i++) {
+                    var roster = rosters[i];
+                    $status.text('Regenerating ' + (i + 1) + ' of ' + rosters.length + '… (' + roster.title + ')');
+                    var $row = $('#session-row-' + roster.id).find('button.print-session-roster');
                     try {
                         if ($row.length) {
-                            await generateSessionRosterRow($row, session.id, false);
+                            await generateRosterGroupRow($row, roster.roster_group_id, false);
                         } else {
-                            await USCTDP_Admin.ajax_generateSessionRoster(session.id);
+                            await USCTDP_Admin.ajax_generateRosterGroup(roster.roster_group_id);
                         }
                     } catch (err) {
-                        console.error('Failed to regenerate roster for session ' + session.id, err);
+                        console.error('Failed to regenerate roster ' + roster.roster_group_id, err);
                     }
                 }
 
-                $status.text('Done! Regenerated ' + sessions.length + ' roster(s).');
+                $status.text('Done! Regenerated ' + rosters.length + ' roster(s).');
             } catch (error) {
                 console.error('Regenerate All Rosters failed:', error);
-                $status.text('An error occurred fetching active sessions.');
+                $status.text('An error occurred fetching rosters.');
             } finally {
                 sessionsRosterTable.ajax.reload(null, false);
                 $btn.prop('disabled', false);

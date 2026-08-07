@@ -12,7 +12,11 @@ class Usctdp_Roster_Generator
 
         foreach ($rosters as $roster) {
             WP_CLI::log('Processing Roster: ' . $roster['name'] . ' (sessions: ' . implode(', ', array_column($roster['sessions'], 'id')) . ')');
-            $drive_file = $doc_gen->generate_and_upload_session_roster($roster['id'], $roster['name']);
+            if (empty($roster['sessions'])) {
+                WP_CLI::log('Skipping - no sessions in this roster.');
+                continue;
+            }
+            $drive_file = $doc_gen->generate_and_upload_roster_group($roster['roster_group_id']);
             WP_CLI::log('Roster: ' . $drive_file->webViewLink);
         }
     }

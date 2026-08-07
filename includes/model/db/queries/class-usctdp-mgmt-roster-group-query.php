@@ -25,6 +25,15 @@ class Usctdp_Mgmt_Roster_Group_Query extends Query
     protected $item_shape = 'Usctdp_Mgmt_Roster_Group_Row';
 
     /**
+     * Fetches a single roster group by id, or null if it doesn't exist.
+     */
+    public function get_group($roster_group_id)
+    {
+        $group_query = new Usctdp_Mgmt_Roster_Group_Query(['id' => $roster_group_id, 'number' => 1]);
+        return !empty($group_query->items) ? $group_query->items[0] : null;
+    }
+
+    /**
      * Sessions default to an implicit 1:1 roster (no usctdp_roster_group row
      * at all) and only get a real row here the first time their roster is
      * edited - renamed, or another session added to it. This keeps every
@@ -66,8 +75,7 @@ class Usctdp_Mgmt_Roster_Group_Query extends Query
             'created_at' => current_time('mysql', true)
         ]);
 
-        $group_query = new Usctdp_Mgmt_Roster_Group_Query(['id' => $group_id, 'number' => 1]);
-        return $group_query->items[0];
+        return $this->get_group($group_id);
     }
 
     /**
@@ -94,18 +102,14 @@ class Usctdp_Mgmt_Roster_Group_Query extends Query
         if (empty($membership_query->items)) {
             return null;
         }
-        $group_query = new Usctdp_Mgmt_Roster_Group_Query([
-            'id' => $membership_query->items[0]->roster_group_id,
-            'number' => 1
-        ]);
-        return !empty($group_query->items) ? $group_query->items[0] : null;
+        return $this->get_group($membership_query->items[0]->roster_group_id);
     }
 
     /**
      * Member session ids in the order they were added to the group - the
      * membership row's own auto-increment id is a reliable stand-in for
      * that, since rows are only ever inserted, never reordered. Used by
-     * docgen (Usctdp_Mgmt_Docgen::generate_and_upload_session_roster()) so
+     * docgen (Usctdp_Mgmt_Docgen::generate_and_upload_roster_group()) so
      * a multi-session roster's doc lists sessions in that same order.
      */
     public function get_member_session_ids($roster_group_id)
@@ -196,8 +200,7 @@ class Usctdp_Mgmt_Roster_Group_Query extends Query
             throw new Roster_Group_Exception('Failed to create a new roster.');
         }
 
-        $group_query = new Usctdp_Mgmt_Roster_Group_Query(['id' => $group_id, 'number' => 1]);
-        return $group_query->items[0];
+        return $this->get_group($group_id);
     }
 
     /**

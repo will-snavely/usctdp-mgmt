@@ -152,27 +152,41 @@ class Usctdp_Mgmt_Docgen
     }
 
     /**
-     * Generates and uploads the roster for a single session, transparently
-     * honoring roster grouping: if the session has been merged into a
-     * multi-session roster, the document covers every member session and is
-     * persisted against that roster group; otherwise this is identical to
-     * generate_session_roster()+upload_to_google_drive() for that session
-     * alone. This is the single entry point session-level roster generation
-     * should go through (ajax_gen_roster's "session" target, "Regenerate
-     * All Rosters", and the WP-CLI roster generator all use it).
+     * Generates and uploads the roster for a single session, and only that
+     * session - no roster-group inference. Persisted via the shared
+     * usctdp_roster_link table (entity_id = session id). Use
+     * generate_and_upload_roster_group() to generate a roster group's
+     * (possibly multi-session) document instead.
      */
-    public function generate_and_upload_session_roster($session_id, $fallback_title)
+    public function generate_and_upload_session_roster($session_id, $title)
+    {
+        $document = $this->generate_session_roster($session_id);
+        return $this->upload_to_google_drive($document, $session_id, $title);
+    }
+
+    /**
+     * Generates and uploads the combined roster for every member session of
+     * a roster group, persisted directly on the usctdp_roster_group row -
+     * see upload_roster_group_document(). Throws Roster_Group_Exception if
+     * the group doesn't exist or has no member sessions to build a roster
+     * from.
+     */
+    public function generate_and_upload_roster_group($roster_group_id)
     {
         $group_query = new Usctdp_Mgmt_Roster_Group_Query();
-        $roster_group = $group_query->find_group_for_session($session_id);
-        if ($roster_group) {
-            $member_session_ids = $group_query->get_member_session_ids($roster_group->id);
-            $document = $this->generate_roster_for_sessions($member_session_ids);
-            $title = $roster_group->name ? $roster_group->name : $fallback_title;
-            return $this->upload_roster_group_document($document, $roster_group, $title);
+        $roster_group = $group_query->get_group($roster_group_id);
+        if (!$roster_group) {
+            throw new Roster_Group_Exception('Roster group not found.');
         }
-        $document = $this->generate_session_roster($session_id);
-        return $this->upload_to_google_drive($document, $session_id, $fallback_title);
+
+        $member_session_ids = $group_query->get_member_session_ids($roster_group_id);
+        if (empty($member_session_ids)) {
+            throw new Roster_Group_Exception('This roster has no sessions to generate a document from.');
+        }
+
+        $document = $this->generate_roster_for_sessions($member_session_ids);
+        $title = $roster_group->name ?: 'Untitled Roster';
+        return $this->upload_roster_group_document($document, $roster_group, $title);
     }
 
     public function generate_financial_statement($family_id, $purchase_ids)
