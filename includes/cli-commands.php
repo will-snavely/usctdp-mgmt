@@ -70,6 +70,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-void-stale-registrations.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-merge-matching-clinics.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -567,6 +570,44 @@ class Usctdp_Cli_Command
         }
         $manager = new Usctdp_Manage_Reservation_Groups();
         $manager->set_capacity($args[0], $args[1]);
+    }
+
+    /**
+     * Automates building reservation groups for two clinics that share a
+     * court - finds every (session, day, start_time, end_time) slot where
+     * both clinic products have exactly one activity, and merges each pair
+     * into its own new shared group (capacity = the sum of the two) via
+     * `merge_reservation_group`'s same underlying logic. See
+     * Usctdp_Merge_Matching_Clinics's class doc comment for why "same day
+     * and time" and "same day" (as someone might describe two clinics that
+     * share a court) collapse to one matching rule here.
+     *
+     * ## OPTIONS
+     *
+     * <clinic-a>
+     * : Exact product title of the first clinic (e.g. "Yellow Ball").
+     *
+     * <clinic-b>
+     * : Exact product title of the second clinic (e.g. "Yellow Ball Open").
+     *
+     * [--dry-run]
+     * : Print what would be merged without actually merging anything.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp merge_matching_clinics "Yellow Ball" "Yellow Ball Open" --dry-run
+     *     wp usctdp merge_matching_clinics "Yellow Ball" "Yellow Ball Open"
+     *     wp usctdp merge_matching_clinics "Red Pre-Rally" "Red Ball"
+     */
+    public function merge_matching_clinics($args, $assoc_args)
+    {
+        if (count($args) < 2) {
+            WP_CLI::error('Provide two clinic product titles to match up.');
+            return;
+        }
+        $dry_run = \WP_CLI\Utils\get_flag_value($assoc_args, 'dry-run', false);
+        $merger = new Usctdp_Merge_Matching_Clinics();
+        $merger->merge($args[0], $args[1], $dry_run);
     }
 }
 
