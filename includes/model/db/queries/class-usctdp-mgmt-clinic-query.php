@@ -82,16 +82,17 @@ class Usctdp_Mgmt_Clinic_Query extends Query
         }
         $query = $wpdb->prepare(
             "   SELECT
-                    act.id as clinic_id, act.title as clinic_name, act.capacity as clinic_capacity,
+                    act.id as clinic_id, act.title as clinic_name, resg.capacity as clinic_capacity,
                     act.level as clinic_level, act.meta as clinic_meta,
                     clin.day_of_week as clinic_day_of_week,
                     clin.start_time as clinic_start_time, clin.end_time as clinic_end_time,
                     sess.id as session_id, sess.title as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
-                    prod.title as product_name, prod.id as product_id, prod.age_group as product_age_group 
+                    prod.title as product_name, prod.id as product_id, prod.age_group as product_age_group
                 FROM {$wpdb->prefix}usctdp_activity AS act
                 JOIN {$wpdb->prefix}usctdp_clinic AS clin ON act.id = clin.id
+                JOIN {$wpdb->prefix}usctdp_reservation_group AS resg ON act.reservation_group_id = resg.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}

@@ -217,11 +217,57 @@ class Usctdp_Mgmt_Public
     }
 
     /**
+     * Counts registrations against a set of reservation groups - active
+     * ones, plus 'pending' ones still inside the checkout hold window (see
+     * Usctdp_Mgmt_Woocommerce_Hooks::HOLD_MINUTES / after_checkout_validation(),
+     * the source of truth this mirrors). Without the status filter,
+     * voided/expired-pending registrations (abandoned or failed checkouts -
+     * see release_registrations_for_order()) would count forever and make
+     * activities look permanently full; the filter has to live in the JOIN
+     * condition, not WHERE, or activities with zero counted registrations
+     * would be dropped instead of coming back as enrolled_count = 0.
+     *
+     * Grouped by reservation_group_id rather than activity_id because two
+     * activities sharing a physical space/time slot draw down the same
+     * capacity pool - see Usctdp_Mgmt_Reservation_Group_Table.
+     *
+     * @return array<int, int> enrolled_count keyed by reservation_group_id.
+     */
+    private function get_enrolled_counts_by_group($group_ids)
+    {
+        global $wpdb;
+        if (empty($group_ids)) {
+            return [];
+        }
+        $activity_table = $wpdb->prefix . 'usctdp_activity';
+        $registration_table = $wpdb->prefix . 'usctdp_registration';
+        $placeholders = implode(',', array_fill(0, count($group_ids), '%d'));
+
+        $query = $wpdb->prepare(
+            "SELECT act.reservation_group_id as group_id, COUNT(reg.id) as enrolled_count
+            FROM $activity_table as act
+            LEFT JOIN $registration_table as reg ON act.id = reg.activity_id
+                AND (reg.status = %s
+                    OR (reg.status = %s AND reg.created_at > NOW() - INTERVAL %d MINUTE))
+            WHERE act.reservation_group_id IN ($placeholders)
+            GROUP BY act.reservation_group_id",
+            array_merge(['active', 'pending', Usctdp_Mgmt_Woocommerce_Hooks::HOLD_MINUTES], $group_ids)
+        );
+
+        $counts = [];
+        foreach ($wpdb->get_results($query) as $row) {
+            $counts[(int) $row->group_id] = (int) $row->enrolled_count;
+        }
+        return $counts;
+    }
+
+    /**
      * Generic (session, product) -> activities lookup with enrollment counts.
      * Unlike get_clinics() below, this doesn't join usctdp_clinic - it works
-     * for any activity type, since capacity/enrollment live on usctdp_activity
-     * itself. For a clinic session this returns every class time-slot; for a
-     * tournament session it returns exactly one activity.
+     * for any activity type, since enrollment lives on usctdp_activity
+     * itself (capacity lives on usctdp_reservation_group). For a clinic
+     * session this returns every class time-slot; for a tournament session
+     * it returns exactly one activity.
      */
     public function get_activities($request)
     {
@@ -229,22 +275,26 @@ class Usctdp_Mgmt_Public
         $session_id = $request->get_param('session_id');
         $product_id = $request->get_param('product_id');
         $activity_table = $wpdb->prefix . 'usctdp_activity';
-        $registration_table = $wpdb->prefix . 'usctdp_registration';
+        $reservation_group_table = $wpdb->prefix . 'usctdp_reservation_group';
 
         $activity_query = $wpdb->prepare(
-            "SELECT act.*, COUNT(reg.id) as enrolled_count
+            "SELECT act.*, resg.capacity as capacity
             FROM $activity_table as act
-            LEFT JOIN $registration_table as reg ON act.id = reg.activity_id
-            WHERE act.session_id = %d AND act.product_id = %d
-            GROUP BY act.id",
+            JOIN $reservation_group_table as resg ON act.reservation_group_id = resg.id
+            WHERE act.session_id = %d AND act.product_id = %d",
             $session_id,
             $product_id
         );
 
         $results = $wpdb->get_results($activity_query);
+        $group_ids = array_unique(array_map(function ($activity) {
+            return (int) $activity->reservation_group_id;
+        }, $results));
+        $enrolled_by_group = $this->get_enrolled_counts_by_group($group_ids);
+
         foreach ($results as &$activity) {
             $activity->capacity = (int) $activity->capacity;
-            $activity->enrolled_count = (int) $activity->enrolled_count;
+            $activity->enrolled_count = $enrolled_by_group[(int) $activity->reservation_group_id] ?? 0;
         }
         return $results;
     }
@@ -256,39 +306,25 @@ class Usctdp_Mgmt_Public
         $product_id = $request->get_param('product_id');
         $activity_table = $wpdb->prefix . 'usctdp_activity';
         $clinic_table = $wpdb->prefix . 'usctdp_clinic';
-        $registration_table = $wpdb->prefix . 'usctdp_registration';
+        $reservation_group_table = $wpdb->prefix . 'usctdp_reservation_group';
 
         $clinic_query = $wpdb->prepare(
-            "SELECT * FROM $activity_table as act
+            "SELECT *, resg.capacity as capacity FROM $activity_table as act
             JOIN $clinic_table as clin ON act.id = clin.id
+            JOIN $reservation_group_table as resg ON act.reservation_group_id = resg.id
             WHERE act.session_id = %d AND act.product_id = %d",
             $session_id,
             $product_id
         );
 
-        $registration_query = $wpdb->prepare(
-            "SELECT act.id, COUNT(reg.id) as enrolled_count 
-            FROM $activity_table as act
-            JOIN $clinic_table as clin ON act.id = clin.id
-            LEFT JOIN $registration_table as reg ON act.id = reg.activity_id
-            WHERE act.session_id = %d AND act.product_id = %d
-            GROUP BY act.id",
-            $session_id,
-            $product_id
-        );
-
         $clinic_results = $wpdb->get_results($clinic_query);
-        $registration_results = $wpdb->get_results($registration_query);
-        $registration_map = [];
-        foreach ($registration_results as $registration) {
-            $registration_map[$registration->id] = $registration->enrolled_count;
-        }
+        $group_ids = array_unique(array_map(function ($clinic) {
+            return (int) $clinic->reservation_group_id;
+        }, $clinic_results));
+        $enrolled_by_group = $this->get_enrolled_counts_by_group($group_ids);
 
         foreach ($clinic_results as &$clinic) {
-            $clinic->enrolled_count = 0;
-            if (isset($registration_map[$clinic->id])) {
-                $clinic->enrolled_count = (int) $registration_map[$clinic->id];
-            }
+            $clinic->enrolled_count = $enrolled_by_group[(int) $clinic->reservation_group_id] ?? 0;
             $clinic->capacity = (int) $clinic->capacity;
             $clinic->type = (int) $clinic->type;
         }

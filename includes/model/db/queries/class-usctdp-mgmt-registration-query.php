@@ -29,10 +29,20 @@ class Usctdp_Mgmt_Registration_Query extends Query
      * checkout, doesn't print. The code this replaced queried every
      * registration regardless of status, which was a real (if narrow) bug:
      * a voided registrant would still show up on the printed roster.
+     *
+     * $activity_id accepts a single id or an array of ids - the latter is
+     * what a merged reservation group's combined roster block passes (see
+     * Usctdp_Mgmt_Docgen::add_merged_clinic_roster_block()), to list every
+     * registrant across all of the group's clinics in one table.
      */
     public function get_roster_students($activity_id)
     {
         global $wpdb;
+        $ids = is_array($activity_id) ? $activity_id : [$activity_id];
+        if (empty($ids)) {
+            return [];
+        }
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
         $query = $wpdb->prepare(
             "   SELECT
                     reg.student_level as student_level,
@@ -43,9 +53,9 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 FROM {$wpdb->prefix}usctdp_registration AS reg
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
-                WHERE reg.activity_id = %d AND reg.status = 'active'
+                WHERE reg.activity_id IN ($placeholders) AND reg.status = 'active'
                 ORDER BY reg.id DESC",
-            $activity_id
+            $ids
         );
         return $wpdb->get_results($query);
     }
@@ -64,7 +74,12 @@ class Usctdp_Mgmt_Registration_Query extends Query
             $conditions[] = "reg.id IN ($placeholders)";
             $where_args = array_merge($where_args, $ids);
         }
-        if (isset($args["activity_id"])) {
+        if (isset($args["activity_ids"]) && !empty($args["activity_ids"])) {
+            $ids = $args["activity_ids"];
+            $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+            $conditions[] = "reg.activity_id IN ($placeholders)";
+            $where_args = array_merge($where_args, $ids);
+        } elseif (isset($args["activity_id"])) {
             $conditions[] = "reg.activity_id = %d";
             $where_args[] = $args['activity_id'];
         }

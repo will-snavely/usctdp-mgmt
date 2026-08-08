@@ -38,6 +38,46 @@ class Usctdp_Import_Session_Data
         return false;
     }
 
+    /**
+     * Resolves the reservation_group_id to write into an activity_data
+     * payload. A brand-new activity gets a fresh, dedicated 1:1 group at
+     * the imported capacity. An existing activity's group capacity is only
+     * updated in place if that group is still 1:1 (just this activity) -
+     * if it's been merged into a shared group via
+     * `wp usctdp merge_reservation_group`, re-running import must not
+     * silently overwrite a capacity someone deliberately set for the whole
+     * shared group.
+     */
+    private function resolve_reservation_group_id($existing_activity, $capacity)
+    {
+        $capacity = intval($capacity);
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+
+        if (!$existing_activity) {
+            return $group_query->add_item([
+                'capacity' => $capacity,
+                'created_at' => current_time('mysql', true),
+                'updated_at' => current_time('mysql', true),
+            ]);
+        }
+
+        $group_id = (int) $existing_activity->reservation_group_id;
+        if (count($group_query->get_member_activity_ids($group_id)) > 1) {
+            WP_CLI::warning(
+                "Activity '{$existing_activity->title}' (id={$existing_activity->id}) is in a shared " .
+                    "reservation group (#$group_id) - skipping its capacity update from import. " .
+                    "Use `wp usctdp set_reservation_group_capacity` to change it directly."
+            );
+            return $group_id;
+        }
+
+        $group_query->update_item($group_id, [
+            'capacity' => $capacity,
+            'updated_at' => current_time('mysql', true),
+        ]);
+        return $group_id;
+    }
+
     private function get_category_integer(string $cat)
     {
         $cats = [
@@ -331,26 +371,28 @@ class Usctdp_Import_Session_Data
                     $end_time
                 );
                 $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+                $activity_query = new Usctdp_Mgmt_Activity_Query([
+                    "session_id" => $session_id,
+                    "product_id" => $clinic_id,
+                    "title" => $title,
+                ]);
+                $existing_activity = !empty($activity_query->items) ? $activity_query->items[0] : null;
+
                 $activity_data = [
                     "session_id" => $session_id,
                     "product_id" => $clinic_id,
                     "type" => "clinic",
                     "title" => $title,
                     "search_term" => $search_term,
-                    "capacity" => $class['capacity'],
+                    "reservation_group_id" => $this->resolve_reservation_group_id($existing_activity, $class['capacity']),
                     "primary_sort_order" => $primary_sort_order,
                     "secondary_sort_order" => $secondary_sort_order,
                     "level" => (string) $class['level'],
                     "meta" => isset($class['meta']) ? json_encode($class['meta']) : '{}'
                 ];
-                $activity_query = new Usctdp_Mgmt_Activity_Query([
-                    "session_id" => $session_id,
-                    "product_id" => $clinic_id,
-                    "title" => $title,
-                ]);
 
-                if (!empty($activity_query->items)) {
-                    $activity_id = $activity_query->items[0]->id;
+                if ($existing_activity) {
+                    $activity_id = $existing_activity->id;
                     WP_CLI::log("Activity exists: $title, updating (id=$activity_id)");
                     $activity_query->update_item($activity_id, $activity_data);
                 } else {
@@ -411,25 +453,27 @@ class Usctdp_Import_Session_Data
             $title = sanitize_text_field($name);
             $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
 
+            $activity_query = new Usctdp_Mgmt_Activity_Query([
+                "session_id" => $session_id,
+                "product_id" => $product->id,
+                "title" => $title,
+            ]);
+            $existing_activity = !empty($activity_query->items) ? $activity_query->items[0] : null;
+
             $activity_data = [
                 "session_id" => $session_id,
                 "product_id" => $product->id,
                 "type" => "tournament",
                 "title" => $title,
                 "search_term" => $search_term,
-                "capacity" => $tournament['capacity'],
+                "reservation_group_id" => $this->resolve_reservation_group_id($existing_activity, $tournament['capacity']),
                 "primary_sort_order" => $primary_sort_order,
                 "secondary_sort_order" => 1,
                 "meta" => isset($tournament['meta']) ? json_encode($tournament['meta']) : '{}'
             ];
-            $activity_query = new Usctdp_Mgmt_Activity_Query([
-                "session_id" => $session_id,
-                "product_id" => $product->id,
-                "title" => $title,
-            ]);
 
-            if (!empty($activity_query->items)) {
-                $activity_id = $activity_query->items[0]->id;
+            if ($existing_activity) {
+                $activity_id = $existing_activity->id;
                 WP_CLI::log("Activity exists: $title, updating (id=$activity_id)");
                 $activity_query->update_item($activity_id, $activity_data);
             } else {

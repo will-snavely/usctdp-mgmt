@@ -46,6 +46,7 @@ class Usctdp_Mgmt_Model
             "ledger",
             "merchandise",
             "registration",
+            "reservation-group",
             "roster-link",
             "pricing",
             "product",
@@ -78,6 +79,10 @@ class Usctdp_Mgmt_Model
     public function get_db_tables()
     {
         return [
+            // Reservation_Group must be created before Activity - Activity's
+            // own upgrade migration backfills rows into it, and BerlinDB
+            // installs/upgrades tables in this array's order.
+            new Usctdp_Mgmt_Reservation_Group_Table(),
             new Usctdp_Mgmt_Activity_Table(),
             new Usctdp_Mgmt_Activity_Staff_Table(),
             new Usctdp_Mgmt_Clinic_Table(),

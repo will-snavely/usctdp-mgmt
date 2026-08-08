@@ -43,7 +43,7 @@ class Usctdp_Mgmt_Docgen
     const FONT_SIZE_TITLE = 14;
     const FONT_SIZE_SCHEDULE = 10;
     const FONT_SIZE_DETAIL = 8.5;
-    const FONT_SIZE_FOOTER = 10;
+    const FONT_SIZE_FOOTER = 10;    
     const FONT_SIZE_TABLE = 8.5;
 
     // Attendance table, nested inside Table 1's row 3 - see
@@ -190,6 +190,13 @@ class Usctdp_Mgmt_Docgen
      * for the next one to start creeping onto it. An explicit page break
      * between blocks is what actually guarantees one activity per page,
      * rather than leaning on padding alone to get there by coincidence.
+     *
+     * A clinic that's been merged into a shared reservation group (see
+     * Usctdp_Mgmt_Reservation_Group_Table) only ever produces ONE block
+     * here, not one per merged activity - the first member encountered
+     * renders the group's combined block (add_roster_block_for_activity()),
+     * and every other activity sharing that same group is skipped rather
+     * than printed again.
      */
     public function generate_roster_for_sessions(array $session_ids)
     {
@@ -208,6 +215,7 @@ class Usctdp_Mgmt_Docgen
 
         [$phpWord, $section] = $this->new_roster_document();
         $is_first_block = true;
+        $rendered_group_ids = [];
         foreach ($activity_items as $item) {
             if ($item->type !== 'clinic' && $item->type !== 'tournament') {
                 Usctdp_Mgmt::logger()->log_info(
@@ -216,16 +224,18 @@ class Usctdp_Mgmt_Docgen
                 continue;
             }
 
+            $group_id = (int) $item->reservation_group_id;
+            if (isset($rendered_group_ids[$group_id])) {
+                continue;
+            }
+            $rendered_group_ids[$group_id] = true;
+
             if (!$is_first_block) {
                 $section->addPageBreak();
             }
             $is_first_block = false;
 
-            if ($item->type === 'clinic') {
-                $this->add_clinic_roster_block($section, $item->id);
-            } else {
-                $this->add_tournament_roster_block($section, $item->id);
-            }
+            $this->add_roster_block_for_activity($section, $item);
         }
         return $phpWord;
     }
@@ -241,6 +251,90 @@ class Usctdp_Mgmt_Docgen
     {
         $document = $this->generate_session_roster($session_id);
         return $this->upload_to_google_drive($document, $session_id, $title);
+    }
+
+    /**
+     * Renders one activity's roster block - transparently expanding to the
+     * MERGED block for its whole reservation group when that group has more
+     * than one clinic member (add_merged_clinic_roster_block()), instead of
+     * the plain single-activity block. Single source of truth for "does
+     * this activity's group need the merged treatment", used by both
+     * generate_roster_for_sessions() (which also has to dedupe - a merged
+     * group must only print once, not once per member) and
+     * generate_and_upload_reservation_group_roster() (generating a group's
+     * roster directly).
+     *
+     * A tournament is never merged (no tournament equivalent of
+     * add_merged_clinic_roster_block() exists - tournaments aren't part of
+     * this feature), so it always gets its own plain block regardless of
+     * how many activities share its group.
+     */
+    private function add_roster_block_for_activity($section, $activity)
+    {
+        if ($activity->type === 'tournament') {
+            $this->add_tournament_roster_block($section, $activity->id);
+            return;
+        }
+
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+        $member_ids = $group_query->get_member_activity_ids($activity->reservation_group_id);
+        $clinic_ids = array_values(array_filter($member_ids, function ($member_id) {
+            $member = Usctdp_Mgmt_Model::get_activity($member_id);
+            return $member && $member->type === 'clinic';
+        }));
+
+        if (count($clinic_ids) > 1) {
+            $this->add_merged_clinic_roster_block($section, $activity->reservation_group_id, $clinic_ids);
+        } else {
+            $this->add_clinic_roster_block($section, $activity->id);
+        }
+    }
+
+    /**
+     * Generates and uploads the roster for a reservation group - one
+     * document, one block (add_roster_block_for_activity() above decides
+     * whether that block is a plain single-clinic block or the merged
+     * multi-clinic one). For a solo (unmerged) group this produces exactly
+     * what generating that one activity's roster always has - no special
+     * case needed.
+     *
+     * Persisted via the shared usctdp_roster_link table (entity_id =
+     * reservation_group_id), same mechanism as
+     * generate_and_upload_session_roster() above - deliberately NOT the
+     * usctdp_roster_group/upload_roster_group_document() path, which
+     * bypasses that table specifically to avoid an id collision with
+     * activity/session/family ids already stored there; reservation groups
+     * accept that same, already-established convention instead of adding a
+     * fourth special case.
+     */
+    public function generate_and_upload_reservation_group_roster($reservation_group_id)
+    {
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+        $group = $group_query->get_group($reservation_group_id);
+        if (!$group) {
+            throw new Reservation_Group_Exception('Reservation group not found.');
+        }
+
+        $member_activity_ids = $group_query->get_member_activity_ids($reservation_group_id);
+        if (empty($member_activity_ids)) {
+            throw new Reservation_Group_Exception('This reservation group has no activities to generate a roster from.');
+        }
+
+        [$phpWord, $section] = $this->new_roster_document();
+        foreach ($member_activity_ids as $activity_id) {
+            $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+            if ($activity && ($activity->type === 'clinic' || $activity->type === 'tournament')) {
+                // Every member shares the same reservation_group_id by
+                // definition, so add_roster_block_for_activity() always
+                // renders the full merged block on the first supported
+                // activity it sees - nothing left to do after that.
+                $this->add_roster_block_for_activity($section, $activity);
+                break;
+            }
+        }
+
+        $title = $group_query->get_roster_title($reservation_group_id);
+        return $this->upload_to_google_drive($phpWord, $reservation_group_id, $title);
     }
 
     /**
@@ -479,17 +573,16 @@ class Usctdp_Mgmt_Docgen
         return [$phpWord, $section];
     }
 
-    private function add_clinic_roster_block($section, $clinic_id)
+    /**
+     * Derives add_roster_activity_block()'s $fields array from one clinic's
+     * data row (Usctdp_Mgmt_Clinic_Query::get_clinic_data()'s shape) -
+     * shared by add_clinic_roster_block() (a single clinic's own block) and
+     * add_merged_clinic_roster_block() (which uses one clinic - the
+     * "primary" one - as the base for a merged group's block, then
+     * overrides just the title and instructor list; see that method).
+     */
+    private function derive_clinic_roster_fields($clinic_fields, $clinic_id)
     {
-        $clinic_query = new Usctdp_Mgmt_Clinic_Query();
-        $clinic_data = $clinic_query->get_clinic_data([
-            'id' => $clinic_id,
-            'number' => 1
-        ]);
-        if (empty($clinic_data['data'])) {
-            throw new ErrorException('Clinic not found');
-        }
-        $clinic_fields = $clinic_data['data'][0];
         $session_name = $clinic_fields->session_name;
         $age_group = ucfirst($clinic_fields->product_age_group);
         $product_name = $clinic_fields->product_name;
@@ -512,7 +605,7 @@ class Usctdp_Mgmt_Docgen
         $end_time_raw = $clinic_fields->clinic_end_time;
         $end_time = $end_time_raw ? DateTime::createFromFormat('H:i:s', $end_time_raw)->format('g:i A') : '';
 
-        $this->add_roster_activity_block($section, $clinic_id, [
+        return [
             'session_title' => $session_title,
             'dow' => $this->int_to_day($clinic_fields->clinic_day_of_week),
             'stime' => $start_time,
@@ -525,7 +618,80 @@ class Usctdp_Mgmt_Docgen
             'insts' => $this->get_instructor_names($clinic_id),
             'skipped_clinics' => '',
             'session_short_code' => '',
+        ];
+    }
+
+    private function add_clinic_roster_block($section, $clinic_id)
+    {
+        $clinic_query = new Usctdp_Mgmt_Clinic_Query();
+        $clinic_data = $clinic_query->get_clinic_data([
+            'id' => $clinic_id,
+            'number' => 1
         ]);
+        if (empty($clinic_data['data'])) {
+            throw new ErrorException('Clinic not found');
+        }
+
+        $fields = $this->derive_clinic_roster_fields($clinic_data['data'][0], $clinic_id);
+        $this->add_roster_activity_block($section, $clinic_id, $fields);
+    }
+
+    /**
+     * One combined block for every clinic sharing a reservation group -
+     * same table/cell structure as a normal single-clinic block
+     * (add_roster_activity_block() itself is untouched), just fed merged
+     * data: the attendance and waitlist tables list registrants/waitlisters
+     * from every $clinic_id at once (get_roster_students()/
+     * get_roster_waitlist() both accept an array of activity ids - see
+     * their doc comments), and the instructor list is the deduplicated
+     * union across all of them.
+     *
+     * Everything else (schedule, level, age group, dates, capacity) comes
+     * from whichever clinic happens to be first in $clinic_ids - merged
+     * clinics are assumed to be the same session's same time slot in
+     * practice (capacity in particular already IS the shared group's
+     * capacity for every member, by construction), so there's nothing
+     * meaningful to reconcile between them beyond the roster and the title.
+     *
+     * The title is "<session>: <reservation group name>" - same "<session>:
+     * <name>" shape a single clinic's block uses (see
+     * derive_clinic_roster_fields()), just with the reservation group's
+     * name in the second slot instead of one member's own product name,
+     * since reservation_group_id is the thing tying these clinics together
+     * and should identify the combined roster. Falls back to
+     * Usctdp_Mgmt_Reservation_Group_Query::get_roster_title()'s own default
+     * (the joined member titles) when the group has no explicit name.
+     */
+    private function add_merged_clinic_roster_block($section, $reservation_group_id, array $clinic_ids)
+    {
+        $clinic_query = new Usctdp_Mgmt_Clinic_Query();
+        $primary_clinic_id = $clinic_ids[0];
+        $clinic_data = $clinic_query->get_clinic_data([
+            'id' => $primary_clinic_id,
+            'number' => 1
+        ]);
+        if (empty($clinic_data['data'])) {
+            throw new ErrorException('Clinic not found');
+        }
+        $primary_fields = $clinic_data['data'][0];
+
+        $fields = $this->derive_clinic_roster_fields($primary_fields, $primary_clinic_id);
+
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+        $session_no_parens = trim(preg_replace('/\([^)]*\)/', '', (string) $primary_fields->session_name));
+        $fields['session_title'] = $session_no_parens . ': ' . $group_query->get_roster_title($reservation_group_id);
+
+        $instructor_names = [];
+        foreach ($clinic_ids as $clinic_id) {
+            foreach (explode(', ', $this->get_instructor_names($clinic_id)) as $name) {
+                if ($name !== '') {
+                    $instructor_names[$name] = true;
+                }
+            }
+        }
+        $fields['insts'] = implode(', ', array_keys($instructor_names));
+
+        $this->add_roster_activity_block($section, $clinic_ids, $fields);
     }
 
     private function add_tournament_roster_block($section, $tournament_id)

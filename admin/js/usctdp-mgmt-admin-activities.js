@@ -38,7 +38,12 @@
                 data: {
                     action: usctdp_mgmt_admin.roster_link_action,
                     security: usctdp_mgmt_admin.roster_link_nonce,
-                    entity_id: activityId,
+                    // Resolved server-side to this activity's reservation
+                    // group - roster generation now always writes there
+                    // (see ajax_gen_roster()), so the link lookup has to
+                    // match or a merged activity would keep showing "Not
+                    // yet generated" even after its combined roster exists.
+                    activity_id: activityId,
                 }
             }).done(function (response) {
                 if (response.success) {
@@ -99,20 +104,31 @@
             });
         }
 
+        function renderSharedActivitiesNote(sharedWith) {
+            var isShared = Array.isArray(sharedWith) && sharedWith.length > 0;
+            $('#roster-shared-activities-note').toggleClass('hidden', !isShared);
+            if (isShared) {
+                $('#roster-shared-activities-list').text(sharedWith.join(', '));
+            }
+        }
+
         function loadActivityDetails(activityId) {
             if (!activityId) {
                 $('#activity-level-input').val('');
                 renderActivityInstructors([]);
+                renderSharedActivitiesNote([]);
                 return;
             }
             USCTDP_Admin.ajax_getActivityDetails(activityId)
                 .then(function (data) {
                     $('#activity-level-input').val(data.level || '');
                     renderActivityInstructors(data.instructors);
+                    renderSharedActivitiesNote(data.shared_with);
                 })
                 .catch(function () {
                     $('#activity-level-input').val('');
                     renderActivityInstructors([]);
+                    renderSharedActivitiesNote([]);
                 });
         }
 
@@ -166,17 +182,19 @@
             },
             autoWidth: false,
             columnDefs: [
-                { width: "15%", targets: 0 },
-                { width: "15%", targets: 1 },
-                { width: "10%", targets: 2 },
-                { width: "10%", targets: 3 },
-                { width: "50%", targets: 4 },
+                { width: "13%", targets: 0 },
+                { width: "13%", targets: 1 },
+                { width: "8%", targets: 2 },
+                { width: "8%", targets: 3 },
+                { width: "23%", targets: 4 },
+                { width: "35%", targets: 5 },
             ],
             columns: [
                 { data: 'student_first' },
                 { data: 'student_last' },
                 { data: 'student_age' },
                 { data: 'registration_student_level' },
+                { data: 'activity_name' },
                 {
                     data: 'family_id',
                     render: function (data, type, row) {

@@ -124,7 +124,7 @@
         }
 
         function bind_activity_basic_info(info) {
-            const { active, waitlist, capacity, student_level } = info;
+            const { active, waitlist, capacity, student_level, shared_with, roster_title } = info;
             const full = active >= capacity;
 
             $('#activity-preorder input[type="checkbox"]').prop('checked', false);
@@ -136,6 +136,26 @@
             $('#activity-capacity .activity-capacity-value').addClass(full ? 'red-bg' : 'green-bg');
             $('#student-level').val(student_level);
             $('#discount-sibling-percent').prop('disabled', true);
+
+            // Capacity/active above reflect every activity sharing this
+            // one's reservation group. View Roster now shows the same
+            // combined group (see viewRosterTable's activity_ids
+            // expansion), but Waitlist stays scoped to this one activity by
+            // design - call out the shared group here so that difference
+            // isn't a mystery.
+            const isShared = Array.isArray(shared_with) && shared_with.length > 0;
+            $('#activity-shared-capacity-note').toggleClass('hidden', !isShared);
+            if (isShared) {
+                $('#activity-shared-capacity-list').text(shared_with.join(', '));
+            }
+
+            // Stashed on selectedActivity so the View Roster modal (opened
+            // later, from a separate click handler with no access to this
+            // response) can show the same note/title.
+            if (selectedActivity) {
+                selectedActivity.shared_with = shared_with;
+                selectedActivity.roster_title = roster_title;
+            }
         }
 
         function bind_tournament_info(info) {
@@ -710,8 +730,17 @@
                 { data: 'student_first' },
                 { data: 'student_last' },
                 { data: 'student_age' },
-                { data: 'registration_student_level' }
-            ]
+                { data: 'registration_student_level' },
+                { data: 'activity_name' }
+            ],
+            autoWidth: false,
+            columnDefs: [
+                { width: "20%", targets: 0 },
+                { width: "20%", targets: 1 },
+                { width: "10%", targets: 2 },
+                { width: "10%", targets: 3 },
+                { width: "40%", targets: 4 }
+            ],
         });
 
         var viewWaitlistTable = $('#view-waitlist-table').DataTable({
@@ -748,7 +777,19 @@
         });
 
         $('#view-roster-btn').on('click', function () {
-            $('#roster-activity-name').text(selectedActivity.name);
+            // Falls back to the activity's own name if roster_title hasn't
+            // come back yet for some reason - roster_title is the combined
+            // group name/title (see get_shared_activity_titles()'s sibling,
+            // get_roster_title_for_activity(), in the ajax handler).
+            $('#roster-activity-name').text(selectedActivity.roster_title || selectedActivity.name);
+
+            const sharedWith = selectedActivity.shared_with;
+            const isShared = Array.isArray(sharedWith) && sharedWith.length > 0;
+            $('#roster-shared-capacity-note').toggleClass('hidden', !isShared);
+            if (isShared) {
+                $('#roster-shared-capacity-list').text(sharedWith.join(', '));
+            }
+
             viewRosterModal.showModal();
             viewRosterTable.ajax.reload();
         });

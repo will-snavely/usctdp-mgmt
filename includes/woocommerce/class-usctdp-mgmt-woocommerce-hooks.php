@@ -2,7 +2,11 @@
 
 class Usctdp_Mgmt_Woocommerce_Hooks
 {
-    private $hold_minutes = 10;
+    // Public (not just private) so Usctdp_Mgmt_Public's capacity-counting
+    // queries can use the exact same "counts toward capacity" window as
+    // after_checkout_validation() below, instead of drifting out of sync
+    // with a second hardcoded copy of this number.
+    const HOLD_MINUTES = 10;
     public function __construct()
     {
     }
@@ -1051,12 +1055,21 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         global $wpdb;
         $registration_table = $wpdb->prefix . 'usctdp_registration';
         $activity_table = $wpdb->prefix . 'usctdp_activity';
+        $reservation_group_table = $wpdb->prefix . 'usctdp_reservation_group';
+        // Counts against the whole reservation group, not one activity_id -
+        // two activities sharing a physical space/time slot draw down the
+        // same capacity pool (see Usctdp_Mgmt_Reservation_Group_Table).
+        // Note both status placeholders are %s: an earlier version of this
+        // query bound the "pending" literal against a %d placeholder, which
+        // silently coerced it to 0 and meant the held-pending branch below
+        // never actually matched anything.
         $count_query_template = "
-            SELECT COUNT(*) FROM $registration_table 
-            WHERE activity_id = %d
-            AND (status = %s
-            OR (status = %d AND created_at > NOW() - INTERVAL %d MINUTE))";
-        $activity_lock_template = "SELECT * FROM $activity_table WHERE id=%d FOR UPDATE";
+            SELECT COUNT(*) FROM $registration_table reg
+            JOIN $activity_table act ON act.id = reg.activity_id
+            WHERE act.reservation_group_id = %d
+            AND (reg.status = %s
+            OR (reg.status = %s AND reg.created_at > NOW() - INTERVAL %d MINUTE))";
+        $group_lock_template = "SELECT * FROM $reservation_group_table WHERE id=%d FOR UPDATE";
         $txn_started = false;
         $txn_commited = false;
 
@@ -1070,15 +1083,58 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             $activities = $parsed_cart["activities"];
             $students = $parsed_cart["students"];
 
-            // We need to lock the activities in order to prevent race conditions
-            ksort($activities);
-
             $wpdb->query('START TRANSACTION');
             $txn_started = true;
 
-            foreach ($activities as $activity_id => $activity) {
-                $activity_lock = $wpdb->prepare($activity_lock_template, $activity_id);
-                $wpdb->get_row($activity_lock);
+            // The contended resource is the reservation group, not the
+            // activity row - two different activities in the same group
+            // could otherwise each take their own activity-row lock and
+            // both pass a stale capacity check. Lock the distinct groups
+            // this cart touches instead, in a consistent ascending order
+            // (same deadlock-avoidance reasoning the old per-activity
+            // ksort() used) so two concurrent checkouts sharing a group
+            // never lock it in opposite order.
+            $group_ids = array_unique(array_map(function ($activity) {
+                return (int) $activity->reservation_group_id;
+            }, $activities));
+            sort($group_ids);
+
+            $locked_groups = [];
+            foreach ($group_ids as $group_id) {
+                $group_row = $wpdb->get_row($wpdb->prepare($group_lock_template, $group_id));
+                if (!$group_row) {
+                    // The activity's reservation group was reassigned/deleted
+                    // (e.g. an admin ran `wp usctdp merge_reservation_group`)
+                    // in the gap between parse_cart_data()'s read, above, and
+                    // this lock - $group_id no longer exists to lock. Without
+                    // this check, ->capacity below on a null row would throw
+                    // an uncaught Error, surfacing as a generic "system
+                    // error" instead of telling the customer their cart is
+                    // just stale. Doesn't affect overbooking safety either
+                    // way - this is purely about giving a clean error.
+                    throw new Usctdp_Checkout_Exception(
+                        'One of the classes in your cart was just updated. Please refresh the page and try again.',
+                        'stale_cart'
+                    );
+                }
+                $locked_groups[$group_id] = $group_row;
+
+                // Test-only hook: inert in production (apply_filters()
+                // with no registered callback just returns the 0 default,
+                // so the branch below never runs and this costs one cheap
+                // no-op filter call per locked group). Nothing in the
+                // deployed plugin ever hooks this - only
+                // tests/fixtures/mu-plugins/usctdp-test-lock-delay.php
+                // does, which Taskfile.test.yml copies into the isolated
+                // test stack's mu-plugins dir only, never into a real
+                // deployment. Lets tests/capacity-concurrency.spec.ts hold
+                // this lock open long enough to force two racing
+                // checkouts to genuinely overlap here, instead of maybe
+                // overlapping depending on network/process timing.
+                $test_delay_ms = (int) apply_filters('usctdp_mgmt_checkout_lock_delay_ms', 0);
+                if ($test_delay_ms > 0) {
+                    usleep($test_delay_ms * 1000);
+                }
             }
 
             foreach ($registrations as $reg) {
@@ -1113,13 +1169,18 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     continue;
                 }
 
-                $max_capacity = $activity->capacity;
+                $group_id = (int) $activity->reservation_group_id;
+                // Captured at lock time above - safe to reuse rather than a
+                // fresh lookup, since no other transaction can change this
+                // group's capacity (or acquire its own lock on it) until
+                // this transaction commits or rolls back.
+                $max_capacity = (int) $locked_groups[$group_id]->capacity;
                 $count_query = $wpdb->prepare(
                     $count_query_template,
-                    $reg["activity_id"],
+                    $group_id,
                     "active",
                     "pending",
-                    $this->hold_minutes
+                    self::HOLD_MINUTES
                 );
                 $current_count = $wpdb->get_var($count_query);
                 if ($current_count >= $max_capacity) {

@@ -50,7 +50,7 @@ protected $table_alias = 'utorn';
         }
         $query = $wpdb->prepare(
             "   SELECT
-                    act.id as activity_id, act.title as activity_name, act.capacity as activity_capacity,
+                    act.id as activity_id, act.title as activity_name, resg.capacity as activity_capacity,
                     act.level as activity_level,
                     torn.start_date as tournament_start_date, torn.start_date_addtl as tournament_start_date_addtl,
                     sess.id as session_id, sess.title as session_name,
@@ -59,6 +59,7 @@ protected $table_alias = 'utorn';
                     prod.title as product_name, prod.id as product_id, prod.age_group as product_age_group
                 FROM {$wpdb->prefix}usctdp_activity AS act
                 JOIN {$wpdb->prefix}usctdp_tournament AS torn ON act.id = torn.id
+                JOIN {$wpdb->prefix}usctdp_reservation_group AS resg ON act.reservation_group_id = resg.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}

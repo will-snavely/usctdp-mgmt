@@ -83,14 +83,50 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    /**
+     * 'active' is a group-scoped sum, not a plain per-activity count - two
+     * activities sharing a physical space/time slot draw down the same
+     * capacity pool (see Usctdp_Mgmt_Reservation_Group_Table), matching
+     * after_checkout_validation()'s capacity-check scope.
+     *
+     * It also counts 'pending' registrations still inside the checkout hold
+     * window (same status/interval condition as
+     * after_checkout_validation()'s own count query - Usctdp_Mgmt_Woocommerce_Hooks::HOLD_MINUTES
+     * is the shared source of truth for both). This admin flow itself never
+     * creates 'pending' rows - create_purchase_and_registration() writes
+     * straight to 'active' - but a *different* customer's WooCommerce
+     * checkout can be mid-transaction holding the last seat in this exact
+     * group right now. lock_registrations() (see create_order_records())
+     * already takes the same reservation_group row lock checkout does, so
+     * the two paths are correctly serialized against each other - but
+     * without this hold-window branch, this count would undercount what's
+     * actually spoken for and let an admin register past a seat a customer
+     * is actively in the middle of paying for, overbooking the group the
+     * moment that customer's order confirms.
+     *
+     * 'waitlist' deliberately stays scoped to this one activity_id - a
+     * student waitlisted for the Tuesday 4pm slot of a shared room isn't
+     * waitlisted for every other slot sharing that room.
+     */
     private function get_activity_enrollment_counts($activity_id)
     {
-        $reg_query = new Usctdp_Mgmt_Registration_Query([
-            'activity_id' => $activity_id,
-            'status' => 'active',
-            'count' => true
-        ]);
-        $active_registrations = $reg_query->found_items;
+        global $wpdb;
+        $active_registrations = 0;
+        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        if ($activity) {
+            $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+            $member_activity_ids = $group_query->get_member_activity_ids($activity->reservation_group_id);
+            if (!empty($member_activity_ids)) {
+                $placeholders = implode(',', array_fill(0, count($member_activity_ids), '%d'));
+                $active_registrations = (int) $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->prefix}usctdp_registration
+                     WHERE activity_id IN ($placeholders)
+                     AND (status = %s
+                         OR (status = %s AND created_at > NOW() - INTERVAL %d MINUTE))",
+                    array_merge($member_activity_ids, ['active', 'pending', Usctdp_Mgmt_Woocommerce_Hooks::HOLD_MINUTES])
+                ));
+            }
+        }
 
         $waitlist_query = new Usctdp_Mgmt_Waitlist_Query([
             'activity_id' => $activity_id,
@@ -108,7 +144,57 @@ class Usctdp_Mgmt_Admin_Ajax
     private function get_activity_capacity($activity_id)
     {
         $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
-        return $activity ? $activity->capacity : null;
+        if (!$activity) {
+            return null;
+        }
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+        $group = $group_query->get_group($activity->reservation_group_id);
+        return $group ? $group->capacity : null;
+    }
+
+    /**
+     * Titles of the other activities (if any) sharing this one's
+     * reservation group - so the register page can tell staff why the
+     * capacity badge and the single-activity roster/waitlist views don't
+     * agree (see Usctdp_Mgmt_Reservation_Group_Table): the badge reflects
+     * everyone in the shared group, but View Roster/Waitlist only ever
+     * show this specific activity's registrants.
+     */
+    private function get_shared_activity_titles($activity_id)
+    {
+        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        if (!$activity) {
+            return [];
+        }
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+        $sibling_ids = array_values(array_diff(
+            $group_query->get_member_activity_ids($activity->reservation_group_id),
+            [(int) $activity_id]
+        ));
+        if (empty($sibling_ids)) {
+            return [];
+        }
+        $sibling_query = new Usctdp_Mgmt_Activity_Query(['id__in' => $sibling_ids, 'number' => 0]);
+        return array_map(function ($sibling) {
+            return $sibling->title;
+        }, $sibling_query->items);
+    }
+
+    /**
+     * The register page's "View Roster" modal heading - same combined-name
+     * resolution roster generation uses (Usctdp_Mgmt_Reservation_Group_Query::
+     * get_roster_title()), so the modal's title matches whatever the
+     * generated .docx would be titled, whether or not the group has
+     * actually been merged.
+     */
+    private function get_roster_title_for_activity($activity_id)
+    {
+        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        if (!$activity) {
+            return null;
+        }
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+        return $group_query->get_roster_title($activity->reservation_group_id);
     }
 
     private function get_sanitized_post_field_text($field)
@@ -219,6 +305,8 @@ class Usctdp_Mgmt_Admin_Ajax
             'enrollment' => $enrollment_counts['total'],
             'active' => $enrollment_counts['active'],
             'waitlist' => $enrollment_counts['waitlist'],
+            'shared_with' => $this->get_shared_activity_titles($activity_id),
+            'roster_title' => $this->get_roster_title_for_activity($activity_id),
             'student_registered' => $student_registered,
             'student_waitlisted' => $student_waitlisted,
             'student_level' => $student->level,
@@ -266,14 +354,16 @@ class Usctdp_Mgmt_Admin_Ajax
                 if (!$activity) {
                     wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
                 }
-                if ($activity->type === 'clinic') {
-                    $document = $doc_gen->generate_clinic_roster($activity_id);
-                } elseif ($activity->type === 'tournament') {
-                    $document = $doc_gen->generate_tournament_roster($activity_id);
-                } else {
+                if ($activity->type !== 'clinic' && $activity->type !== 'tournament') {
                     wp_send_json_error('Unsupported activity type: ' . $activity->type, 400);
                 }
-                $drive_file = $doc_gen->upload_to_google_drive($document, $activity_id, $activity->title);
+                // Always generated at the reservation-group level, not the
+                // single activity - if this activity has been merged with
+                // others (wp usctdp merge_reservation_group), the resulting
+                // doc covers all of them, one block per activity. A solo
+                // (unmerged) activity's own dedicated 1:1 group produces
+                // exactly what generating just that activity always did.
+                $drive_file = $doc_gen->generate_and_upload_reservation_group_roster($activity->reservation_group_id);
             } elseif ($session_id) {
                 $session = Usctdp_Mgmt_Model::get_session($session_id);
                 if (!$session) {
@@ -290,7 +380,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 'doc_url' => $drive_file->webViewLink,
                 'generated_at' => gmdate('Y-m-d\TH:i:s\Z')
             ]);
-        } catch (Roster_Group_Exception $e) {
+        } catch (Roster_Group_Exception | Reservation_Group_Exception $e) {
             wp_send_json_error($e->getMessage(), 400);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_gen_roster', $e);
@@ -298,17 +388,37 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    /**
+     * `activity_id` (checked first, new) resolves through the activity's
+     * reservation group - roster generation now always writes there (see
+     * ajax_gen_roster()/generate_and_upload_reservation_group_roster()), so
+     * this has to look the link up the same way or it'd keep reporting
+     * "not yet generated" for an activity that's actually been merged with
+     * others and already has a combined roster. `entity_id` (legacy,
+     * generic) stays as-is for session/roster_group/family-statement
+     * callers, which are untouched by this feature.
+     */
     public function ajax_get_roster_link()
     {
         $this->check_nonce('roster_link');
 
+        $activity_id = isset($_GET['activity_id']) ? intval($_GET['activity_id']) : 0;
         $entity_id = isset($_GET['entity_id']) ? intval($_GET['entity_id']) : 0;
-        if (empty($entity_id)) {
+        if (empty($activity_id) && empty($entity_id)) {
             wp_send_json_error('Missing required parameter entity_id', 400);
         }
 
         try {
             $doc_gen = new Usctdp_Mgmt_Docgen();
+
+            if ($activity_id) {
+                $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+                if (!$activity) {
+                    wp_send_json_error('Activity with ID "' . $activity_id . '" not found.', 404);
+                }
+                $entity_id = $activity->reservation_group_id;
+            }
+
             $roster_link = $doc_gen->get_roster_link($entity_id);
             if (!$roster_link) {
                 wp_send_json_success([
@@ -373,6 +483,7 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_success([
                 'level' => $activity->level,
                 'instructors' => $instructors,
+                'shared_with' => $this->get_shared_activity_titles($activity_id),
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_activity_details', $e);
@@ -1619,7 +1730,18 @@ class Usctdp_Mgmt_Admin_Ajax
             'offset' => $start,
         ];
         if ($activity_id) {
-            $args['activity_id'] = $activity_id;
+            // Both callers of this endpoint (the register page's "View
+            // Roster" modal and the Activities page's roster tab) want
+            // everyone sharing this activity's reservation group, not just
+            // this one activity - two clinics sharing a room/time slot
+            // share one roster now that they share one capacity pool. This
+            // degenerates to a single-activity result for a solo
+            // (unmerged) activity's own dedicated 1:1 group.
+            $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+            $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+            $args['activity_ids'] = $activity
+                ? $group_query->get_member_activity_ids($activity->reservation_group_id)
+                : [$activity_id];
         }
         if ($student_id) {
             $args['student_id'] = $student_id;
@@ -1895,19 +2017,27 @@ class Usctdp_Mgmt_Admin_Ajax
         return $purchase_id;
     }
 
+    /**
+     * Locks the reservation groups behind these registrations, not the
+     * activity rows themselves - two different activities sharing a group
+     * could otherwise each take their own activity-row lock and both pass
+     * a stale capacity check against the same shared pool (see
+     * Usctdp_Mgmt_Reservation_Group_Table, and the matching lock in
+     * Usctdp_Mgmt_Woocommerce_Hooks::after_checkout_validation()).
+     */
     private function lock_registrations($registration_records)
     {
         global $wpdb;
-        $activity_ids = array_map(function ($record) {
-            return (int) $record["activity"]->id;
-        }, $registration_records);
+        $group_ids = array_unique(array_map(function ($record) {
+            return (int) $record["activity"]->reservation_group_id;
+        }, $registration_records));
 
-        if (!empty($activity_ids)) {
-            $placeholders = implode(',', array_fill(0, count($activity_ids), '%d'));
+        if (!empty($group_ids)) {
+            $placeholders = implode(',', array_fill(0, count($group_ids), '%d'));
             $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}usctdp_activity WHERE id IN ($placeholders) FOR UPDATE",
-                    $activity_ids
+                    "SELECT id FROM {$wpdb->prefix}usctdp_reservation_group WHERE id IN ($placeholders) FOR UPDATE",
+                    $group_ids
                 )
             );
         }

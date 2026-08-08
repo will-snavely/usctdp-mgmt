@@ -54,9 +54,21 @@ class Usctdp_Random_Registration_Generator
                     WHERE activity_id = %d AND status = 'active'",
                 $activity_id
             ));
+            // Capacity now lives on usctdp_reservation_group, not this
+            // activity row directly. This generator deliberately still
+            // bounds each activity's roster independently (not
+            // group-wide) - it's test-fixture data, not the real capacity
+            // enforcement path (that's after_checkout_validation()), and
+            // treating every activity as its own pool keeps this simple.
+            $capacity = $wpdb->get_var($wpdb->prepare(
+                "SELECT resg.capacity FROM {$wpdb->prefix}usctdp_activity act
+                    JOIN {$wpdb->prefix}usctdp_reservation_group resg ON act.reservation_group_id = resg.id
+                    WHERE act.id = %d",
+                $activity_id
+            ));
             $this->enrolled[$activity_id] = [
                 'roster' => array_map('intval', $existing),
-                'capacity' => $activity->capacity !== null ? (int) $activity->capacity : PHP_INT_MAX,
+                'capacity' => $capacity !== null ? (int) $capacity : PHP_INT_MAX,
             ];
         }
         return $this->enrolled[$activity_id];

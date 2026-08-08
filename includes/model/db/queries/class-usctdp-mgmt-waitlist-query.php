@@ -23,10 +23,21 @@ class Usctdp_Mgmt_Waitlist_Query extends Query
      * own ordering below - the roster print previously used whatever this
      * table's default id-based ordering happened to be, which showed the
      * most-recently-added waitlisters instead.
+     *
+     * $activity_id accepts a single id or an array of ids, same as
+     * Usctdp_Mgmt_Registration_Query::get_roster_students() and for the
+     * same reason - a merged reservation group's combined roster block
+     * shows one waitlist spanning every member clinic, not just one of
+     * them.
      */
     public function get_roster_waitlist($activity_id, $limit = 10)
     {
         global $wpdb;
+        $ids = is_array($activity_id) ? $activity_id : [$activity_id];
+        if (empty($ids)) {
+            return [];
+        }
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
         $query = $wpdb->prepare(
             "   SELECT
                     stud.first as student_first,
@@ -35,11 +46,10 @@ class Usctdp_Mgmt_Waitlist_Query extends Query
                 FROM {$wpdb->prefix}usctdp_waitlist AS wl
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON wl.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
-                WHERE wl.activity_id = %d
+                WHERE wl.activity_id IN ($placeholders)
                 ORDER BY wl.created_at ASC
                 LIMIT %d",
-            $activity_id,
-            $limit
+            array_merge($ids, [$limit])
         );
         return $wpdb->get_results($query);
     }

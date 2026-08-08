@@ -5,6 +5,13 @@
     <div id="registration-container" class="edit-order-mode">
         <dialog id="view-roster-modal">
             <h2>Roster For: <span id="roster-activity-name"></span></h2>
+            <div id="roster-shared-capacity-note" class="edit-note hidden">
+                <span>
+                    This class shares its capacity with: <strong id="roster-shared-capacity-list"></strong>.
+                    The roster below only lists students registered for this specific class, so it may not
+                    add up to the capacity total shown.
+                </span>
+            </div>
             <div id="view-roster-table-wrap">
                 <table id="view-roster-table" class="usctdp-datatable">
                     <thead>
@@ -13,6 +20,7 @@
                             <th>Last Name</th>
                             <th>Age</th>
                             <th>Level</th>
+                            <th>Class</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -108,6 +116,9 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                        <div id="activity-shared-capacity-note" class="edit-note hidden">
+                            <span>Capacity is shared with: <strong id="activity-shared-capacity-list"></strong></span>
                         </div>
                         <div id="activity-preorder-fields" class="flex-col">
                             <div id="student-level-field" class="field-row">

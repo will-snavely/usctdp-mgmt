@@ -27,10 +27,12 @@ class Usctdp_Mgmt_Activity_Schema extends Schema
             'name' => 'level',
             'type' => 'tinytext',
         ],
-        'capacity' => [
-            'name' => 'capacity',
-            'type' => 'smallint',
+        'reservation_group_id' => [
+            'name' => 'reservation_group_id',
+            'type' => 'bigint',
+            'length' => '20',
             'unsigned' => true,
+            'index' => true,
         ],
         'search_term' => [
             'name' => 'search_term',

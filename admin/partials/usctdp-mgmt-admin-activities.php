@@ -70,6 +70,12 @@
                     </div>
                 </div>
             </div>
+            <div id="roster-shared-activities-note" class="edit-note hidden">
+                <span>
+                    This roster is shared with: <strong id="roster-shared-activities-list"></strong>.
+                    The table below lists registrants from every merged class.
+                </span>
+            </div>
             <div id="roster-table-wrap">
                 <table id="roster-table" class="usctdp-datatable">
                     <thead>
@@ -78,6 +84,7 @@
                             <th>Last</th>
                             <th>Age</th>
                             <th>Level</th>
+                            <th>Class</th>
                             <th>Actions</th>
                         </tr>
                     </thead>

@@ -5,6 +5,22 @@
     align-items: start;
 }
 
+/* Without an explicit width, dialog's intrinsic sizing (see the base
+   `dialog` rule in usctdp-mgmt-admin.css) just stretches to fit whatever
+   DataTables' autoWidth calculates for #view-roster-table - which grew
+   noticeably wider once a "Class" column was added for merged reservation
+   groups. Cap it the same way dialog#payment-history-modal already does;
+   overflow-x on the wrap is a safety net for narrow viewports rather than
+   the normal case. */
+dialog#view-roster-modal {
+    width: 100%;
+    max-width: 700px;
+}
+
+#view-roster-table-wrap {
+    overflow-x: auto;
+}
+
 .checkout-mode {
     display: flex;
     flex-direction: column;
@@ -176,16 +192,6 @@
     justify-content: left;
     align-items: flex-start;
     width: 100%;
-}
-
-.edit-note {
-    border-left: 4px solid #f1cd18;
-    padding-left: 5px;
-}
-
-.edit-note span {
-    font-size: 0.85rem;
-    color: #666;
 }
 
 #class-enrollment-info {

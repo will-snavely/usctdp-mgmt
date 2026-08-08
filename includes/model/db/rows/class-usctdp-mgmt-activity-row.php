@@ -18,7 +18,7 @@ class Usctdp_Mgmt_Activity_Row extends Row
         $this->session_id = (int) $this->session_id;
         $this->product_id = (int) $this->product_id;
         $this->type = (string) $this->type;
-        $this->capacity = (int) $this->capacity;
+        $this->reservation_group_id = (int) $this->reservation_group_id;
         $this->primary_sort_order = (int) $this->primary_sort_order;
         $this->secondary_sort_order = (int) $this->secondary_sort_order;
         $this->meta = (string) $this->meta;

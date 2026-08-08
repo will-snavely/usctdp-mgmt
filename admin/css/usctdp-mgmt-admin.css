@@ -547,6 +547,22 @@ input[type=number] {
     background: #fecaca;
 }
 
+/* Generic "here's some context you should know" callout - a yellow
+   left-border accent, not a warning/error state. Originally register-page
+   only; promoted here once the Activities page's roster panel needed it
+   too (see #roster-shared-activities-note), so both pages (and any future
+   one) get it from the single shared stylesheet instead of duplicating the
+   rule. */
+.edit-note {
+    border-left: 4px solid #f1cd18;
+    padding-left: 5px;
+}
+
+.edit-note span {
+    font-size: 0.85rem;
+    color: #666;
+}
+
 /* The Modal Container */
 dialog {
     border: none;

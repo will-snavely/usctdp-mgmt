@@ -64,6 +64,12 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-audit-registrations.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-manage-reservation-groups.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-void-stale-registrations.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -405,6 +411,162 @@ class Usctdp_Cli_Command
     {
         $auditor = new Usctdp_Audit_Registrations();
         $auditor->audit();
+    }
+
+    /**
+     * Voids 'pending' registrations whose checkout attempt never produced a
+     * WooCommerce order - abandoned before submitting, or rejected by some
+     * later, unrelated validation step - so they stop permanently blocking
+     * that student from re-registering for the same activity. See
+     * Usctdp_Void_Stale_Registrations for the full reasoning, including why
+     * this is safe (doesn't touch a 'pending' registration that has a real
+     * order_id) and why it doesn't affect capacity (already excluded from
+     * counts once Usctdp_Mgmt_Woocommerce_Hooks::HOLD_MINUTES elapses).
+     *
+     * Manual for now, not yet wired to a schedule - see that class's doc
+     * comment.
+     *
+     * ## OPTIONS
+     *
+     * [--older-than=<minutes>]
+     * : How old (by created_at) a still-pending, order-less registration
+     * must be before it's considered abandoned. Default: 60.
+     *
+     * [--fix]
+     * : Void what's found. Without this flag, only reports what's found.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp release_stale_registrations
+     *     wp usctdp release_stale_registrations --fix
+     *     wp usctdp release_stale_registrations --older-than=120 --fix
+     */
+    public function release_stale_registrations($args, $assoc_args)
+    {
+        $older_than_minutes = (int) \WP_CLI\Utils\get_flag_value($assoc_args, 'older-than', 60);
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $releaser = new Usctdp_Void_Stale_Registrations();
+        $releaser->release($older_than_minutes, $fix);
+    }
+
+    /**
+     * Explicitly runs (or resumes) the migration that gives every existing
+     * activity its own dedicated usctdp_reservation_group row, instead of
+     * waiting for it to fire automatically as a side effect of whichever
+     * request happens to hit the site first after deploying a version
+     * bump. Safe to run anytime and safe to re-run - see
+     * Usctdp_Manage_Reservation_Groups::seed() and
+     * Usctdp_Mgmt_Activity_Table::backfill_reservation_groups() for why.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp seed_reservation_groups
+     */
+    public function seed_reservation_groups($args, $assoc_args)
+    {
+        $manager = new Usctdp_Manage_Reservation_Groups();
+        $manager->seed();
+        WP_CLI::success('Reservation groups are seeded and up to date.');
+    }
+
+    /**
+     * Marks two or more activities as sharing one physical space/time slot
+     * (e.g. two clinics scheduled on the same court), so their enrollment
+     * capacity is checked and enforced as one shared pool instead of
+     * independently. Always creates a brand-new reservation group at the
+     * given capacity and repoints every listed activity at it; each
+     * activity's old group is deleted if nothing else still uses it.
+     *
+     * ## OPTIONS
+     *
+     * <activity-id>...
+     * : Two or more usctdp_activity ids to merge into one shared group.
+     *
+     * --capacity=<number>
+     * : The shared capacity for the merged group. Always required
+     * explicitly - never inferred from the activities being merged, since
+     * they may currently disagree.
+     *
+     * [--name=<name>]
+     * : Titles the group's combined roster document. Optional - omit it
+     * and the roster falls back to the merged activities' own titles,
+     * joined (see Usctdp_Mgmt_Reservation_Group_Query::get_roster_title()).
+     * Use `rename_reservation_group` to set/change it later.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp merge_reservation_group 42 43 --capacity=20
+     *     wp usctdp merge_reservation_group 42 43 --capacity=20 --name="Court 3"
+     */
+    public function merge_reservation_group($args, $assoc_args)
+    {
+        if (count($args) < 2) {
+            WP_CLI::error('Provide at least two activity ids to merge.');
+            return;
+        }
+        $capacity = \WP_CLI\Utils\get_flag_value($assoc_args, 'capacity', null);
+        if ($capacity === null) {
+            WP_CLI::error('--capacity is required.');
+            return;
+        }
+        $name = \WP_CLI\Utils\get_flag_value($assoc_args, 'name', null);
+        $manager = new Usctdp_Manage_Reservation_Groups();
+        $manager->merge($args, $capacity, $name);
+    }
+
+    /**
+     * Sets (or clears, with an empty string) the title used for a
+     * reservation group's combined roster document.
+     *
+     * ## OPTIONS
+     *
+     * <group-id>
+     * : The usctdp_reservation_group id to rename.
+     *
+     * <name>
+     * : The new name. Pass an empty string ("") to clear it and fall back
+     * to the joined member-activity titles again.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp rename_reservation_group 7 "Court 3"
+     *     wp usctdp rename_reservation_group 7 ""
+     */
+    public function rename_reservation_group($args, $assoc_args)
+    {
+        if (count($args) < 2) {
+            WP_CLI::error('Provide a reservation group id and a name.');
+            return;
+        }
+        $manager = new Usctdp_Manage_Reservation_Groups();
+        $manager->rename($args[0], $args[1]);
+    }
+
+    /**
+     * Adjusts a reservation group's shared capacity directly, without
+     * changing which activities belong to it. Use `merge_reservation_group`
+     * instead if you're combining activities for the first time.
+     *
+     * ## OPTIONS
+     *
+     * <group-id>
+     * : The usctdp_reservation_group id to update.
+     *
+     * <capacity>
+     * : The new capacity.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp set_reservation_group_capacity 7 24
+     */
+    public function set_reservation_group_capacity($args, $assoc_args)
+    {
+        if (count($args) < 2) {
+            WP_CLI::error('Provide a reservation group id and a capacity.');
+            return;
+        }
+        $manager = new Usctdp_Manage_Reservation_Groups();
+        $manager->set_capacity($args[0], $args[1]);
     }
 }
 
