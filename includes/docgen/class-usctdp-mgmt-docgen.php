@@ -102,10 +102,14 @@ class Usctdp_Mgmt_Docgen
     }
 
     /**
-     * "555-1234/555-5678" from a family's raw phone_numbers JSON column -
-     * same decoding Usctdp_Mgmt_Family_Row does, just without needing a
-     * whole Row/Query round trip for it - see add_attendance_table()/
-     * add_waitlist_table(), which get this straight off a JOIN.
+     * "(555)-123-4567/(555)-987-6543" from a family's raw phone_numbers
+     * JSON column - same decoding Usctdp_Mgmt_Family_Row does, just without
+     * needing a whole Row/Query round trip for it - see
+     * add_attendance_table()/add_waitlist_table(), which get this straight
+     * off a JOIN. Each number is independently normalized (see
+     * format_phone_number()) - raw stored numbers come from years of manual
+     * entry/import and aren't consistently formatted (some with dashes,
+     * some without, some with a leading 1, etc.).
      */
     private function format_phone_numbers($phone_numbers_json)
     {
@@ -116,7 +120,33 @@ class Usctdp_Mgmt_Docgen
         if (empty($numbers)) {
             return '';
         }
-        return implode('/', $numbers);
+        return implode('/', array_map([$this, 'format_phone_number'], $numbers));
+    }
+
+    /**
+     * Normalizes one US phone number to "(555)-123-4567" - strips
+     * everything but digits, drops a leading "1" country code if present,
+     * then reformats. Falls back to the original raw string, unchanged, for
+     * anything that isn't cleanly a 10-digit US number once stripped (a
+     * partial/malformed entry, an extension, an international number) -
+     * printing something wrong-looking-but-recognizable on the roster is
+     * better than silently mangling a real number into the wrong shape.
+     */
+    private function format_phone_number($raw)
+    {
+        $digits = preg_replace('/\D/', '', (string) $raw);
+        if (strlen($digits) === 11 && $digits[0] === '1') {
+            $digits = substr($digits, 1);
+        }
+        if (strlen($digits) !== 10) {
+            return (string) $raw;
+        }
+        return sprintf(
+            '(%s)-%s-%s',
+            substr($digits, 0, 3),
+            substr($digits, 3, 3),
+            substr($digits, 6, 4)
+        );
     }
 
     /**
