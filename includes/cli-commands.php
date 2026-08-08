@@ -593,11 +593,20 @@ class Usctdp_Cli_Command
      * [--dry-run]
      * : Print what would be merged without actually merging anything.
      *
+     * [--name=<name>]
+     * : Titles each merged group's combined roster document (same as
+     * `merge_reservation_group`'s --name). If more than one slot matches,
+     * every resulting group gets this same name - use
+     * `rename_reservation_group` afterward to disambiguate any of them.
+     * Omit it and each roster falls back to its own merged activities'
+     * titles, joined.
+     *
      * ## EXAMPLES
      *
      *     wp usctdp merge_matching_clinics "Yellow Ball" "Yellow Ball Open" --dry-run
      *     wp usctdp merge_matching_clinics "Yellow Ball" "Yellow Ball Open"
      *     wp usctdp merge_matching_clinics "Red Pre-Rally" "Red Ball"
+     *     wp usctdp merge_matching_clinics "Yellow Ball" "Yellow Ball Open" --name="Court 3"
      */
     public function merge_matching_clinics($args, $assoc_args)
     {
@@ -606,8 +615,9 @@ class Usctdp_Cli_Command
             return;
         }
         $dry_run = \WP_CLI\Utils\get_flag_value($assoc_args, 'dry-run', false);
+        $name = \WP_CLI\Utils\get_flag_value($assoc_args, 'name', null);
         $merger = new Usctdp_Merge_Matching_Clinics();
-        $merger->merge($args[0], $args[1], $dry_run);
+        $merger->merge($args[0], $args[1], $dry_run, $name);
     }
 }
 

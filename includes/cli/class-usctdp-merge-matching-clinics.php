@@ -72,7 +72,16 @@ class Usctdp_Merge_Matching_Clinics
         ));
     }
 
-    public function merge($clinic_a_title, $clinic_b_title, $dry_run = false)
+    /**
+     * $name, when given, is passed straight through to
+     * Usctdp_Manage_Reservation_Groups::merge() for every matched slot - so
+     * if more than one slot matches (multiple sessions, or multiple
+     * day/time overlaps within one), every resulting group ends up with the
+     * same roster title. That's fine for the common case (one clinic pair,
+     * one session), and `rename_reservation_group` is there to
+     * disambiguate any of them afterward if it isn't.
+     */
+    public function merge($clinic_a_title, $clinic_b_title, $dry_run = false, $name = null)
     {
         $product_a = $this->find_product($clinic_a_title);
         $product_b = $this->find_product($clinic_b_title);
@@ -116,7 +125,7 @@ class Usctdp_Merge_Matching_Clinics
                 continue;
             }
 
-            $manager->merge([$slot->activity_a_id, $slot->activity_b_id], $capacity);
+            $manager->merge([$slot->activity_a_id, $slot->activity_b_id], $capacity, $name);
             $merged++;
         }
 
