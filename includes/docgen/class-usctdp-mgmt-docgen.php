@@ -646,12 +646,18 @@ class Usctdp_Mgmt_Docgen
      * their doc comments), and the instructor list is the deduplicated
      * union across all of them.
      *
-     * Everything else (schedule, level, age group, dates, capacity) comes
-     * from whichever clinic happens to be first in $clinic_ids - merged
-     * clinics are assumed to be the same session's same time slot in
-     * practice (capacity in particular already IS the shared group's
-     * capacity for every member, by construction), so there's nothing
-     * meaningful to reconcile between them beyond the roster and the title.
+     * Level is also merged - a deduplicated, comma-joined list across every
+     * clinic_id, same idea as the instructor list (real schedules do put
+     * different-level clinics like "Yellow Ball" and "Yellow Ball Open" on
+     * the same court at the same time, so this can't just be one string).
+     *
+     * Everything else (schedule, age group, dates, capacity) comes from
+     * whichever clinic happens to be first in $clinic_ids - merged clinics
+     * are assumed to be the same session's same time slot in practice
+     * (capacity in particular already IS the shared group's capacity for
+     * every member, by construction), so there's nothing meaningful left to
+     * reconcile between them beyond the roster, title, instructors, and
+     * level.
      *
      * The title is "<session>: <reservation group name>" - same "<session>:
      * <name>" shape a single clinic's block uses (see
@@ -682,14 +688,27 @@ class Usctdp_Mgmt_Docgen
         $fields['session_title'] = $session_no_parens . ': ' . $group_query->get_roster_title($reservation_group_id);
 
         $instructor_names = [];
+        $levels = [];
+        if (!empty($primary_fields->clinic_level)) {
+            $levels[$primary_fields->clinic_level] = true;
+        }
         foreach ($clinic_ids as $clinic_id) {
             foreach (explode(', ', $this->get_instructor_names($clinic_id)) as $name) {
                 if ($name !== '') {
                     $instructor_names[$name] = true;
                 }
             }
+
+            if ($clinic_id === $primary_clinic_id) {
+                continue; // already have its level, above, from $primary_fields
+            }
+            $other_data = $clinic_query->get_clinic_data(['id' => $clinic_id, 'number' => 1]);
+            if (!empty($other_data['data'][0]->clinic_level)) {
+                $levels[$other_data['data'][0]->clinic_level] = true;
+            }
         }
         $fields['insts'] = implode(', ', array_keys($instructor_names));
+        $fields['level'] = implode(', ', array_keys($levels));
 
         $this->add_roster_activity_block($section, $clinic_ids, $fields);
     }

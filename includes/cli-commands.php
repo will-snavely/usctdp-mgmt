@@ -576,7 +576,7 @@ class Usctdp_Cli_Command
      * Automates building reservation groups for two clinics that share a
      * court - finds every (session, day, start_time, end_time) slot where
      * both clinic products have exactly one activity, and merges each pair
-     * into its own new shared group (capacity = the sum of the two) via
+     * into its own new shared group (capacity = the larger of the two) via
      * `merge_reservation_group`'s same underlying logic. See
      * Usctdp_Merge_Matching_Clinics's class doc comment for why "same day
      * and time" and "same day" (as someone might describe two clinics that

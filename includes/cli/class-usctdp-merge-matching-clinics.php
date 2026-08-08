@@ -94,7 +94,14 @@ class Usctdp_Merge_Matching_Clinics
         $manager = new Usctdp_Manage_Reservation_Groups();
         $merged = 0;
         foreach ($slots as $slot) {
-            $capacity = (int) $slot->capacity_a + (int) $slot->capacity_b;
+            // The larger of the two, not the sum - the two clinics are
+            // sharing one physical court, and each side's own capacity was
+            // set independently without accounting for that, so adding
+            // them together overstates how many people the court actually
+            // fits. The larger individual number is the more defensible
+            // default; wp usctdp set_reservation_group_capacity is there
+            // to correct any specific pair by hand afterward.
+            $capacity = max((int) $slot->capacity_a, (int) $slot->capacity_b);
             WP_CLI::log(sprintf(
                 '%s | "%s" (cap %d) + "%s" (cap %d) -> shared capacity %d',
                 $slot->session_title,
