@@ -851,28 +851,34 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     public function display_after_variations_form()
     {
     }
-    private function int_to_day($day_of_week)
+    /**
+     * $abbreviated is only for the order item name (see
+     * append_registration_details_to_item_name()), which is length-
+     * constrained (127 chars on the PayPal side); the cart page and the
+     * "Day 1"/"Day 2" order item meta keep the full day name.
+     */
+    private function int_to_day($day_of_week, $abbreviated = false)
     {
         $days = [
-            1 => "Monday",
-            2 => "Tuesday",
-            3 => "Wednesday",
-            4 => "Thursday",
-            5 => "Friday",
-            6 => "Saturday",
-            7 => "Sunday",
+            1 => ["Monday", "Mon"],
+            2 => ["Tuesday", "Tues"],
+            3 => ["Wednesday", "Weds"],
+            4 => ["Thursday", "Thurs"],
+            5 => ["Friday", "Fri"],
+            6 => ["Saturday", "Sat"],
+            7 => ["Sunday", "Sun"],
         ];
-        return $days[$day_of_week->value];
+        return $days[$day_of_week->value][$abbreviated ? 1 : 0];
     }
 
-    private function get_clinic_display($activity_id)
+    private function get_clinic_display($activity_id, $abbreviated = false)
     {
         $clinic_query = new Usctdp_Mgmt_Clinic_Query([
             'id' => $activity_id,
             'number' => 1,
         ]);
         $clinic = $clinic_query->items[0];
-        return $this->int_to_day($clinic->day_of_week) . " at " . $clinic->start_time->format('g:i A');
+        return $this->int_to_day($clinic->day_of_week, $abbreviated) . " at " . $clinic->start_time->format('g:i A');
     }
 
     private function get_tournament_display($activity_id)
@@ -1269,6 +1275,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
     public function checkout_create_order_line_item($item, $cart_item_key, $values, $order)
     {
+        $student = null;
         if (isset($values['student_id'])) {
             $student_query = new Usctdp_Mgmt_Student_Query([
                 'id' => $values['student_id'],
@@ -1293,6 +1300,55 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         $this->append_session_year($item, $values);
         $item->add_meta_data('_activities', $values['activities']);
         $item->add_meta_data('_tracking_id', $values['tracking_id']);
+        $this->append_registration_details_to_item_name($item, $values, $student);
+    }
+
+    /**
+     * Bakes the student + clinic/tournament identifying details onto the
+     * order item's own name, not just its meta.
+     *
+     * WooCommerce PayPal Payments builds the PayPal-side line item straight
+     * from $item->get_name() (see ItemFactory::from_wc_order_line_item() in
+     * the woocommerce-paypal-payments plugin) - it never looks at order item
+     * meta, so PayPal's payment notification email otherwise only shows the
+     * generic product/variation title, with nothing distinguishing which
+     * day/time or which student the registration was for. Appending here
+     * fixes that at the source, and as a side effect also surfaces the same
+     * context up front on the WooCommerce admin order screen and customer
+     * emails, rather than only in the meta rows below the line item.
+     *
+     * The bracketed "[a / b]" format (rather than a plain "a, b" list) is
+     * deliberate, not stylistic: WC_Order_Item::get_formatted_meta_data()
+     * - what wc_display_item_meta() uses to render the "Student Name"/"Day 1"
+     * meta rows below the item name - hides any meta row whose value already
+     * appears in the item name as "value," or as the name's exact trailing
+     * "value" (wc_is_attribute_in_product_name(), meant to stop a variation's
+     * own attributes from being listed twice). A plain comma-joined list
+     * matches that pattern exactly and silently hid those meta rows; wrapping
+     * in brackets with a "/" separator means no detail value is ever
+     * immediately followed by a comma or sits at the literal end of the
+     * name, so the dedup check no longer matches and both the name and the
+     * meta rows show.
+     */
+    private function append_registration_details_to_item_name($item, $values, $student)
+    {
+        $details = [];
+        if ($student) {
+            $details[] = $student->title;
+        }
+        if (isset($values['day_of_week_1'])) {
+            $details[] = $this->get_clinic_display($values['day_of_week_1'], true);
+        }
+        if (isset($values['day_of_week_2'])) {
+            $details[] = $this->get_clinic_display($values['day_of_week_2'], true);
+        }
+        if (isset($values['tournament_activity_id'])) {
+            $details[] = $this->get_tournament_display($values['tournament_activity_id']);
+        }
+        if (empty($details)) {
+            return;
+        }
+        $item->set_name($item->get_name() . ' [' . implode(' / ', $details) . ']');
     }
 
     /**

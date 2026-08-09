@@ -90,6 +90,23 @@ class Usctdp_Delete_Family
         ];
     }
 
+    /**
+     * user_id on the family row can point at a wp_users row that's already
+     * gone - deleted by hand, by a previous run of this same command, or by
+     * anything else that calls wp_delete_user() directly. Surfacing that
+     * here (rather than just "#123") means the pre-delete report already
+     * tells the operator this account has no login left to clean up, and
+     * delete() below relies on this same get_userdata() check to skip
+     * calling wp_delete_user() on an id that's already gone.
+     */
+    private function describe_user($user_id)
+    {
+        if (empty($user_id)) {
+            return '(none)';
+        }
+        return get_userdata($user_id) ? "#{$user_id}" : "#{$user_id} (already deleted)";
+    }
+
     private function print_summary($data)
     {
         $family = $data['family'];
@@ -99,7 +116,7 @@ class Usctdp_Delete_Family
         ]));
 
         WP_CLI::log(sprintf('Family #%d: %s%s', $family->id, $family->title, $contact ? " ($contact)" : ''));
-        WP_CLI::log('  wp user:          ' . ($family->user_id ? "#{$family->user_id}" : '(none)'));
+        WP_CLI::log('  wp user:          ' . $this->describe_user($family->user_id));
         WP_CLI::log('  students:         ' . count($data['students']));
         foreach ($data['students'] as $student) {
             WP_CLI::log("    - #{$student->id} {$student->title}");
@@ -174,8 +191,13 @@ class Usctdp_Delete_Family
             return false;
         }
 
+        // get_userdata() guards against a user_id that's already stale (the
+        // wp_users row is gone, e.g. someone deleted the account by hand
+        // before running this) - wp_delete_user() returns false for a
+        // nonexistent user, which would otherwise look identical to a real
+        // deletion failure and produce a misleading warning below.
         $user_id = $data['family']->user_id;
-        if (!empty($user_id)) {
+        if (!empty($user_id) && get_userdata($user_id)) {
             if (!wp_delete_user($user_id)) {
                 WP_CLI::warning("Family #{$family_id}: deleted, but failed to delete linked wp user #{$user_id}.");
             }
