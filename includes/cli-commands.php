@@ -73,6 +73,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-merge-matching-clinics.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-delete-family.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -618,6 +621,49 @@ class Usctdp_Cli_Command
         $name = \WP_CLI\Utils\get_flag_value($assoc_args, 'name', null);
         $merger = new Usctdp_Merge_Matching_Clinics();
         $merger->merge($args[0], $args[1], $dry_run, $name);
+    }
+
+    /**
+     * Permanently deletes a family created for testing (or otherwise bad,
+     * e.g. an obvious spam signup) along with everything that references
+     * it: its students, purchases, ledger entries, registrations, waitlist
+     * entries, and its linked wp_user account. See Usctdp_Delete_Family for
+     * why this can't just be a plain "delete the family row" and why it
+     * always asks for confirmation before actually deleting anything.
+     *
+     * Report-only by default - always run without --fix first and check
+     * the listing carefully, especially the purchases/ledger
+     * entries/registrations counts. A family with real purchase or
+     * registration history is almost certainly not a test account.
+     *
+     * ## OPTIONS
+     *
+     * <family-id>...
+     * : One or more usctdp_family ids to delete.
+     *
+     * [--fix]
+     * : Actually delete. Without this flag, only reports what would be
+     * deleted.
+     *
+     * [--yes]
+     * : Skip the interactive confirmation prompt (only shown when --fix is
+     * passed). For non-interactive/scripted use.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp delete_family 482
+     *     wp usctdp delete_family 482 --fix
+     *     wp usctdp delete_family 482 519 --fix --yes
+     */
+    public function delete_family($args, $assoc_args)
+    {
+        if (empty($args)) {
+            WP_CLI::error('Provide at least one family id to delete.');
+            return;
+        }
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $deleter = new Usctdp_Delete_Family();
+        $deleter->run($args, $fix, $assoc_args);
     }
 }
 
