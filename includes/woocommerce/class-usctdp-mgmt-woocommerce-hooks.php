@@ -1336,6 +1336,21 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     private function append_registration_details_to_item_name($item, $values, $student)
     {
         $details = [];
+        // Read after append_session_year() has already run (see call order
+        // in checkout_create_order_line_item()), so this already has the
+        // start year appended, e.g. "Winter Junior Open 2026".
+        $session_name = $item->get_meta('session');
+        if (!empty($session_name)) {
+            // Parenthetical qualifiers (e.g. "(Junior)") are redundant here
+            // - inferable from the product itself - so strip them to keep
+            // the bracketed title compact. This only affects the name; the
+            // "session" meta value (with parens intact) still displays
+            // as-is in the meta rows below.
+            $session_name = trim(preg_replace('/\s+/', ' ', preg_replace('/\s*\([^)]*\)/', '', $session_name)));
+        }
+        if (!empty($session_name)) {
+            $details[] = $session_name;
+        }
         if ($student) {
             $details[] = $student->title;
         }
