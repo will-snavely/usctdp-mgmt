@@ -877,7 +877,10 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             'id' => $activity_id,
             'number' => 1,
         ]);
-        $clinic = $clinic_query->items[0];
+        $clinic = $clinic_query->items[0] ?? null;
+        if (!$clinic || !$clinic->start_time) {
+            return '';
+        }
         return $this->int_to_day($clinic->day_of_week, $abbreviated) . " at " . $clinic->start_time->format('g:i A');
     }
 
@@ -934,12 +937,12 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         if (isset($_POST['student_id'])) {
             $cart_item_data['student_id'] = intval($_POST['student_id']);
         }
-        if (isset($_POST['day_of_week_1'])) {
+        if (!empty($_POST['day_of_week_1'])) {
             $id = intval($_POST['day_of_week_1']);
             $activities[] = $id;
             $cart_item_data['day_of_week_1'] = $id;
         }
-        if (isset($_POST['day_of_week_2'])) {
+        if (!empty($_POST['day_of_week_2'])) {
             $id = intval($_POST['day_of_week_2']);
             $activities[] = $id;
             $cart_item_data['day_of_week_2'] = $id;
