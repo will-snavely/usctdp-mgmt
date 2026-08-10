@@ -429,7 +429,7 @@ class Usctdp_Mgmt_Admin_Ajax
             }
             wp_send_json_success([
                 'drive_id' => $roster_link->drive_id,
-                'doc_url' => 'https://drive.google.com/file/d/' . $roster_link->drive_id . '/edit',
+                'doc_url' => 'https://docs.google.com/document/d/' . $roster_link->drive_id . '/edit',
                 'generated_at' => $roster_link->updated_at ? $roster_link->updated_at->format('Y-m-d\TH:i:s\Z') : null
             ]);
         } catch (Throwable $e) {

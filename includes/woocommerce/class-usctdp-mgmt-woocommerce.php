@@ -111,6 +111,8 @@ class Usctdp_Mgmt_Woocommerce
 
         try {
             $total = 0;
+            $discount_total = 0;
+            $house_credit_total = 0;
             foreach ($line_items as $line_item) {
                 $student_id = $line_item["student_id"];
                 $student = Usctdp_Mgmt_Model::get_student($student_id);
@@ -161,15 +163,8 @@ class Usctdp_Mgmt_Woocommerce
                     $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
                     $item->save();
                 }
-            }
 
-            $discount_total = 0;
-            $discounts = [];
-            if (isset($line_item["discounts"])) {
-                $discounts = $line_item["discounts"];
-            }
-
-            if ($discounts) {
+                $discounts = isset($line_item["discounts"]) ? $line_item["discounts"] : [];
                 foreach ($discounts as $discount) {
                     $discount_amount = floatval($discount["amount"]);
                     $discount_total += $discount_amount;
@@ -178,18 +173,18 @@ class Usctdp_Mgmt_Woocommerce
                     $fee->set_total(-$discount_amount);
                     $order->add_item($fee);
                 }
+
+                if (isset($line_item["house_credit"])) {
+                    $house_credit_total += floatval($line_item["house_credit"]);
+                }
             }
 
-            $house_credit_applied = 0;
-            if(isset($line_item["house_credit"])) {
-                $house_credit_applied = floatval($line_item["house_credit"]);
-                if ($house_credit_applied > 0) {
-                    $discount_total += $house_credit_applied;
-                    $fee = new WC_Order_Item_Fee();
-                    $fee->set_name("House Credit Applied");
-                    $fee->set_total(-$house_credit_applied);
-                    $order->add_item($fee);
-                }
+            if ($house_credit_total > 0) {
+                $discount_total += $house_credit_total;
+                $fee = new WC_Order_Item_Fee();
+                $fee->set_name("House Credit Applied");
+                $fee->set_total(-$house_credit_total);
+                $order->add_item($fee);
             }
 
             $order->set_total($total - $discount_total);

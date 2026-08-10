@@ -7,7 +7,7 @@
             if (!driveId) {
                 return '<span class="roster-link-none">Not yet generated</span>';
             }
-            var docUrl = 'https://drive.google.com/file/d/' + driveId + '/edit';
+            var docUrl = 'https://docs.google.com/document/d/' + driveId + '/edit';
             var generatedStr = USCTDP_Admin.formatGeneratedAt(generatedAt);
             return '<div class="roster-link-cell">' +
                 '<a href="' + docUrl + '" target="_blank" rel="noopener noreferrer">View in Drive</a>' +

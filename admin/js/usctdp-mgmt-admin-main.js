@@ -2,13 +2,6 @@
     "use strict";
 
     $(document).ready(function () {
-        $('#clinic-rosters-table').DataTable({
-            paging: false,
-            "initComplete": function () {
-                $('#clinic-rosters-table').removeClass('hidden');
-            }
-        });
-
         $('#families-select2').select2(
             USCTDP_Admin.select2Options({
                 placeholder: "Search for a family...",
@@ -103,7 +96,7 @@
             if (!driveId) {
                 return;
             }
-            window.open('https://drive.google.com/file/d/' + driveId + '/edit', '_blank');
+            window.open('https://docs.google.com/document/d/' + driveId + '/edit', '_blank');
         });
 
         $('#session-rosters-table').on('click', 'button.regenerate-roster-btn', function () {

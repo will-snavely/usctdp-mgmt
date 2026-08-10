@@ -19,7 +19,7 @@
 
         function updateRosterLinkInfo(driveId, generatedAt) {
             if (driveId) {
-                var docUrl = 'https://drive.google.com/file/d/' + driveId + '/edit';
+                var docUrl = 'https://docs.google.com/document/d/' + driveId + '/edit';
                 $('#roster-existing-link').attr('href', docUrl);
                 $('#roster-generated-at').text(USCTDP_Admin.formatGeneratedAt(generatedAt) || '');
                 $('#roster-link-generated').removeClass('hidden');
