@@ -308,8 +308,16 @@ class Usctdp_Mgmt_Public
         $clinic_table = $wpdb->prefix . 'usctdp_clinic';
         $reservation_group_table = $wpdb->prefix . 'usctdp_reservation_group';
 
+        // act.*, not *: clin and resg each have their own `id` column (resg's
+        // is the reservation GROUP's id, unrelated to the activity/clinic's
+        // own id), and a bare SELECT * silently collapses all three same-named
+        // columns down to whichever table's id is listed last (resg) when
+        // $wpdb hydrates the result - clobbering the activity id that the
+        // day-selector relies on as its option value. Pulling only the
+        // specific clin/resg columns actually used keeps act.id intact.
         $clinic_query = $wpdb->prepare(
-            "SELECT *, resg.capacity as capacity FROM $activity_table as act
+            "SELECT act.*, clin.day_of_week, clin.start_time, clin.end_time, resg.capacity as capacity
+            FROM $activity_table as act
             JOIN $clinic_table as clin ON act.id = clin.id
             JOIN $reservation_group_table as resg ON act.reservation_group_id = resg.id
             WHERE act.session_id = %d AND act.product_id = %d",
