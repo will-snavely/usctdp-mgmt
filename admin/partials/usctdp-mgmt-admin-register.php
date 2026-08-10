@@ -53,24 +53,6 @@
         </dialog>
 
         <div id="registration-info" class="flex-col gap-20">
-            <div id="preloaded-data" class="flex-col gap-10 hidden">
-                <div id="preloaded-family" class="hidden preload-field">
-                    <span class="preload-label upper-heavy">Family</span>
-                    <span id="preloaded-family-name"></span>
-                </div>
-                <div id="preloaded-student" class="hidden preload-field">
-                    <span class="preload-label upper-heavy">Student</span>
-                    <span id="preloaded-student-name"></span>
-                </div>
-                <div id="preloaded-session" class="hidden preload-field">
-                    <span class="preload-label upper-heavy">Session</span>
-                    <span id="preloaded-session-name"></span>
-                </div>
-                <div id="preloaded-activity" class="hidden preload-field">
-                    <span class="preload-label upper-heavy">Activity</span>
-                    <span id="preloaded-activity-name"></span>
-                </div>
-            </div>
             <div id="context-selection">
                 <div id="context-selection-header" class="section-header">
                     <h2>Select Item</h2>

@@ -813,12 +813,23 @@
             }
         }
 
+        /**
+         * Prepopulate selectors from externally supplied entries (e.g. page
+         * preloads). Like setSilently, each entry is attached as the option's
+         * select2 data, so it should carry the same fields the target's
+         * remote search would have returned - change handlers read extra
+         * fields (e.g. `first`, `last`) off `$el.select2('data')[0]`.
+         * Entries are applied in config (cascade) order, and each one fires
+         * the normal change cascade. Set `disable: false` on an entry to
+         * leave the selector editable.
+         */
         applyData(data) {
             Object.entries(this.config).forEach(([id, settings]) => {
                 const entry = data[id];
                 if (entry) {
                     const $el = $(`#${id}`);
                     const newOption = new Option(entry.text, entry.id, true, true);
+                    $(newOption).data('data', entry);
                     $el.append(newOption).trigger('change');
                     $el.prop('disabled', entry.disable ?? true);
                     $(`#${id}-section`).removeClass('hidden');

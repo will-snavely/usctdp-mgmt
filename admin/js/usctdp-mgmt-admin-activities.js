@@ -361,9 +361,7 @@
             $('#listings-section').addClass('hidden');
             if (selectorId == 'activity-selector') {
                 if (value) {
-                    var registerUrl = 'admin.php?page=usctdp-admin-register&activity_id=' + value;
                     $('#listings-section').removeClass('hidden');
-                    $('#register-student-button').attr('href', registerUrl);
                     rosterTable.ajax.reload();
                     waitlistTable.ajax.reload();
                     refreshRosterLinkInfo(value);

@@ -419,11 +419,7 @@
             clearNotifications();
             togglePreorderDetails(false);
             togglePaymentTable(true);
-            if ('activity-selector' in selectorConfig) {
-                $('#activity-selector').val(null).trigger('change');
-            } else if ('student-selector' in selectorConfig) {
-                $('#student-selector').val(null).trigger('change');
-            }
+            $('#activity-selector').val(null).trigger('change');
         });
 
         $('#discount-sibling').on('change', function () {
@@ -473,14 +469,6 @@
             togglePaymentTable(false);
             $('#family-selector').prop('disabled', false);
             $('#family-selector-section .context-selector-label-wrap .edit-note').remove();
-
-            if (usctdp_mgmt_admin.preload.student_id && usctdp_mgmt_admin.preload.activity_id) {
-                $("#context-selection").addClass("hidden");
-                loadActivityRegistration(
-                    selectedActivity.id,
-                    selectedActivity.type,
-                    selectedStudent.id);
-            }
         });
 
         $('#payment-table-section').on('payment:checkout', function () {
@@ -581,55 +569,6 @@
                 }
             },
         };
-
-        if (usctdp_mgmt_admin.preload.student_id) {
-            const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
-            delete selectorConfig['family-selector'];
-            delete selectorConfig['student-selector'];
-            selectorConfig['session-selector'].isRoot = true;
-            selectedStudent = {
-                id: preloadedStudent.student_id,
-                first: preloadedStudent.student_first,
-                last: preloadedStudent.student_last,
-                name: preloadedStudent.student_name
-            };
-            selectedFamily = {
-                id: preloadedStudent.family_id,
-                name: preloadedStudent.family_name
-            };
-
-            $('#preloaded-data').removeClass("hidden");
-            $('#preloaded-family-name').text(selectedFamily.name);
-            $('#preloaded-family').removeClass('hidden');
-            $('#preloaded-student-name').text(selectedStudent.name);
-            $('#preloaded-student').removeClass('hidden');
-        }
-
-        if (usctdp_mgmt_admin.preload.activity_id) {
-            const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
-
-            delete selectorConfig['session-selector'];
-            delete selectorConfig['activity-selector'];
-            delete selectorConfig['merchandise-selector'];
-
-            if ('student-selector' in selectorConfig) {
-                selectorConfig['student-selector'].next = null;
-            }
-            selectedActivity = {
-                id: preloadedActivity.activity_id,
-                name: preloadedActivity.activity_name,
-                type: preloadedActivity.activity_type,
-                product_id: preloadedActivity.product_id,
-                session_id: preloadedActivity.session_id,
-                session_name: preloadedActivity.session_name
-            };
-
-            $('#preloaded-data').removeClass("hidden");
-            $('#preloaded-session-name').text(selectedActivity.session_name);
-            $('#preloaded-session').removeClass('hidden');
-            $('#preloaded-activity-name').text(selectedActivity.name);
-            $('#preloaded-activity').removeClass('hidden');
-        }
 
         const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
 
@@ -808,12 +747,63 @@
             viewWaitlistModal.close();
         });
 
-        if (usctdp_mgmt_admin.preload.student_id && usctdp_mgmt_admin.preload.activity_id) {
-            $("#context-selection").addClass("hidden");
-            loadActivityRegistration(
-                selectedActivity.id,
-                selectedActivity.type,
-                selectedStudent.id);
+        // Prepopulate (but don't lock) the selectors from page preloads.
+        // Must run after the cascade:change handler above is bound -
+        // applyData fires the normal change cascade, which is what populates
+        // selectedFamily/selectedStudent/selectedActivity and kicks off the
+        // registration load when the cascade completes.
+        if (usctdp_mgmt_admin.preload.student_id) {
+            const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+            const preloadedData = {
+                'family-selector': {
+                    id: preloadedStudent.family_id,
+                    text: preloadedStudent.family_name,
+                    disable: false
+                },
+                'student-selector': {
+                    id: preloadedStudent.student_id,
+                    text: preloadedStudent.student_name,
+                    first: preloadedStudent.student_first,
+                    last: preloadedStudent.student_last,
+                    disable: false
+                }
+            };
+
+            // An activity preload is only honored alongside a student (the
+            // waitlist "Register" link supplies both); an activity on its
+            // own doesn't fit this page's flow and is ignored.
+            if (usctdp_mgmt_admin.preload.activity_id) {
+                const preloadedActivity = Object.values(usctdp_mgmt_admin.preload.activity_id)[0];
+                // wp_localize_script delivers DB values as strings, but the
+                // tournament check compares numeric categories.
+                const category = parseInt(preloadedActivity.session_category, 10);
+                preloadedData['session-selector'] = {
+                    id: preloadedActivity.session_id,
+                    text: preloadedActivity.session_name,
+                    category: category,
+                    disable: false
+                };
+                // Tournament sessions never show the Clinic/Day selectors;
+                // the session's autoSelectChild resolves its sole activity
+                // silently, same as a manual selection - so only clinic
+                // sessions preload those two directly.
+                if (USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(category) === -1) {
+                    preloadedData['clinic-selector'] = {
+                        id: preloadedActivity.product_id,
+                        text: preloadedActivity.product_name,
+                        disable: false
+                    };
+                    preloadedData['activity-selector'] = {
+                        id: preloadedActivity.activity_id,
+                        text: preloadedActivity.activity_name,
+                        type: preloadedActivity.activity_type,
+                        product_id: preloadedActivity.product_id,
+                        disable: false
+                    };
+                }
+            }
+
+            selectHandler.applyData(preloadedData);
         }
     });
 })(jQuery);
