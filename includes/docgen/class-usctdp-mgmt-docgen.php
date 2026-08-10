@@ -142,7 +142,7 @@ class Usctdp_Mgmt_Docgen
             return (string) $raw;
         }
         return sprintf(
-            '(%s)-%s-%s',
+            '(%s) %s-%s',
             substr($digits, 0, 3),
             substr($digits, 3, 3),
             substr($digits, 6, 4)
