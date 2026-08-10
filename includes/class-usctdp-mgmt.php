@@ -108,6 +108,9 @@ class Usctdp_Mgmt
             "includes/woocommerce/class-usctdp-mgmt-woocommerce-hooks.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/woocommerce/class-usctdp-mgmt-tournament-pricing.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/woocommerce/class-usctdp-mgmt-import-confirm-hooks.php";
 
         require_once plugin_dir_path(dirname(__FILE__)) .
@@ -191,6 +194,16 @@ class Usctdp_Mgmt
             'woocommerce_is_sold_individually',
             $commerce_handler,
             'force_sold_individually_for_variable_products',
+            10,
+            2,
+        );
+        // Tournament variation titles: drop the "- <session attribute>"
+        // suffix, which just repeats the tournament's name. Stored titles
+        // self-heal on read - see the method's docblock.
+        $this->loader->add_filter(
+            'woocommerce_product_variation_title_include_attributes',
+            $commerce_handler,
+            'exclude_attributes_from_tournament_variation_title',
             10,
             2,
         );
@@ -377,6 +390,34 @@ class Usctdp_Mgmt
             $commerce_handler,
             'checkout_create_order_line_item',
             10,
+            4
+        );
+
+        // Tiered tournament pricing (early bird / with-clinic discounts) -
+        // see class-usctdp-mgmt-tournament-pricing.php for the tier rules.
+        $tournament_pricing = new Usctdp_Mgmt_Tournament_Pricing();
+        $this->loader->add_action(
+            'woocommerce_before_calculate_totals',
+            $tournament_pricing,
+            'apply_tournament_pricing',
+            10,
+            1
+        );
+        $this->loader->add_filter(
+            'woocommerce_get_item_data',
+            $tournament_pricing,
+            'add_discount_item_data',
+            10,
+            2
+        );
+        // Priority 20: after $commerce_handler's checkout_create_order_line_item
+        // (10) has added its student/activity meta, so the "Pricing" row sorts
+        // below those on the order item.
+        $this->loader->add_action(
+            'woocommerce_checkout_create_order_line_item',
+            $tournament_pricing,
+            'add_discount_order_item_meta',
+            20,
             4
         );
         $this->loader->add_action(

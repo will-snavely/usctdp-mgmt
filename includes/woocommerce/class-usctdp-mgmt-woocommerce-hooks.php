@@ -7,6 +7,15 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     // after_checkout_validation() below, instead of drifting out of sync
     // with a second hardcoded copy of this number.
     const HOLD_MINUTES = 10;
+
+    /**
+     * Per-request cache for exclude_attributes_from_tournament_variation_title():
+     * WC product (parent) id => bool "is a tournament product". That filter
+     * fires once per variation read, so a tournament product page would
+     * otherwise repeat the same usctdp_product lookup per variation.
+     */
+    private $tournament_parent_cache = [];
+
     public function __construct()
     {
     }
@@ -535,6 +544,50 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     }
 
     /**
+     * Drop the attribute suffix from tournament variation titles.
+     *
+     * WooCommerce generates a variation's stored post_title as
+     * "Parent - Attributes" (generate_product_title() in
+     * class-wc-product-variation-data-store-cpt.php) and re-syncs it on
+     * every variation *read*, so returning false here doesn't just affect
+     * future saves - existing stored titles self-heal the next time the
+     * variation is loaded anywhere. Tournament imports name the session
+     * attribute after the tournament itself (import_tournament_activities()
+     * derives session, activity, and tournament names from the same input
+     * string), so the default title comes out as "Junior Singles Round
+     * Robin - Junior Singles Round Robin (Fall)" - the suffix is pure
+     * noise. Clinics keep WooCommerce's default: their session attribute
+     * ("Session I (Junior)") is real information the parent title lacks.
+     *
+     * Historical order items are unaffected either way - an order snapshots
+     * the item name at purchase time.
+     */
+    public function exclude_attributes_from_tournament_variation_title($should_include_attributes, $product)
+    {
+        // Variation reads can happen before this plugin's init hook has
+        // registered the BerlinDB entities the lookup below needs; leave
+        // the title alone on those early reads (it self-heals on the next
+        // post-init read anyway).
+        if (!did_action('init')) {
+            return $should_include_attributes;
+        }
+        $parent_id = $product->get_parent_id();
+        if (!$parent_id) {
+            return $should_include_attributes;
+        }
+        if (!array_key_exists($parent_id, $this->tournament_parent_cache)) {
+            $product_query = new Usctdp_Mgmt_Product_Query([
+                'woocommerce_id' => $parent_id,
+                'number' => 1,
+            ]);
+            $usctdp_product = $product_query->items[0] ?? null;
+            $this->tournament_parent_cache[$parent_id] =
+                $usctdp_product && $usctdp_product->type === 'tournament';
+        }
+        return $this->tournament_parent_cache[$parent_id] ? false : $should_include_attributes;
+    }
+
+    /**
      * Hide the price range WooCommerce shows for variable products (clinics,
      * tournaments) on the single product page. That pricing is already broken
      * out per session in the session-info cards rendered above the variations
@@ -761,7 +814,8 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     /**
      * Look up the (session, product) pricing row and format it for display
      * on the session card. Clinics price by days-per-week ('One'/'Two');
-     * tournaments have a flat enrollment fee ('base'). Returns an array of
+     * tournaments have an enrollment fee ('base') plus optional discount
+     * tiers ('early_signup'/'with_clinic'). Returns an array of
      * pre-formatted HTML strings, one per price line, or [] if there's
      * nothing to show (no pricing row, or an unpriced product type).
      */
@@ -781,7 +835,41 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             if (empty($pricing['base'])) {
                 return [];
             }
-            return [wc_price($pricing['base']) . ' to enroll'];
+            $lines = [wc_price($pricing['base']) . ' to enroll'];
+            // Discount tiers (see Usctdp_Mgmt_Tournament_Pricing for the
+            // rules that actually apply them at cart time). The early line
+            // only shows while the early window is still open; the
+            // with-clinic line always shows, since eligibility is
+            // per-student and can also be earned by adding a clinic to the
+            // same cart.
+            if (!empty($pricing['early_signup']) || !empty($pricing['with_clinic'])) {
+                $activity_query = new Usctdp_Mgmt_Activity_Query([
+                    'session_id' => $session->id,
+                    'product_id' => $usctdp_product->id,
+                    'number' => 1,
+                ]);
+                $activity = $activity_query->items[0] ?? null;
+                $tournament = null;
+                if ($activity) {
+                    $tournament_query = new Usctdp_Mgmt_Tournament_Query([
+                        'id' => $activity->id,
+                        'number' => 1,
+                    ]);
+                    $tournament = $tournament_query->items[0] ?? null;
+                }
+                $deadline = $tournament ? $tournament->early_registration_deadline : null;
+                if (
+                    !empty($pricing['early_signup']) && $deadline
+                    && current_time('Y-m-d') <= $deadline->format('Y-m-d')
+                ) {
+                    $lines[] = wc_price($pricing['early_signup'])
+                        . ' &middot; early registration through ' . esc_html($deadline->format('M j'));
+                }
+                if (!empty($pricing['with_clinic'])) {
+                    $lines[] = wc_price($pricing['with_clinic']) . ' &middot; with clinic enrollment';
+                }
+            }
+            return $lines;
         }
 
         $lines = [];
@@ -961,6 +1049,22 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
     public function get_item_data($item_data, $cart_item)
     {
+        // Tournament cart items show only the student (plus the Pricing row
+        // added by Usctdp_Mgmt_Tournament_Pricing): the session/activity
+        // are implied - a tournament's activity title IS its session name,
+        // and the product name already identifies it. The session attribute
+        // row needs explicit removal here because
+        // wc_get_formatted_cart_item_data() adds attribute rows before this
+        // filter runs, and only auto-hides ones already present in the
+        // product name - which the session no longer is, now that
+        // exclude_attributes_from_tournament_variation_title() strips it
+        // from the title.
+        if (isset($cart_item['tournament_activity_id']) && !empty($cart_item['variation'])) {
+            $attribute_values = array_map('strval', $cart_item['variation']);
+            $item_data = array_values(array_filter($item_data, function ($row) use ($attribute_values) {
+                return !in_array((string) ($row['value'] ?? ''), $attribute_values, true);
+            }));
+        }
         if (isset($cart_item['student_id'])) {
             $student_query = new Usctdp_Mgmt_Student_Query([
                 'id' => $cart_item['student_id'],
@@ -987,14 +1091,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 'key' => 'Day 2',
                 'value' => $clinic_id,
                 'display' => $this->get_clinic_display($clinic_id)
-            );
-        }
-        if (isset($cart_item['tournament_activity_id'])) {
-            $activity_id = intval($cart_item['tournament_activity_id']);
-            $item_data[] = array(
-                'key' => 'Activity',
-                'value' => $activity_id,
-                'display' => $this->get_tournament_display($activity_id)
             );
         }
         return $item_data;
@@ -1336,10 +1432,20 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     private function append_registration_details_to_item_name($item, $values, $student)
     {
         $details = [];
+        // Tournament items get only the student name: with the attribute
+        // suffix excluded from the variation title
+        // (exclude_attributes_from_tournament_variation_title()), the item
+        // name already says which tournament it is, and both the session
+        // detail and get_tournament_display() would just repeat it (a
+        // tournament activity's title IS the session name -
+        // import_tournament_activities() sets both from the same string).
+        // The "session" and "Activity" meta rows on the order item still
+        // carry the fully-qualified name + year for the office's records.
+        $is_tournament = isset($values['tournament_activity_id']);
         // Read after append_session_year() has already run (see call order
         // in checkout_create_order_line_item()), so this already has the
         // start year appended, e.g. "Winter Junior Open 2026".
-        $session_name = $item->get_meta('session');
+        $session_name = $is_tournament ? '' : $item->get_meta('session');
         if (!empty($session_name)) {
             // Parenthetical qualifiers (e.g. "(Junior)") are redundant here
             // - inferable from the product itself - so strip them to keep
@@ -1359,9 +1465,6 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         }
         if (isset($values['day_of_week_2'])) {
             $details[] = $this->get_clinic_display($values['day_of_week_2'], true);
-        }
-        if (isset($values['tournament_activity_id'])) {
-            $details[] = $this->get_tournament_display($values['tournament_activity_id']);
         }
         if (empty($details)) {
             return;
