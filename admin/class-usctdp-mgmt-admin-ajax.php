@@ -714,6 +714,15 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $ledger_query = new Usctdp_Mgmt_Ledger_Query();
         $result = $ledger_query->get_ledger_events($args);
+        foreach ($result['data'] as $row) {
+            $row->order_url = null;
+            if (!empty($row->order_id)) {
+                $order = wc_get_order($row->order_id);
+                if ($order) {
+                    $row->order_url = get_edit_post_link($row->order_id);
+                }
+            }
+        }
         $response = array(
             "draw" => $draw,
             "recordsTotal" => $result['count'],

@@ -1856,7 +1856,15 @@
                         }
                     },
                     { data: 'entry_type' },
-                    { data: 'event_description' },
+                    {
+                        data: 'event_description',
+                        render: function (data, type, row, meta) {
+                            if (type === 'display' && row.order_url) {
+                                return `<a href="${row.order_url}" target="_blank" rel="noopener noreferrer">${data}</a>`;
+                            }
+                            return data;
+                        }
+                    },
                     {
                         data: 'charge_amount',
                         render: function (data, type, row, meta) {

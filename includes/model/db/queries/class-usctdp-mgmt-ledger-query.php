@@ -120,9 +120,10 @@ class Usctdp_Mgmt_Ledger_Query extends Query
         }
 
         $query = $wpdb->prepare(
-            "SELECT 
+            "SELECT
                 id,
                 event_id,
+                order_id,
                 DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%T.%%fZ') as event_date,
                 entry_type,
                 description as event_description,
