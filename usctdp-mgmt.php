@@ -35,7 +35,7 @@ if (!defined("WPINC")) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define("USCTDP_MGMT_VERSION", "1.9.1");
+define("USCTDP_MGMT_VERSION", "1.9.2");
 
 if (!defined('USCTDP_DIR_PATH')) {
     define('USCTDP_DIR_PATH', plugin_dir_url(__FILE__));
