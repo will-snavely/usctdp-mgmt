@@ -41,6 +41,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'update_family' => 'ajax_update_family',
         'update_registration' => 'ajax_update_registration',
         'update_purchase' => 'ajax_update_purchase',
+        'update_student' => 'ajax_update_student',
         'waitlist_add' => 'ajax_waitlist_add',
         'waitlist_remove' => 'ajax_waitlist_remove',
         'waitlist_datatable' => 'ajax_waitlist_datatable',
@@ -1245,6 +1246,75 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    /**
+     * Not routed through save_entity() like the other single-entity
+     * updaters: title/search_term have to be recomputed from first/last
+     * every time (same derivation as create_student's), but save_entity()
+     * only touches fields present as top-level keys in $_POST, and the
+     * edit form has no title/search_term inputs of its own to send.
+     */
+    public function ajax_update_student()
+    {
+        $this->check_nonce('update_student');
+
+        $entity_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter student_id', 400);
+        }
+
+        $student = Usctdp_Mgmt_Model::get_student($entity_id);
+        if (!$student) {
+            wp_send_json_error('No student found with id: ' . $entity_id, 400);
+        }
+
+        try {
+            $first_name = $this->get_sanitized_post_field_text('first') ?? '';
+            $last_name = $this->get_sanitized_post_field_text('last') ?? '';
+            $level = $this->get_sanitized_post_field_text('level') ?? '';
+
+            $birth_date = '';
+            $birth_date_raw = $this->get_sanitized_post_field_text('birth_date');
+            if (!empty($birth_date_raw)) {
+                $birth_date = (new DateTime($birth_date_raw))->format('Y-m-d');
+            }
+            $current_birth_date = $student->birth_date ? $student->birth_date->format('Y-m-d') : '';
+
+            $title = trim($first_name . ' ' . $last_name);
+            $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+
+            // BerlinDB's update_item() diffs the args against the current
+            // row itself and returns false when nothing actually changed
+            // (its "bail if nothing to save" case) - that's not a failure,
+            // just a no-op, so check for a real change ourselves first
+            // rather than reading its return value as pass/fail.
+            $changed = $student->first !== $first_name
+                || $student->last !== $last_name
+                || $student->level !== $level
+                || $current_birth_date !== $birth_date
+                || $student->title !== $title
+                || $student->search_term !== $search_term;
+
+            if ($changed) {
+                $student_query = new Usctdp_Mgmt_Student_Query();
+                if (!$student_query->update_item($entity_id, [
+                    'first' => $first_name,
+                    'last' => $last_name,
+                    'level' => $level,
+                    'birth_date' => $birth_date,
+                    'title' => $title,
+                    'search_term' => $search_term,
+                ])) {
+                    wp_send_json_error('Failed to update student.', 500);
+                }
+            }
+
+            wp_send_json_success($changed ? Usctdp_Mgmt_Model::get_student($entity_id) : $student);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_student', $e);
+            wp_send_json_error('An unexpected server error occurred during student update.', 500);
+        }
+    }
+
     private function create_ledger_entry($source)
     {
         $fields = [
@@ -1614,6 +1684,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 "first" => $row->first,
                 "last" => $row->last,
                 "birth_date" => $birth_date_str,
+                "birth_date_raw" => $row->birth_date ? $row->birth_date->format('Y-m-d') : '',
                 "age" => $age_str,
                 "level" => $row->level,
             ];

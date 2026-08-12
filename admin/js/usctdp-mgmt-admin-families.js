@@ -320,6 +320,7 @@
 
         var preloadedData = {};
         const newStudentModal = document.querySelector('#new-student-modal');
+        const editStudentModal = document.querySelector('#edit-student-modal');
         const newFamilyModal = document.querySelector('#new-family-modal');
         const issueHouseCreditModal = document.querySelector('#issue-house-credit-modal');
 
@@ -341,11 +342,21 @@
                     d.family_id = currentId;
                 }
             },
+            autoWidth: false,
+            columnDefs: [
+                { width: "20%", targets: 0 },
+                { width: "20%", targets: 1 },
+                { width: "14%", targets: 2 },
+                { width: "8%", targets: 3 },
+                { width: "8%", targets: 4 },
+                { width: "30%", targets: 5 },
+            ],
             columns: [
                 { data: 'first' },
                 { data: 'last' },
                 { data: 'birth_date' },
                 { data: 'age' },
+                { data: 'level' },
                 {
                     data: 'id',
                     render: function (data, type, row) {
@@ -354,8 +365,9 @@
                             var historyUrl = 'admin.php?page=usctdp-admin-history&student_id=' + data;
                             return `<div class="family-actions">
                                 <div class="action-item">
-                                    <a href="${registerUrl}" class="button button-small">Register</a> 
-                                    <a href="${historyUrl}" class="button button-small">History</a> 
+                                    <a href="${registerUrl}" class="button button-small">Register</a>
+                                    <a href="${historyUrl}" class="button button-small">History</a>
+                                    <button type="button" class="button button-small edit-student-btn" data-student-id="${data}">Edit</button>
                                 </div>
                             </div>`;
                         }
@@ -406,6 +418,71 @@
                     var userMessage = "Failed to create student.\n\n" + responseMessage;
                     userMessage += "\n\nTry again or inform a developer.";
                     alert(userMessage);
+                }
+            });
+        });
+
+        $('#family-members-table-body').on('click', '.edit-student-btn', function (e) {
+            e.preventDefault();
+            const rowData = membersTable.row($(this).closest('tr')).data();
+            $('#edit_student_id').val(rowData.id);
+            $('#edit_student_modal_first_name').val(rowData.first);
+            $('#edit_student_modal_last_name').val(rowData.last);
+            $('#edit_student_modal_birthdate').val(rowData.birth_date_raw || '');
+            $('#edit_student_modal_level').val(rowData.level || '');
+            editStudentModal.showModal();
+        });
+
+        $('#close-edit-student-modal').on('click', () => {
+            editStudentModal.close();
+        });
+
+        $('#save-edit-student-modal').on('click', (e) => {
+            const form = $('#edit-student-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+
+            const $btn = $('#save-edit-student-modal');
+            $btn.prop('disabled', true);
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.update_student_action,
+                    security: usctdp_mgmt_admin.update_student_nonce,
+                    student_id: $('#edit_student_id').val(),
+                    first: $('#edit_student_modal_first_name').val(),
+                    last: $('#edit_student_modal_last_name').val(),
+                    birth_date: $('#edit_student_modal_birthdate').val(),
+                    level: $('#edit_student_modal_level').val(),
+                },
+                success: function (response) {
+                    if (response.success) {
+                        editStudentModal.close();
+                        membersTable.ajax.reload();
+                        Swal.fire({
+                            title: 'Success',
+                            text: 'Student updated successfully!',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                },
+                error: function (response) {
+                    const responseMessage = response.responseJSON ? response.responseJSON.data : 'Unknown error';
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to update student.\n\n' + responseMessage,
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                },
+                complete: function () {
+                    $btn.prop('disabled', false);
                 }
             });
         });

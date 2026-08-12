@@ -156,6 +156,19 @@ div.dt-length select {
     min-width: 0;
 }
 
+/* Register/History/Edit in the members table's Actions column - without
+   this, .action-item's buttons are unstyled inline content, so they wrap
+   like text with no space between the wrapped lines. */
+.family-actions {
+    display: flex;
+}
+
+.action-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
 label {
     font-size: 0.85rem;
     text-transform: uppercase;

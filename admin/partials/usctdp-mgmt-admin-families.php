@@ -31,6 +31,38 @@
             </form>
         </dialog>
 
+        <dialog id="edit-student-modal">
+            <form id="edit-student-form" method="dialog">
+                <h2>Edit Student</h2>
+                <input type="hidden" id="edit_student_id" name="student_id">
+
+                <div class="modal_field">
+                    <label for="edit_student_modal_first_name">First Name</label>
+                    <input type="text" id="edit_student_modal_first_name" name="first_name" required>
+                </div>
+
+                <div class="modal_field">
+                    <label for="edit_student_modal_last_name">Last Name</label>
+                    <input type="text" id="edit_student_modal_last_name" name="last_name" required>
+                </div>
+
+                <div class="modal_field">
+                    <label for="edit_student_modal_birthdate">Birthday</label>
+                    <input type="date" id="edit_student_modal_birthdate" name="birthdate" required>
+                </div>
+
+                <div class="modal_field">
+                    <label for="edit_student_modal_level">Level</label>
+                    <input type="text" id="edit_student_modal_level" name="level" required>
+                </div>
+
+                <div class="actions-footer">
+                    <button type="submit" class="button" id="save-edit-student-modal">Save Changes</button>
+                    <button type="button" class="button" id="close-edit-student-modal">Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
         <dialog id="new-family-modal">
             <form id="new-family-form" method="dialog">
                 <h2>Add New Family</h2>
@@ -139,7 +171,7 @@
                 </div>
 
                 <div class="family-members">
-                    <h2> Family Members</h2>
+                    <h2>Family Members</h2>
                     <div>
                         <a href=" #" class="button button-primary" id="new-student-button">
                             Add New Member...
@@ -153,6 +185,7 @@
                                     <th>Last Name</th>
                                     <th>Birthdate</th>
                                     <th>Age</th>
+                                    <th>Level</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
