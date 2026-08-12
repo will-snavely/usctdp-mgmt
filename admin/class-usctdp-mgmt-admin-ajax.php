@@ -1638,6 +1638,8 @@ class Usctdp_Mgmt_Admin_Ajax
         $owes = isset($_POST['owes']) ? intval($_POST['owes']) : null;
         $type = isset($_POST['type']) ? sanitize_text_field($_POST['type']) : null;
         $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : null;
+        $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : null;
+        $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : null;
 
         $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
         $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
@@ -1668,6 +1670,32 @@ class Usctdp_Mgmt_Admin_Ajax
         }
         if ($status) {
             $args['status'] = $status;
+        }
+
+        // Purchases are stored with a UTC created_at, but the date inputs on
+        // the filter bar are plain Y-m-d values meant as Eastern-time
+        // calendar days (the timezone the business actually operates in) -
+        // convert each to a UTC boundary before querying. date_to is
+        // converted to the start of the following Eastern day so the whole
+        // selected day is included.
+        $eastern_tz = new DateTimeZone('America/New_York');
+        $utc_tz = new DateTimeZone('UTC');
+        if ($date_from) {
+            $from_dt = DateTime::createFromFormat('Y-m-d', $date_from, $eastern_tz);
+            if ($from_dt) {
+                $from_dt->setTime(0, 0, 0);
+                $from_dt->setTimezone($utc_tz);
+                $args['date_from'] = $from_dt->format('Y-m-d H:i:s');
+            }
+        }
+        if ($date_to) {
+            $to_dt = DateTime::createFromFormat('Y-m-d', $date_to, $eastern_tz);
+            if ($to_dt) {
+                $to_dt->setTime(0, 0, 0);
+                $to_dt->modify('+1 day');
+                $to_dt->setTimezone($utc_tz);
+                $args['date_to'] = $to_dt->format('Y-m-d H:i:s');
+            }
         }
 
         $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);

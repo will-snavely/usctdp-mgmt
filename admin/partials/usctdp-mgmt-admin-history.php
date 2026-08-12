@@ -70,11 +70,9 @@
 
         <div id="payment-history-modal-container"></div>
 
-        <div id="context-selectors">
-        </div>
-        <div id="history-container" class="hidden w-100">
-            <h2>Purchase History for <span id="family-name"></span></h2>
-            <div id="family-balance-section" class="flex-row gap-10">
+        <div id="history-container" class="w-100">
+            <h2>Purchase History<span id="family-name-wrap" class="hidden"> for <span id="family-name"></span></span></h2>
+            <div id="family-balance-section" class="hidden flex-row gap-10">
                 <div class="family-financial-summary">
                     <label>Balance</label>
                     <span id="family-total-balance" class="balance-amt"></span>
@@ -86,30 +84,45 @@
             </div>
             <div id="history-table-wrap w-100">
                 <div id="table-filters">
-                    <div id="student-filter-section" class="dt-layout-cell dt-layout-start">
-                        <select id="student-filter" class="table-filter"></select>
+                    <div class="filter-row">
+                        <div id="family-filter-section" class="filter-item">
+                            <select id="family-filter" class="table-filter"></select>
+                        </div>
+                        <div id="student-filter-section" class="filter-item">
+                            <select id="student-filter" class="table-filter" disabled></select>
+                        </div>
                     </div>
-                    <div id="session-filter-section" class="dt-layout-cell dt-layout-start">
-                        <select id="session-filter" class="table-filter"></select>
-                    </div>
-                    <div id="type-filter-section" class="dt-layout-cell dt-layout-start">
-                        <select id="type-filter" class="table-filter">
-                            <option value=""></option>
-                            <option value="registration">Registration</option>
-                            <option value="merchandise">Merchandise</option>
-                        </select>
-                    </div>
-                    <div id="status-filter-section" class="dt-layout-cell dt-layout-start">
-                        <select id="status-filter" class="table-filter">
-                            <option value=""></option>
-                            <option value="active">Active</option>
-                            <option value="void">Void</option>
-                        </select>
-                    </div>
-                    <div id="owes-filter-section" class="dt-layout-cell dt-layout-start">
-                        <div class="flex-row gap-5 align-center">
+                    <div class="filter-row">
+                        <div id="session-filter-section" class="filter-item">
+                            <select id="session-filter" class="table-filter"></select>
+                        </div>
+                        <div id="type-filter-section" class="filter-item">
+                            <select id="type-filter" class="table-filter">
+                                <option value=""></option>
+                                <option value="registration">Registration</option>
+                                <option value="merchandise">Merchandise</option>
+                            </select>
+                        </div>
+                        <div id="status-filter-section" class="filter-item">
+                            <select id="status-filter" class="table-filter">
+                                <option value=""></option>
+                                <option value="active">Active</option>
+                                <option value="void">Void</option>
+                            </select>
+                        </div>
+                        <div id="owes-filter-section" class="filter-item flex-row gap-5 align-center">
                             <label for="owes-filter">Owes Money:</label>
                             <input type="checkbox" id="owes-filter" name="owes-filter" value="1" class="table-filter">
+                        </div>
+                    </div>
+                    <div class="filter-row">
+                        <div id="date-from-filter-section" class="filter-item flex-row gap-5 align-center">
+                            <label for="date-from-filter" class="table-filter-label">From</label>
+                            <input type="date" id="date-from-filter" class="table-filter" name="date-from-filter">
+                        </div>
+                        <div id="date-to-filter-section" class="filter-item flex-row gap-5 align-center">
+                            <label for="date-to-filter" class="table-filter-label">To</label>
+                            <input type="date" id="date-to-filter" class="table-filter" name="date-to-filter">
                         </div>
                     </div>
                 </div>

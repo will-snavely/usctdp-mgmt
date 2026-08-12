@@ -207,7 +207,6 @@
             }
         }
 
-        var preloadedData = {};
         var newPurchases = null;
         const paymentHistoryModal = new USCTDP_Admin.PaymentHistoryModal('payment-history-modal-container');
         const postPaymentModal = document.querySelector('#post-payment-modal');
@@ -223,7 +222,11 @@
         const paymentTable = new USCTDP_Admin.RegistrationPaymentTable(paymentTableId, paymentSettings);
 
         function refreshFamilyBalance() {
-            const family_id = $('#family-selector').val();
+            const family_id = $('#family-filter').val();
+            if (!family_id) {
+                // "All families" view - there is no single balance to show.
+                return;
+            }
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'POST',
@@ -365,18 +368,17 @@
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
                 data: function (d) {
-                    var familyId = $('#family-selector').val();
                     d.action = usctdp_mgmt_admin.purchase_history_datatable_action;
                     d.security = usctdp_mgmt_admin.purchase_history_datatable_nonce;
-                    d.family_id = familyId;
 
-                    if (preloadedData.student) {
-                        d.student_id = preloadedData.student.student_id;
-                    } else {
-                        var studentFilterValue = $('#student-filter').val();
-                        if (studentFilterValue) {
-                            d.student_id = studentFilterValue;
-                        }
+                    var familyFilterValue = $('#family-filter').val();
+                    if (familyFilterValue) {
+                        d.family_id = familyFilterValue;
+                    }
+
+                    var studentFilterValue = $('#student-filter').val();
+                    if (studentFilterValue) {
+                        d.student_id = studentFilterValue;
                     }
 
                     var sessionFilterValue = $('#session-filter').val();
@@ -400,6 +402,19 @@
                         d.owes = 1;
                     } else {
                         d.owes = 0;
+                    }
+
+                    // Purchases are stored in UTC; the date inputs are plain
+                    // Y-m-d values interpreted as Eastern-time calendar days
+                    // server-side (see ajax_purchase_history_datatable).
+                    var dateFromValue = $('#date-from-filter').val();
+                    if (dateFromValue) {
+                        d.date_from = dateFromValue;
+                    }
+
+                    var dateToValue = $('#date-to-filter').val();
+                    if (dateToValue) {
+                        d.date_to = dateToValue;
                     }
                 }
             },
@@ -760,6 +775,40 @@
             allowClear: true
         });
 
+        $('#family-filter').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: "Filter by family...",
+                allowClear: true,
+                target: 'family'
+            })
+        );
+
+        $('#family-filter').on('change', function () {
+            const familyId = $(this).val();
+            $('#session-filter').val(null).trigger('change');
+            $('#student-filter').val(null).trigger('change');
+            if (familyId) {
+                const title = $(this).find('option:selected').text();
+                $('#family-name').text(title);
+                $('#family-name-wrap').removeClass('hidden');
+                $('#family-balance-section').removeClass('hidden');
+                $('#student-filter').prop('disabled', false);
+                refreshFamilyBalance();
+            } else {
+                $('#student-filter').prop('disabled', true);
+                $('#family-name-wrap').addClass('hidden');
+                $('#family-balance-section').addClass('hidden');
+            }
+        });
+
+        $('#date-from-filter').on('change', function () {
+            $('#date-to-filter').attr('min', $(this).val());
+        });
+
+        $('#date-to-filter').on('change', function () {
+            $('#date-from-filter').attr('max', $(this).val());
+        });
+
         $('#student-filter').select2(
             USCTDP_Admin.select2Options({
                 placeholder: "Filter by student...",
@@ -767,7 +816,7 @@
                 target: 'student',
                 filter: function () {
                     return {
-                        family_id: $('#family-selector').val()
+                        family_id: $('#family-filter').val()
                     }
                 }
             })
@@ -953,68 +1002,48 @@
             paymentHistoryModal.show(purchaseId, account, familyId);
         });
 
-        function load_registration_history(title) {
-            historyTable.ajax.reload();
-            refreshFamilyBalance();
-            $('#family-name').text(title);
-            $('#history-container').removeClass('hidden');
-        }
-
-        const selectorConfig = {
-            'family-selector': {
-                name: 'family_id',
-                label: 'Family',
-                target: 'family',
-                next: null,
-                isRoot: true
-            },
-        };
-
-        const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
-        $('#context-selectors').on('cascade:change', function (e) {
-            const { selectorId, value, state } = e.detail;
-            if (value) {
-                $('#session-filter').val(null).trigger('change');
-                var title = $('#family-selector').find('option:selected').text();
-                load_registration_history(title);
-            } else {
-                $('#session-filter').val(null).trigger('change');
-                $('#student-filter').val(null).trigger('change');
-                $('#history-container').addClass("hidden");
-            }
-        });
-
         if (usctdp_mgmt_admin.new_purchases) {
             newPurchases = new Set(usctdp_mgmt_admin.new_purchases)
         }
 
         if (usctdp_mgmt_admin.preload) {
+            var preloadedFamilyId = null;
+            var preloadedFamilyName = null;
+            var preloadedStudent = null;
+
             if (usctdp_mgmt_admin.preload.family_id) {
-                const preloadedFamily = Object.values(usctdp_mgmt_admin.preload.family_id)[0]
-                preloadedData['family-selector'] = {
-                    id: preloadedFamily.id,
-                    text: preloadedFamily.title,
-                    disable: true
-                }
-                $('#context-selectors').addClass('hidden');
+                const preloadedFamily = Object.values(usctdp_mgmt_admin.preload.family_id)[0];
+                preloadedFamilyId = preloadedFamily.id;
+                preloadedFamilyName = preloadedFamily.title;
             }
 
             if (usctdp_mgmt_admin.preload.student_id) {
-                const preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
-                preloadedData['family-selector'] = {
-                    id: preloadedStudent.family_id,
-                    text: preloadedStudent.family_name,
-                    disable: true
-                }
-                preloadedData['student-selector'] = {
-                    id: preloadedStudent.student_id,
-                    text: preloadedStudent.student_name
-                }
-                $('#context-selectors').addClass('hidden');
-                const newOption = new Option(preloadedStudent.student_name, preloadedStudent.student_id, true, true);
-                $('#student-filter').append(newOption).trigger('change');
+                preloadedStudent = Object.values(usctdp_mgmt_admin.preload.student_id)[0];
+                preloadedFamilyId = preloadedStudent.family_id;
+                preloadedFamilyName = preloadedStudent.family_name;
             }
-            selectHandler.applyData(preloadedData);
+
+            if (preloadedFamilyId) {
+                // Populates and triggers 'change' on the family filter, which
+                // loads the table scoped to this family and clears the
+                // student filter (see the change handler above) - set before
+                // the student option below so that doesn't get wiped out.
+                // Left editable (unlike the old disabled context-selector)
+                // so it can be cleared to view all purchases.
+                const newFamilyOption = new Option(preloadedFamilyName, preloadedFamilyId, true, true);
+                $('#family-filter').append(newFamilyOption).trigger('change');
+            }
+
+            if (preloadedStudent) {
+                const newStudentOption = new Option(preloadedStudent.student_name, preloadedStudent.student_id, true, true);
+                $('#student-filter').append(newStudentOption).trigger('change');
+            }
+        }
+
+        // Nothing above triggered a load (no family/student preload) - load
+        // the unfiltered "all purchases" view by default.
+        if (!$('#family-filter').val()) {
+            historyTable.ajax.reload();
         }
     });
 })(jQuery);

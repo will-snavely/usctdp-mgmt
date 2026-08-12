@@ -62,6 +62,14 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $conditions[] = "pur.type != %s";
             $where_args[] = $args['exclude_type'];
         }
+        if (isset($args["date_from"])) {
+            $conditions[] = "pur.created_at >= %s";
+            $where_args[] = $args['date_from'];
+        }
+        if (isset($args["date_to"])) {
+            $conditions[] = "pur.created_at < %s";
+            $where_args[] = $args['date_to'];
+        }
 
         if ($conditions) {
             $where_clause = "WHERE " . implode(" AND ", $conditions);
