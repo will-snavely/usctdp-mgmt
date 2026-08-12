@@ -76,6 +76,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-delete-family.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-import-legacy-levels.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -664,6 +667,45 @@ class Usctdp_Cli_Command
         $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
         $deleter = new Usctdp_Delete_Family();
         $deleter->run($args, $fix, $assoc_args);
+    }
+
+    /**
+     * Backfills usctdp_student.level (and usctdp_registration.student_level
+     * on all of that student's existing registrations) from the legacy
+     * JSON's per-registration level field, for students who already
+     * self-registered a new account rather than going through
+     * stage_legacy_families/import_families. Matches legacy families/
+     * children to real usctdp_family/usctdp_student rows by name (there's
+     * no shared id between the two) - see Usctdp_Import_Legacy_Levels's
+     * class doc comment for exactly how, and why anything ambiguous is
+     * skipped and reported rather than guessed.
+     *
+     * Report-only by default - always run without --fix first and check
+     * the listing, especially the "no student match" / "ambiguous" lines.
+     *
+     * ## OPTIONS
+     *
+     * <file>
+     * : Path to the legacy people/families JSON file (e.g. data/_people.json).
+     *
+     * [--fix]
+     * : Actually update levels. Without this flag, only reports what would
+     * change.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp import_legacy_levels data/_people.json
+     *     wp usctdp import_legacy_levels data/_people.json --fix
+     */
+    public function import_legacy_levels($args, $assoc_args)
+    {
+        if (empty($args)) {
+            WP_CLI::error('File path not provided');
+            return;
+        }
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $importer = new Usctdp_Import_Legacy_Levels();
+        $importer->run($args[0], $fix);
     }
 }
 
