@@ -66,7 +66,7 @@
                         <span class="student-name">${this.data.student_first} ${this.data.student_last}</span>
                     </div>
                     <div class="student-age-wrap">
-                        <span class="student-age">Age: ${this.data.student_age}</span>
+                        <span class="student-age">Age: ${this.data.student_age ?? "--"}</span>
                     </div>`;
             }
 
