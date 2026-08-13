@@ -80,17 +80,17 @@ class Usctdp_Mgmt_Docgen
             'font_schedule' => 12,
             'font_detail' => 10,
             'font_footer' => 9.5,
-            'font_table' => 10.5,
+            'font_table' => 11,
         ],
         [
-            'max_registrants' => 25,
+            'max_registrants' => 20,
             'attendance_data_rows' => 28,
             'columns' => 1,
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
             'font_footer' => 9.5,
-            'font_table' => 9.5,
+            'font_table' => 11,
         ],
         [
             // Catch-all for anything larger. 'attendance_data_rows' => null
@@ -243,7 +243,10 @@ class Usctdp_Mgmt_Docgen
      */
     private function format_name_age_level($registrant)
     {
-        $parts = ["{$registrant->student_last}, {$registrant->student_first}"];
+        $parts = [
+            ucfirst(strtolower($registrant->student_last)),
+            ucfirst(strtolower($registrant->student_first))
+        ];
         if ($registrant->student_age !== null && $registrant->student_age !== '') {
             $parts[] = (string) $registrant->student_age;
         } else {
@@ -940,7 +943,7 @@ class Usctdp_Mgmt_Docgen
             'stime' => '',
             'etime' => '',
             'age_group' => $age_group,
-            'level' => $tournament_fields->activity_level,
+            'level' => "--",
             'cap' => $tournament_fields->activity_capacity,
             'sdate' => $start_date,
             'edate' => $end_date,
