@@ -79,8 +79,9 @@ class Usctdp_Mgmt_Docgen
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
-            'font_footer' => 9.5,
+            'font_footer' => 10,
             'font_table' => 11,
+            'font_waitlist' => 9,
         ],
         [
             'max_registrants' => 20,
@@ -89,8 +90,9 @@ class Usctdp_Mgmt_Docgen
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
-            'font_footer' => 9.5,
+            'font_footer' => 10,
             'font_table' => 11,
+            'font_waitlist' => 9,
         ],
         [
             // Catch-all for anything larger. 'attendance_data_rows' => null
@@ -105,8 +107,9 @@ class Usctdp_Mgmt_Docgen
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
-            'font_footer' => 9.5,
+            'font_footer' => 10,
             'font_table' => 10,
+            'font_waitlist' => 9,
         ],
     ];
 
@@ -243,10 +246,9 @@ class Usctdp_Mgmt_Docgen
      */
     private function format_name_age_level($registrant)
     {
-        $parts = [
-            ucfirst(strtolower($registrant->student_last)),
-            ucfirst(strtolower($registrant->student_first))
-        ];
+        $last = ucfirst(strtolower($registrant->student_last));
+        $first = ucfirst(strtolower($registrant->student_first));
+        $parts = [$last . " " . $first];
         if ($registrant->student_age !== null && $registrant->student_age !== '') {
             $parts[] = (string) $registrant->student_age;
         } else {
@@ -1287,7 +1289,7 @@ class Usctdp_Mgmt_Docgen
         $columnWidths = self::WAITLIST_COL_WIDTHS;
         $table = $cell->addTable(['width' => self::WAITLIST_TABLE_WIDTH, 'unit' => 'dxa', 'layout' => 'fixed']);
 
-        $style = ['bold' => true, 'size' => $preset['font_table']];
+        $style = ['bold' => true, 'size' => $preset['font_waitlist']];
         $cellStyle = ['vAlign' => 'top'];
         foreach ($waitlisters as $waitlister) {
             $row = $table->addRow();
