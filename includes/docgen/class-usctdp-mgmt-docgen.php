@@ -39,23 +39,98 @@ class Usctdp_Mgmt_Docgen
     const ROSTER_FIELD_SPACE_BEFORE = 120; // gap above each label group in row 2
     const BORDER_COLOR = '000000';
 
-    // Font sizes (points).
-    const FONT_SIZE_TITLE = 14;
-    const FONT_SIZE_SCHEDULE = 10;
-    const FONT_SIZE_DETAIL = 8.5;
-    const FONT_SIZE_FOOTER = 10;    
-    const FONT_SIZE_TABLE = 8.5;
+    /**
+     * Font sizes (points) and attendance-table row padding aren't one fixed
+     * set of numbers - they're picked per activity, at runtime, based on how
+     * many students are actually registered (see select_roster_preset()).
+     * Most rosters run 10-20 registrants; a handful run as large as ~40.
+     * Sizing every roster for that rare max would make the common case look
+     * unnecessarily cramped, so smaller rosters get a preset with bigger
+     * fonts and less blank padding, and larger ones fall back to smaller
+     * fonts - the same tradeoff a human laying this out by hand would make.
+     *
+     * Ordered smallest 'max_registrants' first; select_roster_preset() picks
+     * the first entry whose 'max_registrants' the actual count fits under.
+     * The last entry's null 'max_registrants' makes it the catch-all for
+     * anything larger - including beyond the ~40 this was tuned for, since
+     * real registrant count always wins over any fixed row target (see
+     * add_attendance_table(), which never truncates real registrants, only
+     * pads up to a minimum).
+     *
+     * The specific thresholds and sizes here are a first pass, not a final
+     * answer - see the font_experiment_*.docx/dynamic_preset_*.docx samples
+     * this was tuned against and adjust freely; every other roster
+     * dimension (widths, spacing, borders) lives in the constants above and
+     * stays fixed across presets.
+     *
+     * 'columns' is how many registrants sit side by side per attendance-
+     * table row (see add_attendance_table()) - 1 is the normal single list;
+     * 2 halves the row count by putting two people's Attnd?/Last/First/
+     * Age/Level/Phone across one wider row instead of two, at the cost of
+     * roughly halving those columns' own width. Only worth that tradeoff on
+     * the catch-all tier, where the row count saved is largest and the
+     * font's already at its smallest anyway.
+     */
+    const ROSTER_SIZE_PRESETS = [
+        [
+            'max_registrants' => 15,
+            'attendance_data_rows' => 18,
+            'columns' => 1,
+            'font_title' => 16,
+            'font_schedule' => 12,
+            'font_detail' => 10,
+            'font_footer' => 10,
+            'font_table' => 10.5,
+        ],
+        [
+            'max_registrants' => 25,
+            'attendance_data_rows' => 28,
+            'columns' => 1,
+            'font_title' => 16,
+            'font_schedule' => 12,
+            'font_detail' => 10,
+            'font_footer' => 10,
+            'font_table' => 9.5,
+        ],
+        [
+            // Catch-all for anything larger. 'attendance_data_rows' => null
+            // means "no blank padding - just the real registrant count":
+            // padding a rare large roster out to a round number wouldn't
+            // buy consistency with anything (every other tier already
+            // varies in height), so there's no reason to spend the extra
+            // page space on it here.
+            'max_registrants' => null,
+            'attendance_data_rows' => null,
+            'columns' => 2,
+            'font_title' => 16,
+            'font_schedule' => 12,
+            'font_detail' => 10,
+            'font_footer' => 10,
+            'font_table' => 10,
+        ],
+    ];
 
     // Attendance table, nested inside Table 1's row 3 - see
-    // add_attendance_table(). Column order: Attnd?, Last, First, Age, Level,
-    // Phone Number(s).
+    // add_attendance_table(). Column order: Attnd (no header - just each
+    // row's "__ N." attendance blank + number, as compact as the text
+    // allows - see format_attendance_number()), Name/Age/Level ("Last,
+    // First / Age / Level" in one cell), Phone.
+    //
+    // ATTENDANCE_COL_WIDTHS is deliberately narrow, not stretched to fill
+    // the full row - a wide gap between Name/Age/Level and Phone made it
+    // easy to lose track of which phone number belongs to which row while
+    // scanning across. Single-column mode (see add_attendance_table()) uses
+    // these widths as-is, so the table itself only takes up as much of the
+    // row as it needs and the rest stays blank rather than stretched;
+    // two-column mode scales the same proportions up to fill
+    // ATTENDANCE_TABLE_WIDTH instead, since that layout's whole point is
+    // using the available width to fit more people, not staying compact.
     const ATTENDANCE_TABLE_WIDTH = 11322;
-    const ATTENDANCE_COL_WIDTHS = [1008, 2448, 2448, 864, 864, 3690];
+    const ATTENDANCE_COL_WIDTHS = [850, 3400, 2100];
     const ATTENDANCE_ROW_HEIGHT = 300;
-    // Total data rows (real registrants + blank padding), not counting the
-    // header row - see add_attendance_table()'s doc comment for why this is
-    // padded to a fixed count at all.
-    const ATTENDANCE_DATA_ROWS = 32;
+    // Empty spacer column between the two halves when a preset's 'columns'
+    // is 2 - see add_attendance_table().
+    const ATTENDANCE_COLUMN_GUTTER = 200;
 
     // Waitlist table, nested inside Table 1's row 5 - see
     // add_waitlist_table(). Column order: Last, First, Phone.
@@ -150,6 +225,49 @@ class Usctdp_Mgmt_Docgen
     }
 
     /**
+     * "__N." for one attendance-table row's own Attnd column - see
+     * add_attendance_table(). Two underscores (a blank to mark someone
+     * checked in), then their 1-based attendance number.
+     */
+    private function format_attendance_number($number)
+    {
+        return sprintf('__%d', $number);
+    }
+
+    /**
+     * "Last, First / Age / Level" for one attendance-table row's combined
+     * Name/Age/Level column - see add_attendance_table(). Age (birth_date
+     * unset - see get_roster_students()'s TIMESTAMPDIFF) and level (a free-
+     * text field, not always filled in) are each dropped entirely, rather
+     * than leaving a dangling "/", when missing.
+     */
+    private function format_name_age_level($registrant)
+    {
+        $parts = ["{$registrant->student_last}, {$registrant->student_first}"];
+        if ($registrant->student_age !== null && $registrant->student_age !== '') {
+            $parts[] = (string) $registrant->student_age;
+        }
+        if ($registrant->student_level !== null && $registrant->student_level !== '') {
+            $parts[] = $this->format_level($registrant->student_level);
+        }
+        return implode(' / ', $parts);
+    }
+
+    /**
+     * "5.0", "1.5" - student_level is free text (not always a plain
+     * number - see get_roster_students()), so this only reformats it to one
+     * decimal place when it actually is one; anything else (a level name, a
+     * malformed entry) prints as-is rather than being dropped or mangled.
+     */
+    private function format_level($raw)
+    {
+        if (!is_numeric($raw)) {
+            return (string) $raw;
+        }
+        return number_format((float) $raw, 1);
+    }
+
+    /**
      * "First Last, First Last, ..." for every staff member currently
      * assigned to an activity, in the same name order as
      * Usctdp_Mgmt_Activity_Staff_Query::get_staff_for_activity() (last name,
@@ -227,26 +345,28 @@ class Usctdp_Mgmt_Docgen
      * renders the group's combined block (add_roster_block_for_activity()),
      * and every other activity sharing that same group is skipped rather
      * than printed again.
+     *
+     * Ordering: by default every activity mixes into one day/time-sorted
+     * flow (Monday's clinics first, then Tuesday's, etc. - see
+     * sort_roster_activities_by_day_time()). An individual activity whose
+     * own meta has "segregate_roster" truthy (an ad hoc key, same
+     * convention as this column's "session_title" key - see
+     * derive_clinic_roster_fields()) is pulled out into its own leading
+     * section instead, still day/time-sorted among the other segregated
+     * activities - e.g. the client wanting "Tiny Tots" clinics listed
+     * ahead of everything else, regardless of which session(s) they're
+     * actually in. This is a per-activity flag, not a per-session one - a
+     * session can have some clinics segregated and others in the normal
+     * flow.
      */
     public function generate_roster_for_sessions(array $session_ids)
     {
-        $activity_items = [];
-        foreach ($session_ids as $session_id) {
-            $activity_query = new Usctdp_Mgmt_Activity_Query([
-                'session_id' => $session_id,
-                'orderby' => [
-                    'primary_sort_order',
-                    'secondary_sort_order',
-                ],
-                "order" => 'ASC'
-            ]);
-            array_push($activity_items, ...$activity_query->items);
-        }
+        $activity_query = new Usctdp_Mgmt_Activity_Query();
+        $ordering_data = $activity_query->get_roster_ordering_data($session_ids);
 
-        [$phpWord, $section] = $this->new_roster_document();
-        $is_first_block = true;
-        $rendered_group_ids = [];
-        foreach ($activity_items as $item) {
+        $segregated = [];
+        $main = [];
+        foreach ($ordering_data as $item) {
             if ($item->type !== 'clinic' && $item->type !== 'tournament') {
                 Usctdp_Mgmt::logger()->log_info(
                     'Skipping roster block for unsupported activity type: ' . $item->type . ' (activity ' . $item->id . ')'
@@ -254,20 +374,57 @@ class Usctdp_Mgmt_Docgen
                 continue;
             }
 
-            $group_id = (int) $item->reservation_group_id;
-            if (isset($rendered_group_ids[$group_id])) {
-                continue;
+            $activity_meta = json_decode((string) $item->activity_meta, true);
+            if (!empty($activity_meta['segregate_roster'])) {
+                $segregated[] = $item;
+            } else {
+                $main[] = $item;
             }
-            $rendered_group_ids[$group_id] = true;
+        }
+        $this->sort_roster_activities_by_day_time($segregated);
+        $this->sort_roster_activities_by_day_time($main);
 
-            if (!$is_first_block) {
-                $section->addPageBreak();
+        [$phpWord, $section] = $this->new_roster_document();
+        $is_first_block = true;
+        $rendered_group_ids = [];
+        foreach ([$segregated, $main] as $activity_items) {
+            foreach ($activity_items as $item) {
+                $group_id = (int) $item->reservation_group_id;
+                if (isset($rendered_group_ids[$group_id])) {
+                    continue;
+                }
+                $rendered_group_ids[$group_id] = true;
+
+                if (!$is_first_block) {
+                    $section->addPageBreak();
+                }
+                $is_first_block = false;
+
+                $this->add_roster_block_for_activity($section, $item);
             }
-            $is_first_block = false;
-
-            $this->add_roster_block_for_activity($section, $item);
         }
         return $phpWord;
+    }
+
+    /**
+     * Sorts $activities in place by day-of-week then start time (see
+     * Usctdp_Mgmt_Activity_Query::get_roster_ordering_data()) - Monday's
+     * clinics first, then Tuesday's, earliest start time within a day
+     * first, and so on. Tournaments have no day/time, so they sort after
+     * every clinic; PHP's usort() has been stable since 8.0, so activities
+     * that tie on day/time - including every tournament, which all tie at
+     * "no day" - keep their original relative order (primary/
+     * secondary_sort_order, per the query's own ORDER BY) rather than being
+     * shuffled. Multiple tournaments aren't expected to need any finer
+     * ordering than that in practice.
+     */
+    private function sort_roster_activities_by_day_time(array &$activities)
+    {
+        usort($activities, function ($a, $b) {
+            $a_key = [$a->day_of_week !== null ? (int) $a->day_of_week : 8, (string) $a->start_time];
+            $b_key = [$b->day_of_week !== null ? (int) $b->day_of_week : 8, (string) $b->start_time];
+            return $a_key <=> $b_key;
+        });
     }
 
     /**
@@ -589,6 +746,17 @@ class Usctdp_Mgmt_Docgen
      */
     private function new_roster_document()
     {
+        // PhpWord's object-model API (unlike TemplateProcessor::setValue(),
+        // which always runs text through its own Escaper\Xml regardless of
+        // this) defaults to NOT XML-escaping text passed to addText() -
+        // Settings::$outputEscapingEnabled starts false. Any real title,
+        // name, or note containing &, <, or > would otherwise write invalid
+        // XML and corrupt the whole document; this is a process-wide static
+        // flag, not something scoped to one PhpWord instance, but it's safe
+        // to force on here since it only affects this escaping decision and
+        // financial statements' TemplateProcessor path never consults it.
+        \PhpOffice\PhpWord\Settings::setOutputEscapingEnabled(true);
+
         $phpWord = new PhpWord();
         $phpWord->setDefaultFontName('Arial');
         $phpWord->setDefaultFontSize(10);
@@ -815,6 +983,17 @@ class Usctdp_Mgmt_Docgen
      */
     private function add_roster_activity_block($section, $activity_id, array $fields)
     {
+        // Fetched once, up front, rather than inside add_attendance_table()
+        // as before - the preset this whole block renders with (fonts,
+        // title through footer, not just the attendance table itself)
+        // depends on the registrant count, so it has to be known before any
+        // of that gets built. $activity_id may be a single id or an array
+        // of merged clinic ids (see add_merged_clinic_roster_block()) -
+        // get_roster_students() accepts either.
+        $registration_query = new Usctdp_Mgmt_Registration_Query();
+        $registrants = $registration_query->get_roster_students($activity_id);
+        $preset = $this->select_roster_preset(count($registrants));
+
         $table = $section->addTable([
             'width' => self::ROSTER_TABLE_WIDTH,
             'unit' => 'dxa',
@@ -829,7 +1008,7 @@ class Usctdp_Mgmt_Docgen
         ));
         $titleCell->addText(
             $fields['session_title'],
-            ['name' => 'Arial', 'bold' => true, 'size' => self::FONT_SIZE_TITLE],
+            ['name' => 'Arial', 'bold' => true, 'size' => $preset['font_title']],
             ['alignment' => 'center']
         );
 
@@ -837,19 +1016,19 @@ class Usctdp_Mgmt_Docgen
         // (widths WIDE/NARROW/NARROW/NARROW) are what define the table's
         // actual grid - see the class doc comment above.
         $row2 = $table->addRow(self::ROSTER_ROW_INFO_HEIGHT);
-        $detailStyle = ['size' => self::FONT_SIZE_DETAIL];
-        $detailLabelStyle = ['italic' => true, 'size' => self::FONT_SIZE_DETAIL];
+        $detailStyle = ['size' => $preset['font_detail']];
+        $detailLabelStyle = ['italic' => true, 'size' => $preset['font_detail']];
         $fieldStart = ['spaceBefore' => self::ROSTER_FIELD_SPACE_BEFORE];
 
         $scheduleCell = $row2->addCell(self::ROSTER_COL_WIDE);
         $scheduleCell->addText(
             "Clinic: {$fields['dow']} {$fields['stime']} - {$fields['etime']}",
-            ['bold' => true, 'size' => self::FONT_SIZE_SCHEDULE],
+            ['bold' => true, 'size' => $preset['font_schedule']],
             $fieldStart
         );
         $scheduleCell->addText(
             "Instructor(s): {$fields['insts']}",
-            ['bold' => true, 'italic' => true, 'size' => self::FONT_SIZE_DETAIL],
+            ['bold' => true, 'italic' => true, 'size' => $preset['font_detail']],
             ['spaceBefore' => 0, 'spaceAfter' => 0]
         );
         $scheduleCell->addText(
@@ -861,10 +1040,10 @@ class Usctdp_Mgmt_Docgen
         $levelCell = $row2->addCell(self::ROSTER_COL_NARROW);
         $levelCell->addText(
             "{$fields['age_group']} Level {$fields['level']}",
-            ['bold' => true, 'size' => self::FONT_SIZE_DETAIL],
+            ['bold' => true, 'size' => $preset['font_detail']],
             $fieldStart
         );
-        $levelCell->addText('', ['bold' => true, 'size' => self::FONT_SIZE_SCHEDULE]);
+        $levelCell->addText('', ['bold' => true, 'size' => $preset['font_schedule']]);
 
         $dateLabelCell = $row2->addCell(self::ROSTER_COL_NARROW);
         $dateLabelCell->addText('Start Date:', $detailLabelStyle, $fieldStart);
@@ -879,11 +1058,11 @@ class Usctdp_Mgmt_Docgen
         // Row 3: attendance table (borderless in the template).
         $row3 = $table->addRow(self::ROSTER_ROW_ATTENDANCE_HEIGHT);
         $attendanceCell = $row3->addCell(self::ROSTER_TABLE_WIDTH, ['gridSpan' => 4]);
-        $this->add_attendance_table($attendanceCell, $activity_id);
+        $this->add_attendance_table($attendanceCell, $registrants, $preset);
 
         // Row 4: attendance total / signature line. Split 50/50 rather than
         // the template's 3840/7680 - see the class doc comment above.
-        $footerStyle = ['bold' => true, 'size' => self::FONT_SIZE_FOOTER];
+        $footerStyle = ['bold' => true, 'size' => $preset['font_footer']];
         $row4 = $table->addRow(self::ROSTER_ROW_FOOTER_HEIGHT);
         $row4->addCell(self::ROSTER_COL_WIDE)->addText('Attendance Total ___________', $footerStyle);
         $row4->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3])->addText(
@@ -895,12 +1074,12 @@ class Usctdp_Mgmt_Docgen
         // why the heading/notes-line spacing goes through that helper
         // instead of a plain 'spacing' value.
         $row5 = $table->addRow(self::ROSTER_ROW_WAITLIST_HEIGHT);
-        $headingStyle = ['bold' => true, 'size' => self::FONT_SIZE_FOOTER];
+        $headingStyle = ['bold' => true, 'size' => $preset['font_footer']];
         $headingSpacing = $this->auto_line_spacing(240); // single-spaced
 
         $waitlistCell = $row5->addCell(self::ROSTER_COL_WIDE);
         $waitlistCell->addText('Waitlist', $headingStyle, $headingSpacing);
-        $this->add_waitlist_table($waitlistCell, $activity_id);
+        $this->add_waitlist_table($waitlistCell, $activity_id, $preset);
 
         $notesCell = $row5->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3]);
         $notesCell->addText('Absentees/Notes', $headingStyle, $headingSpacing);
@@ -908,16 +1087,32 @@ class Usctdp_Mgmt_Docgen
         for ($i = 0; $i < self::NOTES_LINE_COUNT; $i++) {
             $notesCell->addText(
                 '________________________________________________',
-                ['size' => self::FONT_SIZE_FOOTER],
+                ['size' => $preset['font_footer']],
                 $notesLineSpacing
             );
         }
 
         $section->addText(
             $fields['session_short_code'],
-            ['name' => 'Arial', 'size' => self::FONT_SIZE_FOOTER],
+            ['name' => 'Arial', 'size' => $preset['font_footer']],
             ['alignment' => 'center']
         );
+    }
+
+    /**
+     * Picks the ROSTER_SIZE_PRESETS entry to render a block with, based on
+     * its actual registrant count - the first entry (smallest
+     * 'max_registrants' first) the count fits under. Always returns
+     * something: the last preset's null 'max_registrants' matches anything,
+     * so the loop can't fall through without returning.
+     */
+    private function select_roster_preset($registrant_count)
+    {
+        foreach (self::ROSTER_SIZE_PRESETS as $preset) {
+            if ($preset['max_registrants'] === null || $registrant_count <= $preset['max_registrants']) {
+                return $preset;
+            }
+        }
     }
 
     /**
@@ -939,57 +1134,130 @@ class Usctdp_Mgmt_Docgen
     }
 
     /**
-     * Attendance table for one activity: a header row plus a fixed
-     * ATTENDANCE_DATA_ROWS data rows, blank-padded when there aren't that
-     * many registrants, so every activity's block takes up the same page
-     * space regardless of how many students actually registered - this
-     * padding is deliberate, not something left over from the template.
+     * Attendance table for one activity: a header row plus enough data rows
+     * to cover $preset['attendance_data_rows'] registrant slots, blank-
+     * padded when there aren't that many real registrants (null means no
+     * padding - see ROSTER_SIZE_PRESETS) - deliberate, not something left
+     * over from the template, so every "normal"-sized activity's block
+     * takes up about the same page space regardless of exactly how many
+     * students registered.
      *
-     * Used to be a query per registrant (student, then family) - now one
-     * JOIN query for the whole activity, see
-     * Usctdp_Mgmt_Registration_Query::get_roster_students(). That query
-     * inner-joins student/family, so a registration whose student or family
-     * row has gone missing is silently left off the roster rather than
-     * throwing like this used to - a real behavior change, but throwing
-     * per-row is exactly the per-row cost this was rewritten to avoid.
+     * When $preset['columns'] is 2, two registrants share one physical
+     * table row instead of one - a second Attnd/Name-Age-Level/Phone block,
+     * separated by a thin empty gutter column, picking up numbering where
+     * the first one's slot leaves off. This is one wider table with 7
+     * columns (3 + gutter + 3) rather than two side-by-side tables: every
+     * row still declares the same columns (no gridSpan), so <w:tblGrid>
+     * comes out right the same way the single-column table's already does
+     * (see the class doc comment on add_roster_activity_block()), and
+     * there's no need to fight Word's layout engine with floating/
+     * positioned tables to get two lists sitting next to each other.
+     *
+     * Takes the registrant list pre-fetched by add_roster_activity_block()
+     * (needed there already, to pick $preset) rather than querying again -
+     * see Usctdp_Mgmt_Registration_Query::get_roster_students() for that
+     * query. It inner-joins student/family, so a registration whose student
+     * or family row has gone missing is silently left off the roster rather
+     * than throwing like this used to - a real behavior change, but
+     * throwing per-row is exactly the per-row cost that query was written to
+     * avoid.
      */
-    private function add_attendance_table($cell, $activity_id)
+    private function add_attendance_table($cell, array $registrants, array $preset)
     {
-        $registration_query = new Usctdp_Mgmt_Registration_Query();
-        $registrants = $registration_query->get_roster_students($activity_id);
+        $people_per_row = $preset['columns'];
+        // Single-column mode stays at its compact native width (see the
+        // ATTENDANCE_COL_WIDTHS doc comment); two-column mode scales that
+        // same shape up to fill half of the full available width instead.
+        $person_widths = $people_per_row === 1
+            ? self::ATTENDANCE_COL_WIDTHS
+            : $this->scale_column_widths(
+                self::ATTENDANCE_COL_WIDTHS,
+                (int) floor((self::ATTENDANCE_TABLE_WIDTH - self::ATTENDANCE_COLUMN_GUTTER) / 2)
+            );
+        $table_width = $people_per_row === 1 ? array_sum(self::ATTENDANCE_COL_WIDTHS) : self::ATTENDANCE_TABLE_WIDTH;
 
-        // Every row below declares all 6 cells explicitly (no gridSpan), so
-        // the writer's per-row-derived <w:tblGrid> (see the class doc
-        // comment on add_roster_activity_block()) naturally comes out right
-        // without needing anything special here.
-        $columnWidths = self::ATTENDANCE_COL_WIDTHS;
-        $table = $cell->addTable(['width' => self::ATTENDANCE_TABLE_WIDTH, 'unit' => 'dxa', 'layout' => 'fixed']);
+        $table = $cell->addTable(['width' => $table_width, 'unit' => 'dxa', 'layout' => 'fixed']);
 
-        $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => self::FONT_SIZE_TABLE];
+        // No header label for the Attnd column - just a blank cell above
+        // each row's "__ N." (see format_attendance_number()).
+        $labels = ['', 'Name/Age/Level', 'Phone'];
+        $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => $preset['font_table']];
         $headerRow = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
-        foreach (['Attnd?', 'Last', 'First', 'Age', 'Level', 'Phone Number(s)'] as $i => $label) {
-            $headerRow->addCell($columnWidths[$i])->addText($label, $headerStyle);
+        $this->add_attendance_person_cells($headerRow, $person_widths, $labels, $headerStyle);
+        if ($people_per_row === 2) {
+            $headerRow->addCell(self::ATTENDANCE_COLUMN_GUTTER)->addText('');
+            $this->add_attendance_person_cells($headerRow, $person_widths, $labels, $headerStyle);
         }
 
-        $dataStyle = ['size' => self::FONT_SIZE_TABLE];
-        $idx = 1;
-        foreach ($registrants as $registrant) {
+        $dataStyle = ['size' => $preset['font_table']];
+        // null 'attendance_data_rows' => no padding, just the real
+        // registrants (still rounded up to a whole row when columns=2, so
+        // an odd count leaves one blank slot rather than a truncated row).
+        $slot_count = max(count($registrants), $preset['attendance_data_rows'] ?? count($registrants));
+        $row_count = (int) ceil($slot_count / $people_per_row);
+
+        for ($row_i = 0; $row_i < $row_count; $row_i++) {
             $row = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
-            $row->addCell($columnWidths[0])->addText('___' . $idx, $dataStyle);
-            $row->addCell($columnWidths[1])->addText((string) $registrant->student_last, $dataStyle);
-            $row->addCell($columnWidths[2])->addText((string) $registrant->student_first, $dataStyle);
-            $row->addCell($columnWidths[3])->addText((string) $registrant->student_age, $dataStyle);
-            $row->addCell($columnWidths[4])->addText((string) $registrant->student_level, $dataStyle);
-            $row->addCell($columnWidths[5])->addText($this->format_phone_numbers($registrant->family_phone_numbers), $dataStyle);
-            $idx++;
-        }
-        while ($idx <= self::ATTENDANCE_DATA_ROWS) {
-            $row = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
-            foreach ($columnWidths as $width) {
-                $row->addCell($width)->addText('', $dataStyle);
+            for ($p = 0; $p < $people_per_row; $p++) {
+                // Column-major, not row-major: the left block runs 1..N
+                // straight down before the right block picks up at N+1,
+                // rather than alternating left/right on every row - easier
+                // to follow a single numbered list top-to-bottom than to
+                // zigzag across pairs of rows.
+                $slot = $p * $row_count + $row_i;
+                $registrant = $registrants[$slot] ?? null;
+                $values = $registrant ? [
+                    $this->format_attendance_number($slot + 1),
+                    $this->format_name_age_level($registrant),
+                    $this->format_phone_numbers($registrant->family_phone_numbers),
+                ] : ['', '', ''];
+                $this->add_attendance_person_cells($row, $person_widths, $values, $dataStyle);
+                if ($people_per_row === 2 && $p === 0) {
+                    $row->addCell(self::ATTENDANCE_COLUMN_GUTTER)->addText('');
+                }
             }
-            $idx++;
         }
+    }
+
+    /**
+     * Adds one registrant's (or one header's) Attnd/Name-Age-Level/Phone
+     * cells to $row - shared between the single-person-per-row and two-
+     * people-per-row layouts in add_attendance_table(), and between its
+     * header row and data rows, so the cells-with-these-widths shape only
+     * needs to be written once.
+     */
+    private function add_attendance_person_cells($row, array $widths, array $values, array $style)
+    {
+        foreach ($values as $i => $value) {
+            $row->addCell($widths[$i])->addText($value, $style);
+        }
+    }
+
+    /**
+     * Proportionally rescales $widths (summing to whatever they sum to now)
+     * down to sum to exactly $target_sum, for fitting a second copy of the
+     * attendance table's columns into half the table when
+     * $preset['columns'] is 2. Rounds each width, then folds all the
+     * rounding error into the last column rather than leaving the total off
+     * by a twip or two - Phone Number(s) is the widest column already, so
+     * it's the one that can best absorb a few twips of slack unnoticed.
+     */
+    private function scale_column_widths(array $widths, $target_sum)
+    {
+        $original_sum = array_sum($widths);
+        $scaled = [];
+        $running = 0;
+        $last = count($widths) - 1;
+        foreach ($widths as $i => $width) {
+            if ($i === $last) {
+                $scaled[] = $target_sum - $running;
+            } else {
+                $scaled_width = (int) round($width * $target_sum / $original_sum);
+                $scaled[] = $scaled_width;
+                $running += $scaled_width;
+            }
+        }
+        return $scaled;
     }
 
     /**
@@ -1000,7 +1268,7 @@ class Usctdp_Mgmt_Docgen
      * oldest first" query. Omitted entirely when there are none, since a
      * table with zero rows isn't something Word can open.
      */
-    private function add_waitlist_table($cell, $activity_id)
+    private function add_waitlist_table($cell, $activity_id, array $preset)
     {
         $waitlist_query = new Usctdp_Mgmt_Waitlist_Query();
         $waitlisters = $waitlist_query->get_roster_waitlist($activity_id, self::WAITLIST_MAX_ENTRIES);
@@ -1011,7 +1279,7 @@ class Usctdp_Mgmt_Docgen
         $columnWidths = self::WAITLIST_COL_WIDTHS;
         $table = $cell->addTable(['width' => self::WAITLIST_TABLE_WIDTH, 'unit' => 'dxa', 'layout' => 'fixed']);
 
-        $style = ['bold' => true, 'size' => self::FONT_SIZE_TABLE];
+        $style = ['bold' => true, 'size' => $preset['font_table']];
         $cellStyle = ['vAlign' => 'top'];
         foreach ($waitlisters as $waitlister) {
             $row = $table->addRow();

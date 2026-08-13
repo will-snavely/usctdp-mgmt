@@ -15,6 +15,50 @@ class Usctdp_Mgmt_Activity_Query extends Query
     protected $item_name_plural = 'activities';
     protected $item_shape = 'Usctdp_Mgmt_Activity_Row';
 
+    /**
+     * Everything Usctdp_Mgmt_Docgen::generate_roster_for_sessions() needs to
+     * order a combined multi-session roster document, for every activity
+     * across the given sessions, in one query - one row per activity, not
+     * per session, so this stays O(1) queries regardless of how many
+     * sessions are combined.
+     *
+     * day_of_week/start_time come from a LEFT JOIN to usctdp_clinic (NULL
+     * for a tournament - see the docgen's tournament-ordering handling,
+     * which doesn't try to sort by these). activity_meta is the activity's
+     * own raw meta JSON, so the caller can check its "segregate_roster" flag
+     * (see Usctdp_Mgmt_Docgen::generate_roster_for_sessions()) without a
+     * second lookup - same ad hoc meta-key convention as this same column's
+     * "session_title" key (see
+     * Usctdp_Mgmt_Docgen::derive_clinic_roster_fields()). Deliberately
+     * per-activity, not per-session - a client can want just one clinic
+     * (e.g. "Tiny Tots") pulled out of a session's normal day/time flow,
+     * not the whole session.
+     */
+    public function get_roster_ordering_data(array $session_ids)
+    {
+        global $wpdb;
+        if (empty($session_ids)) {
+            return [];
+        }
+        $placeholders = implode(', ', array_fill(0, count($session_ids), '%d'));
+        $query = $wpdb->prepare(
+            "   SELECT
+                    act.id as id,
+                    act.type as type,
+                    act.session_id as session_id,
+                    act.reservation_group_id as reservation_group_id,
+                    act.meta as activity_meta,
+                    clin.day_of_week as day_of_week,
+                    clin.start_time as start_time
+                FROM {$wpdb->prefix}usctdp_activity AS act
+                LEFT JOIN {$wpdb->prefix}usctdp_clinic AS clin ON clin.id = act.id AND act.type = 'clinic'
+                WHERE act.session_id IN ($placeholders)
+                ORDER BY act.primary_sort_order ASC, act.secondary_sort_order ASC",
+            $session_ids
+        );
+        return $wpdb->get_results($query);
+    }
+
     public function search_activities($query, $session_id, $product_id, $limit = 10)
     {
         global $wpdb;

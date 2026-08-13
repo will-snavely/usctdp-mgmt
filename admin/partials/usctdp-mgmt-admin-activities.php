@@ -24,11 +24,39 @@
         </dialog>
 
         <div id="activity-details-section" class="flex-col gap-10">
-            <h2> Activity Details </h2>
-            <div id="activity-level-wrap" class="flex-row gap-10 align-center">
-                <label for="activity-level-input">Level</label>
-                <input type="text" id="activity-level-input" placeholder="e.g. 1, 1.5, 2.0-2.5">
-                <button type="button" class="button button-secondary" id="save-activity-level-btn">Save</button>
+            <div class="flex-row gap-10 align-center">
+                <h2> Activity Details </h2>
+                <button type="button" id="edit-activity-details-btn" class="button button-small">Modify</button>
+                <button type="button" id="save-activity-details-btn" class="button button-small hidden">Save</button>
+                <button type="button" id="cancel-activity-details-btn" class="button button-small hidden">Cancel</button>
+            </div>
+            <div id="activity-detail-fields" class="flex-row gap-20 flex-wrap">
+                <div id="activity-level-wrap" class="detail-field flex-col gap-5">
+                    <label for="activity-level-input" class="upper-heavy">Level</label>
+                    <input type="text" id="activity-level-input" placeholder="e.g. 1, 1.5, 2.0-2.5" readonly>
+                </div>
+                <div id="activity-schedule-wrap" class="flex-row gap-20 flex-wrap hidden">
+                    <div class="detail-field flex-col gap-5">
+                        <label for="activity-day-select" class="upper-heavy">Day</label>
+                        <select id="activity-day-select" disabled>
+                            <option value="1">Monday</option>
+                            <option value="2">Tuesday</option>
+                            <option value="3">Wednesday</option>
+                            <option value="4">Thursday</option>
+                            <option value="5">Friday</option>
+                            <option value="6">Saturday</option>
+                            <option value="7">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="detail-field flex-col gap-5">
+                        <label for="activity-start-time-input" class="upper-heavy">Start</label>
+                        <input type="time" id="activity-start-time-input" disabled>
+                    </div>
+                    <div class="detail-field flex-col gap-5">
+                        <label for="activity-end-time-input" class="upper-heavy">End</label>
+                        <input type="time" id="activity-end-time-input" disabled>
+                    </div>
+                </div>
             </div>
             <div id="activity-instructors-wrap" class="flex-col gap-5">
                 <label>Instructors</label>

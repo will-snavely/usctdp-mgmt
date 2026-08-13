@@ -12,6 +12,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'create_student' => 'ajax_create_student',
         'datatable_balances' => 'ajax_datatable_balances',
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
+        'earnings_rollup' => 'ajax_earnings_rollup',
         'gen_roster' => 'ajax_gen_roster',
         'gen_statement' => 'ajax_gen_statement',
         'get_activity_details' => 'ajax_get_activity_details',
@@ -38,6 +39,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'submit_payment' => 'ajax_submit_payment',
         'toggle_session_active' => 'ajax_toggle_session_active',
         'update_activity' => 'ajax_update_activity',
+        'update_clinic_schedule' => 'ajax_update_clinic_schedule',
         'update_family' => 'ajax_update_family',
         'update_registration' => 'ajax_update_registration',
         'update_purchase' => 'ajax_update_purchase',
@@ -266,6 +268,40 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    /**
+     * Converts plain Y-m-d date-filter inputs (Eastern-time calendar days,
+     * the timezone the business actually operates in) into the UTC
+     * datetime boundaries created_at columns are stored in. date_to is
+     * converted to the start of the following Eastern day so the whole
+     * selected day is included. Returns only the keys for inputs that were
+     * actually provided (and parsed successfully), so callers can
+     * array_merge() the result straight into a query $args array.
+     */
+    private function eastern_date_range_to_utc($date_from, $date_to)
+    {
+        $result = [];
+        $eastern_tz = new DateTimeZone('America/New_York');
+        $utc_tz = new DateTimeZone('UTC');
+        if ($date_from) {
+            $from_dt = DateTime::createFromFormat('Y-m-d', $date_from, $eastern_tz);
+            if ($from_dt) {
+                $from_dt->setTime(0, 0, 0);
+                $from_dt->setTimezone($utc_tz);
+                $result['date_from'] = $from_dt->format('Y-m-d H:i:s');
+            }
+        }
+        if ($date_to) {
+            $to_dt = DateTime::createFromFormat('Y-m-d', $date_to, $eastern_tz);
+            if ($to_dt) {
+                $to_dt->setTime(0, 0, 0);
+                $to_dt->modify('+1 day');
+                $to_dt->setTimezone($utc_tz);
+                $result['date_to'] = $to_dt->format('Y-m-d H:i:s');
+            }
+        }
+        return $result;
+    }
+
     public function ajax_activity_preregistration()
     {
         $this->check_nonce('activity_preregistration');
@@ -456,6 +492,27 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
+     * Clinic activities share their primary key with the usctdp_clinic row
+     * that holds their day/time (see Usctdp_Mgmt_Clinic_Query - clinic.id ==
+     * activity.id). Tournament activities have no such row (their schedule
+     * lives as JSON on usctdp_tournament instead), so this returns null for
+     * anything that isn't type === 'clinic'.
+     */
+    private function get_clinic_schedule($activity_id)
+    {
+        $clinic_query = new Usctdp_Mgmt_Clinic_Query(['id' => $activity_id, 'number' => 1]);
+        if (empty($clinic_query->items)) {
+            return null;
+        }
+        $clinic = $clinic_query->items[0];
+        return [
+            'day_of_week' => $clinic->day_of_week->value,
+            'start_time' => $clinic->start_time->format('H:i'),
+            'end_time' => $clinic->end_time->format('H:i'),
+        ];
+    }
+
+    /**
      * Feeds the Activities page's "Activity Details" panel (level +
      * instructor list) on activity selection - same GET-on-selector-change
      * pattern as ajax_get_roster_link() above.
@@ -483,11 +540,143 @@ class Usctdp_Mgmt_Admin_Ajax
 
             wp_send_json_success([
                 'level' => $activity->level,
+                'type' => $activity->type,
+                'schedule' => $activity->type === 'clinic' ? $this->get_clinic_schedule($activity_id) : null,
                 'instructors' => $instructors,
                 'shared_with' => $this->get_shared_activity_titles($activity_id),
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_activity_details', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    /**
+     * Normalizes an HTML time-input value ("HH:MM" or "HH:MM:SS") into the
+     * "HH:MM:SS" form the usctdp_clinic.start_time/end_time TIME columns
+     * expect. Returns null for anything that doesn't match.
+     */
+    private function sanitize_time_field($raw)
+    {
+        $raw = sanitize_text_field($raw ?? '');
+        if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/', $raw, $m)) {
+            return null;
+        }
+        return sprintf('%02d:%02d:%02d', (int) $m[1], (int) $m[2], isset($m[4]) ? (int) $m[4] : 0);
+    }
+
+    /**
+     * usctdp_program_schedule is a fully materialized cache derived from
+     * usctdp_clinic/usctdp_tournament/usctdp_session/usctdp_product (see
+     * Usctdp_Build_Program_Schedule) - there's no incremental update path,
+     * so any edit to a clinic's day/time has to be followed by a full
+     * rebuild to keep it in sync. This class normally only loads under
+     * WP-CLI (see usctdp-mgmt.php), so it's required here on demand instead.
+     */
+    private function rebuild_program_schedule()
+    {
+        if (!class_exists('Usctdp_Build_Program_Schedule')) {
+            require_once plugin_dir_path(__FILE__) . '../includes/cli/class-usctdp-build-program-schedule.php';
+        }
+        (new Usctdp_Build_Program_Schedule())->build();
+    }
+
+    /**
+     * A clinic activity's title/search_term are derived from its product
+     * name plus its day/time (same "$clinic_name, $dow, $start to $end"
+     * format Usctdp_Import_Session_Data::import_clinic_classes() builds on
+     * import - see Usctdp_Mgmt_Clinic_Table::create_title()), so a
+     * day/time edit has to recompute both alongside the schedule fields or
+     * the activity's title would silently drift out of sync with its
+     * actual schedule. Pure string-building only - no DB access - so the
+     * caller stays in charge of when/how the result actually gets saved.
+     */
+    private function build_clinic_activity_title($product_title, $day_of_week, $start_time, $end_time)
+    {
+        $title = Usctdp_Mgmt_Clinic_Table::create_title(
+            $product_title,
+            Usctdp_Day_Of_Week::from($day_of_week)->name,
+            DateTime::createFromFormat('H:i:s', $start_time),
+            DateTime::createFromFormat('H:i:s', $end_time)
+        );
+        return [
+            'title' => $title,
+            'search_term' => Usctdp_Mgmt_Model::append_token_suffix($title),
+        ];
+    }
+
+    /**
+     * Saves a clinic activity's day-of-week/start-time/end-time and
+     * refreshes the materialized program schedule to match. Deliberately
+     * bypasses save_entity() - Usctdp_Mgmt_Clinic_Row casts day_of_week to a
+     * Usctdp_Day_Of_Week enum and start_time/end_time to DateTime objects
+     * (see class-usctdp-mgmt-clinic-row.php), so save_entity()'s
+     * `$data !== $entity->$field` dirty-check would always see a type
+     * mismatch and treat every save as "changed" - including a plain
+     * resubmit of unchanged values, which Query::update_item() would then
+     * correctly no-op (it diffs against the raw stored row) and report back
+     * as a failure. Calling update_item() directly avoids that false
+     * negative.
+     */
+    public function ajax_update_clinic_schedule()
+    {
+        $this->check_nonce('update_clinic_schedule');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        if (empty($activity_id)) {
+            wp_send_json_error('Missing required parameter activity_id', 400);
+        }
+
+        try {
+            $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+            if (!$activity) {
+                wp_send_json_error('Activity with ID ' . $activity_id . ' not found.', 404);
+            }
+            if ($activity->type !== 'clinic') {
+                wp_send_json_error('Only clinic activities have an editable schedule.', 400);
+            }
+
+            $day_of_week = isset($_POST['day_of_week']) ? intval($_POST['day_of_week']) : 0;
+            if ($day_of_week < 1 || $day_of_week > 7) {
+                wp_send_json_error('day_of_week must be between 1 (Monday) and 7 (Sunday).', 400);
+            }
+
+            $start_time = $this->sanitize_time_field($_POST['start_time'] ?? '');
+            $end_time = $this->sanitize_time_field($_POST['end_time'] ?? '');
+            if (!$start_time || !$end_time) {
+                wp_send_json_error('start_time and end_time must be valid times.', 400);
+            }
+            if ($start_time >= $end_time) {
+                wp_send_json_error('end_time must be after start_time.', 400);
+            }
+
+            $product = Usctdp_Mgmt_Model::get_product($activity->product_id);
+            if (!$product) {
+                wp_send_json_error('Product for activity ' . $activity_id . ' not found.', 500);
+            }
+
+            $clinic_query = new Usctdp_Mgmt_Clinic_Query();
+            $clinic_query->update_item($activity_id, [
+                'day_of_week' => $day_of_week,
+                'start_time' => $start_time,
+                'end_time' => $end_time,
+            ]);
+
+            $activity_query = new Usctdp_Mgmt_Activity_Query();
+            $activity_query->update_item(
+                $activity_id,
+                $this->build_clinic_activity_title($product->title, $day_of_week, $start_time, $end_time)
+            );
+
+            $this->rebuild_program_schedule();
+
+            wp_send_json_success([
+                'day_of_week' => $day_of_week,
+                'start_time' => substr($start_time, 0, 5),
+                'end_time' => substr($end_time, 0, 5),
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_clinic_schedule', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
     }
@@ -1743,31 +1932,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $args['status'] = $status;
         }
 
-        // Purchases are stored with a UTC created_at, but the date inputs on
-        // the filter bar are plain Y-m-d values meant as Eastern-time
-        // calendar days (the timezone the business actually operates in) -
-        // convert each to a UTC boundary before querying. date_to is
-        // converted to the start of the following Eastern day so the whole
-        // selected day is included.
-        $eastern_tz = new DateTimeZone('America/New_York');
-        $utc_tz = new DateTimeZone('UTC');
-        if ($date_from) {
-            $from_dt = DateTime::createFromFormat('Y-m-d', $date_from, $eastern_tz);
-            if ($from_dt) {
-                $from_dt->setTime(0, 0, 0);
-                $from_dt->setTimezone($utc_tz);
-                $args['date_from'] = $from_dt->format('Y-m-d H:i:s');
-            }
-        }
-        if ($date_to) {
-            $to_dt = DateTime::createFromFormat('Y-m-d', $date_to, $eastern_tz);
-            if ($to_dt) {
-                $to_dt->setTime(0, 0, 0);
-                $to_dt->modify('+1 day');
-                $to_dt->setTimezone($utc_tz);
-                $args['date_to'] = $to_dt->format('Y-m-d H:i:s');
-            }
-        }
+        $args = array_merge($args, $this->eastern_date_range_to_utc($date_from, $date_to));
 
         $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);
         $results = $purchase_query->get_purchase_data($args);
@@ -1778,6 +1943,83 @@ class Usctdp_Mgmt_Admin_Ajax
             "data" => $results['data']
         );
         wp_send_json($response);
+    }
+
+    /**
+     * Feeds the Earnings dashboard (usctdp-mgmt-admin-earnings.php): gross
+     * revenue + accounts receivable per session (plus an "Other /
+     * Unassigned" bucket for purchases with no session, e.g. merchandise),
+     * and PayPal fees as a single dashboard-wide total (see
+     * Usctdp_Mgmt_Ledger_Query::get_paypal_fees_total() for why fees aren't
+     * allocated per-session). date_from/date_to filter on purchase date,
+     * same Eastern-calendar-day semantics as the Purchase History page.
+     */
+    public function ajax_earnings_rollup()
+    {
+        $this->check_nonce('earnings_rollup');
+
+        $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : null;
+        $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : null;
+        $args = $this->eastern_date_range_to_utc($date_from, $date_to);
+
+        try {
+            $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+            $rows = $ledger_query->get_session_earnings($args);
+            $paypal_fees = $ledger_query->get_paypal_fees_total($args);
+
+            $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+
+            $sessions = [];
+            $other = null;
+            $total_gross = 0.0;
+            $total_receivable = 0.0;
+            foreach ($rows as $row) {
+                $gross = (float) $row->gross_revenue;
+                $receivable = (float) $row->receivable;
+                $total_gross += $gross;
+                $total_receivable += $receivable;
+
+                $session_row = [
+                    'session_id' => $row->session_id ? (int) $row->session_id : null,
+                    'session_title' => $row->session_id ? $row->session_title : 'Other / Unassigned',
+                    'start_date' => $row->session_start_date,
+                    'end_date' => $row->session_end_date,
+                    'gross_revenue' => $gross,
+                    'gross_revenue_display' => $amount_fmt->format($gross),
+                    'receivable' => $receivable,
+                    'receivable_display' => $amount_fmt->format($receivable),
+                    'collected' => $gross - $receivable,
+                    'collected_display' => $amount_fmt->format($gross - $receivable),
+                ];
+
+                if ($row->session_id) {
+                    $sessions[] = $session_row;
+                } else {
+                    $other = $session_row;
+                }
+            }
+            if ($other) {
+                $sessions[] = $other;
+            }
+
+            $net_revenue = $total_gross - $paypal_fees;
+            wp_send_json_success([
+                'sessions' => $sessions,
+                'totals' => [
+                    'gross_revenue' => $total_gross,
+                    'gross_revenue_display' => $amount_fmt->format($total_gross),
+                    'receivable' => $total_receivable,
+                    'receivable_display' => $amount_fmt->format($total_receivable),
+                    'paypal_fees' => $paypal_fees,
+                    'paypal_fees_display' => $amount_fmt->format($paypal_fees),
+                    'net_revenue' => $net_revenue,
+                    'net_revenue_display' => $amount_fmt->format($net_revenue),
+                ],
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_earnings_rollup', $e);
+            wp_send_json_error('An unexpected server error occurred while computing earnings.', 500);
+        }
     }
 
     public function ajax_recent_registrations()

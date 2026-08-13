@@ -66,6 +66,45 @@
     width: 100px;
 }
 
+/* #activity-details-section is a flex-col (see above), whose children
+   default to align-items: stretch on the cross axis - without this,
+   #activity-detail-fields (a flex-row of just a few narrow fields) would
+   stretch to the section's full width, and the .editing background below
+   would follow it, showing up as a big empty highlighted bar to the right
+   of the actual fields. width: fit-content hugs the fields' real content
+   width instead; max-width keeps it from overflowing on narrow screens. */
+#activity-detail-fields {
+    width: fit-content;
+    max-width: 100%;
+}
+
+/* Same view/edit-toggle treatment as .registration-fields/.editing on the
+   Purchase History page (usctdp-mgmt-admin-history.css) - read-only fields
+   look like plain text until "Modify" is clicked, at which point .editing
+   highlights the whole group being edited. */
+#activity-detail-fields.editing {
+    background-color: #d2fad7;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+#activity-detail-fields input[readonly],
+#activity-detail-fields select:disabled,
+#activity-detail-fields input:disabled {
+    background-color: #f9fafb;
+    border-color: #e5e7eb;
+    color: #4b5563;
+    cursor: default;
+}
+
+/* Same "*" dirty marker as .notes-section.is-dirty on the Purchase History
+   page - flags exactly which field(s) changed since the last save. */
+.detail-field.is-dirty label::after {
+    content: " *";
+    color: #e67e22;
+    font-weight: bold;
+}
+
 #activity-instructors-wrap {
     max-width: 280px;
 }

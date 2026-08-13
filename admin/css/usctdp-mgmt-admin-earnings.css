@@ -1,0 +1,183 @@
+/*
+ * Dashboard card / stat-tile styles - same look as the main dashboard
+ * (usctdp-mgmt-admin-main.css), copied here rather than shared since each
+ * admin page currently owns its own CSS file with no shared component
+ * stylesheet.
+ */
+.usctdp-dashboard {
+    margin-top: 10px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.dashboard-grid-tiles {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.card-wide {
+    grid-column: 1 / -1;
+    margin-top: 16px;
+}
+
+.dashboard-card {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.06);
+    min-width: 0;
+    overflow: hidden;
+}
+
+.dashboard-card-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid #eef1f5;
+    background-color: #f8fafc;
+}
+
+.card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #334155;
+}
+
+.dashboard-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    min-width: 0;
+    flex: 1;
+}
+
+.stat-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+}
+
+.paypal-fee-note {
+    max-width: 720px;
+    margin: 10px 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+/*
+ * Filter row - same pattern as the Purchase History filter bar
+ * (usctdp-mgmt-admin-history.css).
+ */
+#table-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 100%;
+    margin-bottom: 12px;
+}
+
+.filter-row {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-item {
+    flex: 0 0 auto;
+}
+
+#table-filters input[type="date"] {
+    width: 140px;
+}
+
+.table-filter-label {
+    font-weight: 600;
+}
+
+/*
+ * Earnings-by-session table - same mini-table look used inside dashboard
+ * cards elsewhere (usctdp-mgmt-admin-main.css).
+ */
+.table-scroll-x {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #eef1f5;
+    border-radius: 8px;
+}
+
+.usctdp-mini-table {
+    table-layout: fixed;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.usctdp-mini-table thead tr th {
+    position: sticky;
+    top: 0;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #475569;
+    background-color: #f1f5f9;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.usctdp-mini-table tbody tr td {
+    padding: 10px 12px;
+    vertical-align: middle;
+    font-size: 0.85rem;
+    color: #1e293b;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.usctdp-mini-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.usctdp-mini-table tbody tr:hover td {
+    background-color: #f8fafc;
+}
+
+.usctdp-mini-table .loading-row td,
+.usctdp-mini-table .empty-row td {
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* "Other / Unassigned" bucket - visually set apart from real sessions. */
+.usctdp-mini-table tr.earnings-other-row td {
+    font-style: italic;
+    color: #64748b;
+    border-top: 2px solid #e2e8f0;
+}

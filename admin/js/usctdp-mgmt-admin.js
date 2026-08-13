@@ -317,6 +317,30 @@
         }
     }
 
+    USCTDP_Admin.ajax_updateClinicSchedule = async function (activity_id, fields) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.update_clinic_schedule_action,
+                    security: usctdp_mgmt_admin.update_clinic_schedule_nonce,
+                    activity_id: activity_id,
+                    ...fields
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Update Clinic Schedule Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     USCTDP_Admin.ajax_addActivityInstructor = async function (activity_id, staff_id) {
         try {
             const response = await $.ajax({

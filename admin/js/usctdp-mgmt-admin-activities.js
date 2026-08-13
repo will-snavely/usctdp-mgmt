@@ -112,23 +112,90 @@
             }
         }
 
+        // Last-loaded values for the currently-selected activity - the
+        // source of truth "Cancel" reverts to and dirty-checking compares
+        // against, so neither one needs its own round-trip to the server.
+        var loadedActivityDetails = { level: '', type: null, schedule: null };
+
+        // Tournament activities have no usctdp_clinic row (their schedule is
+        // a JSON blob on usctdp_tournament instead - see
+        // ajax_get_activity_details()), so the day/time editor only applies
+        // to, and only shows up for, clinic-type activities.
+        function renderActivitySchedule(type, schedule) {
+            var isClinic = type === 'clinic' && !!schedule;
+            $('#activity-schedule-wrap').toggleClass('hidden', !isClinic);
+            if (isClinic) {
+                $('#activity-day-select').val(String(schedule.day_of_week));
+                $('#activity-start-time-input').val(schedule.start_time);
+                $('#activity-end-time-input').val(schedule.end_time);
+            } else {
+                $('#activity-day-select').val('1');
+                $('#activity-start-time-input').val('');
+                $('#activity-end-time-input').val('');
+            }
+        }
+
+        function enterActivityDetailsEditMode() {
+            $('#activity-detail-fields').addClass('editing');
+            $('#activity-level-input').prop('readonly', false);
+            $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', false);
+            $('#edit-activity-details-btn').addClass('hidden');
+            $('#save-activity-details-btn, #cancel-activity-details-btn').removeClass('hidden');
+        }
+
+        function exitActivityDetailsEditMode() {
+            $('#activity-detail-fields').removeClass('editing');
+            $('#activity-level-input').prop('readonly', true);
+            $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', true);
+            $('#edit-activity-details-btn').removeClass('hidden');
+            $('#save-activity-details-btn, #cancel-activity-details-btn').addClass('hidden');
+            $('.detail-field').removeClass('is-dirty');
+        }
+
+        // Marks each field that no longer matches what was last loaded from
+        // the server, so it's obvious at a glance what a Save is about to
+        // change (see .detail-field.is-dirty in usctdp-mgmt-admin-activities.css).
+        function updateActivityDetailsDirtyState() {
+            $('#activity-level-wrap').toggleClass(
+                'is-dirty',
+                $('#activity-level-input').val() !== (loadedActivityDetails.level || '')
+            );
+
+            var schedule = loadedActivityDetails.schedule;
+            if (loadedActivityDetails.type === 'clinic' && schedule) {
+                $('#activity-day-select').closest('.detail-field')
+                    .toggleClass('is-dirty', $('#activity-day-select').val() !== String(schedule.day_of_week));
+                $('#activity-start-time-input').closest('.detail-field')
+                    .toggleClass('is-dirty', $('#activity-start-time-input').val() !== schedule.start_time);
+                $('#activity-end-time-input').closest('.detail-field')
+                    .toggleClass('is-dirty', $('#activity-end-time-input').val() !== schedule.end_time);
+            }
+        }
+
         function loadActivityDetails(activityId) {
+            exitActivityDetailsEditMode();
             if (!activityId) {
+                loadedActivityDetails = { level: '', type: null, schedule: null };
                 $('#activity-level-input').val('');
                 renderActivityInstructors([]);
                 renderSharedActivitiesNote([]);
+                renderActivitySchedule(null, null);
                 return;
             }
             USCTDP_Admin.ajax_getActivityDetails(activityId)
                 .then(function (data) {
-                    $('#activity-level-input').val(data.level || '');
+                    loadedActivityDetails = { level: data.level || '', type: data.type, schedule: data.schedule };
+                    $('#activity-level-input').val(loadedActivityDetails.level);
                     renderActivityInstructors(data.instructors);
                     renderSharedActivitiesNote(data.shared_with);
+                    renderActivitySchedule(data.type, data.schedule);
                 })
                 .catch(function () {
+                    loadedActivityDetails = { level: '', type: null, schedule: null };
                     $('#activity-level-input').val('');
                     renderActivityInstructors([]);
                     renderSharedActivitiesNote([]);
+                    renderActivitySchedule(null, null);
                 });
         }
 
@@ -417,28 +484,86 @@
             waitlistStudentModal.close();
         });
 
-        $('#save-activity-level-btn').on('click', function () {
+        $('#activity-detail-fields').on('input change', 'input, select', updateActivityDetailsDirtyState);
+
+        $('#edit-activity-details-btn').on('click', function () {
             const activityId = $('#activity-selector').val();
             if (!activityId) {
                 return;
             }
-            const level = $('#activity-level-input').val();
-            USCTDP_Admin.ajax_updateActivity(activityId, { level: level })
+            enterActivityDetailsEditMode();
+        });
+
+        $('#cancel-activity-details-btn').on('click', function () {
+            $('#activity-level-input').val(loadedActivityDetails.level);
+            renderActivitySchedule(loadedActivityDetails.type, loadedActivityDetails.schedule);
+            exitActivityDetailsEditMode();
+        });
+
+        $('#save-activity-details-btn').on('click', function () {
+            const activityId = $('#activity-selector').val();
+            if (!activityId) {
+                return;
+            }
+
+            const isClinic = loadedActivityDetails.type === 'clinic';
+            const dayOfWeek = $('#activity-day-select').val();
+            const startTime = $('#activity-start-time-input').val();
+            const endTime = $('#activity-end-time-input').val();
+
+            if (isClinic) {
+                if (!startTime || !endTime) {
+                    Swal.fire({
+                        title: 'Missing Times',
+                        text: 'Please provide both a start and end time.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+                if (startTime >= endTime) {
+                    Swal.fire({
+                        title: 'Invalid Times',
+                        text: 'End time must be after start time.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+            }
+
+            const saves = [
+                USCTDP_Admin.ajax_updateActivity(activityId, { level: $('#activity-level-input').val() })
+            ];
+            if (isClinic) {
+                saves.push(USCTDP_Admin.ajax_updateClinicSchedule(activityId, {
+                    day_of_week: dayOfWeek,
+                    start_time: startTime,
+                    end_time: endTime
+                }));
+            }
+
+            $('#save-activity-details-btn').prop('disabled', true);
+            Promise.all(saves)
                 .then(function () {
                     Swal.fire({
                         title: 'Success',
-                        text: 'Level updated.',
+                        text: 'Activity details updated.',
                         icon: 'success',
                         confirmButtonText: 'OK'
                     });
+                    loadActivityDetails(activityId);
                 })
                 .catch(function () {
                     Swal.fire({
                         title: 'Error',
-                        text: 'Failed to update level. Please inform a developer.',
+                        text: 'Failed to update activity details. Please inform a developer.',
                         icon: 'error',
                         confirmButtonText: 'OK'
                     });
+                })
+                .finally(function () {
+                    $('#save-activity-details-btn').prop('disabled', false);
                 });
         });
 

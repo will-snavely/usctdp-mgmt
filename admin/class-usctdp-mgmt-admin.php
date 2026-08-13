@@ -71,6 +71,7 @@ class Usctdp_Mgmt_Admin
                     'roster_link',
                     'get_activity_details',
                     'update_activity',
+                    'update_clinic_schedule',
                     'activity_add_instructor',
                     'activity_remove_instructor',
                 ],
@@ -125,7 +126,7 @@ class Usctdp_Mgmt_Admin
             ],
             'earnings' => [
                 'title' => 'Earnings',
-                'ajax' => []
+                'ajax' => ['earnings_rollup']
             ]
         ];
     }

@@ -34,6 +34,11 @@ class Usctdp_Mgmt_Registration_Query extends Query
      * what a merged reservation group's combined roster block passes (see
      * Usctdp_Mgmt_Docgen::add_merged_clinic_roster_block()), to list every
      * registrant across all of the group's clinics in one table.
+     *
+     * Ordered by student last/first name, alphabetically - the attendance
+     * table's own numbering (see Usctdp_Mgmt_Docgen::format_attendance_
+     * number()) is purely positional, so this is the only thing that
+     * actually determines print order.
      */
     public function get_roster_students($activity_id)
     {
@@ -54,7 +59,7 @@ class Usctdp_Mgmt_Registration_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
                 WHERE reg.activity_id IN ($placeholders) AND reg.status = 'active'
-                ORDER BY reg.id DESC",
+                ORDER BY stud.last, stud.first",
             $ids
         );
         return $wpdb->get_results($query);

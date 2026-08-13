@@ -270,6 +270,11 @@ class Usctdp_Build_Program_Schedule
             $this->save_schedule($product_id, $product);
         }
 
-        WP_CLI::log('Built program schedule for ' . count($products) . ' product(s).');
+        // This class also gets called outside of WP-CLI (see
+        // Usctdp_Mgmt_Admin_Ajax::rebuild_program_schedule()), where the
+        // WP_CLI class isn't loaded at all - guard the report-only log call.
+        if (defined('WP_CLI') && WP_CLI) {
+            WP_CLI::log('Built program schedule for ' . count($products) . ' product(s).');
+        }
     }
 }
