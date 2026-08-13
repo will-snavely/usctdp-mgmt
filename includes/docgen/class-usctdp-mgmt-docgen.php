@@ -246,9 +246,9 @@ class Usctdp_Mgmt_Docgen
      */
     private function format_name_age_level($registrant)
     {
-        $last = ucfirst(strtolower($registrant->student_last));
-        $first = ucfirst(strtolower($registrant->student_first));
-        $parts = [$last . " " . $first];
+        $last = ucwords(strtolower($registrant->student_last));
+        $first = ucwords(strtolower($registrant->student_first));
+        $parts = [$last . ", " . $first];
         if ($registrant->student_age !== null && $registrant->student_age !== '') {
             $parts[] = (string) $registrant->student_age;
         } else {
