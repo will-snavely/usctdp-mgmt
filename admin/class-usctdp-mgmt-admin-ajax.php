@@ -662,18 +662,21 @@ class Usctdp_Mgmt_Admin_Ajax
                 'end_time' => $end_time,
             ]);
 
+            $title_fields = $this->build_clinic_activity_title($product->title, $day_of_week, $start_time, $end_time);
             $activity_query = new Usctdp_Mgmt_Activity_Query();
-            $activity_query->update_item(
-                $activity_id,
-                $this->build_clinic_activity_title($product->title, $day_of_week, $start_time, $end_time)
-            );
+            $activity_query->update_item($activity_id, $title_fields);
 
             $this->rebuild_program_schedule();
 
+            // Echo the recomputed title back so the caller can refresh the
+            // "Day" selector's label in place - it still shows whatever
+            // title was current when the page/selector was populated, and
+            // has no other way to learn it just went stale.
             wp_send_json_success([
                 'day_of_week' => $day_of_week,
                 'start_time' => substr($start_time, 0, 5),
                 'end_time' => substr($end_time, 0, 5),
+                'title' => $title_fields['title'],
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_update_clinic_schedule', $e);

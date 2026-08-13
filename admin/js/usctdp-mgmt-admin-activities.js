@@ -172,6 +172,28 @@
             }
         }
 
+        // A clinic activity's title encodes its day/time (see
+        // Usctdp_Mgmt_Clinic_Table::create_title()), so saving a schedule
+        // change makes the "Day" selector's current label stale - it was
+        // rendered from whatever title was current when the option was
+        // created (page load, or the last time this ran) and has no way to
+        // notice on its own that it's out of date. Updates the underlying
+        // <option>'s text/data and asks select2 to re-render the closed
+        // selection from it, via the same 'change.select2' - only (not
+        // plain 'change', which would re-fire the cascade and reset
+        // Product/Day) - trick CascasdingSelect.resetAndHide() already
+        // uses.
+        function updateActivitySelectorLabel(activityId, newTitle) {
+            var $select = $('#activity-selector');
+            var $option = $select.find('option[value="' + activityId + '"]');
+            if ($option.length === 0) {
+                return;
+            }
+            $option.text(newTitle);
+            $option.data('data', $.extend({}, $option.data('data'), { text: newTitle }));
+            $select.trigger('change.select2');
+        }
+
         function loadActivityDetails(activityId) {
             exitActivityDetailsEditMode();
             if (!activityId) {
@@ -545,13 +567,18 @@
 
             $('#save-activity-details-btn').prop('disabled', true);
             Promise.all(saves)
-                .then(function () {
+                .then(function (results) {
                     Swal.fire({
                         title: 'Success',
                         text: 'Activity details updated.',
                         icon: 'success',
                         confirmButtonText: 'OK'
                     });
+                    if (isClinic) {
+                        // ajax_updateClinicSchedule() is always the second
+                        // save pushed above when isClinic is true.
+                        updateActivitySelectorLabel(activityId, results[1].title);
+                    }
                     loadActivityDetails(activityId);
                 })
                 .catch(function () {

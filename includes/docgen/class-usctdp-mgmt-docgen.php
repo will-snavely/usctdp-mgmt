@@ -79,7 +79,7 @@ class Usctdp_Mgmt_Docgen
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
-            'font_footer' => 10,
+            'font_footer' => 9.5,
             'font_table' => 10.5,
         ],
         [
@@ -89,7 +89,7 @@ class Usctdp_Mgmt_Docgen
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
-            'font_footer' => 10,
+            'font_footer' => 9.5,
             'font_table' => 9.5,
         ],
         [
@@ -105,7 +105,7 @@ class Usctdp_Mgmt_Docgen
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
-            'font_footer' => 10,
+            'font_footer' => 9.5,
             'font_table' => 10,
         ],
     ];
@@ -246,9 +246,14 @@ class Usctdp_Mgmt_Docgen
         $parts = ["{$registrant->student_last}, {$registrant->student_first}"];
         if ($registrant->student_age !== null && $registrant->student_age !== '') {
             $parts[] = (string) $registrant->student_age;
+        } else {
+            $parts[] = "--";
         }
+
         if ($registrant->student_level !== null && $registrant->student_level !== '') {
             $parts[] = $this->format_level($registrant->student_level);
+        } else {
+            $parts[] = "--";
         }
         return implode(' / ', $parts);
     }
@@ -1292,10 +1297,18 @@ class Usctdp_Mgmt_Docgen
     private function border_box($size)
     {
         return [
-            'borderTopSize' => $size, 'borderTopColor' => self::BORDER_COLOR, 'borderTopStyle' => 'single',
-            'borderLeftSize' => $size, 'borderLeftColor' => self::BORDER_COLOR, 'borderLeftStyle' => 'single',
-            'borderBottomSize' => $size, 'borderBottomColor' => self::BORDER_COLOR, 'borderBottomStyle' => 'single',
-            'borderRightSize' => $size, 'borderRightColor' => self::BORDER_COLOR, 'borderRightStyle' => 'single',
+            'borderTopSize' => $size,
+            'borderTopColor' => self::BORDER_COLOR,
+            'borderTopStyle' => 'single',
+            'borderLeftSize' => $size,
+            'borderLeftColor' => self::BORDER_COLOR,
+            'borderLeftStyle' => 'single',
+            'borderBottomSize' => $size,
+            'borderBottomColor' => self::BORDER_COLOR,
+            'borderBottomStyle' => 'single',
+            'borderRightSize' => $size,
+            'borderRightColor' => self::BORDER_COLOR,
+            'borderRightStyle' => 'single',
         ];
     }
 

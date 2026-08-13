@@ -59,7 +59,7 @@
                 </div>
             </div>
             <div id="activity-instructors-wrap" class="flex-col gap-5">
-                <label>Instructors</label>
+                <label class="upper-heavy">Instructors</label>
                 <div id="activity-instructors-list" class="flex-col gap-5"></div>
                 <div id="activity-add-instructor-wrap" class="flex-row gap-10 align-center">
                     <div id="activity-add-instructor-select-wrap">
