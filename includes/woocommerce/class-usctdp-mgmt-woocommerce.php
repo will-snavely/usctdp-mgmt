@@ -188,7 +188,10 @@ class Usctdp_Mgmt_Woocommerce
             }
 
             $order->set_total($total - $discount_total);
-            if ($payment_method === 'cash') {
+
+            if ($payment_method === 'card') {
+                $order->update_status('pending', 'Awaiting payment via ' . $payment_method);
+            } else if ($payment_method === 'cash') {
                 $order->set_payment_method('cod');
                 $order->set_payment_method_title('Cash');
                 $order->add_order_note("Admin recorded payment via Cash");
@@ -202,7 +205,11 @@ class Usctdp_Mgmt_Woocommerce
                 $order->payment_complete();
                 $order->set_status('completed');
             } else {
-                $order->update_status('pending', 'Awaiting payment via ' . $payment_method);
+                $order->set_payment_method($payment_method);
+                $order->set_payment_method_title($payment_method);
+                $order->add_order_note("Admin recorded payment via " . $payment_method);
+                $order->payment_complete();
+                $order->set_status('completed');
             }
             $order->save();
             return [

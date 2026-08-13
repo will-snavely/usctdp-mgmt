@@ -6,38 +6,144 @@
             $(id).text(text || '$0.00');
         }
 
-        function renderSessionRow(row) {
-            var $tr = $('<tr></tr>');
-            if (!row.session_id) {
-                $tr.addClass('earnings-other-row');
-            }
-            var dates = '';
-            if (row.start_date && row.end_date) {
-                dates = row.start_date + ' – ' + row.end_date;
-            }
-            $tr.append($('<td></td>').text(row.session_title));
-            $tr.append($('<td></td>').text(dates));
-            $tr.append($('<td></td>').text(row.gross_revenue_display));
-            $tr.append($('<td></td>').text(row.receivable_display));
-            $tr.append($('<td></td>').text(row.collected_display));
-            return $tr;
-        }
-
-        function loadEarnings() {
-            var $tbody = $('#earnings-table-body');
-
-            var data = {
-                action: usctdp_mgmt_admin.earnings_rollup_action,
-                security: usctdp_mgmt_admin.earnings_rollup_nonce,
-            };
+        function currentDateFilters(d) {
             var dateFromValue = $('#date-from-filter').val();
             if (dateFromValue) {
-                data.date_from = dateFromValue;
+                d.date_from = dateFromValue;
             }
             var dateToValue = $('#date-to-filter').val();
             if (dateToValue) {
-                data.date_to = dateToValue;
+                d.date_to = dateToValue;
             }
+        }
+
+        function renderUnassigned(unassigned) {
+            var $row = $('#earnings-unassigned-row');
+            if (!unassigned || (parseFloat(unassigned.gross_revenue) === 0 && parseFloat(unassigned.receivable) === 0)) {
+                $row.addClass('hidden');
+                return;
+            }
+            $('#unassigned-gross-revenue').text(unassigned.gross_revenue_display);
+            $('#unassigned-receivable').text(unassigned.receivable_display);
+            $('#unassigned-collected').text(unassigned.collected_display);
+            $row.removeClass('hidden');
+        }
+
+        var earningsTable = $('#earnings-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            searching: true,
+            paging: true,
+            language: {
+                search: '',
+                searchPlaceholder: 'Search sessions…',
+            },
+
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    d.action = usctdp_mgmt_admin.earnings_rollup_action;
+                    d.security = usctdp_mgmt_admin.earnings_rollup_nonce;
+                    currentDateFilters(d);
+                },
+                dataSrc: function (json) {
+                    var totals = json.totals || {};
+                    setTile('#tile-gross-revenue', totals.gross_revenue_display);
+                    setTile('#tile-paypal-fees', totals.paypal_fees_display);
+                    setTile('#tile-net-revenue', totals.net_revenue_display);
+                    setTile('#tile-receivable', totals.receivable_display);
+                    renderUnassigned(json.unassigned);
+                    return json.data || [];
+                }
+            },
+            autoWidth: false,
+            columnDefs: [
+                { width: "36px", targets: 0 },
+            ],
+            columns: [
+                {
+                    data: null,
+                    defaultContent: '<span class="details-toggle">▸</span>',
+                    className: 'details-control',
+                    orderable: false,
+                },
+                {
+                    data: 'session_title',
+                    defaultContent: '',
+                    className: 'details-control',
+                },
+                {
+                    data: null,
+                    defaultContent: '',
+                    render: function (data, type, row) {
+                        if (!row.start_date || !row.end_date) {
+                            return '';
+                        }
+                        return row.start_date + ' – ' + row.end_date;
+                    }
+                },
+                {
+                    data: 'gross_revenue_display',
+                    defaultContent: '',
+                },
+                {
+                    data: 'receivable_display',
+                    defaultContent: '',
+                },
+                {
+                    data: 'collected_display',
+                    defaultContent: '',
+                }
+            ],
+            "initComplete": function () {
+                $('#earnings-table').removeClass('hidden');
+            }
+        });
+
+        function sessionDetailTable(products) {
+            if (!products || products.length === 0) {
+                return '<div class="session-detail"><p class="empty-note">No product-level earnings in this range.</p></div>';
+            }
+            var rows = products.map(function (p) {
+                return '<tr>'
+                    + '<td>' + $('<div>').text(p.product_title).html() + '</td>'
+                    + '<td>' + $('<div>').text(p.product_type).html() + '</td>'
+                    + '<td>' + p.gross_revenue_display + '</td>'
+                    + '<td>' + p.receivable_display + '</td>'
+                    + '<td>' + p.collected_display + '</td>'
+                    + '</tr>';
+            }).join('');
+            return '<div class="session-detail">'
+                + '<table class="usctdp-mini-table session-detail-table">'
+                + '<thead><tr><th>Product</th><th>Type</th><th>Gross Revenue</th><th>Accounts Receivable</th><th>Collected</th></tr></thead>'
+                + '<tbody>' + rows + '</tbody>'
+                + '</table></div>';
+        }
+
+        $('#earnings-table tbody').on('click', 'td.details-control', function () {
+            var $tr = $(this).closest('tr');
+            var row = earningsTable.row($tr);
+
+            if (row.child.isShown()) {
+                row.child.hide();
+                $tr.removeClass('shown');
+                $tr.find('.details-toggle').text('▸');
+                return;
+            }
+
+            var sessionId = row.data().session_id;
+            row.child('<div class="session-detail-loading">Loading…</div>').show();
+            $tr.addClass('shown');
+            $tr.find('.details-toggle').text('▾');
+
+            var data = {
+                action: usctdp_mgmt_admin.earnings_session_detail_action,
+                security: usctdp_mgmt_admin.earnings_session_detail_nonce,
+                session_id: sessionId,
+            };
+            currentDateFilters(data);
 
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
@@ -45,39 +151,23 @@
                 dataType: 'json',
                 data: data,
                 success: function (response) {
+                    if (!row.child.isShown()) {
+                        return;
+                    }
                     if (!response || !response.success) {
-                        $tbody.empty();
-                        $tbody.append('<tr class="empty-row"><td colspan="5">Failed to load earnings.</td></tr>');
+                        row.child('<div class="session-detail"><p class="empty-note">Failed to load product earnings.</p></div>');
                         return;
                     }
-
-                    var totals = response.data.totals || {};
-                    setTile('#tile-gross-revenue', totals.gross_revenue_display);
-                    setTile('#tile-paypal-fees', totals.paypal_fees_display);
-                    setTile('#tile-net-revenue', totals.net_revenue_display);
-                    setTile('#tile-receivable', totals.receivable_display);
-
-                    $tbody.empty();
-                    var sessions = response.data.sessions || [];
-                    if (sessions.length === 0) {
-                        $tbody.append('<tr class="empty-row"><td colspan="5">No earnings in this range.</td></tr>');
-                        return;
-                    }
-                    sessions.forEach(function (row) {
-                        $tbody.append(renderSessionRow(row));
-                    });
+                    row.child(sessionDetailTable(response.data.products));
                 },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("AJAX Error:", textStatus, errorThrown);
-                    $tbody.empty();
-                    $tbody.append('<tr class="empty-row"><td colspan="5">Failed to load earnings.</td></tr>');
+                error: function () {
+                    if (row.child.isShown()) {
+                        row.child('<div class="session-detail"><p class="empty-note">Failed to load product earnings.</p></div>');
+                    }
                 }
             });
-        }
+        });
 
-        // Same min/max cross-linking as the Purchase History date filters
-        // (usctdp-mgmt-admin-history.js) - keeps "To" from being set before
-        // "From" and vice versa.
         $('#date-from-filter').on('change', function () {
             $('#date-to-filter').attr('min', $(this).val());
         });
@@ -86,9 +176,7 @@
         });
 
         $('.table-filter').on('change', function () {
-            loadEarnings();
+            earningsTable.ajax.reload();
         });
-
-        loadEarnings();
     });
 })(jQuery);

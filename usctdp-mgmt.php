@@ -16,7 +16,7 @@
  * Plugin Name:       USCTDP Management
  * Plugin URI:        https://www.usctdp.com
  * Description:       Manages USCTDP content and functionality.
- * Version:           1.10.0
+ * Version:           1.11.0
  * Author:            Will Snavely
  * Author URI:        https://www.wsnavely.com/
  * License:           GPL-2.0+
@@ -35,7 +35,7 @@ if (!defined("WPINC")) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define("USCTDP_MGMT_VERSION", "1.10.0");
+define("USCTDP_MGMT_VERSION", "1.11.0");
 
 if (!defined('USCTDP_DIR_PATH')) {
     define('USCTDP_DIR_PATH', plugin_dir_url(__FILE__));

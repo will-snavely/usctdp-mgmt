@@ -121,63 +121,139 @@
     font-weight: 600;
 }
 
-/*
- * Earnings-by-session table - same mini-table look used inside dashboard
- * cards elsewhere (usctdp-mgmt-admin-main.css).
- */
-.table-scroll-x {
-    width: 100%;
-    overflow-x: auto;
-    border: 1px solid #eef1f5;
-    border-radius: 8px;
+.table-hint {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #64748b;
 }
 
-.usctdp-mini-table {
+/*
+ * Session table - expandable rows (see usctdp-mgmt-admin-earnings.js)
+ * drill down into a session's product-level earnings.
+ */
+#earnings-table {
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.details-control-col {
+    width: 36px;
+}
+
+/* Both the toggle cell and the session-name cell open the accordion - a
+   bigger, more obvious click target than the arrow glyph alone. */
+td.details-control {
+    cursor: pointer;
+}
+
+td.details-control:hover {
+    background-color: #eff6ff;
+}
+
+.details-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: #2271b1;
+    color: #ffffff;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+td.details-control:hover .details-toggle {
+    background-color: #135e96;
+}
+
+#earnings-table tbody tr.shown {
+    background-color: #eff6ff;
+}
+
+#earnings-table tbody tr.shown > td {
+    border-bottom: none;
+}
+
+/* The accordion child row DataTables injects under an expanded session. */
+.session-detail {
+    padding: 10px 10px 10px 34px;
+    background-color: #f8fafc;
+}
+
+.session-detail-loading {
+    padding: 10px 10px 10px 34px;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.session-detail .empty-note {
+    margin: 0;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.session-detail-table {
     table-layout: fixed;
     border-collapse: collapse;
     width: 100%;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
 }
 
-.usctdp-mini-table thead tr th {
-    position: sticky;
-    top: 0;
+.session-detail-table thead tr th {
     font-weight: 700;
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: #475569;
     background-color: #f1f5f9;
-    padding: 10px 12px;
+    padding: 8px 10px;
     text-align: left;
     border-bottom: 1px solid #e2e8f0;
 }
 
-.usctdp-mini-table tbody tr td {
-    padding: 10px 12px;
-    vertical-align: middle;
+.session-detail-table tbody tr td {
+    padding: 8px 10px;
     font-size: 0.85rem;
     color: #1e293b;
     border-bottom: 1px solid #f1f5f9;
 }
 
-.usctdp-mini-table tbody tr:last-child td {
+.session-detail-table tbody tr:last-child td {
     border-bottom: none;
 }
 
-.usctdp-mini-table tbody tr:hover td {
-    background-color: #f8fafc;
+/* "Other / Unassigned" bucket - not part of the paginated session list, so
+   shown as its own fixed summary line under the table. */
+.earnings-unassigned-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.85rem;
 }
 
-.usctdp-mini-table .loading-row td,
-.usctdp-mini-table .empty-row td {
-    text-align: center;
+.earnings-unassigned-label {
+    font-weight: 700;
+    color: #334155;
+}
+
+.earnings-unassigned-note {
     color: #94a3b8;
     font-style: italic;
 }
 
-/* "Other / Unassigned" bucket - visually set apart from real sessions. */
-.usctdp-mini-table tr.earnings-other-row td {
-    font-style: italic;
-    color: #64748b;
-    border-top: 2px solid #e2e8f0;
+.earnings-unassigned-amounts {
+    margin-left: auto;
+    color: #1e293b;
+    font-variant-numeric: tabular-nums;
 }

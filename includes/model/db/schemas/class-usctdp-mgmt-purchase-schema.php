@@ -41,6 +41,7 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
             'type' => 'varchar',
             'length' => '20',
             'default' => 'active',
+            'index' => true,
         ],
         'tracking_id' => [
             'name' => 'tracking_id',
@@ -56,6 +57,7 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
         'created_at' => [
             'name' => 'created_at',
             'type' => 'datetime',
+            'index' => true,
         ],
         'created_by' => [
             'name' => 'created_by',

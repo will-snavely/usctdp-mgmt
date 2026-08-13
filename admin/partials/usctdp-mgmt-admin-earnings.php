@@ -74,23 +74,32 @@
                     </div>
                 </div>
 
-                <div class="table-scroll-x">
-                    <table id="earnings-table" class="usctdp-mini-table" width="100%" cellspacing="0">
-                        <thead>
-                            <tr>
-                                <th>Session</th>
-                                <th>Dates</th>
-                                <th>Gross Revenue</th>
-                                <th>Accounts Receivable</th>
-                                <th>Collected</th>
-                            </tr>
-                        </thead>
-                        <tbody id="earnings-table-body">
-                            <tr class="loading-row">
-                                <td colspan="5">Loading...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <p class="table-hint">Click a session to see its earnings broken out by product.</p>
+
+                <table id="earnings-table" class="usctdp-datatable hidden" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th class="details-control-col"></th>
+                            <th>Session</th>
+                            <th>Dates</th>
+                            <th>Gross Revenue</th>
+                            <th>Accounts Receivable</th>
+                            <th>Collected</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+
+                <div id="earnings-unassigned-row" class="earnings-unassigned-row hidden">
+                    <span class="earnings-unassigned-label">Other / Unassigned</span>
+                    <span class="earnings-unassigned-note">(merchandise and other purchases not tied to a
+                        session)</span>
+                    <span class="earnings-unassigned-amounts">
+                        Gross: <span id="unassigned-gross-revenue"></span>
+                        &middot; Receivable: <span id="unassigned-receivable"></span>
+                        &middot; Collected: <span id="unassigned-collected"></span>
+                    </span>
                 </div>
             </div>
         </div>

@@ -126,7 +126,7 @@ class Usctdp_Mgmt_Admin
             ],
             'earnings' => [
                 'title' => 'Earnings',
-                'ajax' => ['earnings_rollup']
+                'ajax' => ['earnings_rollup', 'earnings_session_detail']
             ]
         ];
     }

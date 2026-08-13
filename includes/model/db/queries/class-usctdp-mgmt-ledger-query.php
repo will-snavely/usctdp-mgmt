@@ -154,28 +154,15 @@ class Usctdp_Mgmt_Ledger_Query extends Query
     }
 
     /**
-     * Gross revenue + accounts receivable grouped by session, for the
-     * Earnings dashboard (usctdp-mgmt-admin-earnings.php). Joins
-     * purchase -> registration -> activity -> session the same way
-     * Usctdp_Mgmt_Purchase_Query::get_purchase_data() does; purchases with
-     * no registration (e.g. merchandise) fall out as session_id NULL, which
-     * the caller renders as an "Other / Unassigned" row rather than
-     * dropping.
-     *
-     * gross_revenue mirrors the ledger's own 'revenue' account (credited
-     * once per charge - see build_ledger_entries_for_line_item() in
-     * class-usctdp-mgmt-woocommerce-hooks.php). receivable reuses the exact
-     * formula get_family_balance() (class-usctdp-mgmt-admin-ajax.php) uses,
-     * just grouped by session instead of family.
-     *
-     * $args['date_from']/$args['date_to'] are already-converted UTC
-     * datetime strings (see Usctdp_Mgmt_Admin_Ajax::eastern_date_range_to_utc()) -
-     * this method does no timezone handling of its own.
+     * Shared by every earnings-rollup method below: the 'active', non-
+     * credit_import purchase filter every figure is scoped to, plus the
+     * optional purchase-date range. $args['date_from']/$args['date_to'] are
+     * already-converted UTC datetime strings (see
+     * Usctdp_Mgmt_Admin_Ajax::eastern_date_range_to_utc()) - this class does
+     * no timezone handling of its own.
      */
-    public function get_session_earnings($args)
+    private function earnings_base_conditions($args)
     {
-        global $wpdb;
-
         $conditions = ["pur.status = %s", "pur.type != %s"];
         $where_args = ['active', 'credit_import'];
 
@@ -187,14 +174,72 @@ class Usctdp_Mgmt_Ledger_Query extends Query
             $conditions[] = "pur.created_at < %s";
             $where_args[] = $args['date_to'];
         }
+        return [$conditions, $where_args];
+    }
+
+    /**
+     * Appends a `sesh.title LIKE %search%` condition when $args['q'] is a
+     * non-empty search term - the Earnings dashboard's session-name search
+     * box (get_session_earnings()/get_session_earnings_count() only; it
+     * doesn't narrow the summary tiles or the "Other / Unassigned" bucket,
+     * which stay whole-range totals). Same $wpdb->esc_like() + LIKE pattern
+     * Usctdp_Mgmt_Roster_Group_Query::search_rosters() uses for its own
+     * name search.
+     */
+    private function add_session_search_condition(&$conditions, &$where_args, $args)
+    {
+        if (!empty($args['q'])) {
+            global $wpdb;
+            $conditions[] = "sesh.title LIKE %s";
+            $where_args[] = '%' . $wpdb->esc_like($args['q']) . '%';
+        }
+    }
+
+    /**
+     * Grand totals (gross revenue + accounts receivable) across every
+     * matching purchase, session-linked or not - used for the Earnings
+     * dashboard's summary tiles, which must reflect the whole filtered
+     * range regardless of which page of sessions is currently showing. No
+     * session join needed at all, since nothing is grouped.
+     */
+    public function get_earnings_totals($args)
+    {
+        global $wpdb;
+
+        [$conditions, $where_args] = $this->earnings_base_conditions($args);
         $where_clause = "WHERE " . implode(" AND ", $conditions);
 
         $query = $wpdb->prepare(
             "   SELECT
-                    sesh.id AS session_id,
-                    sesh.title AS session_title,
-                    sesh.start_date AS session_start_date,
-                    sesh.end_date AS session_end_date,
+                    SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
+                    SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
+                             THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable
+                FROM {$wpdb->prefix}usctdp_ledger AS ulgr
+                JOIN {$wpdb->prefix}usctdp_purchase AS pur ON pur.id = ulgr.purchase_id
+                {$where_clause}",
+            $where_args
+        );
+        return $wpdb->get_row($query);
+    }
+
+    /**
+     * Gross revenue + accounts receivable for purchases with no session at
+     * all (chiefly merchandise, which has no registration/activity to hang
+     * a session off of) - the Earnings dashboard's "Other / Unassigned"
+     * row. Kept separate from get_session_earnings() rather than folded
+     * into its paginated result set: it's always exactly one row, so
+     * pagination doesn't apply to it, and mixing a NULL-session row into an
+     * otherwise real, sortable session list would be confusing.
+     */
+    public function get_unassigned_earnings($args)
+    {
+        global $wpdb;
+
+        [$conditions, $where_args] = $this->earnings_base_conditions($args);
+        $where_clause = "WHERE " . implode(" AND ", $conditions);
+
+        $query = $wpdb->prepare(
+            "   SELECT
                     SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
                     SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
                              THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable
@@ -204,9 +249,144 @@ class Usctdp_Mgmt_Ledger_Query extends Query
                 LEFT JOIN {$wpdb->prefix}usctdp_activity AS act ON act.id = reg.activity_id
                 LEFT JOIN {$wpdb->prefix}usctdp_session AS sesh ON sesh.id = act.session_id
                 {$where_clause}
-                GROUP BY sesh.id
-                ORDER BY sesh.start_date DESC",
+                AND sesh.id IS NULL",
             $where_args
+        );
+        return $wpdb->get_row($query);
+    }
+
+    /**
+     * One page of the Earnings dashboard's per-session breakdown -
+     * gross revenue + accounts receivable grouped by session, joining
+     * purchase -> registration -> activity -> session the same way
+     * Usctdp_Mgmt_Purchase_Query::get_purchase_data() does. Real sessions
+     * only (INNER JOINs) - see get_unassigned_earnings() for the
+     * no-session bucket, and get_earnings_totals() for the dashboard-wide
+     * totals this paginated slice deliberately doesn't add up to on its
+     * own.
+     *
+     * gross_revenue mirrors the ledger's own 'revenue' account (credited
+     * once per charge - see build_ledger_entries_for_line_item() in
+     * class-usctdp-mgmt-woocommerce-hooks.php). receivable reuses the exact
+     * formula get_family_balance() (class-usctdp-mgmt-admin-ajax.php) uses,
+     * just grouped by session instead of family.
+     */
+    public function get_session_earnings($args)
+    {
+        global $wpdb;
+
+        [$conditions, $where_args] = $this->earnings_base_conditions($args);
+        $this->add_session_search_condition($conditions, $where_args, $args);
+        $where_clause = "WHERE " . implode(" AND ", $conditions);
+
+        $limit_clause = '';
+        $limit_args = [];
+        if (isset($args['number'])) {
+            $limit_clause = "LIMIT %d";
+            $limit_args[] = $args['number'];
+        }
+        if (isset($args['offset'])) {
+            $limit_clause .= " OFFSET %d";
+            $limit_args[] = $args['offset'];
+        }
+
+        $query = $wpdb->prepare(
+            "   SELECT
+                    sesh.id AS session_id,
+                    MAX(sesh.title) AS session_title,
+                    MAX(sesh.start_date) AS session_start_date,
+                    MAX(sesh.end_date) AS session_end_date,
+                    SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
+                    SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
+                             THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable
+                FROM {$wpdb->prefix}usctdp_ledger AS ulgr
+                JOIN {$wpdb->prefix}usctdp_purchase AS pur ON pur.id = ulgr.purchase_id
+                JOIN {$wpdb->prefix}usctdp_registration AS reg ON reg.purchase_id = pur.id
+                JOIN {$wpdb->prefix}usctdp_activity AS act ON act.id = reg.activity_id
+                JOIN {$wpdb->prefix}usctdp_session AS sesh ON sesh.id = act.session_id
+                {$where_clause}
+                GROUP BY sesh.id
+                ORDER BY session_start_date DESC
+                {$limit_clause}",
+            array_merge($where_args, $limit_args)
+        );
+        return $wpdb->get_results($query);
+    }
+
+    /**
+     * Total number of distinct sessions get_session_earnings() would page
+     * over for these filters - the DataTables recordsTotal/recordsFiltered
+     * behind the Earnings dashboard's server-side-paginated session list.
+     */
+    public function get_session_earnings_count($args)
+    {
+        global $wpdb;
+
+        [$conditions, $where_args] = $this->earnings_base_conditions($args);
+        $this->add_session_search_condition($conditions, $where_args, $args);
+        $where_clause = "WHERE " . implode(" AND ", $conditions);
+
+        $query = "  SELECT COUNT(*) FROM (
+                        SELECT sesh.id
+                        FROM {$wpdb->prefix}usctdp_ledger AS ulgr
+                        JOIN {$wpdb->prefix}usctdp_purchase AS pur ON pur.id = ulgr.purchase_id
+                        JOIN {$wpdb->prefix}usctdp_registration AS reg ON reg.purchase_id = pur.id
+                        JOIN {$wpdb->prefix}usctdp_activity AS act ON act.id = reg.activity_id
+                        JOIN {$wpdb->prefix}usctdp_session AS sesh ON sesh.id = act.session_id
+                        {$where_clause}
+                        GROUP BY sesh.id
+                    ) AS t";
+        if (!empty($where_args)) {
+            $query = $wpdb->prepare($query, $where_args);
+        }
+        return (int) $wpdb->get_var($query);
+    }
+
+    /**
+     * One page of a single session's earnings broken out by product (the
+     * Earnings dashboard's session drill-down) - e.g. a session's separate
+     * clinic/tournament offerings and any merchandise tied to its
+     * registrations. Every usctdp_purchase row has a NOT NULL product_id,
+     * so there's no "unassigned" bucket to worry about at this level.
+     */
+    public function get_product_earnings_for_session($session_id, $args)
+    {
+        global $wpdb;
+
+        [$conditions, $where_args] = $this->earnings_base_conditions($args);
+        $conditions[] = "act.session_id = %d";
+        $where_args[] = $session_id;
+        $where_clause = "WHERE " . implode(" AND ", $conditions);
+
+        $limit_clause = '';
+        $limit_args = [];
+        if (isset($args['number'])) {
+            $limit_clause = "LIMIT %d";
+            $limit_args[] = $args['number'];
+        }
+        if (isset($args['offset'])) {
+            $limit_clause .= " OFFSET %d";
+            $limit_args[] = $args['offset'];
+        }
+
+        $query = $wpdb->prepare(
+            "   SELECT
+                    prod.id AS product_id,
+                    MAX(prod.title) AS product_title,
+                    MAX(prod.type) AS product_type,
+                    SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
+                    SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
+                             THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable
+                FROM {$wpdb->prefix}usctdp_ledger AS ulgr
+                JOIN {$wpdb->prefix}usctdp_purchase AS pur ON pur.id = ulgr.purchase_id
+                JOIN {$wpdb->prefix}usctdp_product AS prod ON prod.id = pur.product_id
+                JOIN {$wpdb->prefix}usctdp_registration AS reg ON reg.purchase_id = pur.id
+                JOIN {$wpdb->prefix}usctdp_activity AS act ON act.id = reg.activity_id
+                {$where_clause}
+                GROUP BY prod.id
+                ORDER BY gross_revenue DESC
+                {$limit_clause}",
+            array_merge($where_args, $limit_args)
         );
         return $wpdb->get_results($query);
     }
@@ -227,22 +407,10 @@ class Usctdp_Mgmt_Ledger_Query extends Query
     {
         global $wpdb;
 
-        $conditions = [
-            "ulgr.account = %s",
-            "pur.status = %s",
-            "pur.type != %s",
-            "ulgr.order_id > 0",
-        ];
-        $where_args = ['revenue', 'active', 'credit_import'];
-
-        if (isset($args['date_from'])) {
-            $conditions[] = "pur.created_at >= %s";
-            $where_args[] = $args['date_from'];
-        }
-        if (isset($args['date_to'])) {
-            $conditions[] = "pur.created_at < %s";
-            $where_args[] = $args['date_to'];
-        }
+        [$conditions, $where_args] = $this->earnings_base_conditions($args);
+        array_unshift($conditions, "ulgr.account = %s");
+        array_unshift($where_args, 'revenue');
+        $conditions[] = "ulgr.order_id > 0";
         $where_clause = "WHERE " . implode(" AND ", $conditions);
 
         $query = $wpdb->prepare(

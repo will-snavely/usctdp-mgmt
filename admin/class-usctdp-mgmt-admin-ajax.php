@@ -13,6 +13,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'datatable_balances' => 'ajax_datatable_balances',
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
         'earnings_rollup' => 'ajax_earnings_rollup',
+        'earnings_session_detail' => 'ajax_earnings_session_detail',
         'gen_roster' => 'ajax_gen_roster',
         'gen_statement' => 'ajax_gen_statement',
         'get_activity_details' => 'ajax_get_activity_details',
@@ -1949,79 +1950,155 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
-     * Feeds the Earnings dashboard (usctdp-mgmt-admin-earnings.php): gross
-     * revenue + accounts receivable per session (plus an "Other /
-     * Unassigned" bucket for purchases with no session, e.g. merchandise),
-     * and PayPal fees as a single dashboard-wide total (see
-     * Usctdp_Mgmt_Ledger_Query::get_paypal_fees_total() for why fees aren't
-     * allocated per-session). date_from/date_to filter on purchase date,
-     * same Eastern-calendar-day semantics as the Purchase History page.
+     * Formats one gross/receivable pair the way every row of the Earnings
+     * dashboard (session rows, the totals tiles, the "Other / Unassigned"
+     * line, and each product row in the drill-down) needs it: raw floats
+     * for client-side math plus pre-formatted currency strings, matching
+     * the NumberFormatter convention ajax_datatable_balances_detail() uses.
+     */
+    private function format_earnings_amounts($amount_fmt, $gross, $receivable)
+    {
+        $gross = (float) $gross;
+        $receivable = (float) $receivable;
+        return [
+            'gross_revenue' => $gross,
+            'gross_revenue_display' => $amount_fmt->format($gross),
+            'receivable' => $receivable,
+            'receivable_display' => $amount_fmt->format($receivable),
+            'collected_display' => $amount_fmt->format($gross - $receivable),
+        ];
+    }
+
+    /**
+     * Feeds the Earnings dashboard's session list (usctdp-mgmt-admin-earnings.php)
+     * - server-side paginated via Usctdp_Mgmt_Ledger_Query::get_session_earnings(),
+     * same draw/recordsTotal/recordsFiltered/data envelope as
+     * ajax_datatable_balances(), so it scales the same way as the number of
+     * sessions grows. The summary tiles and the "Other / Unassigned" bucket
+     * (purchases with no session, e.g. merchandise) are computed
+     * separately, over the *whole* filtered range rather than just the
+     * current page - see Usctdp_Mgmt_Ledger_Query::get_earnings_totals()/
+     * get_unassigned_earnings(). PayPal fees are a single dashboard-wide
+     * total, not per-session (see get_paypal_fees_total() for why).
+     * date_from/date_to filter on purchase date, same Eastern-calendar-day
+     * semantics as the Purchase History page. The DataTable's own search
+     * box (search[value] in $_POST) filters the session list by name only -
+     * it doesn't narrow the totals tiles.
      */
     public function ajax_earnings_rollup()
     {
         $this->check_nonce('earnings_rollup');
 
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 25;
+
         $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : null;
         $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : null;
-        $args = $this->eastern_date_range_to_utc($date_from, $date_to);
+        $range_args = $this->eastern_date_range_to_utc($date_from, $date_to);
+
+        // DataTables' own search box (searching: true in earnings.js) posts
+        // this by default - filters the session list by name only, same
+        // LIKE search Usctdp_Mgmt_Roster_Group_Query::search_rosters() uses.
+        // Deliberately doesn't narrow the totals/unassigned/PayPal-fee
+        // figures below - those stay whole-range totals regardless of
+        // search text, since the search box is for finding a row, not for
+        // redefining what the dashboard's summary means.
+        $search_val = isset($_POST['search']['value']) ? sanitize_text_field($_POST['search']['value']) : '';
+        $search_args = $search_val !== '' ? array_merge($range_args, ['q' => $search_val]) : $range_args;
 
         try {
             $ledger_query = new Usctdp_Mgmt_Ledger_Query();
-            $rows = $ledger_query->get_session_earnings($args);
-            $paypal_fees = $ledger_query->get_paypal_fees_total($args);
-
             $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
 
-            $sessions = [];
-            $other = null;
-            $total_gross = 0.0;
-            $total_receivable = 0.0;
-            foreach ($rows as $row) {
-                $gross = (float) $row->gross_revenue;
-                $receivable = (float) $row->receivable;
-                $total_gross += $gross;
-                $total_receivable += $receivable;
+            $page_args = array_merge($search_args, ['number' => $length, 'offset' => $start]);
+            $rows = $ledger_query->get_session_earnings($page_args);
+            $total_count = $ledger_query->get_session_earnings_count($range_args);
+            $filtered_count = $search_val !== ''
+                ? $ledger_query->get_session_earnings_count($search_args)
+                : $total_count;
 
-                $session_row = [
-                    'session_id' => $row->session_id ? (int) $row->session_id : null,
-                    'session_title' => $row->session_id ? $row->session_title : 'Other / Unassigned',
+            $data = [];
+            foreach ($rows as $row) {
+                $data[] = array_merge([
+                    'session_id' => (int) $row->session_id,
+                    'session_title' => $row->session_title,
                     'start_date' => $row->session_start_date,
                     'end_date' => $row->session_end_date,
-                    'gross_revenue' => $gross,
-                    'gross_revenue_display' => $amount_fmt->format($gross),
-                    'receivable' => $receivable,
-                    'receivable_display' => $amount_fmt->format($receivable),
-                    'collected' => $gross - $receivable,
-                    'collected_display' => $amount_fmt->format($gross - $receivable),
-                ];
-
-                if ($row->session_id) {
-                    $sessions[] = $session_row;
-                } else {
-                    $other = $session_row;
-                }
-            }
-            if ($other) {
-                $sessions[] = $other;
+                ], $this->format_earnings_amounts($amount_fmt, $row->gross_revenue, $row->receivable));
             }
 
-            $net_revenue = $total_gross - $paypal_fees;
-            wp_send_json_success([
-                'sessions' => $sessions,
-                'totals' => [
-                    'gross_revenue' => $total_gross,
-                    'gross_revenue_display' => $amount_fmt->format($total_gross),
-                    'receivable' => $total_receivable,
-                    'receivable_display' => $amount_fmt->format($total_receivable),
-                    'paypal_fees' => $paypal_fees,
-                    'paypal_fees_display' => $amount_fmt->format($paypal_fees),
-                    'net_revenue' => $net_revenue,
-                    'net_revenue_display' => $amount_fmt->format($net_revenue),
-                ],
+            $totals = $ledger_query->get_earnings_totals($range_args);
+            $unassigned = $ledger_query->get_unassigned_earnings($range_args);
+            $paypal_fees = $ledger_query->get_paypal_fees_total($range_args);
+            $net_revenue = (float) $totals->gross_revenue - $paypal_fees;
+
+            wp_send_json([
+                'draw' => $draw,
+                'recordsTotal' => $total_count,
+                'recordsFiltered' => $filtered_count,
+                'data' => $data,
+                'totals' => array_merge(
+                    $this->format_earnings_amounts($amount_fmt, $totals->gross_revenue, $totals->receivable),
+                    [
+                        'paypal_fees' => $paypal_fees,
+                        'paypal_fees_display' => $amount_fmt->format($paypal_fees),
+                        'net_revenue' => $net_revenue,
+                        'net_revenue_display' => $amount_fmt->format($net_revenue),
+                    ]
+                ),
+                'unassigned' => $this->format_earnings_amounts($amount_fmt, $unassigned->gross_revenue, $unassigned->receivable),
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_earnings_rollup', $e);
-            wp_send_json_error('An unexpected server error occurred while computing earnings.', 500);
+            // Still a valid DataTables envelope (empty), not
+            // wp_send_json_error()'s {success:false,...} shape - a
+            // datatable's ajax.dataSrc always expects a `.data` array.
+            wp_send_json(['draw' => $draw, 'recordsTotal' => 0, 'recordsFiltered' => 0, 'data' => []]);
+        }
+    }
+
+    /**
+     * Feeds the Earnings dashboard's per-session drill-down: gross revenue
+     * + accounts receivable for a single session, broken out by product
+     * (e.g. its separate clinic/tournament offerings). Rendered as an
+     * expandable accordion row under the session, not another paginated
+     * table - the number of distinct products a single session offers is
+     * small and bounded, unlike the session count itself, so
+     * Usctdp_Mgmt_Ledger_Query::get_product_earnings_for_session() is
+     * called with no number/offset, returning everything in one shot.
+     */
+    public function ajax_earnings_session_detail()
+    {
+        $this->check_nonce('earnings_session_detail');
+
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        if (!$session_id) {
+            wp_send_json_error('session_id is required.', 400);
+        }
+
+        $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : null;
+        $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : null;
+        $range_args = $this->eastern_date_range_to_utc($date_from, $date_to);
+
+        try {
+            $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+            $rows = $ledger_query->get_product_earnings_for_session($session_id, $range_args);
+            $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
+
+            $products = [];
+            foreach ($rows as $row) {
+                $products[] = array_merge([
+                    'product_id' => (int) $row->product_id,
+                    'product_title' => $row->product_title,
+                    'product_type' => $row->product_type,
+                ], $this->format_earnings_amounts($amount_fmt, $row->gross_revenue, $row->receivable));
+            }
+
+            wp_send_json_success(['products' => $products]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_earnings_session_detail', $e);
+            wp_send_json_error('An unexpected server error occurred while loading session earnings.', 500);
         }
     }
 
