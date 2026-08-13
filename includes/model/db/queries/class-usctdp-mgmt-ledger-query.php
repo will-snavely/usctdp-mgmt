@@ -396,12 +396,34 @@ class Usctdp_Mgmt_Ledger_Query extends Query
      * 'revenue' entries get_session_earnings() would sum. PayPal fees never
      * land in the ledger (WooCommerce/PayPal computes them independently of
      * this plugin) - the WooCommerce PayPal Payments plugin instead writes
-     * them to order meta 'PayPal Transaction Fee' per order (see
-     * FeesUpdater::update() in
-     * woocommerce-paypal-payments/modules/ppcp-wc-gateway/src/Helper/FeesUpdater.php).
+     * a fee breakdown to order meta '_ppcp_paypal_fees' (PayPalGateway::
+     * FEES_META_KEY) on the `woocommerce_paypal_payments_order_captured`
+     * action (see WCGatewayModule::run() in
+     * woocommerce-paypal-payments/modules/ppcp-wc-gateway/src/WCGatewayModule.php)
+     * - the standard capture path every normal card/PayPal-button checkout
+     * goes through. This is the *same* meta key that plugin's own
+     * FeesRenderer reads to show the "PayPal Fee:" line on the WooCommerce
+     * order screen - deliberately not the separate, narrower
+     * 'PayPal Transaction Fee' plain-string field the same hook also
+     * writes (only when a slightly different condition holds), which can
+     * be missing on an order this array is still present for.
      * Deliberately a single total, not allocated per-session - a single
      * order can span multiple sessions/products, and prorating a per-order
      * fee across its line items would be a guess, not a real number.
+     *
+     * That order meta is written through WC_Order::update_meta_data(), so
+     * it lands wherever WooCommerce's order data store currently points -
+     * wp_postmeta (keyed by post_id) on a legacy install, or
+     * {$wpdb->prefix}wc_orders_meta (keyed by order_id) once High-
+     * Performance Order Storage is enabled. This queries whichever one is
+     * actually active rather than assuming, so it keeps working if a site
+     * migrates to HPOS after this was written.
+     *
+     * The meta value is a serialized PHP array (WC_Order::save_meta_data()
+     * stores it exactly as WordPress's own meta API would), so summing it
+     * can't happen in SQL - each row is unserialized here and its
+     * ['paypal_fee']['value'] pulled out, the same field FeesRenderer::render()
+     * pulls '$breakdown['paypal_fee']' from.
      */
     public function get_paypal_fees_total($args)
     {
@@ -413,17 +435,31 @@ class Usctdp_Mgmt_Ledger_Query extends Query
         $conditions[] = "ulgr.order_id > 0";
         $where_clause = "WHERE " . implode(" AND ", $conditions);
 
+        $hpos_enabled = class_exists('\Automattic\WooCommerce\Utilities\OrderUtil')
+            && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+        $meta_join = $hpos_enabled
+            ? "JOIN {$wpdb->prefix}wc_orders_meta AS pm ON pm.order_id = o.order_id AND pm.meta_key = '_ppcp_paypal_fees'"
+            : "JOIN {$wpdb->postmeta} AS pm ON pm.post_id = o.order_id AND pm.meta_key = '_ppcp_paypal_fees'";
+
         $query = $wpdb->prepare(
-            "   SELECT COALESCE(SUM(pm.meta_value + 0), 0)
+            "   SELECT pm.meta_value
                 FROM (
                     SELECT DISTINCT ulgr.order_id
                     FROM {$wpdb->prefix}usctdp_ledger AS ulgr
                     JOIN {$wpdb->prefix}usctdp_purchase AS pur ON pur.id = ulgr.purchase_id
                     {$where_clause}
                 ) AS o
-                JOIN {$wpdb->postmeta} AS pm ON pm.post_id = o.order_id AND pm.meta_key = 'PayPal Transaction Fee'",
+                {$meta_join}",
             $where_args
         );
-        return (float) $wpdb->get_var($query);
+
+        $total = 0.0;
+        foreach ($wpdb->get_col($query) as $serialized) {
+            $breakdown = maybe_unserialize($serialized);
+            if (is_array($breakdown) && isset($breakdown['paypal_fee']['value'])) {
+                $total += (float) $breakdown['paypal_fee']['value'];
+            }
+        }
+        return $total;
     }
 }
