@@ -656,6 +656,16 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         return $tabs;
     }
 
+    /**
+     * Drop the redundant "Description" heading from inside the Description
+     * tab's content - the tab label above it already says "Description", so
+     * repeating it as an <h2> inside the tab just reads as a duplicate title.
+     */
+    public function remove_description_tab_heading($heading)
+    {
+        return '';
+    }
+
     public function display_before_variations_table()
     {
         global $product;

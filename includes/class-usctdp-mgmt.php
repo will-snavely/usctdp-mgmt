@@ -216,6 +216,11 @@ class Usctdp_Mgmt
             // both regardless of plugin load order, or the tab gets added back after us.
             9999 ,
         );
+        $this->loader->add_filter(
+            'woocommerce_product_description_heading',
+            $commerce_handler,
+            'remove_description_tab_heading',
+        );
         $this->loader->add_action(
             'woocommerce_before_variations_form',
             $commerce_handler,
