@@ -2472,6 +2472,28 @@ class Usctdp_Mgmt_Admin_Ajax
             );
         }
     }
+    /**
+     * Creates the registration as 'active' immediately (the schema's own
+     * default - status is deliberately absent from $registration_args
+     * below), regardless of payment method - including 'card', where the
+     * family is switched into their own session and sent to a real
+     * order-pay page (see payment_checkout_handler in
+     * class-usctdp-mgmt-admin.php) that can genuinely fail or be declined.
+     *
+     * This is intentional, not an oversight: unlike the storefront's own
+     * checkout - where after_checkout_validation() reserves a seat as
+     * 'pending' and release_registrations_for_order() (class-usctdp-mgmt-
+     * woocommerce-hooks.php) voids it if that order later fails or is
+     * cancelled - an admin registering someone here is a deliberate staff
+     * action/commitment to enroll the student, not a self-checkout
+     * attempt. release_registrations_for_order() only ever matches
+     * 'pending' registrations, so it silently never touches these even
+     * when the same order later fails - a declined card just leaves a
+     * visible balance on the family's account for staff to resolve
+     * manually (retry payment, take a different method, or void the
+     * registration themselves), rather than the system silently
+     * un-enrolling a student staff already committed to registering.
+     */
     private function create_purchase_and_registration($args)
     {
         $created_by = get_current_user_id();
