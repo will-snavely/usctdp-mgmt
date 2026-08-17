@@ -79,6 +79,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-import-legacy-levels.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-ledger-adjust.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -706,6 +709,112 @@ class Usctdp_Cli_Command
         $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
         $importer = new Usctdp_Import_Legacy_Levels();
         $importer->run($args[0], $fix);
+    }
+
+    /**
+     * Writes a manually-reasoned, double-entry ledger adjustment directly
+     * against a purchase - e.g. backfilling a payment that
+     * record_deferred_payment() silently dropped before its order_id-scoping
+     * fix (class-usctdp-mgmt-woocommerce-hooks.php), correcting a price, or
+     * paying out a refund/house credit without going through the admin UI.
+     * See Usctdp_Ledger_Adjust's class doc comment for exactly which
+     * double-entry pair each --type writes.
+     *
+     * Always previews what it would write; --fix is required to actually
+     * insert the entries, and asks for interactive confirmation first
+     * (skippable with --yes).
+     *
+     * ## OPTIONS
+     *
+     * <purchase-id>
+     * : The usctdp_purchase id to adjust.
+     *
+     * --type=<type>
+     * : One of: payment, adjustment, payout, refund, correction.
+     *   - payment: money received against the purchase (requires --method).
+     *   - adjustment: price change with no money movement (requires --direction).
+     *   - payout: money paid out with no price change (requires --method).
+     *   - refund: price decrease + payout, combined (requires --method).
+     *   - correction: fixes a *ledger recording* mistake where no money
+     *     actually moved (requires --method and --direction). Same account
+     *     pair as payment (<type>_fees vs payment_<method>), but stays
+     *     entry_type "payment" instead of "refund"/"house_credit" - so it
+     *     nets total_payments back to what was truly collected, rather than
+     *     inflating total_refunds and implying money was paid back that
+     *     wasn't. --direction=decrease reverses an over-recorded payment
+     *     (e.g. record_deferred_payment() having credited the full
+     *     undiscounted price before its discount-netting fix - see
+     *     class-usctdp-mgmt-woocommerce-hooks.php); --direction=increase is
+     *     for the rarer case of a payment recorded too low.
+     *
+     * --amount=<amount>
+     * : Dollar amount, e.g. 45.00. Always positive - --type/--direction
+     * determine which side of the ledger it lands on.
+     *
+     * --reason=<text>
+     * : Why - included in the entries' description (except a --type=payment
+     * tied to --order-id, which uses record_deferred_payment()'s own fixed
+     * wording so the backfilled row reads identically to one it would have
+     * written itself).
+     *
+     * [--direction=<direction>]
+     * : increase or decrease. Required for --type=adjustment/correction.
+     *
+     * [--method=<method>]
+     * : cash, check, or card for --type=payment/correction; cash, check,
+     * card, or house_credit for --type=payout/refund. Required for those
+     * types.
+     *
+     * [--check-number=<number>]
+     * : Reference number for a check payout/refund.
+     *
+     * [--order-id=<id>]
+     * : Ties a --type=payment entry to a WooCommerce order - writes it with
+     * the same event_id/event/description record_deferred_payment() itself
+     * would have used for that order, and (unless --reference-id is given)
+     * looks up the order's transaction id as the entry's reference_id.
+     *
+     * [--reference-id=<id>]
+     * : Overrides the entries' reference_id.
+     *
+     * [--fix]
+     * : Actually write the entries. Without this flag, only previews them.
+     *
+     * [--yes]
+     * : Skip the interactive confirmation prompt (only shown when --fix is
+     * passed).
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp ledger_adjust 1842 --type=payment --amount=45.00 --method=card --order-id=9213 --reason="Backfilled deferred card payment"
+     *     wp usctdp ledger_adjust 1842 --type=payment --amount=45.00 --method=card --order-id=9213 --reason="Backfilled deferred card payment" --fix
+     *     wp usctdp ledger_adjust 1842 --type=adjustment --amount=10.00 --direction=decrease --reason="Price correction" --fix
+     *     wp usctdp ledger_adjust 1842 --type=refund --amount=20.00 --method=check --check-number=204 --reason="Overpayment" --fix
+     *     wp usctdp ledger_adjust 1842 --type=correction --amount=15.00 --direction=decrease --method=card --reason="record_deferred_payment credited full price instead of the discounted price actually charged" --fix
+     */
+    public function ledger_adjust($args, $assoc_args)
+    {
+        if (empty($args)) {
+            WP_CLI::error('Provide a purchase id to adjust.');
+            return;
+        }
+        $purchase_id = intval($args[0]);
+        $type = \WP_CLI\Utils\get_flag_value($assoc_args, 'type', '');
+        $amount = floatval(\WP_CLI\Utils\get_flag_value($assoc_args, 'amount', 0));
+        $order_id = \WP_CLI\Utils\get_flag_value($assoc_args, 'order-id', null);
+
+        $opts = [
+            'reason' => \WP_CLI\Utils\get_flag_value($assoc_args, 'reason', ''),
+            'direction' => \WP_CLI\Utils\get_flag_value($assoc_args, 'direction', null),
+            'method' => \WP_CLI\Utils\get_flag_value($assoc_args, 'method', null),
+            'check_number' => \WP_CLI\Utils\get_flag_value($assoc_args, 'check-number', null),
+            'order_id' => $order_id !== null ? intval($order_id) : null,
+            'reference_id' => \WP_CLI\Utils\get_flag_value($assoc_args, 'reference-id', null),
+        ];
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+
+        $adjuster = new Usctdp_Ledger_Adjust();
+        $adjuster->adjust($purchase_id, $type, $amount, $opts, $fix, $assoc_args);
     }
 }
 

@@ -264,3 +264,12 @@ label {
 dialog#new-family-modal input {
     width: 250px;
 }
+
+dialog#edit-family-name-modal input {
+    width: 250px;
+}
+
+#edit-family-name-btn {
+    margin-left: 10px;
+    vertical-align: middle;
+}

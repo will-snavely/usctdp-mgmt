@@ -62,20 +62,11 @@ class Usctdp_Mgmt_Docgen
      * this was tuned against and adjust freely; every other roster
      * dimension (widths, spacing, borders) lives in the constants above and
      * stays fixed across presets.
-     *
-     * 'columns' is how many registrants sit side by side per attendance-
-     * table row (see add_attendance_table()) - 1 is the normal single list;
-     * 2 halves the row count by putting two people's Attnd?/Last/First/
-     * Age/Level/Phone across one wider row instead of two, at the cost of
-     * roughly halving those columns' own width. Only worth that tradeoff on
-     * the catch-all tier, where the row count saved is largest and the
-     * font's already at its smallest anyway.
      */
     const ROSTER_SIZE_PRESETS = [
         [
             'max_registrants' => 15,
             'attendance_data_rows' => 18,
-            'columns' => 1,
             'font_title' => 16,
             'font_schedule' => 12,
             'font_detail' => 10,
@@ -86,9 +77,8 @@ class Usctdp_Mgmt_Docgen
         [
             'max_registrants' => 20,
             'attendance_data_rows' => 28,
-            'columns' => 1,
             'font_title' => 16,
-            'font_schedule' => 12,
+            'font_schedule' => 10.5,
             'font_detail' => 10,
             'font_footer' => 10,
             'font_table' => 11,
@@ -103,9 +93,8 @@ class Usctdp_Mgmt_Docgen
             // page space on it here.
             'max_registrants' => null,
             'attendance_data_rows' => null,
-            'columns' => 2,
             'font_title' => 16,
-            'font_schedule' => 12,
+            'font_schedule' => 10,
             'font_detail' => 10,
             'font_footer' => 10,
             'font_table' => 10,
@@ -113,27 +102,38 @@ class Usctdp_Mgmt_Docgen
         ],
     ];
 
-    // Attendance table, nested inside Table 1's row 3 - see
-    // add_attendance_table(). Column order: Attnd (no header - just each
-    // row's "__ N." attendance blank + number, as compact as the text
-    // allows - see format_attendance_number()), Name/Age/Level ("Last,
-    // First / Age / Level" in one cell), Phone.
-    //
-    // ATTENDANCE_COL_WIDTHS is deliberately narrow, not stretched to fill
-    // the full row - a wide gap between Name/Age/Level and Phone made it
-    // easy to lose track of which phone number belongs to which row while
-    // scanning across. Single-column mode (see add_attendance_table()) uses
-    // these widths as-is, so the table itself only takes up as much of the
-    // row as it needs and the rest stays blank rather than stretched;
-    // two-column mode scales the same proportions up to fill
-    // ATTENDANCE_TABLE_WIDTH instead, since that layout's whole point is
-    // using the available width to fit more people, not staying compact.
-    const ATTENDANCE_TABLE_WIDTH = 11322;
-    const ATTENDANCE_COL_WIDTHS = [850, 3400, 2100];
+    /**
+     * Attendance table columns, nested inside Table 1's row 3 - see
+     * add_attendance_table(). One entry per column, in print order; each
+     * pairs its header label with its own width (twips) so there's a
+     * single place to look to change how wide a column is - no counting
+     * positions in a separate flat array against a comment listing what
+     * they mean. To resize a column, just edit the number next to its
+     * label here; nothing else needs to change. To add/remove a column,
+     * add/remove an entry here AND update format_registrant_row() (which
+     * supplies the actual per-registrant values in this same order,
+     * skipping 'attnd' - see add_attendance_table()).
+     *
+     * Widths are deliberately narrow, not stretched to fill the full row -
+     * a wide gap between the name columns and Phone made it easy to lose
+     * track of which phone number belongs to which row while scanning
+     * across, so the table only takes up as much of the row as it needs
+     * and the rest stays blank rather than stretched.
+     */
+    const ATTENDANCE_COLUMNS = [
+        'attnd' => ['label' => 'Attnd?', 'width' => 1500],
+        'last' => ['label' => 'Last', 'width' => 2000],
+        'first' => ['label' => 'First', 'width' => 2000],
+        'age' => ['label' => 'Age', 'width' => 1000],
+        'level' => ['label' => 'Level', 'width' => 1000],
+        'phone' => ['label' => 'Phone Number(s)', 'width' => 2100],
+    ];
     const ATTENDANCE_ROW_HEIGHT = 300;
-    // Empty spacer column between the two halves when a preset's 'columns'
-    // is 2 - see add_attendance_table().
-    const ATTENDANCE_COLUMN_GUTTER = 200;
+    // Zebra-striping fill for every other data row (see add_attendance_table())
+    // - deliberately barely-there (light grey, not a strong color) so it
+    // helps the eye track a row across the page without competing with the
+    // text itself. Hex, no leading '#'.
+    const ATTENDANCE_STRIPE_COLOR = 'FFFFFF';
 
     // Waitlist table, nested inside Table 1's row 5 - see
     // add_waitlist_table(). Column order: Last, First, Phone.
@@ -234,33 +234,35 @@ class Usctdp_Mgmt_Docgen
      */
     private function format_attendance_number($number)
     {
-        return sprintf('__%d', $number);
+        return sprintf('___%d', $number);
     }
 
     /**
-     * "Last, First / Age / Level" for one attendance-table row's combined
-     * Name/Age/Level column - see add_attendance_table(). Age (birth_date
-     * unset - see get_roster_students()'s TIMESTAMPDIFF) and level (a free-
-     * text field, not always filled in) are each dropped entirely, rather
-     * than leaving a dangling "/", when missing.
+     * One registrant's Last/First/Age/Level/Phone values, in that order,
+     * for their own separate cells in the attendance table (see
+     * add_attendance_table()) - name casing is normalized (raw stored
+     * names come from years of manual entry/import and aren't consistent -
+     * some are all-caps, some all-lowercase); age (birth_date unset - see
+     * get_roster_students()'s TIMESTAMPDIFF) and level (a free-text field,
+     * not always filled in) each print "--" rather than a blank cell when
+     * missing, so a genuinely blank cell only ever means "this is a
+     * padding row", not "we don't know".
      */
-    private function format_name_age_level($registrant)
+    private function format_registrant_row($registrant)
     {
-        $last = ucwords(strtolower($registrant->student_last));
-        $first = ucwords(strtolower($registrant->student_first));
-        $parts = [$last . ", " . $first];
-        if ($registrant->student_age !== null && $registrant->student_age !== '') {
-            $parts[] = (string) $registrant->student_age;
-        } else {
-            $parts[] = "--";
-        }
-
-        if ($registrant->student_level !== null && $registrant->student_level !== '') {
-            $parts[] = $this->format_level($registrant->student_level);
-        } else {
-            $parts[] = "--";
-        }
-        return implode(' / ', $parts);
+        $age = ($registrant->student_age !== null && $registrant->student_age !== '')
+            ? (string) $registrant->student_age
+            : '--';
+        $level = ($registrant->student_level !== null && $registrant->student_level !== '')
+            ? $this->format_level($registrant->student_level)
+            : '--';
+        return [
+            ucwords(strtolower($registrant->student_last)),
+            ucwords(strtolower($registrant->student_first)),
+            $age,
+            $level,
+            $this->format_phone_numbers($registrant->family_phone_numbers),
+        ];
     }
 
     /**
@@ -1152,17 +1154,6 @@ class Usctdp_Mgmt_Docgen
      * takes up about the same page space regardless of exactly how many
      * students registered.
      *
-     * When $preset['columns'] is 2, two registrants share one physical
-     * table row instead of one - a second Attnd/Name-Age-Level/Phone block,
-     * separated by a thin empty gutter column, picking up numbering where
-     * the first one's slot leaves off. This is one wider table with 7
-     * columns (3 + gutter + 3) rather than two side-by-side tables: every
-     * row still declares the same columns (no gridSpan), so <w:tblGrid>
-     * comes out right the same way the single-column table's already does
-     * (see the class doc comment on add_roster_activity_block()), and
-     * there's no need to fight Word's layout engine with floating/
-     * positioned tables to get two lists sitting next to each other.
-     *
      * Takes the registrant list pre-fetched by add_roster_activity_block()
      * (needed there already, to pick $preset) rather than querying again -
      * see Usctdp_Mgmt_Registration_Query::get_roster_students() for that
@@ -1174,100 +1165,47 @@ class Usctdp_Mgmt_Docgen
      */
     private function add_attendance_table($cell, array $registrants, array $preset)
     {
-        $people_per_row = $preset['columns'];
-        // Single-column mode stays at its compact native width (see the
-        // ATTENDANCE_COL_WIDTHS doc comment); two-column mode scales that
-        // same shape up to fill half of the full available width instead.
-        $person_widths = $people_per_row === 1
-            ? self::ATTENDANCE_COL_WIDTHS
-            : $this->scale_column_widths(
-                self::ATTENDANCE_COL_WIDTHS,
-                (int) floor((self::ATTENDANCE_TABLE_WIDTH - self::ATTENDANCE_COLUMN_GUTTER) / 2)
-            );
-        $table_width = $people_per_row === 1 ? array_sum(self::ATTENDANCE_COL_WIDTHS) : self::ATTENDANCE_TABLE_WIDTH;
+        $widths = array_column(self::ATTENDANCE_COLUMNS, 'width');
+        $labels = array_column(self::ATTENDANCE_COLUMNS, 'label');
 
-        $table = $cell->addTable(['width' => $table_width, 'unit' => 'dxa', 'layout' => 'fixed']);
+        $table = $cell->addTable(['width' => array_sum($widths), 'unit' => 'dxa', 'layout' => 'fixed']);
 
-        // No header label for the Attnd column - just a blank cell above
-        // each row's "__ N." (see format_attendance_number()).
-        $labels = ['', 'Name/Age/Level', 'Phone'];
         $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => $preset['font_table']];
         $headerRow = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
-        $this->add_attendance_person_cells($headerRow, $person_widths, $labels, $headerStyle);
-        if ($people_per_row === 2) {
-            $headerRow->addCell(self::ATTENDANCE_COLUMN_GUTTER)->addText('');
-            $this->add_attendance_person_cells($headerRow, $person_widths, $labels, $headerStyle);
-        }
+        $this->add_attendance_person_cells($headerRow, $widths, $labels, $headerStyle);
 
         $dataStyle = ['size' => $preset['font_table']];
-        // null 'attendance_data_rows' => no padding, just the real
-        // registrants (still rounded up to a whole row when columns=2, so
-        // an odd count leaves one blank slot rather than a truncated row).
-        $slot_count = max(count($registrants), $preset['attendance_data_rows'] ?? count($registrants));
-        $row_count = (int) ceil($slot_count / $people_per_row);
+        $stripeStyle = ['bgColor' => self::ATTENDANCE_STRIPE_COLOR];
+        // null 'attendance_data_rows' => no padding, just the real registrants.
+        $row_count = max(count($registrants), $preset['attendance_data_rows'] ?? count($registrants));
 
-        for ($row_i = 0; $row_i < $row_count; $row_i++) {
+        for ($i = 0; $i < $row_count; $i++) {
+            $registrant = $registrants[$i] ?? null;
+            $values = $registrant
+                ? array_merge([$this->format_attendance_number($i + 1)], $this->format_registrant_row($registrant))
+                : array_fill(0, count($widths), '');
             $row = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
-            for ($p = 0; $p < $people_per_row; $p++) {
-                // Column-major, not row-major: the left block runs 1..N
-                // straight down before the right block picks up at N+1,
-                // rather than alternating left/right on every row - easier
-                // to follow a single numbered list top-to-bottom than to
-                // zigzag across pairs of rows.
-                $slot = $p * $row_count + $row_i;
-                $registrant = $registrants[$slot] ?? null;
-                $values = $registrant ? [
-                    $this->format_attendance_number($slot + 1),
-                    $this->format_name_age_level($registrant),
-                    $this->format_phone_numbers($registrant->family_phone_numbers),
-                ] : ['', '', ''];
-                $this->add_attendance_person_cells($row, $person_widths, $values, $dataStyle);
-                if ($people_per_row === 2 && $p === 0) {
-                    $row->addCell(self::ATTENDANCE_COLUMN_GUTTER)->addText('');
-                }
-            }
+            // Every other row with a real registrant - blank padding rows
+            // never stripe, so the pattern stops as soon as the actual
+            // roster does instead of continuing down through empty rows.
+            $cellStyle = ($registrant && $i % 2 === 1) ? $stripeStyle : [];
+            $this->add_attendance_person_cells($row, $widths, $values, $dataStyle, $cellStyle);
         }
     }
 
     /**
-     * Adds one registrant's (or one header's) Attnd/Name-Age-Level/Phone
-     * cells to $row - shared between the single-person-per-row and two-
-     * people-per-row layouts in add_attendance_table(), and between its
-     * header row and data rows, so the cells-with-these-widths shape only
-     * needs to be written once.
+     * Adds one registrant's (or the header's) cells to $row, one value per
+     * ATTENDANCE_COLUMNS width, in order - shared between the header row
+     * and every data row in add_attendance_table(), so the cells-with-
+     * these-widths shape only needs to be written once. $cellStyle is the
+     * cell's own style (e.g. background fill for zebra-striping - see
+     * add_attendance_table()), separate from $style, which is the text's.
      */
-    private function add_attendance_person_cells($row, array $widths, array $values, array $style)
+    private function add_attendance_person_cells($row, array $widths, array $values, array $style, array $cellStyle = [])
     {
         foreach ($values as $i => $value) {
-            $row->addCell($widths[$i])->addText($value, $style);
+            $row->addCell($widths[$i], $cellStyle)->addText($value, $style);
         }
-    }
-
-    /**
-     * Proportionally rescales $widths (summing to whatever they sum to now)
-     * down to sum to exactly $target_sum, for fitting a second copy of the
-     * attendance table's columns into half the table when
-     * $preset['columns'] is 2. Rounds each width, then folds all the
-     * rounding error into the last column rather than leaving the total off
-     * by a twip or two - Phone Number(s) is the widest column already, so
-     * it's the one that can best absorb a few twips of slack unnoticed.
-     */
-    private function scale_column_widths(array $widths, $target_sum)
-    {
-        $original_sum = array_sum($widths);
-        $scaled = [];
-        $running = 0;
-        $last = count($widths) - 1;
-        foreach ($widths as $i => $width) {
-            if ($i === $last) {
-                $scaled[] = $target_sum - $running;
-            } else {
-                $scaled_width = (int) round($width * $target_sum / $original_sum);
-                $scaled[] = $scaled_width;
-                $running += $scaled_width;
-            }
-        }
-        return $scaled;
     }
 
     /**

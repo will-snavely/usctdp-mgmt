@@ -42,6 +42,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'update_activity' => 'ajax_update_activity',
         'update_clinic_schedule' => 'ajax_update_clinic_schedule',
         'update_family' => 'ajax_update_family',
+        'update_family_name' => 'ajax_update_family_name',
         'update_registration' => 'ajax_update_registration',
         'update_purchase' => 'ajax_update_purchase',
         'update_student' => 'ajax_update_student',
@@ -1066,6 +1067,69 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    /**
+     * Not routed through save_entity() like ajax_update_family(): the admin
+     * edits the family's whole display title directly (e.g. "Smith 1234" -
+     * see ajax_create_family for how that string is built), and last/
+     * search_term have to be re-derived from it every time, same reasoning
+     * as ajax_update_student() below.
+     */
+    public function ajax_update_family_name()
+    {
+        $this->check_nonce('update_family_name');
+
+        $entity_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter family_id', 400);
+        }
+
+        $family = Usctdp_Mgmt_Model::get_family($entity_id);
+        if (!$family) {
+            wp_send_json_error('No family found with id: ' . $entity_id, 400);
+        }
+
+        try {
+            $title = $this->get_sanitized_post_field_text('title') ?? '';
+            $title = trim($title);
+            if ($title === '') {
+                wp_send_json_error('Family title is required.', 400);
+            }
+
+            // The last name is everything but the trailing numeric suffix
+            // (the last four digits of the family's phone number - see
+            // ajax_create_family) - falls back to the full title if there's
+            // no trailing number to strip.
+            $last_name = trim(preg_replace('/\s*\d+$/', '', $title));
+            if ($last_name === '') {
+                $last_name = $title;
+            }
+            $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+
+            // Same "diff against current row" reasoning as
+            // ajax_update_student() - BerlinDB's update_item() treats a
+            // no-op save as a false return, which isn't a real failure.
+            $changed = $family->last !== $last_name
+                || $family->title !== $title
+                || $family->search_term !== $search_term;
+
+            if ($changed) {
+                $family_query = new Usctdp_Mgmt_Family_Query();
+                if (!$family_query->update_item($entity_id, [
+                    'last' => $last_name,
+                    'title' => $title,
+                    'search_term' => $search_term,
+                ])) {
+                    wp_send_json_error('Failed to update family.', 500);
+                }
+            }
+
+            wp_send_json_success($changed ? Usctdp_Mgmt_Model::get_family($entity_id) : $family);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_family_name', $e);
+            wp_send_json_error('An unexpected server error occurred during family update.', 500);
+        }
+    }
+
     public function ajax_update_purchase()
     {
         $this->check_nonce('update_purchase');
@@ -1143,8 +1207,9 @@ class Usctdp_Mgmt_Admin_Ajax
         $conditions[] = "ul.account = %s";
         $args[] = 'payment_house_credit';
 
-        $conditions[] = "up.status = %s";
-        $args[] = 'active';
+        // House credits on voided purchases should still appear
+        //$conditions[] = "up.status = %s";
+        //$args[] = 'active';
 
         global $wpdb;
         $query = $wpdb->prepare(

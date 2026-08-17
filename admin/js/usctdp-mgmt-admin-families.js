@@ -322,6 +322,7 @@
         const newStudentModal = document.querySelector('#new-student-modal');
         const editStudentModal = document.querySelector('#edit-student-modal');
         const newFamilyModal = document.querySelector('#new-family-modal');
+        const editFamilyNameModal = document.querySelector('#edit-family-name-modal');
         const issueHouseCreditModal = document.querySelector('#issue-house-credit-modal');
 
         var membersTable = $('#family-members-table').DataTable({
@@ -543,6 +544,76 @@
                         icon: 'error',
                         confirmButtonText: 'OK'
                     });
+                }
+            });
+        });
+
+        $('#edit-family-name-btn').on('click', (e) => {
+            e.preventDefault();
+            const family = queryClient.getQueryData(['family', currentId]);
+            $('#family_name_modal_title').val(family ? family.title : '');
+            editFamilyNameModal.showModal();
+        });
+
+        $('#close-family-name-modal').on('click', () => {
+            editFamilyNameModal.close();
+        });
+
+        $('#edit-family-name-form').on('submit', (e) => {
+            const form = $('#edit-family-name-form')[0];
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            e.preventDefault();
+
+            const $btn = $('#save-family-name-modal');
+            $btn.prop('disabled', true);
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: usctdp_mgmt_admin.update_family_name_action,
+                    security: usctdp_mgmt_admin.update_family_name_nonce,
+                    family_id: currentId,
+                    title: $('#family_name_modal_title').val(),
+                },
+                success: function (response) {
+                    if (response.success) {
+                        editFamilyNameModal.close();
+                        const updatedFamily = response.data;
+                        queryClient.setQueryData(['family', currentId], updatedFamily);
+                        $('#family-title').text(updatedFamily.title);
+                        // Updates the cascading selector's own selected-option
+                        // label so re-opening it later doesn't show the stale
+                        // name. 'change.select2' only refreshes select2's own
+                        // display (see CascasdingSelect.resetAndHide, same
+                        // technique) - it deliberately doesn't retrigger the
+                        // CascasdingSelect's plain 'change' handler, which
+                        // would otherwise reload the members table and wipe
+                        // any unrelated pending field edits.
+                        $('#family-selector').find('option:selected').text(updatedFamily.title);
+                        $('#family-selector').trigger('change.select2');
+                        Swal.fire({
+                            title: 'Success',
+                            text: 'Family name updated successfully!',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                },
+                error: function (response) {
+                    const responseMessage = response.responseJSON ? response.responseJSON.data : 'Unknown error';
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to update family name.\n\n' + responseMessage,
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                },
+                complete: function () {
+                    $btn.prop('disabled', false);
                 }
             });
         });

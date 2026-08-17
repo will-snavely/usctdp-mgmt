@@ -108,6 +108,21 @@
             </form>
         </dialog>
 
+        <dialog id="edit-family-name-modal">
+            <form id="edit-family-name-form" method="dialog">
+                <h2>Edit Family Name</h2>
+                <div class="modal_field">
+                    <label for="family_name_modal_title">Family Title</label>
+                    <input type="text" id="family_name_modal_title" name="title" required>
+                </div>
+
+                <div class="actions-footer">
+                    <button type="submit" class="button" id="save-family-name-modal">Save Changes</button>
+                    <button type="button" class="button" id="close-family-name-modal">Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
         <dialog id="issue-house-credit-modal">
             <form id="issue-house-credit-form" method="dialog">
                 <h2>Issue House Credit</h2>
@@ -139,7 +154,10 @@
         </div>
 
         <div id="family-section" class="hidden">
-            <h2 class="family-title"> Family: <span id="family-title"></span></h2>
+            <h2 class="family-title">
+                Family: <span id="family-title"></span>
+                <button type="button" class="button button-small" id="edit-family-name-btn">Edit Family Name...</button>
+            </h2>
             <div id="family-container">
                 <div>
                     <a href="#" class="button button-primary" id="family-registration-history-link">

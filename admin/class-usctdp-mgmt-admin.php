@@ -35,6 +35,7 @@ class Usctdp_Mgmt_Admin
                     'create_family',
                     'create_student',
                     'update_family',
+                    'update_family_name',
                     'update_student',
                     'get_family_balance',
                     'issue_house_credit',

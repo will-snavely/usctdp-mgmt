@@ -1894,8 +1894,18 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     continue;
                 }
 
+                // Scoped to this order (not just this purchase) - this
+                // method is registered on both woocommerce_order_status_
+                // processing and woocommerce_payment_complete, so it can
+                // legitimately run twice for the same order and needs to
+                // skip re-recording its own payment. Scoping by purchase_id
+                // alone instead would also match any *earlier* unrelated
+                // payment on this purchase (e.g. a prior cash/check payment,
+                // or a deferred card payment from a different order) and
+                // silently drop this order's payment entirely.
                 $existing_payment = new Usctdp_Mgmt_Ledger_Query([
                     'purchase_id' => $purchase_id,
+                    'order_id' => $order_id,
                     'entry_type' => 'payment',
                     'number' => 1,
                 ]);
@@ -1907,7 +1917,26 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     throw new Exception("USCTDP Purchase $purchase_id not found for order $order_id.");
                 }
                 $purchase = $purchase_query->items[0];
-                $price = floatval($item->get_total());
+
+                // $item->get_total() is this line item's full, undiscounted
+                // price - create_woocommerce_order() sets subtotal/total to
+                // the raw base_price, and any discount is added as a
+                // *separate*, order-level WC_Order_Item_Fee that
+                // get_items()'s default 'line_item' type filter doesn't even
+                // return here. The amount actually charged/owed for this
+                // purchase is that price minus whatever discounts were
+                // recorded on the purchase at creation time (same amount
+                // already netted out of the purchase's charge via the
+                // 'adjustment' entries build_ledger_entries_for_line_item()
+                // writes) - without this, every discounted card registration
+                // gets a payment entry for the full undiscounted price,
+                // over-crediting the purchase's fees account and making the
+                // family look like they overpaid.
+                $discount_total = 0.0;
+                foreach ((array) $purchase->discounts as $discount) {
+                    $discount_total += floatval($discount['amount'] ?? 0);
+                }
+                $price = round(floatval($item->get_total()) - $discount_total, 2);
 
                 $ledger_query = new Usctdp_Mgmt_Ledger_Query();
                 $entry_id = $ledger_query->add_item([

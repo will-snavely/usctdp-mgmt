@@ -176,7 +176,7 @@
                         <div class="session-selector-wrap flex-col gap-5 selector-wrap">
                             <label class="upper-heavy">Session</label>
                             <div id="session-selector-wrap-${this.idx}" class="w-100">
-                                <select id="${sessionSelectId}" class="session-select" data-width="100%" disabled>
+                                <select id="${sessionSelectId}" class="session-select" data-width="100%" data-activity-selector-id="${activitySelectId}" disabled>
                                     <option value="${this.data.session_id}" selected>${this.data.session_name}</option>
                                 </select>
                             </div>
@@ -184,7 +184,7 @@
                         <div class="activity-selector-wrap flex-col gap-5 selector-wrap">
                             <label class="upper-heavy">Activity</label>
                             <div id="activity-selector-wrap-${this.idx}" class="w-100">
-                                <select id="${activitySelectId}" class="activity-select" data-width="100%" disabled>
+                                <select id="${activitySelectId}" class="activity-select" data-width="100%" data-session-selector-id="${sessionSelectId}" disabled>
                                     <option value="${this.data.activity_id}" selected>${this.data.activity_name}</option>
                                 </select>
                             </div>
