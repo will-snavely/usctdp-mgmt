@@ -15,7 +15,7 @@
                     <div class="purchase-card edit-disabled ${this._card_classes()}" data-idx="${this.idx}">
                         <div class="flex-row gap-10 align-center w-100 flex-wrap">
                             <div class="checkbox-wrap">
-                                <input type="checkbox" class="row-check" value="${this.data.registrationId || this.data.purchaseId}">
+                                <input type="checkbox" class="row-check" value="${this.data.registration_id || this.data.purchase_id}">
                             </div>
                             
                             ${this._renderStudentInfo()}
@@ -31,6 +31,13 @@
                                 <div class="created-date flex-row gap-5 align-center">
                                     <label class="upper-heavy">Created At</label>
                                     <span class="created-date-value">${createdDate}</span>
+                                </div>
+                            </div>
+
+                            <div class="border-left">
+                                <div class="purchase-id flex-row gap-5 align-center">
+                                    <label class="upper-heavy">Purchase ID</label>
+                                    <span class="purchase-id-value">${this.data.purchase_id}</span>
                                 </div>
                             </div>
                         </div>
@@ -209,6 +216,7 @@
 
         var newPurchases = null;
         const paymentHistoryModal = new USCTDP_Admin.PaymentHistoryModal('payment-history-modal-container');
+        const confirmRegistrationUpdateModal = document.querySelector('#confirm-registration-update-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
         const postRefundModal = document.querySelector('#post-refund-modal');
         const paymentSettings = {
@@ -276,65 +284,399 @@
             });
         }
 
-        async function handlePriceChange(rowData, priceChange, purchaseData) {
-            const oldPrice = priceChange.old_price;
-            const newPrice = priceChange.new_price;
-            const updatePrice = await window.Swal.fire({
-                title: "Price Change",
-                html: `
-                    The selected activity has a different price:
-                    <ul>
-                        <li>Original Price: ${USCTDP_Admin.formatUsd(oldPrice)}</li>
-                        <li>New Price: ${USCTDP_Admin.formatUsd(newPrice)}</li>
-                    </ul>
-                    Would you like to apply this adjustment to the registration price?
-                `,
-                showDenyButton: true,
-                confirmButtonText: "Yes",
-                denyButtonText: "No"
+        // Rebuilds a USCTDP_Admin.Discount instance from a stored discount
+        // record ({code, value, reason, amount} - the same flattened shape
+        // usctdp_purchase.discounts and the payment table's cart items use
+        // throughout this plugin) so its amount() can be re-derived against
+        // a new base price. Sibling discounts encode their percent in the
+        // code itself (SiblingDiscount's constructor: code = 'sibling_' +
+        // percent - see usctdp-mgmt-admin.js), which is why that one's
+        // matched by pattern rather than an exact code.
+        function rebuildDiscount(record) {
+            const siblingMatch = /^sibling_(\d+(\.\d+)?)$/.exec(record.code || '');
+            if (record.code === 'second_day') {
+                return new USCTDP_Admin.AdditionalDayDiscount(record.value);
+            } else if (siblingMatch) {
+                return new USCTDP_Admin.SiblingDiscount(parseFloat(siblingMatch[1]));
+            } else if (record.code === 'custom_percent') {
+                return new USCTDP_Admin.CustomPercentDiscount(record.value, record.reason);
+            }
+            return null;
+        }
+
+        // Re-derives one discount's dollar amount for the new activity.
+        // Only 'second_day' (tied to the new activity's own two-day pricing
+        // tier - see get_price_change() server-side) and percent-based
+        // discounts (sibling_*, custom_percent - a % of base price) can be
+        // recomputed automatically; flat/tier-based discounts (early_signup,
+        // with_clinic, custom_flat) and anything unrecognized have no
+        // reliable new amount to derive, so they're carried forward
+        // unchanged - the review modal still lets the admin edit or remove
+        // them if they no longer apply.
+        function recomputeDiscount(record, newBasePrice, newAdditionalDayDiscount) {
+            if (record.code === 'second_day') {
+                if (newAdditionalDayDiscount === null || newAdditionalDayDiscount === undefined) {
+                    // The new activity has no two-day pricing tier at all
+                    // (get_price_change() returns null in that case) - there's
+                    // no same-shape amount to re-derive, so leave this one for
+                    // the admin to review and edit/remove manually.
+                    return { ...record };
+                }
+                const discount = new USCTDP_Admin.AdditionalDayDiscount(newAdditionalDayDiscount);
+                return { code: discount.code, value: discount.value, amount: discount.amount(newBasePrice), reason: discount.reason };
+            }
+            const discount = rebuildDiscount(record);
+            if (discount) {
+                return { code: discount.code, value: discount.value, amount: discount.amount(newBasePrice), reason: discount.reason };
+            }
+            return { ...record };
+        }
+
+        function parseStoredDiscounts(raw) {
+            if (!raw) {
+                return [];
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function sumDiscounts(discounts) {
+            return discounts.reduce((sum, d) => sum + USCTDP_Admin.safeParseFloat(d.amount), 0);
+        }
+
+        // Same formula PurchaseCard._renderFinancialSection() uses for the
+        // "Owed" badge - the amount currently outstanding (or, if negative,
+        // already overpaid) *before* this registration change is applied.
+        function computeCurrentOwed(purchaseRow) {
+            if (!purchaseRow) return 0;
+            const fees = USCTDP_Admin.safeParseFloat(purchaseRow.total_fees);
+            const adjustments = USCTDP_Admin.safeParseFloat(purchaseRow.total_adjustments);
+            const payments = USCTDP_Admin.safeParseFloat(purchaseRow.total_payments);
+            const refunds = USCTDP_Admin.safeParseFloat(purchaseRow.total_refunds);
+            const houseCredits = USCTDP_Admin.safeParseFloat(purchaseRow.total_house_credits);
+            const netFees = fees - adjustments;
+            const netPayments = payments - (refunds + houseCredits);
+            return netFees - netPayments;
+        }
+
+        function discountLabel(discount) {
+            const siblingMatch = /^sibling_(\d+(\.\d+)?)$/.exec(discount.code || '');
+            if (discount.code === 'second_day') return 'Second Day';
+            if (discount.code === 'early_signup') return 'Early Signup';
+            if (discount.code === 'with_clinic') return 'With Clinic';
+            if (discount.code === 'custom_flat') return discount.reason || 'Custom Flat';
+            if (discount.code === 'custom_percent') return (discount.reason || 'Custom') + ` (${discount.value}%)`;
+            if (siblingMatch) return `Sibling (${siblingMatch[1]}%)`;
+            return discount.reason || discount.code || 'Discount';
+        }
+
+        // Holds the in-progress review's data while #confirm-registration-
+        // update-modal is open - null otherwise. The modal's controls are
+        // bound once (below) rather than per-open, so they read/write
+        // through this instead of closures.
+        var registrationUpdateState = null;
+
+        function renderDiscountList($list, discounts, editable) {
+            $list.empty();
+            if (discounts.length === 0) {
+                $list.append('<p class="empty-msg">No discounts.</p>');
+                return;
+            }
+            discounts.forEach((d, idx) => {
+                const removeBtn = editable
+                    ? `<button type="button" class="remove-new-discount-btn usctdp-remove-btn" data-index="${idx}">&times;</button>`
+                    : '';
+                $list.append(`
+                    <div class="discount-item">
+                        <span><strong>${discountLabel(d)}:</strong> ${USCTDP_Admin.formatUsd(d.amount)}</span>
+                        ${removeBtn}
+                    </div>
+                `);
+            });
+        }
+
+        function updateRegistrationUpdateModalUI() {
+            if (!registrationUpdateState) return;
+            const { oldBasePrice, oldDiscounts, oldNetPrice, currentOwed, newBasePrice, newDiscounts } = registrationUpdateState;
+
+            $('#current-base-price-display').text(USCTDP_Admin.formatUsd(oldBasePrice));
+            renderDiscountList($('#current-discounts-list'), oldDiscounts, false);
+            $('#current-net-price-display').text(USCTDP_Admin.formatUsd(oldNetPrice));
+
+            $('#new-base-price-display').text(USCTDP_Admin.formatUsd(newBasePrice));
+            renderDiscountList($('#new-discounts-list'), newDiscounts, true);
+            const newNetPrice = Math.max(0, newBasePrice - sumDiscounts(newDiscounts));
+            $('#new-net-price-display').text(USCTDP_Admin.formatUsd(newNetPrice));
+
+            const delta = Math.round((newNetPrice - oldNetPrice) * 100) / 100;
+            const $delta = $('#registration-update-delta');
+            const $houseCreditWrap = $('#house-credit-option-wrap');
+
+            // Only the portion of a price decrease that exceeds what's still
+            // outstanding is a genuine overpayment - the rest just zeroes
+            // out a balance that was already owed, with no money to hand
+            // back. E.g. owed $30 today, price drops by $50: $30 of that
+            // just cancels the existing balance, only the remaining $20 is
+            // actually owed back to the family.
+            registrationUpdateState.creditDue = 0;
+            if (Math.abs(delta) < 0.01) {
+                $delta.text('No change in the amount owed.');
+                $houseCreditWrap.addClass('hidden');
+            } else if (delta > 0) {
+                $delta.text(`The family will owe an additional ${USCTDP_Admin.formatUsd(delta)}.`);
+                $houseCreditWrap.addClass('hidden');
+            } else {
+                const absoluteDelta = -delta;
+                $delta.text(`The family will be credited ${USCTDP_Admin.formatUsd(absoluteDelta)}.`);
+                const creditDue = Math.max(0, Math.round((absoluteDelta - currentOwed) * 100) / 100);
+                registrationUpdateState.creditDue = creditDue;
+                if (creditDue > 0) {
+                    $('#house-credit-amount-display').text(USCTDP_Admin.formatUsd(creditDue));
+                    $houseCreditWrap.removeClass('hidden');
+                } else {
+                    $houseCreditWrap.addClass('hidden');
+                    $('#issue-house-credit-checkbox').prop('checked', false);
+                }
+            }
+        }
+
+        $('#new-discount-type').on('change', function () {
+            const code = $(this).val();
+            const needsInput = code === 'custom_flat' || code === 'custom_percent';
+            $('#new-discount-value').toggleClass('hidden', !needsInput);
+            $('#new-discount-reason').toggleClass('hidden', !needsInput);
+        });
+
+        $('#add-new-discount-btn').on('click', function () {
+            if (!registrationUpdateState) return;
+            const code = $('#new-discount-type').val();
+            const value = USCTDP_Admin.safeParseFloat($('#new-discount-value').val());
+            const reason = $('#new-discount-reason').val();
+            const { newBasePrice, newAdditionalDayDiscount } = registrationUpdateState;
+
+            var discount = null;
+            if (code === 'second_day') {
+                if (newAdditionalDayDiscount === null || newAdditionalDayDiscount === undefined) {
+                    window.Swal.fire("Not Available", "The new activity has no two-day pricing tier.", "warning");
+                    return;
+                }
+                discount = new USCTDP_Admin.AdditionalDayDiscount(newAdditionalDayDiscount);
+            } else if (code === 'sibling_10') {
+                discount = new USCTDP_Admin.SiblingDiscount(10);
+            } else if (code === 'sibling_20') {
+                discount = new USCTDP_Admin.SiblingDiscount(20);
+            } else if (code === 'custom_flat') {
+                discount = new USCTDP_Admin.CustomFlatDiscount(value, reason);
+            } else if (code === 'custom_percent') {
+                discount = new USCTDP_Admin.CustomPercentDiscount(value, reason);
+            } else {
+                return;
+            }
+
+            registrationUpdateState.newDiscounts.push({
+                code: discount.code,
+                value: discount.value,
+                amount: discount.amount(newBasePrice),
+                reason: discount.reason
+            });
+            $('#new-discount-type').val('');
+            $('#new-discount-value').val('').addClass('hidden');
+            $('#new-discount-reason').val('').addClass('hidden');
+            updateRegistrationUpdateModalUI();
+        });
+
+        $('#new-discounts-list').on('click', '.remove-new-discount-btn', function () {
+            if (!registrationUpdateState) return;
+            registrationUpdateState.newDiscounts.splice($(this).data('index'), 1);
+            updateRegistrationUpdateModalUI();
+        });
+
+        $('#confirm-registration-update-btn').on('click', function () {
+            if (!registrationUpdateState) return;
+            const { resolve, newDiscounts, creditDue } = registrationUpdateState;
+            const issueHouseCredit = creditDue > 0 && $('#issue-house-credit-checkbox').is(':checked');
+            registrationUpdateState = null;
+            confirmRegistrationUpdateModal.close();
+            resolve({ applied: true, discounts: newDiscounts, issueHouseCredit, creditDue });
+        });
+
+        $('#cancel-registration-update-btn').on('click', function () {
+            confirmRegistrationUpdateModal.close();
+        });
+
+        // Fires for the Cancel button's .close() call above AND for native
+        // dismissal (Escape) - both are "backed out without confirming".
+        // The Confirm handler already nulled registrationUpdateState and
+        // resolved before its own .close() call, so this only resolves
+        // when a review is still actually pending.
+        confirmRegistrationUpdateModal.addEventListener('close', function () {
+            if (registrationUpdateState) {
+                const { resolve } = registrationUpdateState;
+                registrationUpdateState = null;
+                resolve({ applied: false });
+            }
+        });
+
+        // Shows "Confirm Registration Update" pre-populated with the old
+        // (read-only) and recomputed-new (editable) price/discount picture,
+        // and resolves once the admin either confirms (with whatever final
+        // discount list they left the New column in - additions/removals
+        // included) or backs out. Never rejects, so a skip can't surface as
+        // an unhandled error to the caller.
+        function reviewRegistrationUpdate(oldBasePrice, oldDiscounts, oldNetPrice, currentOwed, newBasePrice, newAdditionalDayDiscount, initialNewDiscounts) {
+            return new Promise((resolve) => {
+                registrationUpdateState = {
+                    oldBasePrice,
+                    oldDiscounts,
+                    oldNetPrice,
+                    currentOwed,
+                    newBasePrice,
+                    newAdditionalDayDiscount,
+                    newDiscounts: initialNewDiscounts.map((d) => ({ ...d })),
+                    creditDue: 0,
+                    resolve
+                };
+                $('#issue-house-credit-checkbox').prop('checked', false);
+                updateRegistrationUpdateModalUI();
+                confirmRegistrationUpdateModal.showModal();
+            });
+        }
+
+        // Previews the price/discount impact of moving `rowData`'s
+        // registration to `newActivityId` (via the read-only
+        // ajax_preview_registration_activity_change() - nothing is saved by
+        // this call) and, if there's anything worth reviewing, shows the
+        // confirm modal. Nothing about the registration or the ledger is
+        // written here - the caller (updateRegistration()) does both, and
+        // only after a confirmed, non-empty result, so declining the review
+        // is a true no-op. Returns:
+        //   - null                                nothing to review -
+        //                                          caller should just save
+        //                                          as normal.
+        //   - { cancelled: true }                  admin backed out.
+        //   - { cancelled: false, ledgerEntries }   admin confirmed -
+        //                                          ledgerEntries may be []
+        //                                          if the reviewed price
+        //                                          ended up matching what
+        //                                          was already owed.
+        async function reviewPriceChange(rowData, newActivityId) {
+            const previewResponse = await USCTDP_Admin.ajax_previewRegistrationActivityChange(rowData.registration_id, newActivityId);
+            if (!previewResponse.success) {
+                throw Error("Failed to preview registration change.");
+            }
+
+            const priceChange = previewResponse.data.price_change;
+            if (!priceChange) {
+                return null;
+            }
+
+            const oldBasePrice = parseFloat(priceChange.old_price);
+            const newBasePrice = parseFloat(priceChange.new_price);
+            // Nullable - the new activity may have no two-day pricing tier
+            // at all (see get_price_change()/get_additional_day_discount()
+            // server-side), which is meaningfully different from a $0
+            // discount, so this is deliberately not coerced through
+            // safeParseFloat().
+            const newAdditionalDayDiscount = priceChange.new_additional_day_discount;
+
+            const purchaseData = previewResponse.data.purchase_data;
+            const purchaseRow = purchaseData && purchaseData.data && purchaseData.data[0];
+            const oldDiscounts = purchaseRow ? parseStoredDiscounts(purchaseRow.purchase_discounts) : [];
+            const oldNetPrice = purchaseRow
+                ? USCTDP_Admin.safeParseFloat(purchaseRow.total_fees) - USCTDP_Admin.safeParseFloat(purchaseRow.total_adjustments)
+                : oldBasePrice;
+            const currentOwed = computeCurrentOwed(purchaseRow);
+
+            const recomputedDiscounts = oldDiscounts.map((d) => recomputeDiscount(d, newBasePrice, newAdditionalDayDiscount));
+            const recomputedNetPrice = Math.max(0, newBasePrice - sumDiscounts(recomputedDiscounts));
+
+            if (Math.abs(recomputedNetPrice - oldNetPrice) < 0.01) {
+                // Base price and every discount that could be recomputed net
+                // back out to the same amount already owed - nothing to
+                // review or adjust.
+                return null;
+            }
+
+            const result = await reviewRegistrationUpdate(
+                oldBasePrice, oldDiscounts, oldNetPrice, currentOwed,
+                newBasePrice, newAdditionalDayDiscount, recomputedDiscounts
+            );
+            if (!result.applied) {
+                return { cancelled: true };
+            }
+
+            const finalNetPrice = Math.max(0, newBasePrice - sumDiscounts(result.discounts));
+            const absoluteDelta = Math.round(Math.abs(finalNetPrice - oldNetPrice) * 100) / 100;
+            if (absoluteDelta === 0) {
+                return { cancelled: false, ledgerEntries: [] };
+            }
+
+            const direction = finalNetPrice < oldNetPrice ? "decrease" : "increase";
+            const timestampSeconds = Math.floor(Date.now() / 1000);
+            const ledgerEntries = USCTDP_Admin.createAdjustmentLedger({
+                event_id: "adjustment_" + timestampSeconds,
+                event: "Registration Change",
+                family_id: rowData.family_id,
+                student_id: rowData.student_id,
+                purchase_id: rowData.purchase_id,
+                amount: absoluteDelta,
+                reason: "Registration Change",
+                purchase_type: rowData.purchase_type,
+                direction: direction
             });
 
-            /*
-            if (updatePrice.isConfirmed) {
-                const absoluteDelta = Math.abs(newPrice - oldPrice);
-                const direction = newPrice < oldPrice ? "decrease" : "increase"
-                const timestampSeconds = Math.floor(Date.now() / 1000);
-                var ledgerEntries = [];
-                if (direction == "decrease") {
-
-
-                } else {
-                    const adjEntries = USCTDP_Admin.createAdjustmentLedger({
-                        event_id: "adjustment_" + timestampSeconds,
-                        family_id: rowData.family_id,
-                        student_id: rowData.student_id,
-                        purchase_id: rowData.purchase_id,
-                        amount: absoluteDelta,
-                        reason: "Registration Change",
-                        purchase_type: rowData.purchase_type,
-                        direction: newPrice < oldPrice ? "decrease" : "increase"
-                    });
-                    ledgerEntries.push(...adjEntries);
-                }
-                await USCTDP_Admin.ajax_submitLedgerEntries(ledgerEntries);
-                window.Swal.fire("Saved!", "Price adjustment applied.", "success");
-            } else {
-                window.Swal.fire("Skipped!", "Adjustment not applied.", "info");
+            // Only the portion of a decrease beyond what was already owed is
+            // a real overpayment - see the comment in
+            // updateRegistrationUpdateModalUI() for why that's not just
+            // absoluteDelta itself.
+            if (direction === "decrease" && result.issueHouseCredit && result.creditDue > 0) {
+                const payoutEntries = USCTDP_Admin.createPayoutLedger({
+                    event_id: "adjustment_" + timestampSeconds,
+                    event: "Registration Change",
+                    family_id: rowData.family_id,
+                    student_id: rowData.student_id,
+                    purchase_id: rowData.purchase_id,
+                    amount: result.creditDue,
+                    method: "house_credit",
+                    reason: "Registration Change - Overpayment",
+                    purchase_type: rowData.purchase_type
+                });
+                ledgerEntries.push(...payoutEntries);
             }
-            */
+
+            return { cancelled: false, ledgerEntries };
         }
 
         async function updateRegistration(rowData, fields) {
+            const isActivityChange = fields.activity_id
+                && parseInt(fields.activity_id, 10) !== parseInt(rowData.activity_id, 10);
+
+            var review = null;
+            if (isActivityChange) {
+                review = await reviewPriceChange(rowData, fields.activity_id);
+                if (review && review.cancelled) {
+                    // Nothing has been saved yet - true no-op.
+                    window.Swal.fire("Cancelled", "The registration was not changed.", "info");
+                    return;
+                }
+            }
+
             const saveResponse = await USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, fields);
             if (!saveResponse.success) {
                 throw Error("Failed to update registration.");
             }
 
-            const priceChange = saveResponse.data.price_change;
-            if (priceChange && priceChange.delta != 0) {
-                const oldPrice = parseFloat(priceChange.old_price);
-                const newPrice = parseFloat(priceChange.new_price);
-                await handlePriceChange(rowData, priceChange, saveResponse.data.purchase_data);
+            if (review && review.ledgerEntries.length > 0) {
+                await USCTDP_Admin.ajax_submitLedgerEntries(review.ledgerEntries);
+                window.Swal.fire("Saved!", "Price adjustment applied.", "success");
+            } else if (review) {
+                // Reviewed and confirmed, but the final numbers matched what
+                // was already owed - nothing to charge/credit.
+                window.Swal.fire("No Change", "The reviewed price matches what was already charged - nothing to adjust.", "info");
             }
         }
 

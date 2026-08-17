@@ -68,6 +68,64 @@
             </form>
         </dialog>
 
+        <dialog id="confirm-registration-update-modal">
+            <h2>Confirm Registration Update</h2>
+            <div class="registration-update-columns">
+                <div class="registration-update-column update-column-current">
+                    <h3>Current</h3>
+                    <div class="registration-update-base-price">
+                        <label>Base Price</label>
+                        <span id="current-base-price-display"></span>
+                    </div>
+                    <div id="current-discounts-list" class="registration-update-discounts-list"></div>
+                    <div class="registration-update-net-price">
+                        <label>Net Price</label>
+                        <span id="current-net-price-display"></span>
+                    </div>
+                </div>
+                <div class="registration-update-column update-column-new">
+                    <h3>New</h3>
+                    <div class="registration-update-base-price">
+                        <label>Base Price</label>
+                        <span id="new-base-price-display"></span>
+                    </div>
+                    <div id="new-discounts-list" class="registration-update-discounts-list"></div>
+                    <div id="add-discount-wrap" class="flex-row gap-5 align-center">
+                        <select id="new-discount-type">
+                            <option value="">Add Discount...</option>
+                            <option value="second_day">Addl. Day</option>
+                            <option value="sibling_10">Sibling (10%)</option>
+                            <option value="sibling_20">Sibling (20%)</option>
+                            <option value="custom_flat">Custom Flat</option>
+                            <option value="custom_percent">Custom Percent</option>
+                        </select>
+                        <input type="number" id="new-discount-value" step="0.01" min="0" class="hidden"
+                            placeholder="Value">
+                        <input type="text" id="new-discount-reason" class="hidden" placeholder="Reason">
+                        <button type="button" class="button button-small" id="add-new-discount-btn">Add</button>
+                    </div>
+                    <div class="registration-update-net-price">
+                        <label>Net Price</label>
+                        <span id="new-net-price-display"></span>
+                    </div>
+                </div>
+            </div>
+            <div id="registration-update-delta" class="registration-update-delta"></div>
+            <div id="house-credit-option-wrap" class="hidden">
+                <label>
+                    <input type="checkbox" id="issue-house-credit-checkbox">
+                    Issue <span id="house-credit-amount-display"></span> as house credit
+                    (instead of leaving it as an unresolved credit balance)
+                </label>
+            </div>
+            <div class="actions-footer">
+                <button type="button" class="button button-primary" id="confirm-registration-update-btn">
+                    Confirm
+                </button>
+                <button type="button" class="button" id="cancel-registration-update-btn">Cancel</button>
+            </div>
+        </dialog>
+
         <div id="payment-history-modal-container"></div>
 
         <div id="history-container" class="w-100">

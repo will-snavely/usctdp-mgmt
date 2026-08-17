@@ -41,6 +41,24 @@
         return response;
     }
 
+    // Read-only: previews the price_change/purchase_data an activity swap
+    // would produce, without saving anything - see
+    // ajax_preview_registration_activity_change() server-side.
+    USCTDP_Admin.ajax_previewRegistrationActivityChange = async function (registrationId, activityId) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.preview_registration_activity_change_action,
+                security: usctdp_mgmt_admin.preview_registration_activity_change_nonce,
+                registration_id: registrationId,
+                activity_id: activityId
+            }
+        });
+        return response;
+    }
+
     USCTDP_Admin.ajax_setRegistrationStatus = async function (id, status) {
         const response = await $.ajax({
             url: usctdp_mgmt_admin.ajax_url,

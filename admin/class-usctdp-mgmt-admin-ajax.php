@@ -22,6 +22,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'issue_house_credit' => 'ajax_issue_house_credit',
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
+        'preview_registration_activity_change' => 'ajax_preview_registration_activity_change',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
         'recent_registrations' => 'ajax_recent_registrations',
         'registrations_datatable' => 'ajax_registrations_datatable',
@@ -843,6 +844,28 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json($response);
     }
 
+    /**
+     * The dollar discount applied to a clinic's *second* registered day -
+     * the amount subtracted from that day's own One-day base price so the
+     * two combined land on the product's Two-day price. Same formula
+     * bind_clinic_info() computes client-side (admin/js/usctdp-mgmt-admin-
+     * register.js): two_day_price - base_price is the *increment* the
+     * two-day tier adds over a single day, so the actual per-activity
+     * discount is base_price minus that increment, not the increment
+     * itself. Null when the product has no Two-day tier at all (e.g. a
+     * tournament, or a clinic that isn't offered twice a week) - !empty()
+     * here matches woocommerce-hooks.php's own "does a Two tier exist" check.
+     */
+    private function get_additional_day_discount($pricing, $base_price)
+    {
+        if (empty($pricing->pricing['Two'])) {
+            return null;
+        }
+        $two_day_price = round(floatval($pricing->pricing['Two']), 2);
+        $diff = round($two_day_price - $base_price, 2);
+        return round($base_price - $diff, 2);
+    }
+
     private function get_price_change($current_activity_id, $new_activity_id)
     {
         $current_activity = Usctdp_Mgmt_Model::get_activity($current_activity_id);
@@ -854,8 +877,7 @@ class Usctdp_Mgmt_Admin_Ajax
             return null;
         }
         $current_base_price = round(floatval($current_pricing->pricing['One']), 2);
-        $current_two_day_price = round(floatval($current_pricing->pricing['Two']), 2);
-        $current_additional_day_discount = $current_two_day_price - $current_base_price;
+        $current_additional_day_discount = $this->get_additional_day_discount($current_pricing, $current_base_price);
 
         $new_activity = Usctdp_Mgmt_Model::get_activity($new_activity_id);
         if (!$new_activity) {
@@ -866,8 +888,7 @@ class Usctdp_Mgmt_Admin_Ajax
             return null;
         }
         $new_base_price = round(floatval($new_pricing->pricing['One']), 2);
-        $new_two_day_price = round(floatval($new_pricing->pricing['Two']), 2);
-        $new_additional_day_discount = $new_two_day_price - $new_base_price;
+        $new_additional_day_discount = $this->get_additional_day_discount($new_pricing, $new_base_price);
         return [
             'delta' => round($new_base_price - $current_base_price, 2),
             'old_price' => $current_base_price,
@@ -926,6 +947,50 @@ class Usctdp_Mgmt_Admin_Ajax
         );
         wp_send_json($response);
     }
+    /**
+     * Read-only counterpart to ajax_update_registration()'s price_change
+     * computation - lets the admin history page preview a registration's
+     * price/discount change *before* committing to it, so declining the
+     * review is a true no-op rather than having to save-then-revert. Never
+     * writes anything; the actual save still happens through
+     * ajax_update_registration() afterward if the admin confirms.
+     */
+    public function ajax_preview_registration_activity_change()
+    {
+        $this->check_nonce('preview_registration_activity_change');
+
+        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : '';
+        if (empty($registration_id)) {
+            wp_send_json_error('Missing required parameter registration_id', 400);
+        }
+        $new_activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : '';
+        if (empty($new_activity_id)) {
+            wp_send_json_error('Missing required parameter activity_id', 400);
+        }
+
+        $registration = Usctdp_Mgmt_Model::get_registration($registration_id);
+        if (!$registration) {
+            wp_send_json_error('No registration found with id: ' . $registration_id, 400);
+        }
+
+        try {
+            $price_change = $this->get_price_change($registration->activity_id, $new_activity_id);
+
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            $purchase_data = $purchase_query->get_purchase_data([
+                "purchase_id" => $registration->purchase_id
+            ]);
+
+            wp_send_json_success([
+                'price_change' => $price_change,
+                'purchase_data' => $purchase_data
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_preview_registration_activity_change', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
     public function ajax_update_registration()
     {
         $this->check_nonce('update_registration');
