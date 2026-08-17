@@ -1029,6 +1029,65 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         return $activity_query->items[0] ?? null;
     }
 
+    /**
+     * Family id the current actor is restricted to, or null when they're
+     * staff (register_student - granted to Administrator, see
+     * Usctdp_Mgmt_Activator::activate()) and not scoped to a single family.
+     * A non-staff caller with no family record on their account gets -1,
+     * a value no real family id can ever equal, so every student_id they
+     * submit correctly fails ownership rather than accidentally passing an
+     * unscoped check.
+     */
+    private function get_owner_family_id()
+    {
+        if (current_user_can('register_student')) {
+            return null;
+        }
+        $family_query = new Usctdp_Mgmt_Family_Query([
+            'user_id' => get_current_user_id(),
+            'number' => 1,
+        ]);
+        $family = $family_query->items[0] ?? null;
+        return $family ? (int) $family->id : -1;
+    }
+
+    /**
+     * woocommerce_add_to_cart_validation: reject adding a student_id that
+     * doesn't belong to the requesting customer's own family before it ever
+     * reaches the cart. Without this, student_id was trusted straight off
+     * $_POST all the way through to the registration written at checkout
+     * (see parse_cart_data()/create_purchase_and_ledger_entries()) - the
+     * student dropdown in render_user_shop_options() only ever *offers* the
+     * family's own children, it doesn't enforce anything server-side, and
+     * student ids are small sequential integers. Left as a no-op (returns
+     * $passed unchanged) when student_id isn't present at all, since not
+     * every product requires one (e.g. merchandise).
+     */
+    public function validate_student_ownership($passed, $product_id, $quantity, $variation_id = 0)
+    {
+        if (!$passed || !isset($_POST['student_id'])) {
+            return $passed;
+        }
+
+        $owner_family_id = $this->get_owner_family_id();
+        if ($owner_family_id === null) {
+            return $passed;
+        }
+
+        $student_query = new Usctdp_Mgmt_Student_Query([
+            'id' => intval($_POST['student_id']),
+            'number' => 1,
+        ]);
+        $student = $student_query->items[0] ?? null;
+
+        if (!$student || (int) $student->family_id !== $owner_family_id) {
+            wc_add_notice(__('That student could not be found on your account.', 'usctdp-mgmt'), 'error');
+            return false;
+        }
+
+        return $passed;
+    }
+
     public function add_cart_item_data($cart_item_data, $product_id, $variation_id, $quantity)
     {
         $activities = [];
@@ -1112,6 +1171,15 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         $all_activities = [];
         $all_students = [];
         $cart_data_valid = true;
+        // Second, independent check that a cart's student_ids belong to the
+        // checking-out customer's own family - not just a repeat of
+        // validate_student_ownership() for its own sake, but a deliberate
+        // last line of defense right before registrations get written and
+        // money changes hands, in case any cart item ever reaches this point
+        // without having gone through the woocommerce_add_to_cart_validation
+        // filter (a cart persisted from before that check shipped, a future
+        // add-to-cart path that doesn't fire it, etc).
+        $owner_family_id = $this->get_owner_family_id();
 
         foreach (WC()->cart->get_cart() as $item) {
             $tracking_id = $item['tracking_id'];
@@ -1128,7 +1196,13 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     $cart_data_valid = false;
                     continue;
                 }
-                $all_students[$student_id] = $student_query->items[0];
+                $student = $student_query->items[0];
+                if ($owner_family_id !== null && (int) $student->family_id !== $owner_family_id) {
+                    $errors->add('invalid_student', "$student_id is not a valid student id.");
+                    $cart_data_valid = false;
+                    continue;
+                }
+                $all_students[$student_id] = $student;
             }
 
             foreach ($item_activities as $activity_id) {

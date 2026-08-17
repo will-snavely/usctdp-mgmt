@@ -269,6 +269,13 @@ class Usctdp_Mgmt
             999,
             4
         );
+        $this->loader->add_filter(
+            'woocommerce_add_to_cart_validation',
+            $commerce_handler,
+            'validate_student_ownership',
+            10,
+            4
+        );
 
         // Scrub "Please choose product options" notices that accumulated in the WC
         // session from AJAX requests where wc_print_notices() never ran.
