@@ -556,9 +556,16 @@
         // is a true no-op. Returns:
         //   - null                                nothing to review -
         //                                          caller should just save
-        //                                          as normal.
+        //                                          as normal, but still
+        //                                          persist `discounts` (see
+        //                                          updateRegistration()) -
+        //                                          the auto-recomputed
+        //                                          amounts can differ from
+        //                                          what's on file even when
+        //                                          the *net* owed doesn't.
         //   - { cancelled: true }                  admin backed out.
-        //   - { cancelled: false, ledgerEntries }   admin confirmed -
+        //   - { cancelled: false, reviewed: true,
+        //       ledgerEntries, discounts }          admin confirmed -
         //                                          ledgerEntries may be []
         //                                          if the reviewed price
         //                                          ended up matching what
@@ -597,8 +604,11 @@
             if (Math.abs(recomputedNetPrice - oldNetPrice) < 0.01) {
                 // Base price and every discount that could be recomputed net
                 // back out to the same amount already owed - nothing to
-                // review or adjust.
-                return null;
+                // review or adjust, but the individual discount amounts may
+                // still have shifted (e.g. a second_day discount re-derived
+                // for the new activity), so still hand back the recomputed
+                // list for updateRegistration() to persist.
+                return { cancelled: false, reviewed: false, ledgerEntries: [], discounts: recomputedDiscounts };
             }
 
             const result = await reviewRegistrationUpdate(
@@ -612,7 +622,7 @@
             const finalNetPrice = Math.max(0, newBasePrice - sumDiscounts(result.discounts));
             const absoluteDelta = Math.round(Math.abs(finalNetPrice - oldNetPrice) * 100) / 100;
             if (absoluteDelta === 0) {
-                return { cancelled: false, ledgerEntries: [] };
+                return { cancelled: false, reviewed: true, ledgerEntries: [], discounts: result.discounts };
             }
 
             const direction = finalNetPrice < oldNetPrice ? "decrease" : "increase";
@@ -648,7 +658,7 @@
                 ledgerEntries.push(...payoutEntries);
             }
 
-            return { cancelled: false, ledgerEntries };
+            return { cancelled: false, reviewed: true, ledgerEntries, discounts: result.discounts };
         }
 
         async function updateRegistration(rowData, fields) {
@@ -670,10 +680,26 @@
                 throw Error("Failed to update registration.");
             }
 
+            if (review) {
+                // Keeps usctdp_purchase.discounts in sync with whatever
+                // discount list actually applies now - otherwise the next
+                // edit's "Current" column in Confirm Registration Update
+                // would keep reading the stale, original-purchase snapshot
+                // (see ajax_update_purchase()'s 'discounts' field). An empty
+                // array serializes to no key at all in $.ajax's POST body,
+                // so it'd never reach the server and the stale list would
+                // silently survive - send '' instead, same convention
+                // handleBatchSave() uses for phone_numbers/emails in
+                // usctdp-mgmt-admin-families.js.
+                await savePurchaseFields(rowData.purchase_id, {
+                    discounts: review.discounts.length === 0 ? '' : review.discounts
+                });
+            }
+
             if (review && review.ledgerEntries.length > 0) {
                 await USCTDP_Admin.ajax_submitLedgerEntries(review.ledgerEntries);
                 window.Swal.fire("Saved!", "Price adjustment applied.", "success");
-            } else if (review) {
+            } else if (review && review.reviewed) {
                 // Reviewed and confirmed, but the final numbers matched what
                 // was already owed - nothing to charge/credit.
                 window.Swal.fire("No Change", "The reviewed price matches what was already charged - nothing to adjust.", "info");

@@ -252,12 +252,33 @@ class Usctdp_Mgmt_Admin_Ajax
             return $entity;
         }
 
+        global $wpdb;
+        $wpdb->last_error = '';
         $result = $query->update_item($entity_id, $args);
         if ($result) {
             $query = new $query_object(['id' => $entity_id, 'number' => 1]);
             return $query->items[0];
+        }
+
+        // update_item() runs its own diff against the row's *raw* stored
+        // values and bails with false when nothing actually needs writing -
+        // not necessarily a real failure. That diff can disagree with ours
+        // above for any field whose Row shape transforms the raw column
+        // value (e.g. Usctdp_Mgmt_Purchase_Row decodes `discounts` to an
+        // array, so a freshly re-encoded JSON string here can never compare
+        // === to it and always looks "changed" to us, even when the
+        // underlying raw value is actually identical - see
+        // ajax_update_purchase()'s 'discounts' field). $wpdb->last_error
+        // tells the two cases apart: empty means update_item() bailed
+        // before ever running a query (a benign no-op); non-empty means a
+        // query actually ran and failed.
+        if (empty($wpdb->last_error)) {
+            $query = new $query_object(['id' => $entity_id, 'number' => 1]);
+            return $query->items[0];
         } else {
-            throw new Web_Request_Exception("Updating entity $entity_id failed.");
+            throw new Web_Request_Exception(
+                "Updating entity $entity_id failed. wpdb->last_error: {$wpdb->last_error}"
+            );
         }
     }
 
@@ -1209,6 +1230,36 @@ class Usctdp_Mgmt_Admin_Ajax
                 return sanitize_textarea_field(stripslashes($value));
             },
             'status' => sanitize_text_field(...),
+            // Lets the admin history page keep this purchase's discount
+            // snapshot in sync after a later registration-activity change
+            // (see reviewPriceChange()/updateRegistration() in
+            // usctdp-mgmt-admin-history.js) - without this, a discount
+            // added/changed after the initial purchase never gets
+            // remembered, so the "Current" column on the next edit's
+            // Confirm Registration Update modal reads the stale, original
+            // discount list. Same {code, value, amount, reason} shape (and
+            // json_encode, matching what usctdp_purchase.discounts is
+            // stored as) that parse_merchandise_data()/parse_registration_data()
+            // use when a purchase is first created.
+            'discounts' => function ($value) {
+                // '' is the client's explicit "empty list" sentinel (see
+                // updateRegistration() in usctdp-mgmt-admin-history.js) -
+                // $.ajax's POST body drops an empty array entirely, so an
+                // actually-empty list can't be told apart from "no discounts
+                // field was sent" any other way.
+                if ($value === '' || !is_array($value)) {
+                    return '[]';
+                }
+                $sanitized = array_map(function ($discount) {
+                    return [
+                        'code' => isset($discount['code']) ? sanitize_text_field($discount['code']) : '',
+                        'value' => isset($discount['value']) && is_numeric($discount['value']) ? floatval($discount['value']) : null,
+                        'amount' => isset($discount['amount']) && is_numeric($discount['amount']) ? round(floatval($discount['amount']), 2) : 0,
+                        'reason' => isset($discount['reason']) ? sanitize_text_field($discount['reason']) : '',
+                    ];
+                }, $value);
+                return wp_json_encode($sanitized);
+            },
         ];
 
         try {
