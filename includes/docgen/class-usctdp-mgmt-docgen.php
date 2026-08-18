@@ -121,9 +121,9 @@ class Usctdp_Mgmt_Docgen
      * and the rest stays blank rather than stretched.
      */
     const ATTENDANCE_COLUMNS = [
-        'attnd' => ['label' => 'Attnd?', 'width' => 1500],
-        'last' => ['label' => 'Last', 'width' => 1800],
-        'first' => ['label' => 'First', 'width' => 1800],
+        'attnd' => ['label' => 'Attnd?', 'width' => 1000],
+        'last' => ['label' => 'Last', 'width' => 2000],
+        'first' => ['label' => 'First', 'width' => 2000],
         'age' => ['label' => 'Age', 'width' => 800],
         'level' => ['label' => 'Lvl', 'width' => 800],
         'phone' => ['label' => 'Phone Number(s)', 'width' => 4200],
