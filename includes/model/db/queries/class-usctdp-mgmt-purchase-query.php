@@ -52,7 +52,16 @@ class Usctdp_Mgmt_Purchase_Query extends Query
             $where_args[] = $args['student_id'];
         }
         if (isset($args["owes"])) {
-            $conditions[] = "(ledger.total_fees - ledger.total_adjustments) > ledger.total_payments";
+            // Mirrors the "outstanding" calculation used everywhere else
+            // (e.g. addExistingRegistration() in usctdp-mgmt-admin.js):
+            // net fees vs. net payments, where refunds AND house credit
+            // both count as money paid down. Comparing against raw
+            // total_payments alone (as this used to) flagged a purchase as
+            // still owing even once house credit had fully settled it -
+            // total_house is signed negative here specifically because
+            // credit *applied* toward a purchase credits the fees account,
+            // the same direction a real payment does.
+            $conditions[] = "(ledger.total_fees - ledger.total_adjustments) > (ledger.total_payments - ledger.total_refunds - ledger.total_house)";
         }
         if (isset($args["type"])) {
             $conditions[] = "pur.type = %s";
