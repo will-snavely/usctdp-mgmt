@@ -1492,7 +1492,17 @@
             this.container.find(".debit-summary .total").text(USCTDP_Admin.formatUsd(debit));
             this.container.find(".credit-summary .total").text(USCTDP_Admin.formatUsd(credit));
             this.container.find(".balance-summary .total").text(USCTDP_Admin.formatUsd(balance));
-            this.container.find(".house-credit-apply-field input").val(this.houseCreditApplied.toFixed(2));
+            // Skip while the field itself has focus - every keystroke fires
+            // this via the 'input' handler below, and forcing the
+            // reformatted value back in mid-edit would clobber whatever the
+            // user is currently typing (works fine for the Max button, which
+            // isn't a typing session - the click already moved focus off the
+            // input by the time this runs). The blur handler still
+            // normalizes the display once they're done editing.
+            const $houseCreditInput = this.container.find(".house-credit-apply-field input");
+            if (!$houseCreditInput.is(':focus')) {
+                $houseCreditInput.val(this.houseCreditApplied.toFixed(2));
+            }
             this.updatePaymentMethodConstraints(credit, this.houseCreditApplied, balance);
         }
 
