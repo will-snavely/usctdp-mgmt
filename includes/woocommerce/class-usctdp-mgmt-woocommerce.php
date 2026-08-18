@@ -110,8 +110,23 @@ class Usctdp_Mgmt_Woocommerce
         }
 
         try {
+            // Two different numbers, deliberately kept separate:
+            //   $total          - the full list price (sum of base_price)
+            //                     Fee items (discount, house credit,
+            //                     remaining balance) get subtracted from
+            //                     for display, so the receipt reads Item ->
+            //                     Discount -> Total the way it's meant to.
+            //   $credit_total   - what's actually being collected via THIS
+            //                     transaction (the admin-editable "Pay"
+            //                     column - see RegistrationPaymentTable.
+            //                     addExistingRegistration()/
+            //                     addNewRegistration() in usctdp-mgmt-
+            //                     admin.js), which drives the order's real
+            //                     total below and can be less than the full
+            //                     price (a partial payment).
             $total = 0;
             $discount_total = 0;
+            $credit_total = 0;
             $house_credit_total = 0;
             foreach ($line_items as $line_item) {
                 $student_id = $line_item["student_id"];
@@ -125,6 +140,20 @@ class Usctdp_Mgmt_Woocommerce
                 $total += $custom_price;
                 $purchase_id = isset($line_item["purchase_id"]) ? intval($line_item["purchase_id"]) : 0;
 
+                $credit = floatval($line_item["credit"] ?? 0);
+                $line_house_credit = floatval($line_item["house_credit"] ?? 0);
+                $credit_total += $credit;
+                $house_credit_total += $line_house_credit;
+
+                // The amount actually charged to the card for this specific
+                // item, i.e. what's being collected now minus whatever of
+                // that is covered by house credit instead. Recorded as meta
+                // rather than left implicit in the item's own (list) price,
+                // since record_deferred_payment() (class-usctdp-mgmt-
+                // woocommerce-hooks.php) needs the real charged amount and
+                // that can differ per item from what this receipt displays.
+                $charged_amount = round($credit - $line_house_credit, 2);
+
                 if ($line_item["type"] == "merchandise") {
                     $product_id = $line_item["product_id"];
                     $woo_product = $this->get_woo_product_by_id($product_id);
@@ -132,6 +161,8 @@ class Usctdp_Mgmt_Woocommerce
                     $item = $order->get_item($item_id);
                     $item->add_meta_data('Student', $student->title);
                     $item->add_meta_data('_purchase_id', $purchase_id);
+                    $item->add_meta_data('_charged_amount', $charged_amount);
+                    $item->add_meta_data('_house_credit_amount', $line_house_credit);
                     $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
                     $item->save();
                 } else if ($line_item["type"] == "registration") {
@@ -160,6 +191,8 @@ class Usctdp_Mgmt_Woocommerce
                     $item->add_meta_data('Session', $session->title);
                     $item->add_meta_data('Activity', $activity->title);
                     $item->add_meta_data('_purchase_id', $purchase_id);
+                    $item->add_meta_data('_charged_amount', $charged_amount);
+                    $item->add_meta_data('_house_credit_amount', $line_house_credit);
                     $item->set_props(array('subtotal' => $custom_price, 'total' => $custom_price));
                     $item->save();
                 }
@@ -173,21 +206,33 @@ class Usctdp_Mgmt_Woocommerce
                     $fee->set_total(-$discount_amount);
                     $order->add_item($fee);
                 }
-
-                if (isset($line_item["house_credit"])) {
-                    $house_credit_total += floatval($line_item["house_credit"]);
-                }
             }
 
             if ($house_credit_total > 0) {
-                $discount_total += $house_credit_total;
                 $fee = new WC_Order_Item_Fee();
                 $fee->set_name("House Credit Applied");
                 $fee->set_total(-$house_credit_total);
                 $order->add_item($fee);
             }
 
-            $order->set_total($total - $discount_total);
+            // Whatever of the full (list price, after discount) total isn't
+            // being collected via this transaction at all - e.g. a partial
+            // payment - gets its own line too, so the receipt's numbers
+            // still add up (Item - Discount - House Credit - Remaining
+            // Balance = Total) instead of silently charging less than the
+            // displayed breakdown implies.
+            $list_price_total = round($total - $discount_total, 2);
+            $remaining_balance = round($list_price_total - $credit_total, 2);
+            if ($remaining_balance > 0) {
+                $fee = new WC_Order_Item_Fee();
+                $fee->set_name('Remaining Balance');
+                $fee->set_total(-$remaining_balance);
+                $order->add_item($fee);
+            }
+
+            // What's actually charged: collected now, minus whatever of
+            // that was covered by house credit rather than the card.
+            $order->set_total(round($credit_total - $house_credit_total, 2));
 
             if ($payment_method === 'card') {
                 $order->update_status('pending', 'Awaiting payment via ' . $payment_method);

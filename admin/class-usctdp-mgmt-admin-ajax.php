@@ -3002,7 +3002,22 @@ class Usctdp_Mgmt_Admin_Ajax
             ]);
         }
 
-        if ($house_credit > 0) {
+        // Deferred for card, same as the payment entries above and for the
+        // same reason: house credit isn't actually *spent* until the order
+        // genuinely completes (record_deferred_payment(), class-usctdp-mgmt-
+        // woocommerce-hooks.php, which reads back _house_credit_amount item
+        // meta create_woocommerce_order() records for exactly this). Writing
+        // it here unconditionally used to record it immediately, while the
+        // order was still 'pending' - wrong on its own (a declined/abandoned
+        // card shouldn't have already drawn down the family's house credit),
+        // and it also broke record_deferred_payment()'s own dedup check:
+        // that check matches on purchase_id+order_id with no entry_type
+        // filter (so it also recognizes its own house_credit write on a
+        // repeat hook fire), so it was finding *this* block's early write
+        // and skipping the entire per-item block - including the actual
+        // payment_card entries it was supposed to write once the order
+        // completed.
+        if ($house_credit > 0 && $payment_method !== 'card') {
             $house_credit_str = number_format($house_credit, 2, '.', '');
             $entries[] = array_merge($base, [
                 'account' => 'payment_house_credit',

@@ -1894,22 +1894,41 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     continue;
                 }
 
-                // Scoped to this order (not just this purchase) - this
-                // method is registered on both woocommerce_order_status_
-                // processing and woocommerce_payment_complete, so it can
-                // legitimately run twice for the same order and needs to
-                // skip re-recording its own payment. Scoping by purchase_id
-                // alone instead would also match any *earlier* unrelated
-                // payment on this purchase (e.g. a prior cash/check payment,
-                // or a deferred card payment from a different order) and
-                // silently drop this order's payment entirely.
-                $existing_payment = new Usctdp_Mgmt_Ledger_Query([
+                // Scoped to this order (not just this purchase) AND to the
+                // entry_types this method itself writes ('payment',
+                // 'house_credit') - this method is registered on both
+                // woocommerce_order_status_processing and
+                // woocommerce_payment_complete, so it can legitimately run
+                // twice for the same order and needs to skip re-recording
+                // its own entries, without also being fooled by unrelated
+                // entries that happen to share this purchase_id+order_id.
+                // Two things already write those before this method ever
+                // runs, both via build_ledger_entries_for_line_item()
+                // (class-usctdp-mgmt-admin-ajax.php) at submission time,
+                // while the card order is still 'pending':
+                //   - Scoping by purchase_id alone would also match any
+                //     *earlier* unrelated payment on this purchase (e.g. a
+                //     prior cash/check payment, or a deferred card payment
+                //     from a different order) and silently drop this order's
+                //     entries entirely.
+                //   - Not filtering by entry_type at all (as this used to)
+                //     would also match this same order's own 'charge'/
+                //     'adjustment' entries - written immediately for *any*
+                //     newly-created purchase regardless of payment method -
+                //     and wrongly skip this order's real payment/house_credit
+                //     entries the very first time this method ever runs for
+                //     it, for every single new card-paid registration.
+                // Not narrowed to entry_type='payment' alone either - a
+                // house-credit-only line item (see below) writes
+                // 'house_credit' entries with no 'payment' entry at all, and
+                // this check needs to catch a repeat run of that case too.
+                $existing_entry = new Usctdp_Mgmt_Ledger_Query([
                     'purchase_id' => $purchase_id,
                     'order_id' => $order_id,
-                    'entry_type' => 'payment',
+                    'entry_type__in' => ['payment', 'house_credit'],
                     'number' => 1,
                 ]);
-                if (!empty($existing_payment->items)) {
+                if (!empty($existing_entry->items)) {
                     continue;
                 }
                 $purchase_query = new Usctdp_Mgmt_Purchase_Query(['id' => $purchase_id, 'number' => 1]);
@@ -1918,65 +1937,104 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                 }
                 $purchase = $purchase_query->items[0];
 
-                // $item->get_total() is this line item's full, undiscounted
-                // price - create_woocommerce_order() sets subtotal/total to
-                // the raw base_price, and any discount is added as a
-                // *separate*, order-level WC_Order_Item_Fee that
-                // get_items()'s default 'line_item' type filter doesn't even
-                // return here. The amount actually charged/owed for this
-                // purchase is that price minus whatever discounts were
-                // recorded on the purchase at creation time (same amount
-                // already netted out of the purchase's charge via the
-                // 'adjustment' entries build_ledger_entries_for_line_item()
-                // writes) - without this, every discounted card registration
-                // gets a payment entry for the full undiscounted price,
-                // over-crediting the purchase's fees account and making the
-                // family look like they overpaid.
-                $discount_total = 0.0;
-                foreach ((array) $purchase->discounts as $discount) {
-                    $discount_total += floatval($discount['amount'] ?? 0);
-                }
-                $price = round(floatval($item->get_total()) - $discount_total, 2);
+                // The item's own price/total is always the full list price
+                // (create_woocommerce_order() prices it at base_price so the
+                // order reads Item -> Discount -> Total for the receipt) -
+                // it is NOT what was actually charged, so the real charged
+                // amount (already net of any discount and of whatever
+                // portion was covered by house credit) is read back from the
+                // meta that method recorded at order-creation time instead.
+                $price = round(floatval($item->get_meta('_charged_amount')), 2);
+                $line_house_credit = round(floatval($item->get_meta('_house_credit_amount')), 2);
 
                 $ledger_query = new Usctdp_Mgmt_Ledger_Query();
-                $entry_id = $ledger_query->add_item([
-                    'purchase_id' => $purchase_id,
-                    'family_id' => $purchase->family_id,
-                    'order_id' => $order_id,
-                    'event_id' => $event_id,
-                    'event' => $event,
-                    'account' => 'payment_' . $payment_method,
-                    'entry_type' => 'payment',
-                    'description' => 'Payment received in online store.',
-                    'payment_method' => $payment_method,
-                    'reference_id' => $reference_id,
-                    'debit' => $price,
-                    'credit' => 0,
-                    'created_at' => $created_at,
-                    'created_by' => $created_by,
-                ]);
-                if (!$entry_id) {
-                    throw new Exception("Failed to create payment_$payment_method payment ledger entry for order $order_id, purchase $purchase_id.");
+
+                if ($price > 0) {
+                    $entry_id = $ledger_query->add_item([
+                        'purchase_id' => $purchase_id,
+                        'family_id' => $purchase->family_id,
+                        'order_id' => $order_id,
+                        'event_id' => $event_id,
+                        'event' => $event,
+                        'account' => 'payment_' . $payment_method,
+                        'entry_type' => 'payment',
+                        'description' => 'Payment received in online store.',
+                        'payment_method' => $payment_method,
+                        'reference_id' => $reference_id,
+                        'debit' => $price,
+                        'credit' => 0,
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
+                    ]);
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create payment_$payment_method payment ledger entry for order $order_id, purchase $purchase_id.");
+                    }
+
+                    $entry_id = $ledger_query->add_item([
+                        'purchase_id' => $purchase_id,
+                        'family_id' => $purchase->family_id,
+                        'order_id' => $order_id,
+                        'event_id' => $event_id,
+                        'event' => $event,
+                        'account' => $purchase->type . '_fees',
+                        'entry_type' => 'payment',
+                        'description' => 'Payment received in online store.',
+                        'payment_method' => $payment_method,
+                        'reference_id' => $reference_id,
+                        'debit' => 0,
+                        'credit' => $price,
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
+                    ]);
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create {$purchase->type}_fees payment ledger entry for order $order_id, purchase $purchase_id.");
+                    }
                 }
 
-                $entry_id = $ledger_query->add_item([
-                    'purchase_id' => $purchase_id,
-                    'family_id' => $purchase->family_id,
-                    'order_id' => $order_id,
-                    'event_id' => $event_id,
-                    'event' => $event,
-                    'account' => $purchase->type . '_fees',
-                    'entry_type' => 'payment',
-                    'description' => 'Payment received in online store.',
-                    'payment_method' => $payment_method,
-                    'reference_id' => $reference_id,
-                    'debit' => 0,
-                    'credit' => $price,
-                    'created_at' => $created_at,
-                    'created_by' => $created_by,
-                ]);
-                if (!$entry_id) {
-                    throw new Exception("Failed to create {$purchase->type}_fees payment ledger entry for order $order_id, purchase $purchase_id.");
+                // House credit applied toward this item was never charged to
+                // the card at all (create_woocommerce_order() nets it out of
+                // the order's total separately) - mirrors the same pair
+                // build_ledger_entries_for_line_item() writes for a non-card
+                // payment (class-usctdp-mgmt-admin-ajax.php), so it's
+                // recorded here too instead of left unaccounted for, which
+                // would otherwise leave the family's house credit balance
+                // never actually drawn down for a card-based purchase.
+                if ($line_house_credit > 0) {
+                    $entry_id = $ledger_query->add_item([
+                        'purchase_id' => $purchase_id,
+                        'family_id' => $purchase->family_id,
+                        'order_id' => $order_id,
+                        'event_id' => $event_id,
+                        'event' => $event,
+                        'account' => 'payment_house_credit',
+                        'entry_type' => 'house_credit',
+                        'description' => 'House Credit Applied',
+                        'debit' => $line_house_credit,
+                        'credit' => 0,
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
+                    ]);
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create payment_house_credit ledger entry for order $order_id, purchase $purchase_id.");
+                    }
+
+                    $entry_id = $ledger_query->add_item([
+                        'purchase_id' => $purchase_id,
+                        'family_id' => $purchase->family_id,
+                        'order_id' => $order_id,
+                        'event_id' => $event_id,
+                        'event' => $event,
+                        'account' => $purchase->type . '_fees',
+                        'entry_type' => 'house_credit',
+                        'description' => 'House Credit Applied',
+                        'debit' => 0,
+                        'credit' => $line_house_credit,
+                        'created_at' => $created_at,
+                        'created_by' => $created_by,
+                    ]);
+                    if (!$entry_id) {
+                        throw new Exception("Failed to create {$purchase->type}_fees house_credit ledger entry for order $order_id, purchase $purchase_id.");
+                    }
                 }
             }
 
