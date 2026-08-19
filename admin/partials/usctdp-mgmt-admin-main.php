@@ -1,11 +1,20 @@
 <?php
 global $wpdb;
 
+// Joined to usctdp_purchase and scoped to status='active' (mirrors
+// get_family_balance() in class-usctdp-mgmt-admin-ajax.php) so a voided
+// purchase's original charge - never reversed when a registration is
+// voided, see ajax_set_registration_status() - doesn't keep counting as
+// owed here forever. Without this join, this widget was summing every
+// charge/payment/etc. row in the whole ledger table regardless of whether
+// the purchase it belongs to still stands.
 $balance_query =
     "   SELECT
-            SUM(debit) - SUM(credit) as total_balance
-        FROM {$wpdb->prefix}usctdp_ledger
-        WHERE account in ('registration_fees', 'merchandise_fees')";
+            SUM(ul.debit) - SUM(ul.credit) as total_balance
+        FROM {$wpdb->prefix}usctdp_ledger AS ul
+        JOIN {$wpdb->prefix}usctdp_purchase AS up ON ul.purchase_id = up.id
+        WHERE ul.account in ('registration_fees', 'merchandise_fees')
+        AND up.status = 'active'";
 
 $balance_results = $wpdb->get_row($balance_query);
 $formatter = new NumberFormatter('en_US', NumberFormatter::CURRENCY);

@@ -2383,20 +2383,30 @@ class Usctdp_Mgmt_Admin_Ajax
         $amount_fmt = new NumberFormatter('en_US', NumberFormatter::CURRENCY);
 
         global $wpdb;
+        // Joined to usctdp_purchase and scoped to status='active' (mirrors
+        // get_family_balance()) so a voided purchase's never-reversed
+        // charge (see ajax_set_registration_status()) doesn't keep
+        // inflating a family's balance here after the purchase itself was
+        // voided. Also scoped to both fee accounts, not just
+        // registration_fees - the original count_query missed
+        // merchandise_fees entirely, undercounting a family whose only
+        // outstanding balance was on a merchandise purchase.
         $query = $wpdb->prepare(
-            "   SELECT 
-                    family_id,
+            "   SELECT
+                    ledger.family_id,
                     MAX(fam.title) as family_name,
                     SUM(ledger.debit) as total_charges,
                     SUM(ledger.credit) as total_payments,
-                    (SUM(ledger.debit) - SUM(credit)) as balance_due
+                    (SUM(ledger.debit) - SUM(ledger.credit)) as balance_due
                 FROM {$wpdb->prefix}usctdp_ledger AS ledger
                 JOIN {$wpdb->prefix}usctdp_family AS fam ON ledger.family_id = fam.id
-                WHERE account in ('registration_fees', 'merchandise_fees')
+                JOIN {$wpdb->prefix}usctdp_purchase AS pur ON ledger.purchase_id = pur.id
+                WHERE ledger.account in ('registration_fees', 'merchandise_fees')
+                AND pur.status = 'active'
                 GROUP BY ledger.family_id
                 HAVING balance_due > %d
                 ORDER BY balance_due DESC
-                LIMIT %d 
+                LIMIT %d
                 OFFSET %d",
             $min_balance,
             $length,
@@ -2405,11 +2415,13 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $count_query = $wpdb->prepare(
             "   SELECT COUNT(*) FROM (
-                    SELECT family_id
-                    FROM {$wpdb->prefix}usctdp_ledger
-                    WHERE account = 'registration_fees'
-                    GROUP BY family_id
-                    HAVING (SUM(debit) - SUM(credit)) > %d
+                    SELECT ledger.family_id
+                    FROM {$wpdb->prefix}usctdp_ledger AS ledger
+                    JOIN {$wpdb->prefix}usctdp_purchase AS pur ON ledger.purchase_id = pur.id
+                    WHERE ledger.account in ('registration_fees', 'merchandise_fees')
+                    AND pur.status = 'active'
+                    GROUP BY ledger.family_id
+                    HAVING (SUM(ledger.debit) - SUM(ledger.credit)) > %d
                 ) AS temp_table",
             $min_balance
         );
