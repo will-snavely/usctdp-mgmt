@@ -112,10 +112,22 @@
             }
         }
 
+        // Same underlying reservation-group siblings as
+        // renderSharedActivitiesNote() above (both read data.shared_with -
+        // see ajax_get_activity_details()), just worded for what capacity
+        // means here rather than the roster.
+        function renderCapacitySharedNote(sharedWith) {
+            var isShared = Array.isArray(sharedWith) && sharedWith.length > 0;
+            $('#activity-capacity-shared-note').toggleClass('hidden', !isShared);
+            if (isShared) {
+                $('#activity-capacity-shared-list').text(sharedWith.join(', '));
+            }
+        }
+
         // Last-loaded values for the currently-selected activity - the
         // source of truth "Cancel" reverts to and dirty-checking compares
         // against, so neither one needs its own round-trip to the server.
-        var loadedActivityDetails = { level: '', type: null, schedule: null };
+        var loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null };
 
         // Tournament activities have no usctdp_clinic row (their schedule is
         // a JSON blob on usctdp_tournament instead - see
@@ -138,6 +150,7 @@
         function enterActivityDetailsEditMode() {
             $('#activity-detail-fields').addClass('editing');
             $('#activity-level-input').prop('readonly', false);
+            $('#activity-capacity-input').prop('readonly', false);
             $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', false);
             $('#edit-activity-details-btn').addClass('hidden');
             $('#save-activity-details-btn, #cancel-activity-details-btn').removeClass('hidden');
@@ -146,6 +159,7 @@
         function exitActivityDetailsEditMode() {
             $('#activity-detail-fields').removeClass('editing');
             $('#activity-level-input').prop('readonly', true);
+            $('#activity-capacity-input').prop('readonly', true);
             $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', true);
             $('#edit-activity-details-btn').removeClass('hidden');
             $('#save-activity-details-btn, #cancel-activity-details-btn').addClass('hidden');
@@ -159,6 +173,10 @@
             $('#activity-level-wrap').toggleClass(
                 'is-dirty',
                 $('#activity-level-input').val() !== (loadedActivityDetails.level || '')
+            );
+            $('#activity-capacity-wrap').toggleClass(
+                'is-dirty',
+                $('#activity-capacity-input').val() !== String(loadedActivityDetails.capacity ?? '')
             );
 
             var schedule = loadedActivityDetails.schedule;
@@ -197,26 +215,37 @@
         function loadActivityDetails(activityId) {
             exitActivityDetailsEditMode();
             if (!activityId) {
-                loadedActivityDetails = { level: '', type: null, schedule: null };
+                loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null };
                 $('#activity-level-input').val('');
+                $('#activity-capacity-input').val('');
                 renderActivityInstructors([]);
                 renderSharedActivitiesNote([]);
+                renderCapacitySharedNote([]);
                 renderActivitySchedule(null, null);
                 return;
             }
             USCTDP_Admin.ajax_getActivityDetails(activityId)
                 .then(function (data) {
-                    loadedActivityDetails = { level: data.level || '', type: data.type, schedule: data.schedule };
+                    loadedActivityDetails = {
+                        level: data.level || '',
+                        type: data.type,
+                        schedule: data.schedule,
+                        capacity: data.capacity
+                    };
                     $('#activity-level-input').val(loadedActivityDetails.level);
+                    $('#activity-capacity-input').val(loadedActivityDetails.capacity ?? '');
                     renderActivityInstructors(data.instructors);
                     renderSharedActivitiesNote(data.shared_with);
+                    renderCapacitySharedNote(data.shared_with);
                     renderActivitySchedule(data.type, data.schedule);
                 })
                 .catch(function () {
-                    loadedActivityDetails = { level: '', type: null, schedule: null };
+                    loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null };
                     $('#activity-level-input').val('');
+                    $('#activity-capacity-input').val('');
                     renderActivityInstructors([]);
                     renderSharedActivitiesNote([]);
+                    renderCapacitySharedNote([]);
                     renderActivitySchedule(null, null);
                 });
         }
@@ -528,6 +557,7 @@
 
         $('#cancel-activity-details-btn').on('click', function () {
             $('#activity-level-input').val(loadedActivityDetails.level);
+            $('#activity-capacity-input').val(loadedActivityDetails.capacity ?? '');
             renderActivitySchedule(loadedActivityDetails.type, loadedActivityDetails.schedule);
             exitActivityDetailsEditMode();
         });
@@ -542,6 +572,8 @@
             const dayOfWeek = $('#activity-day-select').val();
             const startTime = $('#activity-start-time-input').val();
             const endTime = $('#activity-end-time-input').val();
+            const capacityRaw = $('#activity-capacity-input').val();
+            const capacity = parseInt(capacityRaw, 10);
 
             if (isClinic) {
                 if (!startTime || !endTime) {
@@ -564,6 +596,16 @@
                 }
             }
 
+            if (capacityRaw === '' || isNaN(capacity) || capacity < 0) {
+                Swal.fire({
+                    title: 'Invalid Capacity',
+                    text: 'Capacity must be a non-negative whole number.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
             const saves = [
                 USCTDP_Admin.ajax_updateActivity(activityId, { level: $('#activity-level-input').val() })
             ];
@@ -574,6 +616,10 @@
                     end_time: endTime
                 }));
             }
+            // Pushed last regardless of isClinic, so it never disturbs the
+            // results[1] === clinic schedule assumption the success handler
+            // below relies on.
+            saves.push(USCTDP_Admin.ajax_updateActivityCapacity(activityId, capacity));
 
             $('#save-activity-details-btn').prop('disabled', true);
             Promise.all(saves)

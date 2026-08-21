@@ -42,6 +42,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'student_datatable' => 'ajax_student_datatable',
         'submit_payment' => 'ajax_submit_payment',
         'update_activity' => 'ajax_update_activity',
+        'update_activity_capacity' => 'ajax_update_activity_capacity',
         'update_clinic_schedule' => 'ajax_update_clinic_schedule',
         'update_family' => 'ajax_update_family',
         'update_family_name' => 'ajax_update_family_name',
@@ -565,12 +566,16 @@ class Usctdp_Mgmt_Admin_Ajax
                 $staff_query->get_staff_for_activity($activity_id)
             );
 
+            $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+            $group = $group_query->get_group($activity->reservation_group_id);
+
             wp_send_json_success([
                 'level' => $activity->level,
                 'type' => $activity->type,
                 'schedule' => $activity->type === 'clinic' ? $this->get_clinic_schedule($activity_id) : null,
                 'instructors' => $instructors,
                 'shared_with' => $this->get_shared_activity_titles($activity_id),
+                'capacity' => $group ? $group->capacity : null,
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_activity_details', $e);
@@ -736,6 +741,59 @@ class Usctdp_Mgmt_Admin_Ajax
             Usctdp_Mgmt::logger()->log_exception('ajax_update_activity', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
+    }
+
+    /**
+     * Sets the capacity on the reservation group backing an activity's
+     * shared registration pool - not a field on the activity itself, so
+     * this is a separate handler from ajax_update_activity() above, which
+     * only ever touches usctdp_activity. Mirrors set_capacity() in
+     * class-usctdp-manage-reservation-groups.php (the WP-CLI equivalent)
+     * exactly, including its validation.
+     *
+     * A reservation group can be shared by more than one activity (merged
+     * via `wp usctdp merge_reservation_group`) - ajax_get_activity_details()
+     * already surfaces that via 'shared_with', so the client can warn
+     * before this silently changes capacity for every sibling activity too.
+     */
+    public function ajax_update_activity_capacity()
+    {
+        $this->check_nonce('update_activity_capacity');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $capacity = isset($_POST['capacity']) ? $_POST['capacity'] : null;
+        if (!$activity_id) {
+            wp_send_json_error('activity_id is required.', 400);
+        }
+        if (!is_numeric($capacity) || intval($capacity) < 0) {
+            wp_send_json_error('Capacity must be a non-negative integer.', 400);
+        }
+
+        try {
+            $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+            if (!$activity) {
+                wp_send_json_error('Activity with ID ' . $activity_id . ' not found.', 404);
+            }
+
+            $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+            $group = $group_query->get_group($activity->reservation_group_id);
+            if (!$group) {
+                wp_send_json_error('No reservation group found for this activity.', 404);
+            }
+
+            $result = $group_query->update_item($group->id, [
+                'capacity' => intval($capacity),
+                'updated_at' => current_time('mysql', true),
+            ]);
+            if (!$result) {
+                wp_send_json_error('Failed to update capacity due to an unexpected server error.', 500);
+            }
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_activity_capacity', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+
+        wp_send_json_success(['capacity' => intval($capacity)]);
     }
 
     public function ajax_activity_add_instructor()

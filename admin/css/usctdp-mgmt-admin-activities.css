@@ -60,10 +60,12 @@
    that stretched all the way across the page instead of reading as a
    compact list. Capped to roughly the same width as the selectors above
    it (#context-selectors .select2-container's 370px cap). */
-/* Levels are short numeric strings (e.g. "1", "1.5", "2.0-2.5") - no need
-   for a full-width text field to accommodate them. */
-#activity-level-input {
-    width: 100px;
+/* Level and capacity are both short values (e.g. "1", "1.5", "2.0-2.5", or
+   a small integer) - no need for a full-width field for either, and kept
+   the same width as each other so the two fields line up. */
+#activity-level-input,
+#activity-capacity-input {
+    width: 70px;
 }
 
 /* #activity-details-section is a flex-col (see above), whose children

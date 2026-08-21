@@ -424,6 +424,36 @@
         }
     }
 
+    // Sets the capacity on the reservation group backing this activity's
+    // shared registration pool - see ajax_update_activity_capacity() in
+    // class-usctdp-mgmt-admin-ajax.php. Not part of ajax_updateActivity()
+    // above since capacity lives on a different table (usctdp_reservation_group,
+    // not usctdp_activity) and, for an activity in a merged group, affects
+    // every sibling activity sharing that same pool.
+    USCTDP_Admin.ajax_updateActivityCapacity = async function (activity_id, capacity) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.update_activity_capacity_action,
+                    security: usctdp_mgmt_admin.update_activity_capacity_nonce,
+                    activity_id: activity_id,
+                    capacity: capacity
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Update Activity Capacity Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     USCTDP_Admin.ajax_updateClinicSchedule = async function (activity_id, fields) {
         try {
             const response = await $.ajax({

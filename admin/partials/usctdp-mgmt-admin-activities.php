@@ -35,6 +35,10 @@
                     <label for="activity-level-input" class="upper-heavy">Level</label>
                     <input type="text" id="activity-level-input" placeholder="e.g. 1, 1.5, 2.0-2.5" readonly>
                 </div>
+                <div id="activity-capacity-wrap" class="detail-field flex-col gap-5">
+                    <label for="activity-capacity-input" class="upper-heavy">Capacity</label>
+                    <input type="number" id="activity-capacity-input" min="0" step="1" readonly>
+                </div>
                 <div id="activity-schedule-wrap" class="flex-row gap-20 flex-wrap hidden">
                     <div class="detail-field flex-col gap-5">
                         <label for="activity-day-select" class="upper-heavy">Day</label>
@@ -57,6 +61,12 @@
                         <input type="time" id="activity-end-time-input" disabled>
                     </div>
                 </div>
+            </div>
+            <div id="activity-capacity-shared-note" class="edit-note hidden">
+                <span>
+                    This capacity is shared with: <strong id="activity-capacity-shared-list"></strong>.
+                    Changing it changes the pool for all of them.
+                </span>
             </div>
             <div id="activity-instructors-wrap" class="flex-col gap-5">
                 <label class="upper-heavy">Instructors</label>
