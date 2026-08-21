@@ -85,6 +85,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-cleanup-session-variations.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-sync-billing-addresses.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -851,6 +854,42 @@ class Usctdp_Cli_Command
         $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
         $cleaner = new Usctdp_Cleanup_Session_Variations();
         $cleaner->cleanup($older_than_days, $fix);
+    }
+
+    /**
+     * Backfills usctdp_family.address/city/state/zip from the WooCommerce
+     * billing address on file for that family's linked WP account
+     * (billing_address_1/address_2/city/state/postcode in wp_usermeta).
+     * create_family_on_registration() (class-usctdp-mgmt-woocommerce-hooks.php)
+     * never collects an address at signup, so most self-registered
+     * families have all four blank even though the customer's own billing
+     * address is sitting right there in their account.
+     *
+     * Fill-only, per field - a family that already has something on file in
+     * any of the four columns keeps it; only a currently-blank field gets
+     * set, and only from a linked account with a billing address to offer.
+     * See Usctdp_Sync_Billing_Addresses's class doc comment for the full
+     * reasoning.
+     *
+     * Report-only by default - always run without --fix first and check
+     * the listing.
+     *
+     * ## OPTIONS
+     *
+     * [--fix]
+     * : Actually update addresses. Without this flag, only reports what
+     * would change.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp sync_billing_addresses
+     *     wp usctdp sync_billing_addresses --fix
+     */
+    public function sync_billing_addresses($args, $assoc_args)
+    {
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $syncer = new Usctdp_Sync_Billing_Addresses();
+        $syncer->run($fix);
     }
 }
 
