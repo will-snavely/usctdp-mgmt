@@ -42,7 +42,7 @@ class Usctdp_Mgmt_Admin
                 ],
                 'context' => ['family_id']
             ],
-            // Sessions/roster-group management only - viewing/managing a
+            // Roster-group management only - viewing/managing a
             // specific activity's roster and waitlist lives on the separate
             // 'activities' page below (this used to be a second tab here).
             'rosters' => [
@@ -57,6 +57,19 @@ class Usctdp_Mgmt_Admin
                     'roster_remove_session',
                     'roster_create',
                     'roster_delete_group',
+                ]
+            ],
+            // Session lifecycle: scheduled -> on_sale -> archived (see the
+            // 'status' entry in Usctdp_Mgmt_Session_Schema). update_session_status
+            // both writes the status and syncs WooCommerce pricing/variations
+            // for it - see Usctdp_Mgmt_Woocommerce::sync_onsale_sessions_for_session().
+            'sessions' => [
+                'title' => 'Sessions',
+                'ajax' => [
+                    'sessions_datatable',
+                    'update_session_status',
+                    'get_session_pricing',
+                    'update_pricing',
                 ]
             ],
             'activities' => [
@@ -312,11 +325,10 @@ class Usctdp_Mgmt_Admin
         add_action('load-' . $main_menu_page, function () {
             $this->enqueue_usctdp_page_script('main');
             $this->enqueue_usctdp_page_style('main');
-            // toggle_session_active dropped - no UI on this page calls it
-            // anymore (the "Add Session"/"Hide" active-session controls were
-            // removed from the Rosters widget). The ajax_toggle_session_active
-            // handler itself is untouched, ready to wire up wherever that
-            // capability ends up living.
+            // The old toggle_session_active handler (and its "Add
+            // Session"/"Hide" controls on the Rosters widget) is gone -
+            // session status is now set on the dedicated 'sessions' page,
+            // via update_session_status.
             $main_ajax = ['gen_roster', 'select2_search', 'session_rosters', 'recent_registrations'];
             $this->load_admin_page('main', $main_ajax, [], []);
         });

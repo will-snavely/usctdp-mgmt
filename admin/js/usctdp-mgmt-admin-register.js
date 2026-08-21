@@ -510,6 +510,12 @@
                 name: 'session_id',
                 label: 'Session',
                 target: 'session',
+                // Don't offer archived sessions as somewhere to register a
+                // new student - active:1 excludes only 'archived', not
+                // 'scheduled' (see search_sessions() in Usctdp_Mgmt_Session_Query).
+                filter: function () {
+                    return { active: 1 };
+                },
                 branches: ['clinic-selector', 'activity-selector', 'merchandise-selector'],
                 next: function (value, $el) {
                     if (value === 'merch_only') {

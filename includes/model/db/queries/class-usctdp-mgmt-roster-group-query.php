@@ -261,7 +261,7 @@ class Usctdp_Mgmt_Roster_Group_Query extends Query
                 GROUP_CONCAT(sesh.title ORDER BY rgs.id SEPARATOR '||') as session_titles
             FROM {$group_table} AS rg
             LEFT JOIN {$group_session_table} AS rgs ON rgs.roster_group_id = rg.id
-            LEFT JOIN {$session_table} AS sesh ON sesh.id = rgs.session_id AND sesh.is_active = 1
+            LEFT JOIN {$session_table} AS sesh ON sesh.id = rgs.session_id AND sesh.status != 'archived'
             LEFT JOIN (
                 SELECT roster_group_id, MIN(session_id) as primary_session_id
                 FROM {$group_session_table}

@@ -23,9 +23,16 @@ class Usctdp_Mgmt_Session_Schema extends Schema
             'type' => 'tinytext',
             'index' => true,
         ],
-        'is_active' => [
-            'name' => 'is_active',
-            'type' => 'bool',
+        // Lifecycle: 'scheduled' (part of the published season schedule,
+        // admin can manage it, but not yet on sale) -> 'on_sale' (also open
+        // for registration) -> 'archived' (hidden from most admin screens
+        // and the public schedule, not on sale). Replaces the old is_active
+        // bool - see Usctdp_Mgmt_Session_Table::migrate_is_active_to_status().
+        'status' => [
+            'name' => 'status',
+            'type' => 'varchar',
+            'length' => '20',
+            'default' => 'scheduled',
             'index' => true
         ],
         'start_date' => [

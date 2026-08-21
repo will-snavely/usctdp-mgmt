@@ -19,6 +19,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'get_activity_details' => 'ajax_get_activity_details',
         'get_family' => 'ajax_get_family',
         'get_family_balance' => 'ajax_get_family_balance',
+        'get_session_pricing' => 'ajax_get_session_pricing',
         'issue_house_credit' => 'ajax_issue_house_credit',
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
@@ -36,16 +37,18 @@ class Usctdp_Mgmt_Admin_Ajax
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
+        'sessions_datatable' => 'ajax_sessions_datatable',
         'set_registration_status' => 'ajax_set_registration_status',
         'student_datatable' => 'ajax_student_datatable',
         'submit_payment' => 'ajax_submit_payment',
-        'toggle_session_active' => 'ajax_toggle_session_active',
         'update_activity' => 'ajax_update_activity',
         'update_clinic_schedule' => 'ajax_update_clinic_schedule',
         'update_family' => 'ajax_update_family',
         'update_family_name' => 'ajax_update_family_name',
         'update_registration' => 'ajax_update_registration',
+        'update_pricing' => 'ajax_update_pricing',
         'update_purchase' => 'ajax_update_purchase',
+        'update_session_status' => 'ajax_update_session_status',
         'update_student' => 'ajax_update_student',
         'waitlist_add' => 'ajax_waitlist_add',
         'waitlist_remove' => 'ajax_waitlist_remove',
@@ -1995,32 +1998,253 @@ class Usctdp_Mgmt_Admin_Ajax
         wp_send_json_success(['message' => 'Roster deleted successfully.']);
     }
 
-    public function ajax_toggle_session_active()
+    /**
+     * Server-side paging for the Sessions admin page - the status each row
+     * renders (and lets the admin change) is read from here and written
+     * back by ajax_update_session_status() below, which also syncs
+     * WooCommerce pricing/variations to match. See search_sessions_table()
+     * in Usctdp_Mgmt_Session_Query.
+     */
+    public function ajax_sessions_datatable()
     {
-        $this->check_nonce('toggle_session_active');
+        $this->check_nonce('sessions_datatable');
 
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+        $search_val = isset($_POST['search']['value']) ? sanitize_text_field($_POST['search']['value']) : '';
+        $status_filter = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
+
+        $session_query = new Usctdp_Mgmt_Session_Query();
+        $result = $session_query->search_sessions_table([
+            "q" => $search_val,
+            "status" => $status_filter,
+            "number" => $length,
+            "offset" => $start
+        ]);
+
+        $data = array_map(function ($row) {
+            $start_date = DateTime::createFromFormat('Y-m-d', $row->start_date);
+            $end_date = DateTime::createFromFormat('Y-m-d', $row->end_date);
+            return [
+                'id' => (int) $row->id,
+                'title' => $row->title,
+                'dates' => ($start_date ? $start_date->format('M j, Y') : '') .
+                    ' – ' . ($end_date ? $end_date->format('M j, Y') : ''),
+                'status' => $row->status,
+            ];
+        }, $result['data']);
+
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $result['count'],
+            "recordsFiltered" => $result['count'],
+            "data" => $data,
+        );
+        wp_send_json($response);
+    }
+
+    /**
+     * Sets a session's lifecycle status - see the 'status' entry in
+     * Usctdp_Mgmt_Session_Schema for what each state means - then:
+     *   1. Rebuilds usctdp_program_schedule (see rebuild_program_schedule()
+     *      and Usctdp_Build_Program_Schedule's docblock) - it includes every
+     *      non-archived session, so a status change can move a session in
+     *      or out of that materialized cache and it has no incremental
+     *      update path, same reason ajax_update_clinic_schedule() rebuilds
+     *      it after a schedule edit.
+     *   2. Syncs WooCommerce (pricing/variations/attributes) for every
+     *      product this session is priced under, via
+     *      Usctdp_Mgmt_Woocommerce::sync_onsale_sessions_for_session().
+     * The status write is the source of truth for the admin lifecycle
+     * regardless of what happens in steps 1/2 - a hiccup in either
+     * shouldn't silently roll it back, since 'scheduled'/'archived' are
+     * still meaningful admin states on their own - but the caller does
+     * need to know if either side didn't fully catch up, hence the
+     * separate try/catches and the *_failed flags below.
+     */
+    public function ajax_update_session_status()
+    {
+        $this->check_nonce('update_session_status');
+
+        $valid_statuses = ['scheduled', 'on_sale', 'archived'];
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
         try {
-            $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : '';
-            $active = isset($_POST['active']) ? intval($_POST['active']) : '';
             if (!$session_id) {
                 wp_send_json_error('No session ID provided.', 400);
             }
-            if ($active && ($active != 0 && $active != 1)) {
-                wp_send_json_error('Invalid active status provided.', 400);
+            if (!in_array($status, $valid_statuses, true)) {
+                wp_send_json_error('Invalid status provided.', 400);
             }
             $query = new Usctdp_Mgmt_Session_Query([]);
             $query_results = $query->update_item($session_id, [
-                'is_active' => $active
+                'status' => $status
             ]);
             if (!$query_results) {
-                wp_send_json_error('Failed to update session active status due to an unexpected server error.', 500);
+                wp_send_json_error('Failed to update session status due to an unexpected server error.', 500);
             }
         } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_toggle_session_active', $e);
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_session_status', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
+
+        $schedule_rebuild_failed = false;
+        try {
+            $this->rebuild_program_schedule();
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_session_status:schedule', $e);
+            $schedule_rebuild_failed = true;
+        }
+
+        $sync_failed = false;
+        try {
+            $woocommerce = new Usctdp_Mgmt_Woocommerce();
+            $woocommerce->sync_onsale_sessions_for_session($session_id);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_session_status:sync', $e);
+            $sync_failed = true;
+        }
+
+        if ($sync_failed || $schedule_rebuild_failed) {
+            $problems = [];
+            if ($schedule_rebuild_failed) {
+                $problems[] = 'rebuilding the public program schedule';
+            }
+            if ($sync_failed) {
+                $problems[] = 'syncing WooCommerce pricing/variations';
+            }
+            wp_send_json_success([
+                'message' => 'Session status updated, but ' . implode(' and ', $problems) . ' failed. Please inform a developer.',
+                'status' => $status,
+                'sync_failed' => $sync_failed,
+                'schedule_rebuild_failed' => $schedule_rebuild_failed,
+            ]);
+        }
+
         wp_send_json_success([
-            'message' => 'Session active status updated successfully'
+            'message' => 'Session status updated successfully',
+            'status' => $status,
+        ]);
+    }
+
+    /**
+     * Feeds the Sessions page's pricing modal - every usctdp_pricing row
+     * for a session, one per product it's priced under, with the product's
+     * title/type joined in so the client knows which fields to render
+     * (clinics: One/Two day price; tournaments: base/early_signup/
+     * with_clinic). Read-only; ajax_update_pricing() below is the write
+     * side.
+     */
+    public function ajax_get_session_pricing()
+    {
+        $this->check_nonce('get_session_pricing');
+
+        $session_id = isset($_GET['session_id']) ? intval($_GET['session_id']) : 0;
+        if (!$session_id) {
+            wp_send_json_error('session_id is required.', 400);
+        }
+
+        $data = [];
+        try {
+            $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+                'session_id' => $session_id,
+                'number' => 0,
+            ]);
+            foreach ($pricing_query->items as $row) {
+                $product = Usctdp_Mgmt_Model::get_product($row->product_id);
+                if (!$product) {
+                    continue;
+                }
+                $data[] = [
+                    'pricing_id' => (int) $row->id,
+                    'product_id' => (int) $row->product_id,
+                    'product_title' => $product->title,
+                    'product_type' => $product->type,
+                    'pricing' => $row->pricing ?: [],
+                ];
+            }
+            usort($data, function ($a, $b) {
+                return $a['product_id'] <=> $b['product_id'];
+            });
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_session_pricing', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+
+        wp_send_json_success(['data' => $data]);
+    }
+
+    /**
+     * Saves one usctdp_pricing row's JSON blob (see the pricing_id lookup
+     * below - one row is one (session, product) pair) from the modal's
+     * $_POST['pricing'] fields, then resyncs WooCommerce for that product
+     * via Usctdp_Mgmt_Woocommerce::sync_onsale_sessions_for_product() -
+     * if the session this row belongs to is currently 'on_sale' for this
+     * product, its live variation price needs to move with it; that method
+     * already no-ops for a session that isn't on_sale on this product, so
+     * it's always safe to call unconditionally here. Same two-phase
+     * try/catch as ajax_update_session_status(): the pricing write is the
+     * source of truth regardless of whether the sync afterward succeeds,
+     * but the caller does need to know if it didn't, hence sync_failed.
+     */
+    public function ajax_update_pricing()
+    {
+        $this->check_nonce('update_pricing');
+
+        $pricing_id = isset($_POST['pricing_id']) ? intval($_POST['pricing_id']) : 0;
+        $raw_pricing = isset($_POST['pricing']) && is_array($_POST['pricing']) ? $_POST['pricing'] : [];
+        $pricing = [];
+        $product_id = null;
+
+        try {
+            if (!$pricing_id) {
+                wp_send_json_error('pricing_id is required.', 400);
+            }
+
+            $pricing_query = new Usctdp_Mgmt_Pricing_Query(['id' => $pricing_id, 'number' => 1]);
+            $existing = $pricing_query->items[0] ?? null;
+            if (!$existing) {
+                wp_send_json_error('Pricing record not found.', 404);
+            }
+            $product_id = $existing->product_id;
+
+            // Only known keys, coerced to positive floats - a blank, zero,
+            // or missing field is dropped rather than stored as 0. Matches
+            // how the CLI importer writes this JSON
+            // (import_clinic_prices()/import_tournament_pricing() in
+            // class-usctdp-import-session-data.php) and how every reader of
+            // it (get_session_price_lines(), sync_product_variations(),
+            // etc.) already treats an absent key and an empty one the same.
+            foreach (['One', 'Two', 'base', 'early_signup', 'with_clinic'] as $key) {
+                if (isset($raw_pricing[$key]) && $raw_pricing[$key] !== '') {
+                    $amount = max(0, floatval($raw_pricing[$key]));
+                    if ($amount > 0) {
+                        $pricing[$key] = $amount;
+                    }
+                }
+            }
+
+            $pricing_query->update_item($pricing_id, [
+                'pricing' => json_encode($pricing),
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_pricing', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+
+        $sync_failed = false;
+        try {
+            $woocommerce = new Usctdp_Mgmt_Woocommerce();
+            $woocommerce->sync_onsale_sessions_for_product($product_id);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_update_pricing:sync', $e);
+            $sync_failed = true;
+        }
+
+        wp_send_json_success([
+            'pricing' => $pricing,
+            'sync_failed' => $sync_failed,
         ]);
     }
 

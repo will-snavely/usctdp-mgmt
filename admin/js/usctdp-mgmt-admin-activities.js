@@ -396,6 +396,16 @@
                 name: 'session_id',
                 label: 'Session',
                 target: 'session',
+                // active:1 excludes only 'archived' sessions from this
+                // typeahead, not 'scheduled' ones (see search_sessions() in
+                // Usctdp_Mgmt_Session_Query) - an archived session's
+                // activities are still directly reachable via a preloaded
+                // deep link (see preloadedData below, which injects the
+                // option straight into select2 without going through this
+                // filter), just not offered as a fresh search result.
+                filter: function () {
+                    return { active: 1 };
+                },
                 // Tournament sessions have exactly one activity, so there's
                 // nothing left to pick - skip straight past Product/Day.
                 next: function (value, $el) {

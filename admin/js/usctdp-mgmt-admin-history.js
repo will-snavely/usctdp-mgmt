@@ -252,12 +252,21 @@
             });
         }
 
+        // Feeds the editable Session field on a registration row (see
+        // .session-select in _renderMiddleSection()) - this is picking a
+        // session to MOVE an existing registration into, not just browsing,
+        // so (unlike #session-filter below) archived sessions are excluded.
+        // active:1 excludes only 'archived', not 'scheduled' (see
+        // search_sessions() in Usctdp_Mgmt_Session_Query).
         function initSessionSelector($selectElem) {
             $selectElem.select2(
                 USCTDP_Admin.select2Options({
                     placeholder: "Search for a session...",
                     allowClear: true,
-                    target: 'session'
+                    target: 'session',
+                    filter: function () {
+                        return { active: 1 };
+                    }
                 })
             );
         }
@@ -1190,6 +1199,9 @@
             })
         );
 
+        // Deliberately no active:1 filter here, unlike initSessionSelector()
+        // above - this is browsing/searching past purchase history, where
+        // archived sessions are exactly what staff need to still find.
         $('#session-filter').select2(
             USCTDP_Admin.select2Options({
                 placeholder: "Filter by session...",

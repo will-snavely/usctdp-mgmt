@@ -251,6 +251,95 @@
         }
     }
 
+    // status is 'scheduled' | 'on_sale' | 'archived' - see the 'status' entry
+    // in Usctdp_Mgmt_Session_Schema. This also rebuilds the public program
+    // schedule and syncs WooCommerce pricing/variations to match on the
+    // server - see ajax_update_session_status() in
+    // class-usctdp-mgmt-admin-ajax.php. A successful response can still
+    // carry sync_failed: true and/or schedule_rebuild_failed: true if the
+    // status write succeeded but one of those side effects didn't - see
+    // usctdp-mgmt-admin-sessions.js for how that's shown.
+    USCTDP_Admin.ajax_updateSessionStatus = async function (session_id, status) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.update_session_status_action,
+                    security: usctdp_mgmt_admin.update_session_status_nonce,
+                    session_id: session_id,
+                    status: status
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Update Session Status Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    // Returns an array of {pricing_id, product_id, product_title,
+    // product_type, pricing} - one entry per usctdp_pricing row for this
+    // session (one per product it's priced under). See
+    // ajax_get_session_pricing() in class-usctdp-mgmt-admin-ajax.php.
+    USCTDP_Admin.ajax_getSessionPricing = async function (session_id) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.get_session_pricing_action,
+                    security: usctdp_mgmt_admin.get_session_pricing_nonce,
+                    session_id: session_id
+                }
+            });
+            if (response.success) {
+                return response.data.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Get Session Pricing Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    // `pricing` is a plain {key: value} object (e.g. {One: 150, Two: 250},
+    // or {base: 75, early_signup: 60}) - whatever's present gets kept,
+    // saved, and returned; server-side, a blank/zero/missing key is dropped
+    // rather than stored as 0 (see ajax_update_pricing()). This also syncs
+    // WooCommerce pricing/variations for the pricing row's product on the
+    // server, so a successful response can still carry sync_failed: true.
+    USCTDP_Admin.ajax_updatePricing = async function (pricing_id, pricing) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.update_pricing_action,
+                    security: usctdp_mgmt_admin.update_pricing_nonce,
+                    pricing_id: pricing_id,
+                    pricing: pricing
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Update Pricing Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
     // Usctdp_Session_Category::Junior_Tournament / Adult_Tournament
     USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES = [5, 6];
 

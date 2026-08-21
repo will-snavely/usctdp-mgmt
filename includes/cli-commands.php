@@ -82,6 +82,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-ledger-adjust.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-cleanup-session-variations.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -815,6 +818,39 @@ class Usctdp_Cli_Command
 
         $adjuster = new Usctdp_Ledger_Adjust();
         $adjuster->adjust($purchase_id, $type, $amount, $opts, $fix, $assoc_args);
+    }
+
+    /**
+     * Permanently deletes WooCommerce session variations that
+     * Usctdp_Mgmt_Woocommerce::sync_product_variations() has disabled (taken
+     * off sale, but deliberately not deleted - see that method's docblock)
+     * and that have stayed disabled for a while, as long as they've never
+     * appeared on a real order. A variation that's ever been sold is never
+     * deleted here, regardless of age.
+     *
+     * Report-only by default - always run without --fix first and check
+     * the listing, especially the "still referenced by a past order" lines.
+     *
+     * ## OPTIONS
+     *
+     * [--older-than=<days>]
+     * : Only consider variations disabled at least this many days. Default: 90.
+     *
+     * [--fix]
+     * : Actually delete what's found. Without this flag, only reports it.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp cleanup_session_variations
+     *     wp usctdp cleanup_session_variations --older-than=180
+     *     wp usctdp cleanup_session_variations --fix
+     */
+    public function cleanup_session_variations($args, $assoc_args)
+    {
+        $older_than_days = (int) \WP_CLI\Utils\get_flag_value($assoc_args, 'older-than', 90);
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $cleaner = new Usctdp_Cleanup_Session_Variations();
+        $cleaner->cleanup($older_than_days, $fix);
     }
 }
 

@@ -127,7 +127,6 @@ class Usctdp_Import_Session_Data
             $session_data = [
                 "title" => $title,
                 "search_term" => $search_term,
-                "is_active" => 1,
                 "start_date" => $start_date->format("Y-m-d"),
                 "end_date" => $end_date->format("Y-m-d"),
                 "num_weeks" => $session['length_weeks'],
@@ -143,10 +142,18 @@ class Usctdp_Import_Session_Data
             if (!empty($query->items)) {
                 $session_id = $query->items[0]->id;
                 WP_CLI::log("Session '$name' already exists (id=$session_id), updating");
+                // status is deliberately left out here - it's an admin-owned
+                // lifecycle decision (scheduled/on_sale/archived), not import
+                // data, so re-running the importer must not silently
+                // un-archive or un-publish a session someone already staged.
                 $query->update_item($session_id, $session_data);
             } else {
                 WP_CLI::log("Creating session '$name'");
-                $session_id = $query->add_item($session_data);
+                // New sessions always start scheduled - visible to admin and
+                // on the public program schedule, but not yet on sale.
+                // Promoting to on_sale is a deliberate action on the
+                // Sessions admin page, not something import should do.
+                $session_id = $query->add_item(array_merge($session_data, ["status" => "scheduled"]));
             }
             // Every session starts with its own explicit roster group, named
             // after the session, rather than relying on the admin UI's lazy
@@ -160,9 +167,6 @@ class Usctdp_Import_Session_Data
             $this->sessions_by_category[$session_category->value][] = $session_id;
             $this->session_data[$session_id] = $session;
             $this->sessions_by_name[$session['name']] = $session_id;
-            if (!empty($session['active'])) {
-                $this->active_session_ids[$session_id] = true;
-            }
         }
     }
 

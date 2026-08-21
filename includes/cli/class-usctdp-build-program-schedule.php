@@ -1,5 +1,17 @@
 <?php
 
+/**
+ * Rebuilds usctdp_program_schedule, which App\Repositories\ProgramsRepository
+ * (theme) reads to render the public programs listing. Both queries below
+ * include every non-archived session - 'scheduled' sessions show up here
+ * too, not just 'on_sale' ones - so this listing reflects the full season
+ * schedule as published, regardless of whether a session has actually gone
+ * on sale yet. Actual purchasability is gated separately and more
+ * narrowly: a scheduled (not yet on_sale) session has no WooCommerce
+ * variations synced for it (see
+ * Usctdp_Mgmt_Woocommerce::sync_onsale_sessions_for_session()), so it won't
+ * be selectable on the product page even though it's listed here.
+ */
 class Usctdp_Build_Program_Schedule
 {
     private function get_clinic_activities()
@@ -33,7 +45,7 @@ class Usctdp_Build_Program_Schedule
                 JOIN {$wpdb->prefix}usctdp_clinic AS clinic ON act.id = clinic.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
-                WHERE sess.is_active = 1
+                WHERE sess.status != 'archived'
                 ORDER BY act.id ASC"
         );
     }
@@ -66,7 +78,7 @@ class Usctdp_Build_Program_Schedule
                 JOIN {$wpdb->prefix}usctdp_tournament AS tourn ON act.id = tourn.id
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
-                WHERE sess.is_active = 1
+                WHERE sess.status != 'archived'
                 ORDER BY tourn.start_date ASC"
         );
     }

@@ -1,0 +1,162 @@
+/* A <dl> laid out as a row of cards (one per lifecycle stage) rather than
+   a definition list's default stacked layout - dt/dd pairs are wrapped in
+   their own .sessions-status-legend-item div since <dl> only guarantees
+   dt/dd stay in document order, not that they group visually without a
+   wrapper to apply flex/grid to. */
+.sessions-status-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin: 10px 0 15px;
+    padding: 0;
+}
+
+.sessions-status-legend-item {
+    flex: 1 1 200px;
+    max-width: 260px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+}
+
+.sessions-status-legend-item dt {
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.sessions-status-legend-item dd {
+    margin: 0;
+    color: #4b5563;
+    font-size: 0.9em;
+}
+
+#sessions-toolbar {
+    margin-bottom: 10px;
+}
+
+/* Only 4 columns (title, dates, status, actions), so letting this stretch
+   to the full admin content width just leaves it looking sparse - capped
+   to a width that still comfortably fits a long session title, a date
+   range, the status control, and the Pricing button, table itself still
+   fills that narrower wrapper. */
+#sessions-table-wrap {
+    width: 100%;
+    max-width: 900px;
+}
+
+#sessions-table {
+    width: 100% !important;
+}
+
+.status-column,
+.actions-column {
+    text-align: center;
+}
+
+/* Color-codes the lifecycle stage directly on the <select> itself (rather
+   than a separate read-only badge next to it) so the control doubles as the
+   status indicator. Each status below gets its own distinct hue - not just
+   a shade of gray - and the same three colors are reused on the legend
+   cards above (.sessions-status-legend-item.status-*) so a stage reads as
+   the same color everywhere on this page:
+     Scheduled - blue,  on the published schedule, not yet on sale
+     On Sale   - green, the "live"/success color used elsewhere in this
+                 plugin (see .success in usctdp-mgmt-admin.css)
+     Archived  - slate, retired/inactive
+*/
+.session-status-select {
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-weight: bold;
+    border: 1px solid transparent;
+}
+
+.session-status-select.status-scheduled,
+.sessions-status-legend-item.status-scheduled {
+    background-color: #dbeafe;
+    border-color: #93c5fd;
+}
+
+.session-status-select.status-scheduled {
+    color: #1e40af;
+}
+
+.sessions-status-legend-item.status-scheduled dt {
+    color: #1e40af;
+}
+
+.session-status-select.status-on_sale,
+.sessions-status-legend-item.status-on_sale {
+    background-color: #d2fad7;
+    border-color: #9ae6a8;
+}
+
+.session-status-select.status-on_sale {
+    color: #1e6b2e;
+}
+
+.sessions-status-legend-item.status-on_sale dt {
+    color: #1e6b2e;
+}
+
+.session-status-select.status-archived,
+.sessions-status-legend-item.status-archived {
+    background-color: #e2e8f0;
+    border-color: #cbd5e1;
+}
+
+.session-status-select.status-archived {
+    color: #334155;
+}
+
+.sessions-status-legend-item.status-archived dt {
+    color: #334155;
+}
+
+.session-status-select:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+/* ------------------------------------------------------------------
+ * Pricing modal
+ * ------------------------------------------------------------------ */
+
+#session-pricing-modal {
+    min-width: 480px;
+    max-width: 600px;
+}
+
+.modal-subtitle {
+    margin: -14px 0 0;
+    color: #666;
+    font-size: 0.95em;
+}
+
+#pricing-modal-empty {
+    color: #666;
+    font-style: italic;
+}
+
+.pricing-product-card {
+    padding: 10px 12px;
+    background: #f6f7f7;
+    border-radius: 8px;
+}
+
+.pricing-product-title {
+    margin: 0 0 8px;
+    font-size: 1em;
+}
+
+/* Overrides dialog .modal_field's default (a label:100px + input:1fr grid
+   meant to fill a single full-width row) - here several fields sit side by
+   side per card, so each one needs its own bounded width instead of
+   stretching to the card's full width. */
+.pricing-fields .modal_field {
+    flex: 1 1 200px;
+}
+
+.pricing-fields .modal_field input {
+    width: 100%;
+}
