@@ -771,8 +771,6 @@
                     var statusFilterValue = $('#status-filter').val();
                     if (statusFilterValue) {
                         d.status = statusFilterValue;
-                    } else {
-                        d.status = "active";
                     }
 
                     if ($('#owes-filter').is(':checked')) {
