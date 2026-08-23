@@ -85,10 +85,12 @@ class Usctdp_Mgmt_Admin
                     'roster_link',
                     'get_activity_details',
                     'update_activity',
-                    'update_activity_capacity',
                     'update_clinic_schedule',
                     'activity_add_instructor',
                     'activity_remove_instructor',
+                    'save_activity_group_details',
+                    'move_activity_to_group',
+                    'create_activity_group',
                 ],
                 'context' => ['activity_id']
             ],

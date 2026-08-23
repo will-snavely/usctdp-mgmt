@@ -59,6 +59,104 @@ class Usctdp_Mgmt_Reservation_Group_Query extends Query
     }
 
     /**
+     * Repoints a single activity at an already-existing reservation group,
+     * then deletes its old group if that leaves it orphaned (no other
+     * activity still referencing it). Unlike merge() (see
+     * Usctdp_Manage_Reservation_Groups), which always creates a brand-new
+     * group when combining several pre-existing ones - so "which group
+     * wins" is never ambiguous - there's nothing ambiguous to resolve here:
+     * $target_group_id already unambiguously exists and survives, this just
+     * attaches the activity to it directly.
+     *
+     * @throws Reservation_Group_Exception On a missing activity/group or a failed write.
+     */
+    public function move_activity_to_group($activity_id, $target_group_id)
+    {
+        global $wpdb;
+        $activity_query = new Usctdp_Mgmt_Activity_Query(['id' => $activity_id, 'number' => 1]);
+        $activity = $activity_query->items[0] ?? null;
+        if (!$activity) {
+            throw new Reservation_Group_Exception("Activity #$activity_id not found.");
+        }
+        $target_group = $this->get_group($target_group_id);
+        if (!$target_group) {
+            throw new Reservation_Group_Exception("Reservation group #$target_group_id not found.");
+        }
+
+        $old_group_id = (int) $activity->reservation_group_id;
+        if ($old_group_id === (int) $target_group_id) {
+            return true;
+        }
+
+        $wpdb->query('START TRANSACTION');
+        try {
+            if (!$activity_query->update_item($activity_id, ['reservation_group_id' => $target_group_id])) {
+                throw new Exception('Failed to repoint activity.');
+            }
+            if (empty($this->get_member_activity_ids($old_group_id))) {
+                $this->delete_item($old_group_id);
+            }
+            $wpdb->query('COMMIT');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            throw new Reservation_Group_Exception('Failed to move activity to group: ' . $e->getMessage());
+        }
+        return true;
+    }
+
+    /**
+     * Creates a brand-new dedicated reservation group and repoints the
+     * given activity at it - splitting it out of a shared group (or just
+     * setting an explicit new capacity/name without affecting any sibling
+     * activities). Deletes the activity's old group if that leaves it
+     * orphaned, same as move_activity_to_group() above.
+     *
+     * @return int The new group's id.
+     * @throws Reservation_Group_Exception On a missing activity, invalid capacity, or a failed write.
+     */
+    public function create_group_for_activity($activity_id, $capacity, $name = null)
+    {
+        global $wpdb;
+        $activity_query = new Usctdp_Mgmt_Activity_Query(['id' => $activity_id, 'number' => 1]);
+        $activity = $activity_query->items[0] ?? null;
+        if (!$activity) {
+            throw new Reservation_Group_Exception("Activity #$activity_id not found.");
+        }
+        if (!is_numeric($capacity) || intval($capacity) < 0) {
+            throw new Reservation_Group_Exception('Capacity must be a non-negative integer.');
+        }
+        $capacity = intval($capacity);
+        $name = $name !== null ? trim((string) $name) : null;
+        $name = ($name === '') ? null : $name;
+        $old_group_id = (int) $activity->reservation_group_id;
+
+        $wpdb->query('START TRANSACTION');
+        $new_group_id = null;
+        try {
+            $new_group_id = $this->add_item([
+                'capacity' => $capacity,
+                'name' => $name,
+                'created_at' => current_time('mysql', true),
+                'updated_at' => current_time('mysql', true),
+            ]);
+            if (!$new_group_id) {
+                throw new Exception('Failed to create new reservation group.');
+            }
+            if (!$activity_query->update_item($activity_id, ['reservation_group_id' => $new_group_id])) {
+                throw new Exception('Failed to repoint activity.');
+            }
+            if (empty($this->get_member_activity_ids($old_group_id))) {
+                $this->delete_item($old_group_id);
+            }
+            $wpdb->query('COMMIT');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            throw new Reservation_Group_Exception('Failed to create group: ' . $e->getMessage());
+        }
+        return $new_group_id;
+    }
+
+    /**
      * Single source of truth for a reservation group's roster display name -
      * used both to title the generated .docx (Usctdp_Mgmt_Docgen::
      * generate_and_upload_reservation_group_roster()) and the register

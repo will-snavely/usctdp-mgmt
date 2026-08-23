@@ -724,15 +724,17 @@
         $('#view-roster-btn').on('click', function () {
             // Falls back to the activity's own name if roster_title hasn't
             // come back yet for some reason - roster_title is the combined
-            // group name/title (see get_shared_activity_titles()'s sibling,
+            // group name/title (see get_shared_activities()'s sibling,
             // get_roster_title_for_activity(), in the ajax handler).
             $('#roster-activity-name').text(selectedActivity.roster_title || selectedActivity.name);
 
+            // shared_with is [{id, title}] (see get_shared_activities()) -
+            // only .title is needed here.
             const sharedWith = selectedActivity.shared_with;
             const isShared = Array.isArray(sharedWith) && sharedWith.length > 0;
             $('#roster-shared-capacity-note').toggleClass('hidden', !isShared);
             if (isShared) {
-                $('#roster-shared-capacity-list').text(sharedWith.join(', '));
+                $('#roster-shared-capacity-list').text(sharedWith.map(function (a) { return a.title; }).join(', '));
             }
 
             viewRosterModal.showModal();

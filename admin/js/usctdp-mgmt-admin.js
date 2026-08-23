@@ -424,23 +424,58 @@
         }
     }
 
-    // Sets the capacity on the reservation group backing this activity's
-    // shared registration pool - see ajax_update_activity_capacity() in
-    // class-usctdp-mgmt-admin-ajax.php. Not part of ajax_updateActivity()
-    // above since capacity lives on a different table (usctdp_reservation_group,
-    // not usctdp_activity) and, for an activity in a merged group, affects
-    // every sibling activity sharing that same pool.
-    USCTDP_Admin.ajax_updateActivityCapacity = async function (activity_id, capacity) {
+    // Updates capacity (and, when shared, name) on the reservation group
+    // backing this activity's pool IN PLACE - never changes which group
+    // the activity belongs to (see ajax_moveActivityToGroup/
+    // ajax_createActivityGroup below for that). Omit `name` entirely
+    // (rather than passing '') for a standalone clinic, whose modal view
+    // has no name field - see ajax_save_activity_group_details() in
+    // class-usctdp-mgmt-admin-ajax.php for why that distinction matters.
+    // Not part of ajax_updateActivity() above since capacity/name live on
+    // a different table (usctdp_reservation_group, not usctdp_activity)
+    // and, for a shared group, affect every sibling activity in it too.
+    USCTDP_Admin.ajax_saveActivityGroupDetails = async function (activity_id, capacity, name) {
+        try {
+            const data = {
+                action: usctdp_mgmt_admin.save_activity_group_details_action,
+                security: usctdp_mgmt_admin.save_activity_group_details_nonce,
+                activity_id: activity_id,
+                capacity: capacity
+            };
+            if (name !== undefined) {
+                data.name = name;
+            }
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: data
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Save Activity Group Details Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    // Direct repoint to an already-existing group - see
+    // Usctdp_Mgmt_Reservation_Group_Query::move_activity_to_group() for why
+    // this doesn't spin up a new group the way the CLI merge command does.
+    USCTDP_Admin.ajax_moveActivityToGroup = async function (activity_id, group_id) {
         try {
             const response = await $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.update_activity_capacity_action,
-                    security: usctdp_mgmt_admin.update_activity_capacity_nonce,
+                    action: usctdp_mgmt_admin.move_activity_to_group_action,
+                    security: usctdp_mgmt_admin.move_activity_to_group_nonce,
                     activity_id: activity_id,
-                    capacity: capacity
+                    group_id: group_id
                 }
             });
             if (response.success) {
@@ -449,7 +484,35 @@
                 throw new Error(response.data || 'Server error');
             }
         } catch (error) {
-            console.error('Update Activity Capacity Failed:', error.statusText || error.message);
+            console.error('Move Activity To Group Failed:', error.statusText || error.message);
+            throw error;
+        }
+    }
+
+    // Creates a brand-new dedicated reservation group and moves this
+    // activity into it - splitting it out of a shared group. See
+    // Usctdp_Mgmt_Reservation_Group_Query::create_group_for_activity().
+    USCTDP_Admin.ajax_createActivityGroup = async function (activity_id, capacity, name) {
+        try {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.create_activity_group_action,
+                    security: usctdp_mgmt_admin.create_activity_group_nonce,
+                    activity_id: activity_id,
+                    capacity: capacity,
+                    name: name
+                }
+            });
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.data || 'Server error');
+            }
+        } catch (error) {
+            console.error('Create Activity Group Failed:', error.statusText || error.message);
             throw error;
         }
     }

@@ -29,7 +29,12 @@ class Usctdp_Mgmt_Select2
                 'callback' => $this->select2_activity_search(...),
                 'filters' => [
                     'session_id' => intval(...),
-                    'product_id' => intval(...)
+                    'product_id' => intval(...),
+                    // CSV of activity ids to leave out - the "add a clinic
+                    // sharing court space" picker on the Activities page
+                    // uses this to exclude the currently-selected activity
+                    // and its existing reservation-group members.
+                    'exclude_activity_ids' => sanitize_text_field(...)
                 ]
             ],
             'product' => [
@@ -111,7 +116,10 @@ class Usctdp_Mgmt_Select2
         $query = new Usctdp_Mgmt_Activity_Query();
         $session_id = $filters['session_id'] ?? null;
         $product_id = $filters['product_id'] ?? null;
-        $query_results = $query->search_activities($search, $session_id, $product_id, self::$limit);
+        $exclude_activity_ids = !empty($filters['exclude_activity_ids'])
+            ? array_map('intval', explode(',', $filters['exclude_activity_ids']))
+            : null;
+        $query_results = $query->search_activities($search, $session_id, $product_id, self::$limit, $exclude_activity_ids);
         if ($query_results) {
             foreach ($query_results as $result) {
                 $results[] = array(

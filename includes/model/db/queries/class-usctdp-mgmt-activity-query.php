@@ -59,7 +59,13 @@ class Usctdp_Mgmt_Activity_Query extends Query
         return $wpdb->get_results($query);
     }
 
-    public function search_activities($query, $session_id, $product_id, $limit = 10)
+    /**
+     * $exclude_ids added for the "add a clinic to this reservation group"
+     * picker (Usctdp_Mgmt_Select2's 'activity' target, exclude_activity_ids
+     * filter) - keeps the currently-selected activity and its existing
+     * group members from being offered as something to add again.
+     */
+    public function search_activities($query, $session_id, $product_id, $limit = 10, $exclude_ids = null)
     {
         global $wpdb;
         $sql = "SELECT * FROM";
@@ -82,6 +88,13 @@ class Usctdp_Mgmt_Activity_Query extends Query
         if ($product_id !== null) {
             $conditions[] = "product_id = %d";
             $args[] = $product_id;
+        }
+        if (!empty($exclude_ids)) {
+            $placeholders = implode(', ', array_fill(0, count($exclude_ids), '%d'));
+            $conditions[] = "id NOT IN ($placeholders)";
+            foreach ($exclude_ids as $exclude_id) {
+                $args[] = intval($exclude_id);
+            }
         }
         if (!empty($conditions)) {
             $sql .= " WHERE " . implode(" AND ", $conditions);

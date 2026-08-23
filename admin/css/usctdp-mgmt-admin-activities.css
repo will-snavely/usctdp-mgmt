@@ -20,6 +20,83 @@
     min-height: 120px;
 }
 
+/* Same dialog/select2 stacking issue as #waitlist-student-modal above -
+   #group-add-member-select uses dropdownParent: $('#manage-reservation-group-modal')
+   (see usctdp-mgmt-admin-activities.js) for the same reason. */
+#manage-reservation-group-modal {
+    overflow: visible;
+    min-width: 460px;
+    max-width: 560px;
+}
+
+.modal-subtitle {
+    margin: -14px 0 0;
+    color: #666;
+    font-size: 0.95em;
+}
+
+#group-mode-wrap p {
+    margin: 0 0 8px;
+    font-weight: 600;
+}
+
+.group-mode-radio {
+    display: block;
+    font-weight: normal;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
+
+.group-mode-radio:last-child {
+    margin-bottom: 0;
+}
+
+.group-mode-radio input {
+    margin-right: 8px;
+}
+
+/* Capacity and Name on Roster only need to fit a couple of digits / a
+   short phrase, not the full width dialog .modal_field's default
+   grid-template-columns: 100px 1fr would otherwise stretch them to - fixed
+   narrow input columns plus align-self: flex-start (overriding modal-body's
+   flex-col default of stretching every child to full width) keeps each
+   field hugging its own content instead of trailing off into empty space.
+   Both share the same 130px label column (wide enough for "Name on
+   Roster" on one line) so their right-justified labels (dialog .modal_field
+   label's justify-self: end) share a right edge, lining up both inputs'
+   left edges underneath regardless of the different input widths. */
+#group-capacity-wrap,
+#group-name-wrap {
+    grid-template-columns: 130px 220px;
+    align-self: flex-start;
+}
+
+#group-capacity-input {
+    width: 60px;
+}
+
+#group-modal-members-wrap label {
+    display: block;
+    margin-bottom: 6px;
+}
+
+#group-modal-members-list {
+    min-height: 32px;
+    margin-bottom: 8px;
+}
+
+/* Same reasoning as #activity-add-instructor-select-wrap below - pins the
+   select2 to the row's remaining space so the Add button doesn't shift
+   around as a selection is made. */
+#group-add-member-select-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#group-add-member-select-wrap .select2-container {
+    width: 100% !important;
+}
+
 #context-selectors {
     padding: 10px;
     margin-left: 10px;
@@ -54,17 +131,54 @@
     max-width: 100%;
 }
 
+/* Color-codes Save/Cancel for the normal Level/schedule edit flow, so the
+   "commit" vs. "discard" actions read apart at a glance instead of sitting
+   as two identical plain buttons. Same light-fill/dark-text pairing as the
+   Sessions page's On Sale status color (see .session-status-select.status-on_sale
+   in usctdp-mgmt-admin-sessions.css) for the green side, so "confirmed/
+   go" reads the same color across the plugin.
+
+   Scoped by ID, not just .button-save/.button-cancel, because WordPress's
+   own admin CSS styles buttons via the compound selector .wp-core-ui
+   .button (present on every wp-admin page) - two classes beat a single
+   class on specificity regardless of which stylesheet loads later, so a
+   bare .button-save rule was silently losing to WP's own colors. An ID
+   selector outranks any number of classes, so this wins unconditionally. */
+#save-activity-details-btn.button-save {
+    background-color: #d2fad7;
+    border-color: #9ae6a8;
+    color: #1e6b2e;
+}
+
+#save-activity-details-btn.button-save:hover {
+    background-color: #b8f0c2;
+    border-color: #7ddb92;
+    color: #145023;
+}
+
+#cancel-activity-details-btn.button-cancel {
+    background-color: #fee2e2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+#cancel-activity-details-btn.button-cancel:hover {
+    background-color: #fecaca;
+    border-color: #f87171;
+    color: #7f1d1d;
+}
+
 /* Without this, .instructor-item (a flex-row child of the flex-col list)
    stretches to the cross-axis default of align-items: stretch - and since
    #activity-details-section itself is full-width (flex: 1 1 100% above),
    that stretched all the way across the page instead of reading as a
    compact list. Capped to roughly the same width as the selectors above
    it (#context-selectors .select2-container's 370px cap). */
-/* Level and capacity are both short values (e.g. "1", "1.5", "2.0-2.5", or
-   a small integer) - no need for a full-width field for either, and kept
-   the same width as each other so the two fields line up. */
-#activity-level-input,
-#activity-capacity-input {
+/* Level is a short value (e.g. "1", "1.5", "2.0-2.5") - no need for a
+   full-width field. Capacity used to live here too, sized to match - it's
+   now edited entirely through the "Manage Group" modal instead (see
+   #group-capacity-wrap in usctdp-mgmt-admin-activities.php). */
+#activity-level-input {
     width: 70px;
 }
 
@@ -149,11 +263,13 @@
     border-radius: 6px;
 }
 
-/* avatar+name are left-packed by .flex-row's default justify-content, so
+/* avatar+name (or, in the "Manage Group" modal's members list, just a
+   title) are left-packed by .flex-row's default justify-content, so
    there's nothing pushing the remove button to the far edge on its own -
    margin-left: auto claims all the row's remaining space for it instead of
    leaving that as trailing whitespace after the button. */
-.instructor-item .remove-instructor-btn {
+.instructor-item .remove-instructor-btn,
+.instructor-item .remove-group-member-btn {
     margin-left: auto;
 }
 

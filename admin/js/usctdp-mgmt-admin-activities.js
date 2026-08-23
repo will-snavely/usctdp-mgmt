@@ -82,6 +82,35 @@
                 templateResult: formatStaffResult
             }));
 
+        // Initialized once here (not per modal-open) like every other
+        // select2 on this page - the filter reads loadedActivityDetails/
+        // groupModalMembers live at search time, so it always reflects
+        // whichever activity's group is currently open in the modal
+        // without needing to be re-initialized. Restricted to the same
+        // session as the activity being managed - "shares court space
+        // with" only makes sense within one session's schedule, and
+        // groupModalMembers (not loadedActivityDetails.sharedWith) is used
+        // for the exclude list so a clinic already staged as an add (but
+        // not yet Saved) isn't offered again - see syncGroupModalFields()
+        // below for where that array is (re)populated.
+        $('#group-add-member-select').select2(
+            USCTDP_Admin.select2Options({
+                placeholder: 'Search for a clinic to add...',
+                allowClear: true,
+                target: 'activity',
+                dropdownParent: $('#manage-reservation-group-modal'),
+                filter: function () {
+                    var excludeIds = [$('#activity-selector').val() || 0];
+                    groupModalMembers.forEach(function (a) {
+                        excludeIds.push(a.id);
+                    });
+                    return {
+                        exclude_activity_ids: excludeIds.join(','),
+                        session_id: loadedActivityDetails.sessionId
+                    };
+                }
+            }));
+
         function renderActivityInstructors(instructors) {
             var $list = $('#activity-instructors-list');
             $list.empty();
@@ -104,30 +133,20 @@
             });
         }
 
+        // sharedWith is [{id, title}] (see get_shared_activities() /
+        // ajax_get_activity_details()) - only .title is needed here.
         function renderSharedActivitiesNote(sharedWith) {
             var isShared = Array.isArray(sharedWith) && sharedWith.length > 0;
             $('#roster-shared-activities-note').toggleClass('hidden', !isShared);
             if (isShared) {
-                $('#roster-shared-activities-list').text(sharedWith.join(', '));
-            }
-        }
-
-        // Same underlying reservation-group siblings as
-        // renderSharedActivitiesNote() above (both read data.shared_with -
-        // see ajax_get_activity_details()), just worded for what capacity
-        // means here rather than the roster.
-        function renderCapacitySharedNote(sharedWith) {
-            var isShared = Array.isArray(sharedWith) && sharedWith.length > 0;
-            $('#activity-capacity-shared-note').toggleClass('hidden', !isShared);
-            if (isShared) {
-                $('#activity-capacity-shared-list').text(sharedWith.join(', '));
+                $('#roster-shared-activities-list').text(sharedWith.map(function (a) { return a.title; }).join(', '));
             }
         }
 
         // Last-loaded values for the currently-selected activity - the
         // source of truth "Cancel" reverts to and dirty-checking compares
         // against, so neither one needs its own round-trip to the server.
-        var loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null };
+        var loadedActivityDetails = { level: '', type: null, sessionId: null, schedule: null, capacity: null, groupId: null, groupName: null, sharedWith: [] };
 
         // Tournament activities have no usctdp_clinic row (their schedule is
         // a JSON blob on usctdp_tournament instead - see
@@ -150,7 +169,6 @@
         function enterActivityDetailsEditMode() {
             $('#activity-detail-fields').addClass('editing');
             $('#activity-level-input').prop('readonly', false);
-            $('#activity-capacity-input').prop('readonly', false);
             $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', false);
             $('#edit-activity-details-btn').addClass('hidden');
             $('#save-activity-details-btn, #cancel-activity-details-btn').removeClass('hidden');
@@ -159,7 +177,6 @@
         function exitActivityDetailsEditMode() {
             $('#activity-detail-fields').removeClass('editing');
             $('#activity-level-input').prop('readonly', true);
-            $('#activity-capacity-input').prop('readonly', true);
             $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', true);
             $('#edit-activity-details-btn').removeClass('hidden');
             $('#save-activity-details-btn, #cancel-activity-details-btn').addClass('hidden');
@@ -173,10 +190,6 @@
             $('#activity-level-wrap').toggleClass(
                 'is-dirty',
                 $('#activity-level-input').val() !== (loadedActivityDetails.level || '')
-            );
-            $('#activity-capacity-wrap').toggleClass(
-                'is-dirty',
-                $('#activity-capacity-input').val() !== String(loadedActivityDetails.capacity ?? '')
             );
 
             var schedule = loadedActivityDetails.schedule;
@@ -215,12 +228,10 @@
         function loadActivityDetails(activityId) {
             exitActivityDetailsEditMode();
             if (!activityId) {
-                loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null };
+                loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null, groupId: null, groupName: null, sharedWith: [] };
                 $('#activity-level-input').val('');
-                $('#activity-capacity-input').val('');
                 renderActivityInstructors([]);
                 renderSharedActivitiesNote([]);
-                renderCapacitySharedNote([]);
                 renderActivitySchedule(null, null);
                 return;
             }
@@ -229,23 +240,30 @@
                     loadedActivityDetails = {
                         level: data.level || '',
                         type: data.type,
+                        sessionId: data.session_id,
                         schedule: data.schedule,
-                        capacity: data.capacity
+                        capacity: data.capacity,
+                        groupId: data.group_id,
+                        groupName: data.group_name,
+                        sharedWith: data.shared_with
                     };
                     $('#activity-level-input').val(loadedActivityDetails.level);
-                    $('#activity-capacity-input').val(loadedActivityDetails.capacity ?? '');
                     renderActivityInstructors(data.instructors);
                     renderSharedActivitiesNote(data.shared_with);
-                    renderCapacitySharedNote(data.shared_with);
                     renderActivitySchedule(data.type, data.schedule);
+                    // Keeps an already-open modal's radio/capacity/name/
+                    // members in sync after a save elsewhere reloads
+                    // details (e.g. Level/schedule Save) - see
+                    // syncGroupModalFields() below.
+                    if (groupModal.open) {
+                        syncGroupModalFields();
+                    }
                 })
                 .catch(function () {
-                    loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null };
+                    loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null, groupId: null, groupName: null, sharedWith: [] };
                     $('#activity-level-input').val('');
-                    $('#activity-capacity-input').val('');
                     renderActivityInstructors([]);
                     renderSharedActivitiesNote([]);
-                    renderCapacitySharedNote([]);
                     renderActivitySchedule(null, null);
                 });
         }
@@ -557,7 +575,6 @@
 
         $('#cancel-activity-details-btn').on('click', function () {
             $('#activity-level-input').val(loadedActivityDetails.level);
-            $('#activity-capacity-input').val(loadedActivityDetails.capacity ?? '');
             renderActivitySchedule(loadedActivityDetails.type, loadedActivityDetails.schedule);
             exitActivityDetailsEditMode();
         });
@@ -572,8 +589,6 @@
             const dayOfWeek = $('#activity-day-select').val();
             const startTime = $('#activity-start-time-input').val();
             const endTime = $('#activity-end-time-input').val();
-            const capacityRaw = $('#activity-capacity-input').val();
-            const capacity = parseInt(capacityRaw, 10);
 
             if (isClinic) {
                 if (!startTime || !endTime) {
@@ -596,16 +611,6 @@
                 }
             }
 
-            if (capacityRaw === '' || isNaN(capacity) || capacity < 0) {
-                Swal.fire({
-                    title: 'Invalid Capacity',
-                    text: 'Capacity must be a non-negative whole number.',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-                return;
-            }
-
             const saves = [
                 USCTDP_Admin.ajax_updateActivity(activityId, { level: $('#activity-level-input').val() })
             ];
@@ -616,10 +621,6 @@
                     end_time: endTime
                 }));
             }
-            // Pushed last regardless of isClinic, so it never disturbs the
-            // results[1] === clinic schedule assumption the success handler
-            // below relies on.
-            saves.push(USCTDP_Admin.ajax_updateActivityCapacity(activityId, capacity));
 
             $('#save-activity-details-btn').prop('disabled', true);
             Promise.all(saves)
@@ -773,6 +774,254 @@
                         });
                 }
             });
+        });
+
+        /* ---------------------------------------------------------------
+         * Manage Reservation Group modal
+         *
+         * The radio at the top is purely a view toggle - picking "Shared"
+         * doesn't touch the server on its own, it just reveals the name/
+         * members fields underneath. The only actions that ever write are:
+         * Add/Remove (immediate, each its own call - same pattern as the
+         * instructor list above) and Save (capacity, plus name when
+         * Shared - or, if Standalone is newly selected on a group that
+         * currently has other members, a detach into a fresh dedicated
+         * group instead of a plain update - see the Save handler below).
+         * ------------------------------------------------------------- */
+
+        const groupModal = document.getElementById('manage-reservation-group-modal');
+
+        function isGroupModalShared() {
+            return $('#group-mode-shared').is(':checked');
+        }
+
+        function updateGroupModalMode() {
+            $('#group-shared-fields').toggleClass('hidden', !isGroupModalShared());
+        }
+
+        // sharedWith is [{id, title}] (see get_shared_activities()) - each
+        // row's remove button carries the sibling's own id, since removing
+        // it means splitting THAT activity out, not the one currently
+        // selected on the page. Renders from groupModalMembers (the local,
+        // not-yet-saved staging list - see syncGroupModalFields() and the
+        // Add/Remove handlers below), not loadedActivityDetails.sharedWith
+        // directly.
+        function renderGroupModalMembers(members) {
+            var $list = $('#group-modal-members-list');
+            $list.empty();
+            if (!members || members.length === 0) {
+                $list.append($('<div class="instructor-item-empty"></div>').text('Not sharing court space with anything else.'));
+                return;
+            }
+            members.forEach(function (activity) {
+                var $item = $('<div class="instructor-item flex-row gap-10 align-center"></div>');
+                $item.append($('<span></span>').text(activity.title));
+                var $removeBtn = $('<button type="button" class="usctdp-remove-btn remove-group-member-btn">&times;</button>');
+                $removeBtn.attr('data-activity-id', activity.id);
+                $item.append($removeBtn);
+                $list.append($item);
+            });
+        }
+
+        // Local working copy of the group's members, edited freely by
+        // Add/Remove below - nothing hits the server until Save, which
+        // diffs this against loadedActivityDetails.sharedWith (what was
+        // actually loaded) to figure out what changed. Same
+        // stage-then-diff-on-save pattern as the Rosters page's Edit
+        // Roster modal (editRosterSessions in usctdp-mgmt-admin-rosters.js).
+        var groupModalMembers = [];
+
+        function isGroupModalShared() {
+            return $('#group-mode-shared').is(':checked');
+        }
+
+        function updateGroupModalMode() {
+            $('#group-shared-fields').toggleClass('hidden', !isGroupModalShared());
+        }
+
+        // Re-populates every modal field (including resetting
+        // groupModalMembers to a fresh copy of what's actually saved) from
+        // the current loadedActivityDetails - called both when the modal
+        // opens and after Save succeeds and reloads it.
+        function syncGroupModalFields() {
+            var isShared = (loadedActivityDetails.sharedWith || []).length > 0;
+            $('#group-mode-standalone, #group-mode-shared').prop('checked', false);
+            $(isShared ? '#group-mode-shared' : '#group-mode-standalone').prop('checked', true);
+            updateGroupModalMode();
+
+            $('#group-modal-subtitle').text('Group #' + loadedActivityDetails.groupId);
+            $('#group-capacity-input').val(loadedActivityDetails.capacity ?? '');
+            $('#group-name-input').val(loadedActivityDetails.groupName || '');
+            $('#group-add-member-select').val(null).trigger('change');
+            groupModalMembers = (loadedActivityDetails.sharedWith || []).map(function (a) {
+                return { id: a.id, title: a.title };
+            });
+            renderGroupModalMembers(groupModalMembers);
+        }
+
+        $('#manage-group-btn').on('click', function () {
+            const activityId = $('#activity-selector').val();
+            if (!activityId) {
+                return;
+            }
+            syncGroupModalFields();
+            groupModal.showModal();
+        });
+
+        $('#group-mode-standalone, #group-mode-shared').on('change', updateGroupModalMode);
+
+        $('#group-modal-close-btn').on('click', function () {
+            groupModal.close();
+        });
+
+        $('#group-add-member-btn').on('click', function () {
+            const selected = $('#group-add-member-select').select2('data');
+            if (!selected || selected.length === 0) {
+                return;
+            }
+            const picked = selected[0];
+            // select2 option ids are strings; loadedActivityDetails.sharedWith's
+            // are ints (see get_shared_activities()) - normalized here so
+            // the id comparisons in the Save diff below aren't comparing a
+            // string against a number.
+            const pickedId = parseInt(picked.id, 10);
+            const alreadyStaged = groupModalMembers.some(function (a) { return a.id === pickedId; });
+            if (!alreadyStaged) {
+                groupModalMembers.push({ id: pickedId, title: picked.text });
+                renderGroupModalMembers(groupModalMembers);
+            }
+            $('#group-add-member-select').val(null).trigger('change');
+        });
+
+        $('#group-modal-members-list').on('click', '.remove-group-member-btn', function () {
+            const memberId = $(this).data('activity-id');
+            groupModalMembers = groupModalMembers.filter(function (a) { return a.id !== memberId; });
+            renderGroupModalMembers(groupModalMembers);
+        });
+
+        $('#group-save-btn').on('click', function () {
+            const activityId = $('#activity-selector').val();
+            if (!activityId) {
+                return;
+            }
+            const capacityRaw = $('#group-capacity-input').val();
+            const capacity = parseInt(capacityRaw, 10);
+            if (capacityRaw === '' || isNaN(capacity) || capacity < 0) {
+                Swal.fire({
+                    title: 'Invalid Capacity',
+                    text: 'Capacity must be a non-negative whole number.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
+            const wasShared = (loadedActivityDetails.sharedWith || []).length > 0;
+            const nowShared = isGroupModalShared();
+            const $btn = $(this);
+
+            if (wasShared && !nowShared) {
+                // Switching to Standalone on a group that currently has
+                // other members detaches THIS activity into a fresh
+                // dedicated group - the siblings stay behind, still
+                // sharing whatever's left of the old one. Independent of
+                // any staged Add/Remove edits, which are discarded along
+                // with the rest of the (now-abandoned) Shared view.
+                Swal.fire({
+                    title: 'Make this clinic standalone?',
+                    html: 'It will move into its own dedicated registration pool, separate from the clinics it currently shares with.',
+                    showDenyButton: true,
+                    confirmButtonText: 'Yes, Make Standalone',
+                    denyButtonText: 'Cancel'
+                }).then(function (result) {
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+                    $btn.prop('disabled', true);
+                    USCTDP_Admin.ajax_createActivityGroup(activityId, capacity, null)
+                        .then(function () {
+                            groupModal.close();
+                            Swal.fire({ title: 'Success', text: 'This clinic is now standalone.', icon: 'success', confirmButtonText: 'OK' });
+                            loadActivityDetails(activityId);
+                        })
+                        .catch(function (error) {
+                            Swal.fire({
+                                title: 'Error',
+                                text: error.message || 'Failed to make this clinic standalone. Please inform a developer.',
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
+                        })
+                        .finally(function () {
+                            $btn.prop('disabled', false);
+                        });
+                });
+                return;
+            }
+
+            // Diffs the staged member list against what was actually
+            // loaded, so Save only touches whichever clinics actually
+            // changed - existing, untouched members are never re-sent.
+            const originalMembers = loadedActivityDetails.sharedWith || [];
+            const originalIds = originalMembers.map(function (a) { return a.id; });
+            const currentIds = nowShared ? groupModalMembers.map(function (a) { return a.id; }) : [];
+            const toAdd = nowShared ? groupModalMembers.filter(function (a) { return originalIds.indexOf(a.id) === -1; }) : [];
+            const toRemove = nowShared ? originalMembers.filter(function (a) { return currentIds.indexOf(a.id) === -1; }) : [];
+
+            function applySave() {
+                $btn.prop('disabled', true);
+                const ops = [];
+                // The added clinic adopts THIS group's capacity/name as-is
+                // (a direct repoint, not a merge of two pools) - see
+                // Usctdp_Mgmt_Reservation_Group_Query::move_activity_to_group().
+                toAdd.forEach(function (a) {
+                    ops.push(USCTDP_Admin.ajax_moveActivityToGroup(a.id, loadedActivityDetails.groupId));
+                });
+                toRemove.forEach(function (a) {
+                    ops.push(USCTDP_Admin.ajax_createActivityGroup(a.id, capacity, null));
+                });
+                ops.push(USCTDP_Admin.ajax_saveActivityGroupDetails(activityId, capacity, nowShared ? $('#group-name-input').val() : undefined));
+                Promise.all(ops)
+                    .then(function () {
+                        groupModal.close();
+                        Swal.fire({ title: 'Success', text: 'Group details saved.', icon: 'success', confirmButtonText: 'OK' });
+                        loadActivityDetails(activityId);
+                    })
+                    .catch(function (error) {
+                        Swal.fire({
+                            title: 'Error',
+                            text: error.message || 'Failed to save group details. Please inform a developer.',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    })
+                    .finally(function () {
+                        $btn.prop('disabled', false);
+                    });
+            }
+
+            if (toRemove.length > 0) {
+                // Removing a member reaches out and detaches a DIFFERENT
+                // activity than the one selected on the page - worth a
+                // confirm since it's not the obviously-expected side
+                // effect of clicking Save on this activity's own modal.
+                const removedNames = toRemove.map(function (a) { return a.title; }).join(', ');
+                Swal.fire({
+                    title: 'Save these changes?',
+                    html: removedNames + ' will be split into ' + (toRemove.length > 1 ? 'their own' : 'its own') +
+                        ' dedicated registration pool' + (toRemove.length > 1 ? 's' : '') + ' (capacity ' + capacity + ').',
+                    showDenyButton: true,
+                    confirmButtonText: 'Yes, Save',
+                    denyButtonText: 'Cancel'
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        applySave();
+                    }
+                });
+                return;
+            }
+
+            applySave();
         });
 
         var preloadedData = {};

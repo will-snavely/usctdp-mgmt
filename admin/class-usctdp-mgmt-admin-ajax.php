@@ -7,6 +7,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'activity_preregistration' => 'ajax_activity_preregistration',
         'activity_remove_instructor' => 'ajax_activity_remove_instructor',
         'commit_merchandise' => 'ajax_commit_merchandise',
+        'create_activity_group' => 'ajax_create_activity_group',
         'create_family' => 'ajax_create_family',
         'create_ledger_entries' => 'ajax_create_ledger_entries',
         'create_student' => 'ajax_create_student',
@@ -23,6 +24,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'issue_house_credit' => 'ajax_issue_house_credit',
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
+        'move_activity_to_group' => 'ajax_move_activity_to_group',
         'preview_registration_activity_change' => 'ajax_preview_registration_activity_change',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
         'recent_registrations' => 'ajax_recent_registrations',
@@ -34,6 +36,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'roster_regenerate_all' => 'ajax_roster_regenerate_all',
         'roster_remove_session' => 'ajax_roster_remove_session',
         'roster_rename' => 'ajax_roster_rename',
+        'save_activity_group_details' => 'ajax_save_activity_group_details',
         'select2_search' => 'ajax_select2_search',
         'session_rosters' => 'ajax_session_rosters',
         'session_rosters_datatable' => 'ajax_session_rosters_datatable',
@@ -42,7 +45,6 @@ class Usctdp_Mgmt_Admin_Ajax
         'student_datatable' => 'ajax_student_datatable',
         'submit_payment' => 'ajax_submit_payment',
         'update_activity' => 'ajax_update_activity',
-        'update_activity_capacity' => 'ajax_update_activity_capacity',
         'update_clinic_schedule' => 'ajax_update_clinic_schedule',
         'update_family' => 'ajax_update_family',
         'update_family_name' => 'ajax_update_family_name',
@@ -163,14 +165,17 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
-     * Titles of the other activities (if any) sharing this one's
-     * reservation group - so the register page can tell staff why the
-     * capacity badge and the single-activity roster/waitlist views don't
-     * agree (see Usctdp_Mgmt_Reservation_Group_Table): the badge reflects
-     * everyone in the shared group, but View Roster/Waitlist only ever
-     * show this specific activity's registrants.
+     * The other activities (if any) sharing this one's reservation group -
+     * {id, title} pairs, not just titles, since the Activities page's
+     * "Manage Group" modal needs ids to offer removing a specific sibling
+     * (see ajax_create_activity_group()). Also feeds the register page's
+     * explanation of why the capacity badge and the single-activity
+     * roster/waitlist views don't agree (see Usctdp_Mgmt_Reservation_Group_Table):
+     * the badge reflects everyone in the shared group, but View
+     * Roster/Waitlist only ever show this specific activity's registrants -
+     * that caller only reads .title (see usctdp-mgmt-admin-register.js).
      */
-    private function get_shared_activity_titles($activity_id)
+    private function get_shared_activities($activity_id)
     {
         $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
         if (!$activity) {
@@ -186,7 +191,7 @@ class Usctdp_Mgmt_Admin_Ajax
         }
         $sibling_query = new Usctdp_Mgmt_Activity_Query(['id__in' => $sibling_ids, 'number' => 0]);
         return array_map(function ($sibling) {
-            return $sibling->title;
+            return ['id' => (int) $sibling->id, 'title' => $sibling->title];
         }, $sibling_query->items);
     }
 
@@ -370,7 +375,7 @@ class Usctdp_Mgmt_Admin_Ajax
             'enrollment' => $enrollment_counts['total'],
             'active' => $enrollment_counts['active'],
             'waitlist' => $enrollment_counts['waitlist'],
-            'shared_with' => $this->get_shared_activity_titles($activity_id),
+            'shared_with' => $this->get_shared_activities($activity_id),
             'roster_title' => $this->get_roster_title_for_activity($activity_id),
             'student_registered' => $student_registered,
             'student_waitlisted' => $student_waitlisted,
@@ -541,9 +546,10 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
-     * Feeds the Activities page's "Activity Details" panel (level +
-     * instructor list) on activity selection - same GET-on-selector-change
-     * pattern as ajax_get_roster_link() above.
+     * Feeds the Activities page's "Activity Details" panel (level,
+     * instructor list, schedule) AND the "Manage Group" modal (capacity,
+     * group_id/group_name, shared_with) on activity selection - same
+     * GET-on-selector-change pattern as ajax_get_roster_link() above.
      */
     public function ajax_get_activity_details()
     {
@@ -572,10 +578,13 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_success([
                 'level' => $activity->level,
                 'type' => $activity->type,
+                'session_id' => $activity->session_id,
                 'schedule' => $activity->type === 'clinic' ? $this->get_clinic_schedule($activity_id) : null,
                 'instructors' => $instructors,
-                'shared_with' => $this->get_shared_activity_titles($activity_id),
+                'shared_with' => $this->get_shared_activities($activity_id),
                 'capacity' => $group ? $group->capacity : null,
+                'group_id' => $group ? $group->id : null,
+                'group_name' => $group ? $group->name : null,
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_activity_details', $e);
@@ -744,24 +753,33 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
-     * Sets the capacity on the reservation group backing an activity's
-     * shared registration pool - not a field on the activity itself, so
-     * this is a separate handler from ajax_update_activity() above, which
-     * only ever touches usctdp_activity. Mirrors set_capacity() in
-     * class-usctdp-manage-reservation-groups.php (the WP-CLI equivalent)
-     * exactly, including its validation.
+     * Updates capacity (and, for a shared group, name) on the reservation
+     * group backing an activity's shared registration pool IN PLACE - not
+     * a field on the activity itself, so this is separate from
+     * ajax_update_activity() above, which only ever touches usctdp_activity.
+     * Mirrors set_capacity()/rename() in class-usctdp-manage-reservation-groups.php
+     * (the WP-CLI equivalents), combined into one call since the "Manage
+     * Group" modal saves both from a single Save button.
      *
-     * A reservation group can be shared by more than one activity (merged
-     * via `wp usctdp merge_reservation_group`) - ajax_get_activity_details()
-     * already surfaces that via 'shared_with', so the client can warn
-     * before this silently changes capacity for every sibling activity too.
+     * This never changes which group the activity belongs to - see
+     * ajax_move_activity_to_group() and ajax_create_activity_group() below
+     * for the two actions that do. A reservation group can be shared by
+     * more than one activity - ajax_get_activity_details() already
+     * surfaces that via 'shared_with', so the client can warn before this
+     * silently changes capacity/name for every sibling activity too.
      */
-    public function ajax_update_activity_capacity()
+    public function ajax_save_activity_group_details()
     {
-        $this->check_nonce('update_activity_capacity');
+        $this->check_nonce('save_activity_group_details');
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         $capacity = isset($_POST['capacity']) ? $_POST['capacity'] : null;
+        // Absent (not just empty-string) means "leave the name as-is" -
+        // the standalone-clinic view of the modal doesn't offer a name
+        // field at all, so it must not clear a name the group might
+        // already have from when it was last shared.
+        $name_provided = isset($_POST['name']);
+        $name = $name_provided ? sanitize_text_field($_POST['name']) : null;
         if (!$activity_id) {
             wp_send_json_error('activity_id is required.', 400);
         }
@@ -781,19 +799,87 @@ class Usctdp_Mgmt_Admin_Ajax
                 wp_send_json_error('No reservation group found for this activity.', 404);
             }
 
-            $result = $group_query->update_item($group->id, [
+            $update = [
                 'capacity' => intval($capacity),
                 'updated_at' => current_time('mysql', true),
-            ]);
+            ];
+            if ($name_provided) {
+                $trimmed = trim($name);
+                $update['name'] = $trimmed === '' ? null : $trimmed;
+            }
+
+            $result = $group_query->update_item($group->id, $update);
             if (!$result) {
-                wp_send_json_error('Failed to update capacity due to an unexpected server error.', 500);
+                wp_send_json_error('Failed to save group details due to an unexpected server error.', 500);
             }
         } catch (Throwable $e) {
-            Usctdp_Mgmt::logger()->log_exception('ajax_update_activity_capacity', $e);
+            Usctdp_Mgmt::logger()->log_exception('ajax_save_activity_group_details', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
         }
 
         wp_send_json_success(['capacity' => intval($capacity)]);
+    }
+
+    /**
+     * Moves an activity to an already-existing reservation group - see
+     * Usctdp_Mgmt_Reservation_Group_Query::move_activity_to_group() for why
+     * this is a direct repoint rather than the CLI merge command's
+     * always-create-a-new-group behavior.
+     */
+    public function ajax_move_activity_to_group()
+    {
+        $this->check_nonce('move_activity_to_group');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $target_group_id = isset($_POST['group_id']) ? intval($_POST['group_id']) : 0;
+        if (!$activity_id || !$target_group_id) {
+            wp_send_json_error('activity_id and group_id are required.', 400);
+        }
+
+        try {
+            $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+            $group_query->move_activity_to_group($activity_id, $target_group_id);
+        } catch (Reservation_Group_Exception $e) {
+            wp_send_json_error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_move_activity_to_group', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+
+        wp_send_json_success(['message' => 'Activity moved to the selected group.']);
+    }
+
+    /**
+     * Creates a brand-new dedicated reservation group and moves the given
+     * activity into it - "splitting" it out of a shared group. See
+     * Usctdp_Mgmt_Reservation_Group_Query::create_group_for_activity().
+     */
+    public function ajax_create_activity_group()
+    {
+        $this->check_nonce('create_activity_group');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $capacity = isset($_POST['capacity']) ? $_POST['capacity'] : null;
+        $name = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : null;
+        if (!$activity_id) {
+            wp_send_json_error('activity_id is required.', 400);
+        }
+        if (!is_numeric($capacity) || intval($capacity) < 0) {
+            wp_send_json_error('Capacity must be a non-negative integer.', 400);
+        }
+
+        $new_group_id = null;
+        try {
+            $group_query = new Usctdp_Mgmt_Reservation_Group_Query();
+            $new_group_id = $group_query->create_group_for_activity($activity_id, $capacity, $name);
+        } catch (Reservation_Group_Exception $e) {
+            wp_send_json_error($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_create_activity_group', $e);
+            wp_send_json_error('A system error occurred. Please try again.', 500);
+        }
+
+        wp_send_json_success(['group_id' => $new_group_id]);
     }
 
     public function ajax_activity_add_instructor()

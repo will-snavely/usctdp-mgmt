@@ -23,21 +23,69 @@
             </div>
         </dialog>
 
+        <dialog id="manage-reservation-group-modal">
+            <div class="modal-wrap">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Manage Capacity</h2>
+                        <p id="group-modal-subtitle" class="modal-subtitle"></p>
+                    </div>
+                    <div class="modal-body flex-col gap-15">
+                        <div id="group-mode-wrap">
+                            <p>Does this clinic share court or time space with another clinic?</p>
+                            <label class="group-mode-radio">
+                                <input type="radio" name="group-mode" id="group-mode-standalone" value="standalone">
+                                Standalone &mdash; this clinic has its own dedicated registration pool.
+                            </label>
+                            <label class="group-mode-radio">
+                                <input type="radio" name="group-mode" id="group-mode-shared" value="shared">
+                                Shared &mdash; it shares court space with other clinics.
+                            </label>
+                        </div>
+
+                        <div id="group-capacity-wrap" class="modal_field">
+                            <label for="group-capacity-input">Capacity</label>
+                            <input type="number" id="group-capacity-input" min="0" step="1">
+                        </div>
+
+                        <div id="group-shared-fields" class="flex-col gap-15 hidden">
+                            <div id="group-name-wrap" class="modal_field">
+                                <label for="group-name-input">Name on Roster</label>
+                                <input type="text" id="group-name-input" placeholder="Optional">
+                            </div>
+
+                            <div id="group-modal-members-wrap">
+                                <label class="upper-heavy">Shares Court Space With</label>
+                                <div id="group-modal-members-list" class="flex-col gap-5"></div>
+                                <div id="group-add-member-wrap" class="flex-row gap-10 align-center">
+                                    <div id="group-add-member-select-wrap">
+                                        <select id="group-add-member-select"></select>
+                                    </div>
+                                    <button type="button" class="button button-secondary" id="group-add-member-btn">Add</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="actions-footer modal-footer">
+                        <button type="button" class="button button-primary" id="group-save-btn">Save</button>
+                        <button type="button" class="button" id="group-modal-close-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+        </dialog>
+
         <div id="activity-details-section" class="flex-col gap-10">
             <div class="flex-row gap-10 align-center">
                 <h2> Activity Details </h2>
                 <button type="button" id="edit-activity-details-btn" class="button button-small">Modify</button>
-                <button type="button" id="save-activity-details-btn" class="button button-small hidden">Save</button>
-                <button type="button" id="cancel-activity-details-btn" class="button button-small hidden">Cancel</button>
+                <button type="button" id="save-activity-details-btn" class="button button-small button-save hidden">Save</button>
+                <button type="button" id="cancel-activity-details-btn" class="button button-small button-cancel hidden">Cancel</button>
+                <button type="button" id="manage-group-btn" class="button button-small">Manage Capacity</button>
             </div>
             <div id="activity-detail-fields" class="flex-row gap-20 flex-wrap">
                 <div id="activity-level-wrap" class="detail-field flex-col gap-5">
                     <label for="activity-level-input" class="upper-heavy">Level</label>
                     <input type="text" id="activity-level-input" placeholder="e.g. 1, 1.5, 2.0-2.5" readonly>
-                </div>
-                <div id="activity-capacity-wrap" class="detail-field flex-col gap-5">
-                    <label for="activity-capacity-input" class="upper-heavy">Capacity</label>
-                    <input type="number" id="activity-capacity-input" min="0" step="1" readonly>
                 </div>
                 <div id="activity-schedule-wrap" class="flex-row gap-20 flex-wrap hidden">
                     <div class="detail-field flex-col gap-5">
@@ -61,12 +109,6 @@
                         <input type="time" id="activity-end-time-input" disabled>
                     </div>
                 </div>
-            </div>
-            <div id="activity-capacity-shared-note" class="edit-note hidden">
-                <span>
-                    This capacity is shared with: <strong id="activity-capacity-shared-list"></strong>.
-                    Changing it changes the pool for all of them.
-                </span>
             </div>
             <div id="activity-instructors-wrap" class="flex-col gap-5">
                 <label class="upper-heavy">Instructors</label>
