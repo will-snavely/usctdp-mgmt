@@ -166,6 +166,17 @@ dialog#view-roster-modal {
     gap: 8px;
 }
 
+/* Racket/T-Shirt price only needs to fit a couple of digits, not the rest
+   of the checkbox+label row's width - sits right after the label at the
+   row's normal gap instead of stretching or being pushed to the far edge.
+   Hidden by default (see the "hidden" class in usctdp-mgmt-admin-register.php)
+   and toggled by the checkbox's own change handler in
+   usctdp-mgmt-admin-register.js, so the price only shows up once the
+   add-on is actually selected. */
+.addon-price-input {
+    width: 70px;
+}
+
 .notes-section label {
     font-weight: bold;
     text-align: left;

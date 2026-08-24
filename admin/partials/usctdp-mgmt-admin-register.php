@@ -162,10 +162,12 @@
                             <div id="add-racket-field" class="field-row addon-field">
                                 <input type="checkbox" name="add_racket" id="add_racket">
                                 <label for="add_racket">Add Racket</label>
+                                <input type="number" step="0.01" min="0" name="racket_price" id="racket_price" class="addon-price-input hidden">
                             </div>
                             <div id="add-tshirt-field" class="field-row addon-field">
                                 <input type="checkbox" name="add_tshirt" id="add_tshirt">
                                 <label for="add_tshirt">Add T-Shirt</label>
+                                <input type="number" step="0.01" min="0" name="tshirt_price" id="tshirt_price" class="addon-price-input hidden">
                             </div>
                         </div>
                     </div>

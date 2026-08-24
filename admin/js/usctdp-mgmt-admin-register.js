@@ -12,6 +12,23 @@
             'tshirt': USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.tshirt_pricing),
             'racket': USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.racket_pricing)
         };
+        // Pre-fills the Add Racket/T-Shirt price fields with their normal
+        // price, same starting-point-the-admin-can-edit role
+        // bind_merchandise_info() plays for #merch_base_price below - these
+        // two have no dropdown-driven equivalent to re-trigger that fill
+        // from, so it just happens once here instead.
+        $('#racket_price').val(MERCHANDISE_PRICING.racket.toFixed(2));
+        $('#tshirt_price').val(MERCHANDISE_PRICING.tshirt.toFixed(2));
+
+        // The price field is only relevant once its add-on is actually
+        // selected - starts hidden (see the "hidden" class in
+        // usctdp-mgmt-admin-register.php) and toggles with the checkbox.
+        $('#add_racket').on('change', function () {
+            $('#racket_price').toggleClass('hidden', !this.checked);
+        });
+        $('#add_tshirt').on('change', function () {
+            $('#tshirt_price').toggleClass('hidden', !this.checked);
+        });
         const paymentSettings = {
             checkoutButton: true,
             allowPayLater: true,
@@ -392,7 +409,12 @@
             const addRacket = $('#add_racket').is(':checked');
             const addTshirt = $('#add_tshirt').is(':checked');
             if (addRacket) {
-                const racket_pricing = USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.racket_pricing);
+                // Reads whatever's currently in the price field (pre-filled
+                // from usctdp_mgmt_admin.racket_pricing on page load below,
+                // but editable) rather than that default directly, so a
+                // price typed in to override it is actually respected -
+                // same fix as #add-merchandise's Base Price field above.
+                const racket_pricing = USCTDP_Admin.safeParseFloat($('#racket_price').val());
                 const merch = {
                     product_id: usctdp_mgmt_admin.racket_product_id,
                     product_name: 'Wilson Tennis Racket',
@@ -404,7 +426,7 @@
                 paymentTable.addNewMerchandise(merch, racket_pricing);
             }
             if (addTshirt) {
-                const tshirt_pricing = USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.tshirt_pricing);
+                const tshirt_pricing = USCTDP_Admin.safeParseFloat($('#tshirt_price').val());
                 const merch = {
                     product_id: usctdp_mgmt_admin.tshirt_product_id,
                     product_name: 'USCTDP T-Shirt',
@@ -439,7 +461,15 @@
                 student_first: studentData.first,
                 student_last: studentData.last,
             };
-            var pricing = MERCHANDISE_PRICING[merchandiseData.code];
+            // Reads whatever's currently in the Base Price field, not the
+            // MERCHANDISE_PRICING lookup - bind_merchandise_info() only
+            // uses that lookup to pre-fill this field with a sensible
+            // default when the dropdown selection changes, same as
+            // #activity_base_price does for activities (see basePrice
+            // above). Re-deriving from the lookup here instead of reading
+            // the field silently discarded any price the admin had typed
+            // in to override it.
+            var pricing = USCTDP_Admin.safeParseFloat($('#merch_base_price').val());
             const result = paymentTable.addNewMerchandise(merch, pricing);
             if (!result.success) {
                 alert("Failed to add item: " + result.message);
