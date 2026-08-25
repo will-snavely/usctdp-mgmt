@@ -19,7 +19,10 @@
 
         function updateRosterLinkInfo(driveId, generatedAt) {
             if (driveId) {
-                var docUrl = 'https://docs.google.com/document/d/' + driveId + '/edit';
+                // Generic Drive view URL, not the Docs-editor-specific one -
+                // rosters upload as real PDFs now (see
+                // upload_document_to_drive() in class-usctdp-mgmt-docgen.php).
+                var docUrl = 'https://drive.google.com/file/d/' + driveId + '/view';
                 $('#roster-existing-link').attr('href', docUrl);
                 $('#roster-generated-at').text(USCTDP_Admin.formatGeneratedAt(generatedAt) || '');
                 $('#roster-link-generated').removeClass('hidden');

@@ -96,7 +96,10 @@
             if (!driveId) {
                 return;
             }
-            window.open('https://docs.google.com/document/d/' + driveId + '/edit', '_blank');
+            // Generic Drive view URL, not the Docs-editor-specific one -
+            // rosters upload as real PDFs now (see upload_document_to_drive()
+            // in class-usctdp-mgmt-docgen.php).
+            window.open('https://drive.google.com/file/d/' + driveId + '/view', '_blank');
         });
 
         $('#session-rosters-table').on('click', 'button.regenerate-roster-btn', function () {
