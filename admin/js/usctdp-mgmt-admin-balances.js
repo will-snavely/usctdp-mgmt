@@ -122,6 +122,15 @@
             $('#balances-table-detail').DataTable().ajax.reload();
             $('#balances-table-detail-container').removeClass('hidden');
             $('#detail-title').text(selectedFamilyName + ' Balances');
+
+            // On mobile the detail-pane is stacked below master-pane
+            // (see the @media block in usctdp-mgmt-admin-balances.css)
+            // instead of sitting beside it, so selecting a family would
+            // otherwise update content off-screen with no visible sign
+            // anything happened.
+            if (window.matchMedia('(max-width: 782px)').matches) {
+                document.querySelector('.detail-pane').scrollIntoView({ behavior: 'smooth' });
+            }
         });
 
         $('#balances-table').on('draw.dt', function () {

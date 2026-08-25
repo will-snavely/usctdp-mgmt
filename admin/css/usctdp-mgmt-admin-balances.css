@@ -49,3 +49,32 @@
 #balances-table-detail {
     margin: 0;
 }
+
+/* Same breakpoint WordPress admin itself switches to a mobile layout at.
+   The grid's second column (detail-pane) has nowhere to go on a narrow
+   screen - it was rendering off to the right of master-pane instead of
+   below it. Stack both panes into a single column and let the page
+   scroll normally instead of forcing two independent scroll boxes into
+   a fixed 90vh, which doesn't work once they're stacked instead of
+   side-by-side. */
+@media (max-width: 782px) {
+    .wp-dashboard-wrapper {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        height: auto;
+    }
+
+    .master-pane,
+    .detail-pane {
+        overflow-y: visible;
+        max-height: none;
+    }
+
+    /* Selecting a family further down the page jumps the detail pane
+       in from off-screen (see the click handler in
+       usctdp-mgmt-admin-balances.js) - keep it clear of the admin
+       toolbar when it lands. */
+    .detail-pane {
+        scroll-margin-top: 40px;
+    }
+}
