@@ -617,36 +617,83 @@ class Usctdp_Mgmt_Docgen
      *
      * $document is either a TemplateProcessor (financial statements, still
      * template-based) or a PhpWord (rosters, built via the object-model API
-     * - see generate_roster_for_sessions()); each saves differently.
+     * - see generate_roster_for_sessions()); each saves differently AND
+     * uploads as a different Drive file type:
+     *
+     * - Financial statements upload as .docx with mimeType
+     *   'application/vnd.google-apps.document', which asks Drive to
+     *   convert them into a native Google Doc on upload.
+     * - Rosters upload as real PDFs (mimeType 'application/pdf', no
+     *   further Drive conversion). Google Docs' conversion is a
+     *   live-editing/reflow engine that's slow to open for documents
+     *   shaped like these (many full-width tables, a hard page break
+     *   between every activity block - see roster-docgen-objectmodel-
+     *   rewrite memory); a PDF is just pre-rendered static pages, and
+     *   Drive's PDF viewer opens and prints it directly, unlike the
+     *   raw-.docx preview clients had trouble printing from.
+     *
+     *   The PDF itself is produced via convert_docx_to_pdf_via_google() -
+     *   NOT PhpWord's own built-in PDF writer. That writer's HTML
+     *   translation layer silently drops table row heights
+     *   (vendor/phpoffice/phpword/src/PhpWord/Writer/HTML/Element/
+     *   Table.php - $height is fetched from the row and never used),
+     *   which rendered the roster's blank attendance rows - real
+     *   writable space in the actual .docx - as collapsed hairlines.
+     *   Routing the .docx through Google's own importer instead (the
+     *   same conversion Drive already did reliably before this change)
+     *   avoids that whole class of fidelity bug.
      */
     private function upload_document_to_drive($document, $existing_drive_id, $title)
     {
         $client = $this->create_google_client();
         $drive = new Drive($client);
         $destinationFolderId = env('GOOGLE_DRIVE_FOLDER_ID');
+        $is_roster = !($document instanceof TemplateProcessor);
 
         ob_start();
-        if ($document instanceof TemplateProcessor) {
-            $document->saveAs('php://output');
-        } else {
+        if ($is_roster) {
             IOFactory::createWriter($document, 'Word2007')->save('php://output');
+        } else {
+            $document->saveAs('php://output');
         }
-        $content = ob_get_clean();
+        $docx_content = ob_get_clean();
+
+        if ($is_roster) {
+            $content = $this->convert_docx_to_pdf_via_google($drive, $docx_content, $title);
+            $mime_type = 'application/pdf';
+            $drive_mime_type = 'application/pdf';
+        } else {
+            $content = $docx_content;
+            $mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            $drive_mime_type = 'application/vnd.google-apps.document';
+        }
 
         $clean_title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
         $metadata_args = [
             'name' => $clean_title,
-            'mimeType' => 'application/vnd.google-apps.document',
+            'mimeType' => $drive_mime_type,
         ];
 
         if ($existing_drive_id !== null) {
-            $fileMetadata = new DriveFile($metadata_args);
-            return $drive->files->update($existing_drive_id, $fileMetadata, [
-                'data' => $content,
-                'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'uploadType' => 'multipart',
-                'fields' => 'id, webViewLink'
-            ]);
+            // A file's underlying Drive type (native Google Doc vs. a real
+            // binary like PDF) isn't something files->update() can change -
+            // it stays whatever type the file was created as. This matters
+            // here because rosters switched from uploading as Google Docs to
+            // uploading as PDFs; any $existing_drive_id from before that
+            // switch still points at an old Google Doc. Rather than trust
+            // update() to silently no-op or error on the mismatch, check the
+            // existing file's real type first and recreate it if it doesn't
+            // match what we're about to upload.
+            if ($this->drive_file_matches_mime_type($drive, $existing_drive_id, $drive_mime_type)) {
+                $fileMetadata = new DriveFile($metadata_args);
+                return $drive->files->update($existing_drive_id, $fileMetadata, [
+                    'data' => $content,
+                    'mimeType' => $mime_type,
+                    'uploadType' => 'multipart',
+                    'fields' => 'id, webViewLink'
+                ]);
+            }
+            $drive->files->delete($existing_drive_id);
         }
 
         if (!empty($destinationFolderId)) {
@@ -655,7 +702,7 @@ class Usctdp_Mgmt_Docgen
         $fileMetadata = new DriveFile($metadata_args);
         $file = $drive->files->create($fileMetadata, [
             'data' => $content,
-            'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'mimeType' => $mime_type,
             'uploadType' => 'multipart',
             'fields' => 'id, webViewLink'
         ]);
@@ -666,6 +713,64 @@ class Usctdp_Mgmt_Docgen
         ]), ['fields' => 'id']);
 
         return $file;
+    }
+
+    /**
+     * Converts .docx bytes to PDF bytes by round-tripping through a
+     * throwaway Google Doc: upload as a converted Google Doc (Google's
+     * own docx importer - the same one Drive already used for every
+     * roster before this change, known to render these documents
+     * correctly), export that to PDF, then delete the scratch Doc. The
+     * scratch file is never given a destinationFolderId and never shared
+     * (no Permission::create call) - it only exists for however long this
+     * one call takes, and is removed in a finally block so a failed
+     * export doesn't leave it behind.
+     *
+     * files->export() is capped at 10MB of exported content (Drive API
+     * limit for Google Workspace document exports) - comfortably above
+     * what these rosters produce, but worth knowing if a roster ever
+     * grows enormous.
+     */
+    private function convert_docx_to_pdf_via_google($drive, $docx_content, $title)
+    {
+        $scratchMetadata = new DriveFile([
+            'name' => 'usctdp_roster_pdf_scratch_' . $title,
+            'mimeType' => 'application/vnd.google-apps.document',
+        ]);
+        $scratch = $drive->files->create($scratchMetadata, [
+            'data' => $docx_content,
+            'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'uploadType' => 'multipart',
+            'fields' => 'id'
+        ]);
+
+        try {
+            $response = $drive->files->export($scratch->id, 'application/pdf', ['alt' => 'media']);
+            return $response instanceof \Psr\Http\Message\ResponseInterface
+                ? (string) $response->getBody()
+                : (string) $response;
+        } finally {
+            $drive->files->delete($scratch->id);
+        }
+    }
+
+    /**
+     * True if $drive_id's file already has $expected_mime_type. Used to
+     * decide update-in-place vs. delete-and-recreate when a roster's stored
+     * drive_id predates the switch to PDF uploads (see
+     * upload_document_to_drive()). A file that no longer exists (deleted or
+     * trashed out-of-band in Drive) counts as "doesn't match" so callers
+     * fall through to creating a fresh file instead of erroring the whole
+     * roster generation over a missing Drive file.
+     */
+    private function drive_file_matches_mime_type($drive, $drive_id, $expected_mime_type)
+    {
+        try {
+            $existing = $drive->files->get($drive_id, ['fields' => 'mimeType']);
+            return $existing->mimeType === $expected_mime_type;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     private function create_google_client()
