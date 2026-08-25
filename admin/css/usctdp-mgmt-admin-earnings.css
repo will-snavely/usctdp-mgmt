@@ -136,10 +136,86 @@
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
+    /* Session is the only column without an explicit width, so it soaks up
+       whatever's left - on a wide desktop screen that's most of the row.
+       Capping the table keeps Session comfortably sized instead of
+       stretching to fill the card. */
+    width: 100%;
+    max-width: 760px;
+    /* DataTables' own CSS sets margin: 0 auto, which centers the table
+       once max-width kicks in on a wide screen - left-align it instead. */
+    margin: 0;
 }
 
 .details-control-col {
     width: 36px;
+}
+
+/* Gross/Receivable/Collected should read as one aligned set of amount
+   columns. The columnDefs widths in earnings.js already ask for this, but
+   DataTables applies those as inline styles that can end up uneven after
+   its own column-type sizing runs - !important pins all three to the same
+   value no matter what.
+
+   Uses child combinators (>), not descendant selectors, deliberately:
+   DataTables injects the drill-down's entire <table class="session-detail-
+   table"> as content INSIDE this table's own DOM (the accordion child
+   row), so a descendant selector like "#earnings-table thead th:nth-
+   child(4)" would also match the drill-down table's own 4th header cell -
+   and since it's an ID selector it would beat that table's !important
+   class rules on specificity, corrupting its column widths too. The ">"
+   combinators scope this to the outer table's own header row only. */
+#earnings-table > thead > tr > th:nth-child(4),
+#earnings-table > thead > tr > th:nth-child(5),
+#earnings-table > thead > tr > th:nth-child(6) {
+    width: 110px !important;
+}
+
+/* DataTables wraps each header's text in a flex child (.dt-column-title)
+   with flex-grow but no min-width, so flexbox's default min-width:auto
+   stops long headers from ever wrapping or shrinking - they just overflow
+   into the neighboring column instead. That's the root cause of the
+   header text "bleeding" between columns on narrow screens. */
+#earnings-table thead div.dt-column-header .dt-column-title,
+.session-detail-table thead div.dt-column-header .dt-column-title {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.2;
+}
+
+/* Same overflow risk applies to body cells - long session titles or wide
+   amounts shouldn't be able to spill past their column. */
+#earnings-table tbody td,
+.session-detail-table tbody td {
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* Safety net: even with tighter columns/headers, a narrow phone can still
+   run out of room. Scroll horizontally inside the card rather than
+   clipping (the card itself uses overflow:hidden for its rounded corners).
+
+   min-width:0 matters here: .dashboard-card-body is a flex column, and
+   flex/grid items default to min-width:auto, which floors their size at
+   their content's un-shrinkable intrinsic width. Without overriding that,
+   the fixed-width table would push this box (and the card, and the whole
+   page) wider instead of scrolling internally - the exact bug that was
+   making the entire page horizontally scrollable, not just the table. */
+#earnings-table-scroll,
+.session-detail-scroll {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+/* DataTables wraps the table in its own .dt-container, which holds the
+   search box above and the info/pagination row below - that wrapper is
+   full-width by default, so those controls sprawled past the table's
+   760px cap instead of lining up with it. */
+#earnings-table-scroll .dt-container {
+    max-width: 760px;
+    margin: 0;
 }
 
 /* Both the toggle cell and the session-name cell open the accordion - a
@@ -199,10 +275,24 @@ td.details-control:hover .details-toggle {
     table-layout: fixed;
     border-collapse: collapse;
     width: 100%;
+    max-width: 620px;
     background-color: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     overflow: hidden;
+}
+
+/* Product doesn't need as much room as the amount columns - give it a
+   narrower, explicit width instead of soaking up the remainder, and let
+   Gross/Receivable/Collected have the rest. */
+.session-detail-table th:first-child,
+.session-detail-table td:first-child {
+    width: 145px;
+}
+
+.session-detail-table th:not(:first-child),
+.session-detail-table td:not(:first-child) {
+    width: 132px !important;
 }
 
 .session-detail-table thead tr th {
@@ -256,4 +346,87 @@ td.details-control:hover .details-toggle {
     margin-left: auto;
     color: #1e293b;
     font-variant-numeric: tabular-nums;
+}
+
+/* Same breakpoint WordPress core switches to its mobile admin layout at.
+   Tighten up padding/font-size and the drill-down's indent so the shortened
+   columns above actually fit without needing the horizontal-scroll
+   fallback. */
+@media (max-width: 782px) {
+    /* Reclaim some horizontal room for the table - the card's roomy
+       desktop padding is the first thing squeezing it on a phone. */
+    .card-wide .dashboard-card-body {
+        padding: 10px;
+    }
+
+    #earnings-table thead th,
+    .session-detail-table thead th {
+        font-size: 0.68rem;
+        padding: 6px 4px;
+    }
+
+    #earnings-table tbody td,
+    .session-detail-table tbody td {
+        padding: 6px 4px;
+        font-size: 0.8rem;
+    }
+
+    .session-detail,
+    .session-detail-loading {
+        padding: 8px;
+    }
+
+    /* Narrower name column, wider amount columns - on a phone the amounts
+       ("$1,234.00") need the room more than the product name does, which
+       can just truncate. */
+    .session-detail-table th:first-child,
+    .session-detail-table td:first-child {
+        width: 90px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .session-detail-table th:not(:first-child),
+    .session-detail-table td:not(:first-child) {
+        width: 83px !important;
+    }
+
+    /* DataTables sets the earnings table's column widths as an inline
+       style (via columnDefs in earnings.js), which otherwise beats any
+       external stylesheet rule regardless of specificity - !important is
+       the escape hatch for that. table-layout:fixed only looks at the
+       header row's widths, so overriding the <th> here is enough to
+       resize the whole column, tbody included.
+
+       Child combinators (>) again, not descendant selectors - see the
+       comment on the desktop version of this rule above. Without them,
+       these nth-child selectors also reach into the drill-down table
+       nested inside this one's accordion row and corrupt its widths. */
+    #earnings-table > thead > tr > th:nth-child(3),
+    #earnings-table > thead > tr > th:nth-child(4),
+    #earnings-table > thead > tr > th:nth-child(5),
+    #earnings-table > thead > tr > th:nth-child(6) {
+        width: 52px !important;
+    }
+
+    /* Session had no explicit width at any breakpoint - it just got
+       whatever was left after the other columns, which on a narrow phone
+       could shrink to almost nothing (wrapping character-by-character).
+       Give it a guaranteed floor and truncate with an ellipsis instead;
+       the table can scroll horizontally (see #earnings-table-scroll) if
+       that pushes the row past the viewport. */
+    #earnings-table > thead > tr > th:nth-child(2) {
+        width: 120px !important;
+    }
+
+    #earnings-table > tbody > tr > td:nth-child(2) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .earnings-unassigned-amounts {
+        margin-left: 0;
+    }
 }

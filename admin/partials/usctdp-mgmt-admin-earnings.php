@@ -76,20 +76,22 @@
 
                 <p class="table-hint">Click a session to see its earnings broken out by product.</p>
 
-                <table id="earnings-table" class="usctdp-datatable hidden" width="100%" cellspacing="0">
-                    <thead>
-                        <tr>
-                            <th class="details-control-col"></th>
-                            <th>Session</th>
-                            <th>Dates</th>
-                            <th>Gross Revenue</th>
-                            <th>Accounts Receivable</th>
-                            <th>Collected</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+                <div id="earnings-table-scroll">
+                    <table id="earnings-table" class="usctdp-datatable hidden" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th class="details-control-col"></th>
+                                <th>Session</th>
+                                <th>Start</th>
+                                <th>Gross</th>
+                                <th>Receivable</th>
+                                <th>Collected</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
 
                 <div id="earnings-unassigned-row" class="earnings-unassigned-row hidden">
                     <span class="earnings-unassigned-label">Other / Unassigned</span>
