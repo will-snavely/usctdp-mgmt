@@ -47,14 +47,12 @@
             },
             autoWidth: false,
             columnDefs: [
-                { width: "40%", targets: 0 },
+                { width: "60%", targets: 0 },
                 { width: "20%", targets: 1 },
                 { width: "20%", targets: 2 },
-                { width: "20%", targets: 3 },
             ],
             columns: [
                 { data: 'title' },
-                { data: 'dates' },
                 {
                     data: 'status',
                     className: 'status-column',

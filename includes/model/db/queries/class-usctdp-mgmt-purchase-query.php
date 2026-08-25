@@ -119,6 +119,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     TIMESTAMPDIFF(YEAR, stud.birth_date, CURDATE()) AS student_age,
                     act.id as activity_id,
                     act.title as activity_name,
+                    act.type as activity_type,
                     sesh.title as session_name,
                     sesh.id as session_id,
                     reg.id as registration_id, reg.status as registration_status,

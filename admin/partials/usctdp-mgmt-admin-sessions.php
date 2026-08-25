@@ -21,9 +21,9 @@
         <select id="sessions-status-filter">
             <option value="">All Sessions</option>
             <option value="not_archived" selected>Scheduled + On Sale</option>
-            <option value="scheduled">Scheduled Only</option>
-            <option value="on_sale">On Sale Only</option>
-            <option value="archived">Archived Only</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="on_sale">On Sale</option>
+            <option value="archived">Archived</option>
         </select>
     </div>
 
@@ -32,7 +32,6 @@
             <thead>
                 <tr>
                     <th>Session</th>
-                    <th>Dates</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>

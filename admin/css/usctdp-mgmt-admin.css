@@ -289,6 +289,18 @@ dialog#payment-history-modal .text-right {
     border-radius: 8px;
     background-color: #b3b3b3;
     width: fit-content;
+    /* This table's columns (see the nth-child widths below) add up to more
+       than a phone screen can show at once - that's fine, it's meant to
+       scroll horizontally rather than squeeze the Item column down to
+       nothing. max-width/min-width/overflow-x here are a self-contained
+       safety net: on the register page, the ancestor #payment-table-section
+       already does this job (see its own mobile @media block in
+       usctdp-mgmt-admin-register.css), but this component is also embedded
+       directly in dialog#post-payment-modal on the Purchase History page,
+       which has no such wrapper - so this needs to work on its own too. */
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
 }
 
 .payment-table {
@@ -326,30 +338,49 @@ dialog#payment-history-modal .text-right {
     font-size: 0.85rem;
 }
 
-.payment-table th:nth-child(1) {
+/* Column widths live on <colgroup><col> elements (see renderLayout() in
+   usctdp-mgmt-admin.js) rather than on the <th>s directly. .payment-table
+   th has position:sticky (so the header stays put while scrolling a tall
+   cart) - sticky positioning on a table header cell has long-standing,
+   documented quirks where its own declared width stops reliably driving
+   table-layout:fixed's column sizing (the browser can report it as the
+   "winning" cascade rule while still rendering a very different width
+   from it - not a specificity problem, a table/sticky layout one). A
+   <col>'s width is a separate, more authoritative sizing mechanism that
+   isn't tied to the (sticky) cell's own box, so it isn't subject to that. */
+.payment-table .col-student {
     width: 80px;
 }
 
-.payment-table th:nth-child(2) {
-    width: 300px;
+/* Item combines the session and activity name (e.g. "Summer Camp: Group
+   Lesson") - the widest, most load-bearing text in the cart, so it gets
+   noticeably more room than the other columns rather than an even split.
+   The table is wider than a phone screen as a result; that's intentional
+   (see .payment-table-wrap above) - it scrolls instead of cramming this
+   column down to unreadable widths. */
+.payment-table .col-item {
+    width: 420px;
 }
 
-.payment-table th:nth-child(3) {
+.payment-table .col-owed {
     width: 60px;
+}
+
+.payment-table .col-transfer {
+    width: 40px;
+}
+
+.payment-table .col-pay {
+    width: 60px;
+}
+
+.payment-table .col-actions {
+    width: 50px;
 }
 
 .payment-table th:nth-child(4) {
-    width: 40px;
     padding: 0;
     margin: 0;
-}
-
-.payment-table th:nth-child(5) {
-    width: 60px;
-}
-
-.payment-table th:nth-child(6) {
-    width: 50px;
 }
 
 .payment-footer {
@@ -864,5 +895,36 @@ dialog .actions-footer {
         display: block;
         flex-basis: 100%;
         height: 0;
+    }
+
+    /* Item combines the session and activity name (see .payment-table
+       .col-item above) and can run long - wrapping it across several
+       lines read as "brutally long" on a phone. Truncate to one line
+       with an ellipsis instead; the full text is still available in the
+       title attribute (see addOrderRow() in usctdp-mgmt-admin.js). */
+    .payment-table .col-item {
+        width: 130px;
+    }
+
+    /* Ellipsis goes on an inner span, not the <td> itself, and with its
+       own hard-coded max-width rather than something relative (100%,
+       inherited from the column, etc.). Every version of this that tried
+       to derive the clipping boundary FROM the table's column-width
+       mechanism (th width, td width, col width, width:100% on this span)
+       ended up with the ellipsis boundary not matching what the column
+       actually rendered at, in ways that didn't line up with any single
+       consistent explanation - table-layout:fixed interacting with
+       .payment-table th's position:sticky, min-content from nowrap text,
+       and the browser's own auto-sizing resolution order all plausibly
+       play a part. Rather than keep chasing exactly which one it is: a
+       flat pixel value here has no ancestor sizing to depend on at all,
+       so it can't be thrown off by any of that - it just reliably clips
+       at ~15 characters no matter what the column ends up doing. */
+    .payment-table .cart-item-text {
+        display: block;
+        max-width: 110px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }

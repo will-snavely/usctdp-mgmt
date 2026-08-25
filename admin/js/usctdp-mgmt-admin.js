@@ -1186,8 +1186,15 @@
             this.debit = parseFloat(data.debit || 0);
             this.credit = parseFloat(data.credit || 0);
 
+            // Tournament activity names just repeat the session name (e.g.
+            // session "Junior Singles Round Robin (Fall) - 2026/2027",
+            // activity "Junior Singles Round Robin (Fall)") - "session:
+            // activity" reads as a redundant, duplicated string for those,
+            // so show the session name alone instead.
             this.item_name = this.type === 'registration'
-                ? `${data.session_name}: ${data.activity_name}`
+                ? (data.activity_type === 'tournament'
+                    ? data.session_name
+                    : `${data.session_name}: ${data.activity_name}`)
                 : data.product_name;
             this.student_name = `${data.student_first} ${data.student_last}`;
         }
@@ -1250,6 +1257,14 @@
                     <div id="payment-discounts-modal"></div>
                     <div class="payment-table-wrap">
                         <table class="payment-table">
+                            <colgroup>
+                                <col class="col-student">
+                                <col class="col-item">
+                                <col class="col-owed">
+                                <col class="col-transfer">
+                                <col class="col-pay">
+                                <col class="col-actions">
+                            </colgroup>
                             <thead>
                                 <tr>
                                     <th>Student</th>
@@ -1743,7 +1758,7 @@
             return `
                 <tr> 
                     <td class="cart-student-name">${student ?? '--'}</td>
-                    <td class="cart-item">${item}</td>
+                    <td class="cart-item" title="${item}"><span class="cart-item-text">${item}</span></td>
                     <td class="cart-debit"> 
                         <span class="price-value debit-value">${USCTDP_Admin.formatUsd(debit)}</span>
                     </td>

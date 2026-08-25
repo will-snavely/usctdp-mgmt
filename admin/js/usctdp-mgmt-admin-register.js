@@ -381,6 +381,7 @@
             const registration = {
                 activity_id: selectedActivity.id,
                 activity_name: displayActivityName,
+                activity_type: selectedActivity.type,
                 product_id: selectedActivity.product_id,
                 student_id: selectedStudent.id,
                 family_id: selectedFamily.id,

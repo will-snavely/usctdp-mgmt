@@ -34,11 +34,11 @@
     margin-bottom: 10px;
 }
 
-/* Only 4 columns (title, dates, status, actions), so letting this stretch
-   to the full admin content width just leaves it looking sparse - capped
-   to a width that still comfortably fits a long session title, a date
-   range, the status control, and the Pricing button, table itself still
-   fills that narrower wrapper. */
+/* Only 3 columns (title, status, actions), so letting this stretch to the
+   full admin content width just leaves it looking sparse - capped to a
+   width that still comfortably fits a long session title, the status
+   control, and the Pricing button, table itself still fills that
+   narrower wrapper. */
 #sessions-table-wrap {
     width: 100%;
     max-width: 900px;

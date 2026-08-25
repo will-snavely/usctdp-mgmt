@@ -2173,13 +2173,9 @@ class Usctdp_Mgmt_Admin_Ajax
         ]);
 
         $data = array_map(function ($row) {
-            $start_date = DateTime::createFromFormat('Y-m-d', $row->start_date);
-            $end_date = DateTime::createFromFormat('Y-m-d', $row->end_date);
             return [
                 'id' => (int) $row->id,
                 'title' => $row->title,
-                'dates' => ($start_date ? $start_date->format('M j, Y') : '') .
-                    ' – ' . ($end_date ? $end_date->format('M j, Y') : ''),
                 'status' => $row->status,
             ];
         }, $result['data']);

@@ -333,5 +333,15 @@ dialog#view-roster-modal {
     #payment-table-section {
         width: 100%;
         overflow-x: auto;
+        /* #payment-table-section and #registration-info are both items in
+           .edit-order-mode's single grid column at this breakpoint, so they
+           share one column track. Without this, the cart's wide contents
+           (see .payment-table-wrap's comment in usctdp-mgmt-admin.css) count
+           toward that shared track's "automatic minimum size" and stretch it
+           to fit - which drags #registration-info along with it, forcing
+           the whole page to scroll horizontally just to see a section that,
+           on its own, fits the screen fine. min-width:0 opts this item out
+           of that automatic sizing, so only the cart itself scrolls. */
+        min-width: 0;
     }
 }
