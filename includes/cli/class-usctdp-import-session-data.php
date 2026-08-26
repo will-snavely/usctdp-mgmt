@@ -5,13 +5,11 @@ class Usctdp_Import_Session_Data
     private $session_data;
     private $sessions_by_category;
     private $sessions_by_name;
-    private $active_session_ids;
     public function __construct()
     {
         $this->session_data = [];
         $this->sessions_by_category = [];
         $this->sessions_by_name = [];
-        $this->active_session_ids = [];
     }
 
     private function get_clinic_by_title($title)
@@ -260,10 +258,11 @@ class Usctdp_Import_Session_Data
                 "Two" => $pricing['2_day_price'],
             ];
 
-            if (isset($this->active_session_ids[$session_id])) {
-                $product_data[$woo_product_id][$pricing['session']] = $prices;
-                $active_sessions_by_product[$clinic->id][$session_id] = true;
-            }
+            // Appearing in class_pricing at all is the signal this session
+            // should be wired up for this product - no separate "active"
+            // flag needed on top of that.
+            $product_data[$woo_product_id][$pricing['session']] = $prices;
+            $active_sessions_by_product[$clinic->id][$session_id] = true;
 
             $pricing_query = new Usctdp_Mgmt_Pricing_Query([
                 "session_id" => $session_id,
@@ -573,7 +572,10 @@ class Usctdp_Import_Session_Data
                 ]);
             }
 
-            if (!empty($prices['base']) && isset($this->active_session_ids[$session_id])) {
+            // Appearing in tournament_pricing at all is the signal this
+            // session should be wired up for this product - no separate
+            // "active" flag needed on top of that.
+            if (!empty($prices['base'])) {
                 $product_data[$woo_product_id][$session_name] = [
                     "session_id" => $session_id,
                     "price" => $prices['base'],

@@ -57,8 +57,8 @@ class Usctdp_Mgmt_Woocommerce
 
         $session_name = null;
         $session_meta = $woo_product->get_meta('_session_post_ids');
-        foreach ($session_meta as $name => $session_id) {
-            if ($session_id == $session_id) {
+        foreach ($session_meta as $name => $meta_session_id) {
+            if ($meta_session_id == $session_id) {
                 $session_name = $name;
                 break;
             }
@@ -111,11 +111,13 @@ class Usctdp_Mgmt_Woocommerce
      * attribute + variations, _session_post_ids meta, and the
      * usctdp_product_session bookkeeping table - to match whichever of its
      * priced sessions (Usctdp_Mgmt_Pricing_Query rows for this product)
-     * currently have status = 'on_sale'. "active" in the CLI importer's
+     * currently have status = 'on_sale'. The CLI importer's
      * import_clinic_prices()/import_tournament_pricing() (see
      * class-usctdp-import-session-data.php, which this parallels rather
-     * than shares) comes from the import JSON's per-session flag; here it
-     * comes from session status.
+     * than shares) wires up every session it's given pricing for
+     * unconditionally, regardless of status - promoting a session to
+     * on_sale (and rebuilding variations to match, via this method) is a
+     * deliberate admin action on the Sessions page, not the importer's job.
      *
      * Only clinic/cardio/tournament products carry per-session pricing at
      * all, so this is a no-op for anything else (merchandise, rackets,
