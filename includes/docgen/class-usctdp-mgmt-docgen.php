@@ -247,6 +247,13 @@ class Usctdp_Mgmt_Docgen
      * not always filled in) each print "--" rather than a blank cell when
      * missing, so a genuinely blank cell only ever means "this is a
      * padding row", not "we don't know".
+     *
+     * The Phone value has this registration's note (purchase_notes - see
+     * get_roster_students()'s doc comment for why that's the single source
+     * of truth, not usctdp_registration.notes) appended after the phone
+     * numbers, in that same cell, rather than a column of its own - a note
+     * is the exception, not something every roster needs a column for, so
+     * it only takes up space on the rows that actually have one.
      */
     private function format_registrant_row($registrant)
     {
@@ -256,12 +263,16 @@ class Usctdp_Mgmt_Docgen
         $level = ($registrant->student_level !== null && $registrant->student_level !== '')
             ? $this->format_level($registrant->student_level)
             : '--';
+        $phone = $this->format_phone_numbers($registrant->family_phone_numbers);
+        if (!empty($registrant->purchase_notes)) {
+            $phone = trim($phone . '  — Note: ' . $registrant->purchase_notes);
+        }
         return [
             ucwords(strtolower($registrant->student_last)),
             ucwords(strtolower($registrant->student_first)),
             $age,
             $level,
-            $this->format_phone_numbers($registrant->family_phone_numbers),
+            $phone,
         ];
     }
 

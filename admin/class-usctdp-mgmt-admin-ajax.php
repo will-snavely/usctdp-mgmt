@@ -3059,6 +3059,14 @@ class Usctdp_Mgmt_Admin_Ajax
             'created_at' => $created_at,
             'created_by' => $created_by,
             'discounts' => $args['discounts'] ?? '[]',
+            // The note typed in the register screen's "Notes" field lives
+            // on the purchase, not the registration - usctdp_purchase.notes
+            // is the single source of truth for this note (it's also what
+            // the history page's per-row Notes textarea reads/writes - see
+            // class-usctdp-mgmt-admin-history.js), so a note entered here
+            // shows up there too, and vice versa, instead of the two
+            // tables silently drifting apart.
+            'notes' => $args['notes'],
         ];
         $purchase_id = $purchase_query->add_item($purchase_args);
         if (!$purchase_id) {
@@ -3070,7 +3078,6 @@ class Usctdp_Mgmt_Admin_Ajax
             'activity_id' => $args['activity_id'],
             'student_id' => $args['student_id'],
             'student_level' => $args['student_level'],
-            'notes' => $args['notes'],
             'created_at' => $created_at,
             'created_by' => $created_by,
             'modified_at' => $created_at,

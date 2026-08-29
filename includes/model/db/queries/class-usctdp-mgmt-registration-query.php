@@ -35,6 +35,19 @@ class Usctdp_Mgmt_Registration_Query extends Query
      * Usctdp_Mgmt_Docgen::add_merged_clinic_roster_block()), to list every
      * registrant across all of the group's clinics in one table.
      *
+     * purchase_notes comes off usctdp_purchase.notes (joined via
+     * reg.purchase_id), NOT usctdp_registration.notes - that's the single
+     * source of truth for "the note on this registration": it's set when
+     * the registration is created (see the "Notes" textarea in the admin
+     * register screen, written to the purchase row by
+     * create_purchase_and_registration() in class-usctdp-mgmt-admin-
+     * ajax.php) and stays editable afterward from the admin history page's
+     * per-purchase Notes field (class-usctdp-mgmt-admin-history.js), so
+     * both places always show the same value. usctdp_registration.notes
+     * still exists as a column but is no longer written or read for this -
+     * see Usctdp_Mgmt_Docgen::format_registrant_row(), which appends this
+     * onto the phone numbers on the printed roster.
+     *
      * Ordered by student last/first name, alphabetically - the attendance
      * table's own numbering (see Usctdp_Mgmt_Docgen::format_attendance_
      * number()) is purely positional, so this is the only thing that
@@ -51,11 +64,13 @@ class Usctdp_Mgmt_Registration_Query extends Query
         $query = $wpdb->prepare(
             "   SELECT
                     reg.student_level as student_level,
+                    pur.notes as purchase_notes,
                     stud.first as student_first,
                     stud.last as student_last,
                     TIMESTAMPDIFF(YEAR, stud.birth_date, CURDATE()) as student_age,
                     fam.phone_numbers as family_phone_numbers
                 FROM {$wpdb->prefix}usctdp_registration AS reg
+                JOIN {$wpdb->prefix}usctdp_purchase AS pur ON reg.purchase_id = pur.id
                 JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
                 JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
                 WHERE reg.activity_id IN ($placeholders) AND reg.status = 'active'
