@@ -129,6 +129,11 @@ class Usctdp_Mgmt_Docgen
         'phone' => ['label' => 'Phone Number(s)', 'width' => 4200],
     ];
     const ATTENDANCE_ROW_HEIGHT = 300;
+    // Font size (points) for a registrant's note, appended after their
+    // phone numbers in that same cell - see add_attendance_table(). Fixed,
+    // not derived from the preset's font_table - a note is already the
+    // smaller, secondary part of that cell regardless of roster size.
+    const ATTENDANCE_NOTE_FONT_SIZE = 9;
     // Zebra-striping fill for every other data row (see add_attendance_table())
     // - deliberately barely-there (light grey, not a strong color) so it
     // helps the eye track a row across the page without competing with the
@@ -248,12 +253,11 @@ class Usctdp_Mgmt_Docgen
      * missing, so a genuinely blank cell only ever means "this is a
      * padding row", not "we don't know".
      *
-     * The Phone value has this registration's note (purchase_notes - see
-     * get_roster_students()'s doc comment for why that's the single source
-     * of truth, not usctdp_registration.notes) appended after the phone
-     * numbers, in that same cell, rather than a column of its own - a note
-     * is the exception, not something every roster needs a column for, so
-     * it only takes up space on the rows that actually have one.
+     * Does NOT fold in this registration's note (purchase_notes) - that's
+     * appended after the Phone value separately, as its own smaller-font
+     * text run in the same cell (see add_attendance_table()/
+     * add_attendance_person_cells()), so it can't just be concatenated in
+     * here as plain text.
      */
     private function format_registrant_row($registrant)
     {
@@ -263,16 +267,12 @@ class Usctdp_Mgmt_Docgen
         $level = ($registrant->student_level !== null && $registrant->student_level !== '')
             ? $this->format_level($registrant->student_level)
             : '--';
-        $phone = $this->format_phone_numbers($registrant->family_phone_numbers);
-        if (!empty($registrant->purchase_notes)) {
-            $phone = trim($phone . '  — Note: ' . $registrant->purchase_notes);
-        }
         return [
             ucwords(strtolower($registrant->student_last)),
             ucwords(strtolower($registrant->student_first)),
             $age,
             $level,
-            $phone,
+            $this->format_phone_numbers($registrant->family_phone_numbers),
         ];
     }
 
@@ -1283,6 +1283,7 @@ class Usctdp_Mgmt_Docgen
     {
         $widths = array_column(self::ATTENDANCE_COLUMNS, 'width');
         $labels = array_column(self::ATTENDANCE_COLUMNS, 'label');
+        $phone_index = array_search('phone', array_keys(self::ATTENDANCE_COLUMNS), true);
 
         $table = $cell->addTable(['width' => array_sum($widths), 'unit' => 'dxa', 'layout' => 'fixed']);
 
@@ -1291,6 +1292,7 @@ class Usctdp_Mgmt_Docgen
         $this->add_attendance_person_cells($headerRow, $widths, $labels, $headerStyle);
 
         $dataStyle = ['size' => $preset['font_table']];
+        $noteStyle = ['size' => self::ATTENDANCE_NOTE_FONT_SIZE];
         $stripeStyle = ['bgColor' => self::ATTENDANCE_STRIPE_COLOR];
         // null 'attendance_data_rows' => no padding, just the real registrants.
         $row_count = max(count($registrants), $preset['attendance_data_rows'] ?? count($registrants));
@@ -1305,7 +1307,8 @@ class Usctdp_Mgmt_Docgen
             // never stripe, so the pattern stops as soon as the actual
             // roster does instead of continuing down through empty rows.
             $cellStyle = ($registrant && $i % 2 === 1) ? $stripeStyle : [];
-            $this->add_attendance_person_cells($row, $widths, $values, $dataStyle, $cellStyle);
+            $note = $registrant ? (string) ($registrant->purchase_notes ?? '') : '';
+            $this->add_attendance_person_cells($row, $widths, $values, $dataStyle, $cellStyle, $phone_index, $note, $noteStyle);
         }
     }
 
@@ -1316,11 +1319,28 @@ class Usctdp_Mgmt_Docgen
      * these-widths shape only needs to be written once. $cellStyle is the
      * cell's own style (e.g. background fill for zebra-striping - see
      * add_attendance_table()), separate from $style, which is the text's.
+     *
+     * $note_index/$note/$noteStyle append a second, differently-styled text
+     * run after the value at that one column index (used for the Phone
+     * column's note - see add_attendance_table()) - a plain addText() call
+     * for it would start a new paragraph (new line) instead of continuing
+     * the same line, so that column goes through addTextRun() instead,
+     * whether or not it actually has a note to append, to keep every row's
+     * cell-building path the same.
      */
-    private function add_attendance_person_cells($row, array $widths, array $values, array $style, array $cellStyle = [])
+    private function add_attendance_person_cells($row, array $widths, array $values, array $style, array $cellStyle = [], $note_index = null, $note = '', array $noteStyle = [])
     {
         foreach ($values as $i => $value) {
-            $row->addCell($widths[$i], $cellStyle)->addText($value, $style);
+            $valueCell = $row->addCell($widths[$i], $cellStyle);
+            if ($i !== $note_index) {
+                $valueCell->addText($value, $style);
+                continue;
+            }
+            $run = $valueCell->addTextRun();
+            $run->addText($value, $style);
+            if ($note !== '') {
+                $run->addText(' - ' . $note, $noteStyle);
+            }
         }
     }
 
