@@ -165,18 +165,20 @@ class Usctdp_Reconcile_Ledger
     }
 
     /**
-     * Re-derives the price for one activity within an order line item, the
+     * Re-derives the charge for one activity within an order line item, the
      * same way create_purchase_and_ledger_entries() does: the item's own
-     * total when it's the only activity on the item, or a One/Two-day split
-     * from the product's pricing table when it's one of a clinic's two
-     * day-of-week picks.
+     * total (no discount) when it's the only activity on the item, or a
+     * full One-day base price plus a second-day discount when it's one of a
+     * clinic's two day-of-week picks. Returns ['base' => ..., 'discount' =>
+     * ...] - 'discount' is 0.0 for a single-activity item or the first day
+     * of a two-activity one.
      */
-    private function get_activity_price($item, $activity_id, $activity_ids, $order_id)
+    private function get_activity_charge($item, $activity_id, $activity_ids, $order_id)
     {
         $item_total = floatval($item->get_total());
 
         if (count($activity_ids) === 1) {
-            return $item_total;
+            return ['base' => $item_total, 'discount' => 0.0];
         }
 
         $activity_query = new Usctdp_Mgmt_Activity_Query(['id' => $activity_ids[0], 'number' => 1]);
@@ -189,25 +191,37 @@ class Usctdp_Reconcile_Ledger
         if (!$pricing) {
             throw new Exception("Pricing not found for activity {$activity_ids[0]} on order $order_id.");
         }
-        $day1_price = floatval($pricing->pricing['One']);
-        $activity_prices = [
-            $activity_ids[0] => $day1_price,
-            $activity_ids[1] => $item_total - $day1_price,
+        $day1_price = round(floatval($pricing->pricing['One']), 2);
+        // Taken straight from the pricing table, not derived from
+        // $item_total - see Usctdp_Mgmt_Model::get_second_day_discount().
+        $day2_discount = Usctdp_Mgmt_Model::get_second_day_discount($pricing, $day1_price);
+        if (empty($day2_discount) || $day2_discount < 0) {
+            $day2_discount = 0.0;
+        }
+        $activity_charges = [
+            $activity_ids[0] => ['base' => $day1_price, 'discount' => 0.0],
+            $activity_ids[1] => ['base' => $day1_price, 'discount' => $day2_discount],
         ];
 
-        if (!array_key_exists($activity_id, $activity_prices)) {
+        if (!array_key_exists($activity_id, $activity_charges)) {
             throw new Exception("Activity $activity_id not among order $order_id's line item activities.");
         }
-        return $activity_prices[$activity_id];
+        return $activity_charges[$activity_id];
     }
 
     /**
-     * Builds the four ledger entry arrays (charge x2, payment x2) that
-     * create_purchase_and_ledger_entries() would have, for a given purchase
-     * and price. Doesn't insert anything - see insert_ledger_entries().
+     * Builds the ledger entry arrays that create_purchase_and_ledger_entries()
+     * would have for a given purchase and charge - a charge pair at the
+     * base price, an optional discount adjustment pair (see
+     * get_activity_charge()), and a payment pair at the net price. Doesn't
+     * insert anything - see insert_ledger_entries().
      */
-    private function build_ledger_entries($purchase_id, $family_id, $order_id, $payment_method, $reference_id, $created_at, $created_by, $price)
+    private function build_ledger_entries($purchase_id, $family_id, $order_id, $payment_method, $reference_id, $created_at, $created_by, $charge)
     {
+        $base_price = $charge['base'];
+        $discount_amount = $charge['discount'];
+        $net_price = round($base_price - $discount_amount, 2);
+
         $ledger_base = [
             'purchase_id' => $purchase_id,
             'family_id' => $family_id,
@@ -220,12 +234,12 @@ class Usctdp_Reconcile_Ledger
             'created_by' => $created_by,
         ];
 
-        return [
+        $entries = [
             array_merge($ledger_base, [
                 'account' => 'registration_fees',
                 'entry_type' => 'charge',
                 'description' => 'Order placed in online store.',
-                'debit' => $price,
+                'debit' => $base_price,
                 'credit' => 0,
             ]),
             array_merge($ledger_base, [
@@ -233,23 +247,62 @@ class Usctdp_Reconcile_Ledger
                 'entry_type' => 'charge',
                 'description' => 'Order placed in online store.',
                 'debit' => 0,
-                'credit' => $price,
-            ]),
-            array_merge($ledger_base, [
-                'account' => 'payment_' . $payment_method,
-                'entry_type' => 'payment',
-                'description' => 'Order paid in online store.',
-                'debit' => $price,
-                'credit' => 0,
-            ]),
-            array_merge($ledger_base, [
-                'account' => 'registration_fees',
-                'entry_type' => 'payment',
-                'description' => 'Order paid in online store.',
-                'debit' => 0,
-                'credit' => $price,
+                'credit' => $base_price,
             ]),
         ];
+
+        if ($discount_amount > 0) {
+            $entries[] = array_merge($ledger_base, [
+                'account' => 'registration_fees',
+                'entry_type' => 'adjustment',
+                'description' => 'Second Day Discount',
+                'debit' => 0,
+                'credit' => $discount_amount,
+            ]);
+            $entries[] = array_merge($ledger_base, [
+                'account' => 'revenue',
+                'entry_type' => 'adjustment',
+                'description' => 'Second Day Discount',
+                'debit' => $discount_amount,
+                'credit' => 0,
+            ]);
+        }
+
+        $entries[] = array_merge($ledger_base, [
+            'account' => 'payment_' . $payment_method,
+            'entry_type' => 'payment',
+            'description' => 'Order paid in online store.',
+            'debit' => $net_price,
+            'credit' => 0,
+        ]);
+        $entries[] = array_merge($ledger_base, [
+            'account' => 'registration_fees',
+            'entry_type' => 'payment',
+            'description' => 'Order paid in online store.',
+            'debit' => 0,
+            'credit' => $net_price,
+        ]);
+
+        return $entries;
+    }
+
+    /**
+     * {code, value, amount, reason} discounts JSON for usctdp_purchase.discounts
+     * - null (no key written) when there's no discount to record. Same shape
+     * parse_registration_data()/parse_merchandise_data() use
+     * (class-usctdp-mgmt-admin-ajax.php).
+     */
+    private function get_discounts_json($charge)
+    {
+        if ($charge['discount'] <= 0) {
+            return null;
+        }
+        return wp_json_encode([[
+            'code' => 'second_day',
+            'value' => $charge['discount'],
+            'amount' => $charge['discount'],
+            'reason' => 'Second Day Discount',
+        ]]);
     }
 
     /**
@@ -279,7 +332,7 @@ class Usctdp_Reconcile_Ledger
     }
 
     /**
-     * Backfills the four ledger rows for one orphaned purchase, mirroring
+     * Backfills the ledger rows for one orphaned purchase, mirroring
      * create_purchase_and_ledger_entries() exactly but reusing the purchase
      * that already exists instead of creating a new one. Wrapped in its own
      * transaction so one bad row can't take others down with it.
@@ -292,7 +345,7 @@ class Usctdp_Reconcile_Ledger
         $order_id = $order->get_id();
         [$item, $activity_ids] = $this->find_order_line_item($order, $row->tracking_id, $row->activity_id, $order_id);
 
-        $price = $this->get_activity_price($item, (int) $row->activity_id, $activity_ids, $order_id);
+        $charge = $this->get_activity_charge($item, (int) $row->activity_id, $activity_ids, $order_id);
         $payment_method = $order->get_payment_method();
         $reference_id = $order->get_transaction_id() ?: (string) $order_id;
         $created_at = current_time('mysql');
@@ -306,12 +359,17 @@ class Usctdp_Reconcile_Ledger
             $reference_id,
             $created_at,
             $created_by,
-            $price
+            $charge
         );
+        $discounts_json = $this->get_discounts_json($charge);
 
         $wpdb->query('START TRANSACTION');
         try {
             $this->insert_ledger_entries($entries);
+            if ($discounts_json !== null) {
+                $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+                $purchase_query->update_item($row->purchase_id, ['discounts' => $discounts_json]);
+            }
             $wpdb->query('COMMIT');
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
@@ -325,8 +383,8 @@ class Usctdp_Reconcile_Ledger
      * Backfills an 'active' registration that never got a purchase at all -
      * creates the purchase (mirroring create_purchase_and_ledger_entries()'s
      * own purchase-creation step), links it to the registration, and
-     * inserts the same four ledger rows backfill_orphaned_purchase() does.
-     * One transaction covering all of it, so a failure partway through
+     * inserts the same ledger rows backfill_orphaned_purchase() does. One
+     * transaction covering all of it, so a failure partway through
      * (e.g. the ledger insert) rolls back the purchase creation too, rather
      * than leaving a purchase with no ledger - the exact problem this tool
      * already exists to detect.
@@ -339,16 +397,16 @@ class Usctdp_Reconcile_Ledger
         $order_id = $order->get_id();
         [$item, $activity_ids] = $this->find_order_line_item($order, $row->tracking_id, $row->activity_id, $order_id);
 
-        $price = $this->get_activity_price($item, (int) $row->activity_id, $activity_ids, $order_id);
+        $charge = $this->get_activity_charge($item, (int) $row->activity_id, $activity_ids, $order_id);
         $payment_method = $order->get_payment_method();
         $reference_id = $order->get_transaction_id() ?: (string) $order_id;
         $created_at = current_time('mysql');
         $created_by = get_current_user_id();
+        $discounts_json = $this->get_discounts_json($charge);
 
         $wpdb->query('START TRANSACTION');
         try {
-            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
-            $purchase_id = $purchase_query->add_item([
+            $purchase_fields = [
                 'product_id' => $row->product_id,
                 'family_id' => $row->family_id,
                 'student_id' => $row->student_id,
@@ -356,7 +414,12 @@ class Usctdp_Reconcile_Ledger
                 'type' => 'registration',
                 'created_at' => $created_at,
                 'created_by' => $created_by,
-            ]);
+            ];
+            if ($discounts_json !== null) {
+                $purchase_fields['discounts'] = $discounts_json;
+            }
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            $purchase_id = $purchase_query->add_item($purchase_fields);
             if (!$purchase_id) {
                 throw new Exception("Failed to create purchase for registration {$row->registration_id}.");
             }
@@ -372,7 +435,7 @@ class Usctdp_Reconcile_Ledger
                 $reference_id,
                 $created_at,
                 $created_by,
-                $price
+                $charge
             );
             $this->insert_ledger_entries($entries);
 

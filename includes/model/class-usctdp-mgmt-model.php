@@ -195,4 +195,38 @@ class Usctdp_Mgmt_Model
         }
         return $pricing_query->items[0];
     }
+
+    /**
+     * The dollar discount applied to a clinic's *second* registered day -
+     * the amount subtracted from that day's own One-day base price so the
+     * two combined land on the product's Two-day price. Derived purely from
+     * the pricing table itself, not from what any particular order or
+     * registration actually charged - the single source of truth for this
+     * figure everywhere it's needed (admin ajax, the online-order ledger
+     * path, and the CLI tools that reconcile/backfill it), so all of them
+     * agree even if an order's line total ever drifts from the raw tier
+     * price (a coupon, a manual price edit, stale pricing data, etc.).
+     *
+     * Same formula bind_clinic_info() computes client-side (admin/js/usctdp-
+     * mgmt-admin-register.js): two_day_price - base_price is the *increment*
+     * the two-day tier adds over a single day, so the actual per-activity
+     * discount is base_price minus that increment, not the increment
+     * itself. Returns null when the product has no Two-day tier at all
+     * (e.g. a tournament, or a clinic that isn't offered twice a week).
+     *
+     * Doesn't clamp a nonsensical result (a "Two" price that isn't actually
+     * a discount off 2x "One") to zero - that's a pricing-data problem
+     * worth surfacing, not silently hiding, so callers that book ledger
+     * entries from this should guard against a negative/zero result
+     * themselves rather than assume it's always a genuine discount.
+     */
+    public static function get_second_day_discount($pricing, $base_price)
+    {
+        if (empty($pricing->pricing['Two'])) {
+            return null;
+        }
+        $two_day_price = round(floatval($pricing->pricing['Two']), 2);
+        $diff = round($two_day_price - $base_price, 2);
+        return round($base_price - $diff, 2);
+    }
 }

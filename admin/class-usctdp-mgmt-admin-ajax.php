@@ -1018,25 +1018,15 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
-     * The dollar discount applied to a clinic's *second* registered day -
-     * the amount subtracted from that day's own One-day base price so the
-     * two combined land on the product's Two-day price. Same formula
-     * bind_clinic_info() computes client-side (admin/js/usctdp-mgmt-admin-
-     * register.js): two_day_price - base_price is the *increment* the
-     * two-day tier adds over a single day, so the actual per-activity
-     * discount is base_price minus that increment, not the increment
-     * itself. Null when the product has no Two-day tier at all (e.g. a
-     * tournament, or a clinic that isn't offered twice a week) - !empty()
-     * here matches woocommerce-hooks.php's own "does a Two tier exist" check.
+     * Thin wrapper around Usctdp_Mgmt_Model::get_second_day_discount() - see
+     * that method's doc comment for the formula and reasoning. Kept as its
+     * own method here rather than inlining the call at each of this file's
+     * two call sites, and named after what it's used for on this page
+     * (a registration's "additional day").
      */
     private function get_additional_day_discount($pricing, $base_price)
     {
-        if (empty($pricing->pricing['Two'])) {
-            return null;
-        }
-        $two_day_price = round(floatval($pricing->pricing['Two']), 2);
-        $diff = round($two_day_price - $base_price, 2);
-        return round($base_price - $diff, 2);
+        return Usctdp_Mgmt_Model::get_second_day_discount($pricing, $base_price);
     }
 
     private function get_price_change($current_activity_id, $new_activity_id)

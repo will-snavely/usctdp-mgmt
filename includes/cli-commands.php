@@ -88,6 +88,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-sync-billing-addresses.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-backfill-second-day-discounts.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -890,6 +893,41 @@ class Usctdp_Cli_Command
         $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
         $syncer = new Usctdp_Sync_Billing_Addresses();
         $syncer->run($fix);
+    }
+
+    /**
+     * Backfills usctdp_purchase.discounts and a matching ledger 'adjustment'
+     * entry pair for online-order two-day-clinic purchases created before
+     * create_purchase_and_ledger_entries() (class-usctdp-mgmt-woocommerce-hooks.php)
+     * started itemizing the second day's discount as its own ledger line.
+     * Restates the existing charge entry up to the full One-day base price
+     * and adds a 'Second Day Discount' adjustment for the difference - the
+     * net amount ever charged/owed doesn't change, only how it's itemized.
+     * See Usctdp_Backfill_Second_Day_Discounts's class doc comment for the
+     * full reasoning, including why a purchase that's already had any kind
+     * of ledger adjustment (already fixed, or already touched by a "Modify"
+     * price-change review) is deliberately left alone.
+     *
+     * Report-only by default - always run without --fix first and check the
+     * listing.
+     *
+     * ## OPTIONS
+     *
+     * [--fix]
+     * : Actually restate the charge entries, add the discount adjustment,
+     * and record it on usctdp_purchase.discounts. Without this flag, only
+     * reports what would change.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp backfill_second_day_discounts
+     *     wp usctdp backfill_second_day_discounts --fix
+     */
+    public function backfill_second_day_discounts($args, $assoc_args)
+    {
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $backfiller = new Usctdp_Backfill_Second_Day_Discounts();
+        $backfiller->run($fix);
     }
 }
 

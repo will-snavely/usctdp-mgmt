@@ -1717,18 +1717,41 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     $activities[$activity_id] = $aq->items[0];
                 }
 
+                // For a single-activity item (a tournament, or a one-day
+                // clinic) the whole line total is the charge, with no
+                // per-activity discount to itemize. A two-activity item (a
+                // clinic booked for two days/week) is priced as a single
+                // WooCommerce "Two" variation covering both days - both days
+                // are charged their full One-day price here, with the second
+                // day's discount booked explicitly below (ledger adjustment
+                // entry + a 'discounts' record on its purchase), rather than
+                // silently folding it into a lower charge amount the way
+                // this used to. That mirrors how build_ledger_entries_for_
+                // line_item() (class-usctdp-mgmt-admin-ajax.php) books an
+                // admin-created two-day registration, so a purchase made by
+                // a customer at checkout looks the same in the ledger as one
+                // staff create manually.
                 if (count($activity_ids) === 1) {
-                    $activity_prices = [$activity_ids[0] => $item_total];
+                    $activity_charges = [$activity_ids[0] => ['base' => $item_total, 'discount' => 0.0]];
                 } else {
                     $pricing = Usctdp_Mgmt_Model::get_activity_pricing($activities[$activity_ids[0]]);
                     if (!$pricing) {
                         throw new Exception("Pricing not found for activity {$activity_ids[0]} on order $order_id.");
                     }
-                    $pricing_data = $pricing->pricing;
-                    $day1_price = floatval($pricing_data['One']);
-                    $activity_prices = [
-                        $activity_ids[0] => $day1_price,
-                        $activity_ids[1] => $item_total - $day1_price,
+                    $day1_price = round(floatval($pricing->pricing['One']), 2);
+                    // Taken straight from the pricing table (same as
+                    // Usctdp_Mgmt_Model::get_second_day_discount()'s other
+                    // callers), not derived from what this particular order
+                    // happened to charge - a negative/zero result here means
+                    // the pricing data itself doesn't actually discount the
+                    // second day, not that this order's total is unusual.
+                    $day2_discount = Usctdp_Mgmt_Model::get_second_day_discount($pricing, $day1_price);
+                    if (empty($day2_discount) || $day2_discount < 0) {
+                        $day2_discount = 0.0;
+                    }
+                    $activity_charges = [
+                        $activity_ids[0] => ['base' => $day1_price, 'discount' => 0.0],
+                        $activity_ids[1] => ['base' => $day1_price, 'discount' => $day2_discount],
                     ];
                 }
 
@@ -1748,8 +1771,31 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         continue;
                     }
 
-                    $purchase_query = new Usctdp_Mgmt_Purchase_Query();
-                    $purchase_id = $purchase_query->add_item([
+                    $charge = $activity_charges[$activity_id];
+                    $base_price = $charge['base'];
+                    $discount_amount = $charge['discount'];
+                    $net_price = round($base_price - $discount_amount, 2);
+
+                    // Second-day discount, if any, is recorded on its own
+                    // purchase the same {code, value, amount, reason} shape
+                    // parse_registration_data()/parse_merchandise_data() use
+                    // (class-usctdp-mgmt-admin-ajax.php) - keeps this
+                    // purchase's discount history visible on the admin
+                    // history page and lets a later "Modify" price-change
+                    // review (reviewPriceChange(), usctdp-mgmt-admin-
+                    // history.js) recompute it instead of silently losing
+                    // track of it.
+                    $discounts_json = null;
+                    if ($discount_amount > 0) {
+                        $discounts_json = wp_json_encode([[
+                            'code' => 'second_day',
+                            'value' => $discount_amount,
+                            'amount' => $discount_amount,
+                            'reason' => 'Second Day Discount',
+                        ]]);
+                    }
+
+                    $purchase_fields = [
                         'product_id' => $product->id,
                         'family_id' => $family_id,
                         'student_id' => $student_id,
@@ -1757,13 +1803,17 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         'type' => 'registration',
                         'created_at' => $created_at,
                         'created_by' => $created_by,
-                    ]);
+                    ];
+                    if ($discounts_json !== null) {
+                        $purchase_fields['discounts'] = $discounts_json;
+                    }
+                    $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+                    $purchase_id = $purchase_query->add_item($purchase_fields);
                     if (!$purchase_id) {
                         throw new Exception("Failed to create purchase for order $order_id, activity $activity_id.");
                     }
 
                     $reg_query->update_item($registration->id, ['purchase_id' => $purchase_id]);
-                    $price = $activity_prices[$activity_id];
                     $activity_title = $activities[$activity_id]->title;
 
                     $ledger_base = [
@@ -1790,12 +1840,13 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
                     // Charge: mirrors build_ledger_entries_for_line_item()'s
                     // "is_new" pair in class-usctdp-mgmt-admin-ajax.php - Dr
-                    // registration_fees, Cr revenue, recognizing the sale.
+                    // registration_fees, Cr revenue, recognizing the sale at
+                    // its full base price (before any second-day discount).
                     $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'registration_fees',
                         'entry_type' => 'charge',
                         'description' => 'Order placed in online store.',
-                        'debit' => $price,
+                        'debit' => $base_price,
                         'credit' => 0,
                     ]));
                     if (!$entry_id) {
@@ -1806,23 +1857,52 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         'entry_type' => 'charge',
                         'description' => 'Order placed in online store.',
                         'debit' => 0,
-                        'credit' => $price,
+                        'credit' => $base_price,
                     ]));
                     if (!$entry_id) {
                         throw new Exception("Failed to create revenue charge ledger entry for order $order_id, activity $activity_id.");
                     }
 
+                    // Discount: same shape as the discount loop in
+                    // build_ledger_entries_for_line_item() - Dr revenue, Cr
+                    // registration_fees, so the charge above and this
+                    // adjustment are both visible in the ledger instead of
+                    // the discount being folded silently into a lower charge.
+                    if ($discount_amount > 0) {
+                        $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
+                            'account' => 'registration_fees',
+                            'entry_type' => 'adjustment',
+                            'description' => 'Second Day Discount',
+                            'debit' => 0,
+                            'credit' => $discount_amount,
+                        ]));
+                        if (!$entry_id) {
+                            throw new Exception("Failed to create second-day-discount registration_fees adjustment ledger entry for order $order_id, activity $activity_id.");
+                        }
+                        $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
+                            'account' => 'revenue',
+                            'entry_type' => 'adjustment',
+                            'description' => 'Second Day Discount',
+                            'debit' => $discount_amount,
+                            'credit' => 0,
+                        ]));
+                        if (!$entry_id) {
+                            throw new Exception("Failed to create second-day-discount revenue adjustment ledger entry for order $order_id, activity $activity_id.");
+                        }
+                    }
+
                     // Payment: mirrors that same file's payment pair - Dr
                     // payment_<method> (money actually received), Cr
-                    // registration_fees (clearing the receivable). COD moves
-                    // straight to "processing", so both pairs are booked
-                    // together here rather than split across two hook calls
-                    // like the admin invoicing flow's deferred-card case.
+                    // registration_fees (clearing the receivable), for the
+                    // net amount actually owed after the discount above. COD
+                    // moves straight to "processing", so both pairs are
+                    // booked together here rather than split across two hook
+                    // calls like the admin invoicing flow's deferred-card case.
                     $entry_id = $ledger_query->add_item(array_merge($ledger_base, [
                         'account' => 'payment_' . $payment_method,
                         'entry_type' => 'payment',
                         'description' => 'Order paid in online store.',
-                        'debit' => $price,
+                        'debit' => $net_price,
                         'credit' => 0,
                     ]));
                     if (!$entry_id) {
@@ -1833,7 +1913,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                         'entry_type' => 'payment',
                         'description' => 'Order paid in online store.',
                         'debit' => 0,
-                        'credit' => $price,
+                        'credit' => $net_price,
                     ]));
                     if (!$entry_id) {
                         throw new Exception("Failed to create registration_fees payment ledger entry for order $order_id, activity $activity_id.");
