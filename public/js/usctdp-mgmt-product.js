@@ -21,10 +21,12 @@
     const fullScheduleModal = document.querySelector('#usctdp-full-schedule-modal');
     const waitlistedEntries = new Set();
     let cartBlocked = false;
-    // Set to the tournament's activity (from /activities/) when it's full -
-    // clinics track "full" per selected day-selector option instead, since
-    // they have several activities to choose between.
+    // Set to the tournament's activity (from /activities/) when it's full or
+    // closed - clinics track "full" per selected day-selector option instead
+    // (and drop closed options from the list entirely), since they have
+    // several activities to choose between.
     let tournamentActivity = null;
+    let tournamentClosed = false;
 
     function waitlistKey(studentId, activityId) {
       return studentId + ':' + activityId;
@@ -33,6 +35,7 @@
     function clear_day_selectors() {
       $('#usctdp-day-selectors').empty();
       tournamentActivity = null;
+      tournamentClosed = false;
       cartBlocked = false;
       $('.single_add_to_cart_button').removeClass('usctdp-cart-disabled');
     }
@@ -110,7 +113,7 @@
         const $select = $wrapper.find('select');
         if ($select.length) {
           updateDayStatus($select, $wrapper.find('.usctdp-day-status'));
-        } else if (tournamentActivity) {
+        } else if (tournamentActivity && !tournamentClosed) {
           updateTournamentWaitlistButton($wrapper.find('.add-waitlist-btn'));
         }
       });
@@ -118,13 +121,19 @@
 
     /**
      * Renders the "This tournament is full" / Add to Waitlist block for a
-     * full tournament activity - the tournament equivalent of the per-day
+     * full tournament activity, or the equivalent closed-registration
+     * message for a closed one - the tournament equivalent of the per-day
      * status rendered inside add_day_selector() below, minus the <select>
      * since there's only ever one activity to consider. No-op (and clears
-     * any prior full state) when there's room.
+     * any prior full/closed state) when there's room and it's open.
+     *
+     * Closed takes precedence over full when both are true - there's no
+     * waitlist for a class no longer taking registrations at all, unlike a
+     * merely full one that might free up a spot.
      */
     function render_tournament_status(activity) {
-      tournamentActivity = (activity.enrolled_count >= activity.capacity) ? activity : null;
+      tournamentClosed = activity.status === 'closed';
+      tournamentActivity = (tournamentClosed || activity.enrolled_count >= activity.capacity) ? activity : null;
       if (!tournamentActivity) {
         updateCartAvailability();
         return;
@@ -132,20 +141,30 @@
 
       const wrapper = $('<div></div>').addClass('usctdp-day-selector usctdp-tournament-status');
       const statusWrap = $('<div></div>').addClass('usctdp-day-status');
-      statusWrap.append($('<span></span>').addClass('usctdp-full-message').text('This tournament is full.'));
-      const btn = $('<button></button>')
-        .attr('type', 'button')
-        .addClass('button add-waitlist-btn')
-        .text('Add to Waitlist');
-      statusWrap.append(btn);
+      statusWrap.append($('<span></span>').addClass('usctdp-full-message')
+        .text(tournamentClosed ? 'This tournament is closed.' : 'This tournament is full.'));
+      if (!tournamentClosed) {
+        const btn = $('<button></button>')
+          .attr('type', 'button')
+          .addClass('button add-waitlist-btn')
+          .text('Add to Waitlist');
+        statusWrap.append(btn);
+        updateTournamentWaitlistButton(btn);
+      }
       wrapper.append(statusWrap);
       $('#usctdp-day-selectors').append(wrapper);
 
-      updateTournamentWaitlistButton(btn);
       updateCartAvailability();
     }
 
     function add_day_selector(clinics, day_index, label_text, session_label) {
+      // A closed activity isn't offered as a selection at all - unlike a
+      // full one (still listed, disabled, with a waitlist), it's dropped
+      // from the list entirely, same as if it didn't exist.
+      var availableClinics = clinics.filter(function (clinic) {
+        return clinic.status !== 'closed';
+      });
+
       var wrapper = $('<div></div>');
       wrapper.addClass('usctdp-day-selector');
       var label = $('<label></label>');
@@ -157,7 +176,7 @@
       selector.attr('id', 'day_of_week_' + day_index);
       selector.prop('required', true);
       selector.append('<option value=""></option>');
-      clinics.forEach(function (clinic) {
+      availableClinics.forEach(function (clinic) {
         var dowStr = int_to_day[clinic.day_of_week];
         var startTime = format_time(clinic.start_time);
         var dayLabel = dowStr + ' at ' + startTime;
@@ -171,6 +190,28 @@
           .text(optionText));
       });
       wrapper.append(selector);
+
+      // Every candidate for this day was closed - the select is left with
+      // just its blank placeholder (still `required`, so it can never be
+      // completed), with a note in the status-row slot explaining why
+      // instead of the usual full/waitlist block. Handled as an early
+      // return rather than folded into the shared statusWrap below, so this
+      // note's visibility is never touched by updateDayStatus()'s
+      // force-hidden toggling on change (which only makes sense once
+      // there's a real "full" state to reflect).
+      if (availableClinics.length === 0) {
+        var emptyStatus = $('<div></div>').addClass('usctdp-day-status');
+        emptyStatus.append($('<span></span>').addClass('usctdp-full-message').text('No times currently available.'));
+        wrapper.append(emptyStatus);
+
+        $('#usctdp-day-selectors').append(wrapper);
+        $('#day_of_week_' + day_index).select2({
+          placeholder: 'Select a day...',
+          allowClear: true,
+          width: '100%'
+        });
+        return;
+      }
 
       var statusWrap = $('<div></div>').addClass('usctdp-day-status force-hidden');
       statusWrap.append($('<span></span>').addClass('usctdp-full-message').text('This class is full.'));

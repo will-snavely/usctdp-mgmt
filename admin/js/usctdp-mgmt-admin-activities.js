@@ -172,6 +172,7 @@
         function enterActivityDetailsEditMode() {
             $('#activity-detail-fields').addClass('editing');
             $('#activity-level-input').prop('readonly', false);
+            $('#activity-status-select').prop('disabled', false);
             $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', false);
             $('#edit-activity-details-btn').addClass('hidden');
             $('#save-activity-details-btn, #cancel-activity-details-btn').removeClass('hidden');
@@ -180,6 +181,7 @@
         function exitActivityDetailsEditMode() {
             $('#activity-detail-fields').removeClass('editing');
             $('#activity-level-input').prop('readonly', true);
+            $('#activity-status-select').prop('disabled', true);
             $('#activity-day-select, #activity-start-time-input, #activity-end-time-input').prop('disabled', true);
             $('#edit-activity-details-btn').removeClass('hidden');
             $('#save-activity-details-btn, #cancel-activity-details-btn').addClass('hidden');
@@ -193,6 +195,10 @@
             $('#activity-level-wrap').toggleClass(
                 'is-dirty',
                 $('#activity-level-input').val() !== (loadedActivityDetails.level || '')
+            );
+            $('#activity-status-wrap').toggleClass(
+                'is-dirty',
+                $('#activity-status-select').val() !== (loadedActivityDetails.status || 'open')
             );
 
             var schedule = loadedActivityDetails.schedule;
@@ -231,8 +237,9 @@
         function loadActivityDetails(activityId) {
             exitActivityDetailsEditMode();
             if (!activityId) {
-                loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null, groupId: null, groupName: null, sharedWith: [] };
+                loadedActivityDetails = { level: '', status: 'open', type: null, schedule: null, capacity: null, groupId: null, groupName: null, sharedWith: [] };
                 $('#activity-level-input').val('');
+                $('#activity-status-select').val(loadedActivityDetails.status);
                 renderActivityInstructors([]);
                 renderSharedActivitiesNote([]);
                 renderActivitySchedule(null, null);
@@ -242,6 +249,7 @@
                 .then(function (data) {
                     loadedActivityDetails = {
                         level: data.level || '',
+                        status: data.status || 'open',
                         type: data.type,
                         sessionId: data.session_id,
                         schedule: data.schedule,
@@ -251,6 +259,7 @@
                         sharedWith: data.shared_with
                     };
                     $('#activity-level-input').val(loadedActivityDetails.level);
+                    $('#activity-status-select').val(loadedActivityDetails.status);
                     renderActivityInstructors(data.instructors);
                     renderSharedActivitiesNote(data.shared_with);
                     renderActivitySchedule(data.type, data.schedule);
@@ -263,8 +272,9 @@
                     }
                 })
                 .catch(function () {
-                    loadedActivityDetails = { level: '', type: null, schedule: null, capacity: null, groupId: null, groupName: null, sharedWith: [] };
+                    loadedActivityDetails = { level: '', status: 'open', type: null, schedule: null, capacity: null, groupId: null, groupName: null, sharedWith: [] };
                     $('#activity-level-input').val('');
+                    $('#activity-status-select').val(loadedActivityDetails.status);
                     renderActivityInstructors([]);
                     renderSharedActivitiesNote([]);
                     renderActivitySchedule(null, null);
@@ -578,6 +588,7 @@
 
         $('#cancel-activity-details-btn').on('click', function () {
             $('#activity-level-input').val(loadedActivityDetails.level);
+            $('#activity-status-select').val(loadedActivityDetails.status || 'open');
             renderActivitySchedule(loadedActivityDetails.type, loadedActivityDetails.schedule);
             exitActivityDetailsEditMode();
         });
@@ -615,7 +626,10 @@
             }
 
             const saves = [
-                USCTDP_Admin.ajax_updateActivity(activityId, { level: $('#activity-level-input').val() })
+                USCTDP_Admin.ajax_updateActivity(activityId, {
+                    level: $('#activity-level-input').val(),
+                    status: $('#activity-status-select').val()
+                })
             ];
             if (isClinic) {
                 saves.push(USCTDP_Admin.ajax_updateClinicSchedule(activityId, {

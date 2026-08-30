@@ -11,11 +11,12 @@ class Usctdp_Mgmt_Activity_Table extends Table
     public $name = 'usctdp_activity';
     protected $db_version_key = 'usctdp_activity_version';
     public $description = 'USCTDP Activities';
-    protected $version = '1.3.0';
+    protected $version = '1.4.0';
     protected $upgrades = [
         '1.1.0' => 'add_reservation_group_id_column',
         '1.2.0' => 'backfill_reservation_groups',
         '1.3.0' => 'finalize_reservation_group_id_column',
+        '1.4.0' => 'add_status_column',
     ];
 
     public function set_schema()
@@ -27,6 +28,7 @@ class Usctdp_Mgmt_Activity_Table extends Table
             type varchar(50) NOT NULL,
             title tinytext,
             level tinytext,
+            status varchar(10) NOT NULL DEFAULT 'open',
             search_term tinytext,
             reservation_group_id bigint(20) unsigned NOT NULL,
             primary_sort_order smallint unsigned,
@@ -36,8 +38,54 @@ class Usctdp_Mgmt_Activity_Table extends Table
             KEY session_id (session_id),
             KEY product_id (product_id),
             KEY reservation_group_id (reservation_group_id),
+            KEY status (status),
             FULLTEXT search (search_term)
         ";
+    }
+
+    /**
+     * Adds the 'open' | 'closed' registration-status lifecycle column - see
+     * the 'status' entry in Usctdp_Mgmt_Activity_Schema for what each value
+     * means. No data backfill needed: the column default ('open') already
+     * matches every existing activity's current (implicit) state. Guarded
+     * the same way class-usctdp-mgmt-session-table.php's
+     * migrate_is_active_to_status() is, so a retry after a partial run
+     * (e.g. request timeout) is a safe no-op rather than a duplicate-column
+     * error.
+     */
+    public function add_status_column()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'usctdp_activity';
+
+        if (!$this->column_exists('status')) {
+            $result = $wpdb->query(
+                "ALTER TABLE {$table} ADD COLUMN status varchar(10) NOT NULL DEFAULT 'open'"
+            );
+            if ($result === false) {
+                return false;
+            }
+        }
+
+        if (!$this->usctdp_index_exists($table, 'status')) {
+            $result = $wpdb->query("ALTER TABLE {$table} ADD INDEX status (status)");
+            return $result !== false;
+        }
+
+        return true;
+    }
+
+    private function usctdp_index_exists($table, $index)
+    {
+        global $wpdb;
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS
+             WHERE table_schema = %s AND table_name = %s AND index_name = %s",
+            DB_NAME,
+            $table,
+            $index
+        ));
+        return $count > 0;
     }
 
     /**

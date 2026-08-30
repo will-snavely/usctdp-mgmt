@@ -27,6 +27,17 @@ class Usctdp_Mgmt_Activity_Schema extends Schema
             'name' => 'level',
             'type' => 'tinytext',
         ],
+        // 'open' (default; visible and takes new registrations, subject to
+        // the normal reservation_group capacity check) -> 'closed' (no
+        // longer accepting new registrations; existing registrations are
+        // untouched). See Usctdp_Mgmt_Activity_Table::add_status_column().
+        'status' => [
+            'name' => 'status',
+            'type' => 'varchar',
+            'length' => '10',
+            'default' => 'open',
+            'index' => true,
+        ],
         'reservation_group_id' => [
             'name' => 'reservation_group_id',
             'type' => 'bigint',

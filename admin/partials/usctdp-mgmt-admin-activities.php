@@ -87,6 +87,13 @@
                     <label for="activity-level-input" class="upper-heavy">Level</label>
                     <input type="text" id="activity-level-input" placeholder="e.g. 1, 1.5, 2.0-2.5" readonly>
                 </div>
+                <div id="activity-status-wrap" class="detail-field flex-col gap-5">
+                    <label for="activity-status-select" class="upper-heavy">Status</label>
+                    <select id="activity-status-select" disabled>
+                        <option value="open">Open</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
                 <div id="activity-schedule-wrap" class="flex-row gap-20 flex-wrap hidden">
                     <div class="detail-field flex-col gap-5">
                         <label for="activity-day-select" class="upper-heavy">Day</label>

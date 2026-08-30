@@ -582,6 +582,7 @@ class Usctdp_Mgmt_Admin_Ajax
 
             wp_send_json_success([
                 'level' => $activity->level,
+                'status' => $activity->status,
                 'type' => $activity->type,
                 'session_id' => $activity->session_id,
                 'schedule' => $activity->type === 'clinic' ? $this->get_clinic_schedule($activity_id) : null,
@@ -739,8 +740,16 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_error('Missing required parameter activity_id', 400);
         }
 
+        // 'status' is a controlled vocabulary (unlike free-text 'level'), so
+        // it needs validating up front - save_entity()'s $post_fields map
+        // only sanitizes each field, it doesn't validate against an allow-list.
+        if (isset($_POST['status']) && !in_array($_POST['status'], ['open', 'closed'], true)) {
+            wp_send_json_error('Invalid status provided.', 400);
+        }
+
         $post_fields = [
             'level' => sanitize_text_field(...),
+            'status' => sanitize_text_field(...),
         ];
 
         try {

@@ -1088,30 +1088,75 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         return $passed;
     }
 
-    public function add_cart_item_data($cart_item_data, $product_id, $variation_id, $quantity)
+    /**
+     * Resolves which activity id(s) a variable-product add-to-cart request
+     * is for, keyed the same way add_cart_item_data() below stores them on
+     * the cart item (day_of_week_1/day_of_week_2 for clinics,
+     * tournament_activity_id for tournaments). Shared by add_cart_item_data()
+     * (which needs to remember which key each id came from) and
+     * validate_activity_status() below (which only needs "every activity id
+     * this request touches"), so the two don't drift out of sync on how a
+     * posted request maps to activity ids.
+     */
+    private function resolve_posted_activities($product_id, $variation_id)
     {
         $activities = [];
-        if (isset($_POST['student_id'])) {
-            $cart_item_data['student_id'] = intval($_POST['student_id']);
-        }
         if (!empty($_POST['day_of_week_1'])) {
-            $id = intval($_POST['day_of_week_1']);
-            $activities[] = $id;
-            $cart_item_data['day_of_week_1'] = $id;
+            $activities['day_of_week_1'] = intval($_POST['day_of_week_1']);
         }
         if (!empty($_POST['day_of_week_2'])) {
-            $id = intval($_POST['day_of_week_2']);
-            $activities[] = $id;
-            $cart_item_data['day_of_week_2'] = $id;
+            $activities['day_of_week_2'] = intval($_POST['day_of_week_2']);
         }
         if (empty($activities)) {
             $tournament_activity = $this->resolve_tournament_activity($product_id, $variation_id);
             if ($tournament_activity) {
-                $activities[] = $tournament_activity->id;
-                $cart_item_data['tournament_activity_id'] = $tournament_activity->id;
+                $activities['tournament_activity_id'] = $tournament_activity->id;
             }
         }
-        $cart_item_data['activities'] = $activities;
+        return $activities;
+    }
+
+    /**
+     * woocommerce_add_to_cart_validation: reject adding an activity that's
+     * closed for new registrations (usctdp_activity.status) before it ever
+     * reaches the cart. This is UX only - parse_cart_data()/
+     * after_checkout_validation() re-checks status server-side at checkout
+     * regardless, the same relationship that function's capacity check has
+     * to this one.
+     */
+    public function validate_activity_status($passed, $product_id, $quantity, $variation_id = 0)
+    {
+        if (!$passed) {
+            return $passed;
+        }
+
+        $activity_ids = array_values($this->resolve_posted_activities($product_id, $variation_id));
+        if (empty($activity_ids)) {
+            return $passed;
+        }
+
+        $activity_query = new Usctdp_Mgmt_Activity_Query([
+            'id__in' => $activity_ids,
+            'number' => count($activity_ids),
+        ]);
+        foreach ($activity_query->items as $activity) {
+            if ($activity->status === 'closed') {
+                wc_add_notice(__('That class is no longer accepting registrations.', 'usctdp-mgmt'), 'error');
+                return false;
+            }
+        }
+
+        return $passed;
+    }
+
+    public function add_cart_item_data($cart_item_data, $product_id, $variation_id, $quantity)
+    {
+        if (isset($_POST['student_id'])) {
+            $cart_item_data['student_id'] = intval($_POST['student_id']);
+        }
+        $resolved_activities = $this->resolve_posted_activities($product_id, $variation_id);
+        $cart_item_data = array_merge($cart_item_data, $resolved_activities);
+        $cart_item_data['activities'] = array_values($resolved_activities);
         $cart_item_data['tracking_id'] = uniqid("usctdp_", true);
         return $cart_item_data;
     }
@@ -1356,6 +1401,14 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
                 if ($already_reserved) {
                     continue;
+                }
+
+                // Real last line of defense against a closed activity - the
+                // add-to-cart guard (validate_activity_status()) is UX only
+                // and covers carts that predate it or bypass it entirely.
+                if ($activity->status === 'closed') {
+                    $msg = $activity->title . " is no longer accepting registrations.";
+                    throw new Usctdp_Checkout_Exception($msg, 'activity_closed');
                 }
 
                 $group_id = (int) $activity->reservation_group_id;
