@@ -31,6 +31,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     {
         add_rewrite_endpoint('family', EP_ROOT | EP_PAGES);
         add_rewrite_endpoint('registrations', EP_ROOT | EP_PAGES);
+        add_rewrite_endpoint('house-credit', EP_ROOT | EP_PAGES);
     }
 
     public function family_endpoint_title($title, $endpoint)
@@ -40,6 +41,9 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         }
         if ($endpoint === 'registrations') {
             return __('My Registrations', 'usctdp-mgmt');
+        }
+        if ($endpoint === 'house-credit') {
+            return __('House Credit', 'usctdp-mgmt');
         }
         return $title;
     }
@@ -61,12 +65,14 @@ class Usctdp_Mgmt_Woocommerce_Hooks
     }
 
     /**
-     * Insert the My Family and My Registrations tabs right after Dashboard.
+     * Insert the My Family, My Registrations, and House Credit tabs right
+     * after Dashboard.
      */
     public function add_account_menu_items($items)
     {
         $items = $this->insert_menu_item($items, 'dashboard', 'family', __('My Family', 'usctdp-mgmt'));
-        return $this->insert_menu_item($items, 'family', 'registrations', __('My Registrations', 'usctdp-mgmt'));
+        $items = $this->insert_menu_item($items, 'family', 'registrations', __('My Registrations', 'usctdp-mgmt'));
+        return $this->insert_menu_item($items, 'registrations', 'house-credit', __('House Credit', 'usctdp-mgmt'));
     }
 
     private function get_current_user_family()
@@ -120,6 +126,30 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         wc_get_template('myaccount/registrations.php', [
             'family' => $family,
             'registrations' => $registrations,
+        ]);
+    }
+
+    /**
+     * Renders My Account > House Credit: the current account's house
+     * credit balance. Deliberately never accepts a family_id from the
+     * request the way the staff-facing ajax_get_family_balance() does
+     * (class-usctdp-mgmt-admin-ajax.php, gated on manage_options) - the
+     * family looked up here is always get_current_user_family(), the same
+     * "family scoped to whoever is logged in" resolution
+     * render_family_endpoint()/render_registrations_endpoint() already use,
+     * so there's no id for a customer to tamper with in the first place.
+     */
+    public function render_house_credit_endpoint()
+    {
+        $family = $this->get_current_user_family();
+        $balance = null;
+        if ($family) {
+            $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+            $balance = $ledger_query->get_house_credit_balance($family->id);
+        }
+        wc_get_template('myaccount/house-credit.php', [
+            'family' => $family,
+            'balance' => $balance,
         ]);
     }
 

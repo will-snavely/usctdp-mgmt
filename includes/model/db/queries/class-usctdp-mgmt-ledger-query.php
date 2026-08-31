@@ -392,6 +392,41 @@ class Usctdp_Mgmt_Ledger_Query extends Query
     }
 
     /**
+     * Net house credit ('payment_house_credit' account) available to a
+     * family, optionally narrowed to one student. Shared by the admin
+     * "Family Balance" lookup (Usctdp_Mgmt_Admin_Ajax::get_house_credit_balance(),
+     * which trusts its family_id/student_id straight from $_POST behind a
+     * manage_options check) and the customer-facing My Account > House
+     * Credit tab (Usctdp_Mgmt_Woocommerce_Hooks::render_house_credit_endpoint(),
+     * which only ever passes the logged-in customer's own family_id) - one
+     * query, two trust levels on the caller's side.
+     *
+     * House credits on voided purchases still count (no purchase status
+     * filter) - see get_house_credit_balance()'s original comment in
+     * class-usctdp-mgmt-admin-ajax.php.
+     */
+    public function get_house_credit_balance($family_id, $student_id = null)
+    {
+        global $wpdb;
+
+        $conditions = ["ulgr.family_id = %d", "ulgr.account = %s"];
+        $where_args = [(int) $family_id, 'payment_house_credit'];
+        if ($student_id) {
+            $conditions[] = "ulgr.student_id = %d";
+            $where_args[] = (int) $student_id;
+        }
+
+        $query = $wpdb->prepare(
+            "   SELECT SUM(credit) - SUM(debit) as house_credit_balance
+                FROM {$wpdb->prefix}usctdp_ledger as ulgr
+                WHERE " . implode(' AND ', $conditions),
+            $where_args
+        );
+        $result = $wpdb->get_row($query);
+        return $result->house_credit_balance;
+    }
+
+    /**
      * Total PayPal transaction fees for the orders behind the in-range
      * 'revenue' entries get_session_earnings() would sum. PayPal fees never
      * land in the ledger (WooCommerce/PayPal computes them independently of

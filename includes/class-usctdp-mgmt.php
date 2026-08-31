@@ -358,6 +358,13 @@ class Usctdp_Mgmt
             10,
             2
         );
+        $this->loader->add_filter(
+            'woocommerce_endpoint_house-credit_title',
+            $commerce_handler,
+            'family_endpoint_title',
+            10,
+            2
+        );
         $this->loader->add_action(
             'woocommerce_account_family_endpoint',
             $commerce_handler,
@@ -367,6 +374,11 @@ class Usctdp_Mgmt
             'woocommerce_account_registrations_endpoint',
             $commerce_handler,
             'render_registrations_endpoint'
+        );
+        $this->loader->add_action(
+            'woocommerce_account_house-credit_endpoint',
+            $commerce_handler,
+            'render_house_credit_endpoint'
         );
         $this->loader->add_action(
             'wp_loaded',

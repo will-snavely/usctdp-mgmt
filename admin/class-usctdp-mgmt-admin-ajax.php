@@ -1459,36 +1459,13 @@ class Usctdp_Mgmt_Admin_Ajax
         return $result->total_balance_due;
     }
 
+    // House credits on voided purchases should still appear - see
+    // Usctdp_Mgmt_Ledger_Query::get_house_credit_balance(), the shared
+    // implementation this delegates to.
     private function get_house_credit_balance($family_id, $student_id = null)
     {
-        $conditions = [];
-        $args = [];
-
-        $conditions[] = "ul.family_id = %d";
-        $args[] = $family_id;
-        if ($student_id) {
-            $conditions[] = "ul.student_id = %d";
-            $args[] = $student_id;
-        }
-
-        $conditions[] = "ul.account = %s";
-        $args[] = 'payment_house_credit';
-
-        // House credits on voided purchases should still appear
-        //$conditions[] = "up.status = %s";
-        //$args[] = 'active';
-
-        global $wpdb;
-        $query = $wpdb->prepare(
-            "   SELECT 
-                    SUM(credit) - SUM(debit) as house_credit_balance
-                FROM {$wpdb->prefix}usctdp_ledger as ul
-                JOIN {$wpdb->prefix}usctdp_purchase as up ON ul.purchase_id = up.id
-                WHERE " . implode(' AND ', $conditions),
-            $args
-        );
-        $result = $wpdb->get_row($query);
-        return $result->house_credit_balance;
+        $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+        return $ledger_query->get_house_credit_balance($family_id, $student_id);
     }
 
     public function ajax_get_family_balance()
