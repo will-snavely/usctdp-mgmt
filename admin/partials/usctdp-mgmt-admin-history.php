@@ -108,6 +108,14 @@
                         <label>Net Price</label>
                         <span id="new-net-price-display"></span>
                     </div>
+                    <div id="override-net-price-wrap">
+                        <label>
+                            <input type="checkbox" id="override-net-price-checkbox">
+                            Override net price
+                        </label>
+                        <input type="number" id="override-net-price-value" step="0.01" min="0" class="hidden"
+                            placeholder="Net Price">
+                    </div>
                 </div>
             </div>
             <div id="registration-update-delta" class="registration-update-delta"></div>
@@ -115,7 +123,7 @@
                 <label>
                     <input type="checkbox" id="issue-house-credit-checkbox">
                     Issue <span id="house-credit-amount-display"></span> as house credit
-                    (instead of leaving it as an unresolved credit balance)
+                    (instead of an unresolved credit balance)
                 </label>
             </div>
             <div class="actions-footer">

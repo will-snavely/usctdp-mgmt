@@ -444,6 +444,25 @@ dialog#confirm-registration-update-modal #new-discount-reason {
     width: 120px;
 }
 
+dialog#confirm-registration-update-modal #override-net-price-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+dialog#confirm-registration-update-modal #override-net-price-wrap label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal;
+}
+
+dialog#confirm-registration-update-modal #override-net-price-value {
+    width: 100px;
+}
+
 dialog#confirm-registration-update-modal .registration-update-delta {
     background: #f8fafc;
     border: 1px solid #94bef4;

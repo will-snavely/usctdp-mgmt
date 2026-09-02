@@ -418,8 +418,22 @@
 
             $('#new-base-price-display').text(USCTDP_Admin.formatUsd(newBasePrice));
             renderDiscountList($('#new-discounts-list'), newDiscounts, true);
-            const newNetPrice = Math.max(0, newBasePrice - sumDiscounts(newDiscounts));
-            $('#new-net-price-display').text(USCTDP_Admin.formatUsd(newNetPrice));
+
+            // The override lets the admin replace the computed net price
+            // outright - e.g. a one-off discount the family was given that
+            // has no representation in the discount metadata above. The
+            // discount list is still saved as-is either way (see
+            // updateRegistration()'s purchaseUpdate.discounts) since it's
+            // just a record of what's tracked, not required to sum to the
+            // final price.
+            const computedNetPrice = Math.max(0, newBasePrice - sumDiscounts(newDiscounts));
+            const overrideActive = registrationUpdateState.overrideNetPrice !== null;
+            const newNetPrice = overrideActive
+                ? Math.max(0, registrationUpdateState.overrideNetPrice)
+                : computedNetPrice;
+            $('#new-net-price-display').text(
+                USCTDP_Admin.formatUsd(newNetPrice) + (overrideActive ? ' (overridden)' : '')
+            );
 
             const delta = Math.round((newNetPrice - oldNetPrice) * 100) / 100;
             const $delta = $('#registration-update-delta');
@@ -504,13 +518,37 @@
             updateRegistrationUpdateModalUI();
         });
 
+        // Checking the box seeds the input with the currently-computed net
+        // price (base minus discounts) so the admin is nudging from a
+        // sensible starting point rather than a blank field.
+        $('#override-net-price-checkbox').on('change', function () {
+            if (!registrationUpdateState) return;
+            const checked = $(this).is(':checked');
+            $('#override-net-price-value').toggleClass('hidden', !checked);
+            if (checked) {
+                const { newBasePrice, newDiscounts } = registrationUpdateState;
+                const computed = Math.max(0, newBasePrice - sumDiscounts(newDiscounts));
+                $('#override-net-price-value').val(computed.toFixed(2));
+                registrationUpdateState.overrideNetPrice = computed;
+            } else {
+                registrationUpdateState.overrideNetPrice = null;
+            }
+            updateRegistrationUpdateModalUI();
+        });
+
+        $('#override-net-price-value').on('input', function () {
+            if (!registrationUpdateState || registrationUpdateState.overrideNetPrice === null) return;
+            registrationUpdateState.overrideNetPrice = USCTDP_Admin.safeParseFloat($(this).val());
+            updateRegistrationUpdateModalUI();
+        });
+
         $('#confirm-registration-update-btn').on('click', function () {
             if (!registrationUpdateState) return;
-            const { resolve, newDiscounts, creditDue } = registrationUpdateState;
+            const { resolve, newDiscounts, creditDue, overrideNetPrice } = registrationUpdateState;
             const issueHouseCredit = creditDue > 0 && $('#issue-house-credit-checkbox').is(':checked');
             registrationUpdateState = null;
             confirmRegistrationUpdateModal.close();
-            resolve({ applied: true, discounts: newDiscounts, issueHouseCredit, creditDue });
+            resolve({ applied: true, discounts: newDiscounts, issueHouseCredit, creditDue, overrideNetPrice });
         });
 
         $('#cancel-registration-update-btn').on('click', function () {
@@ -547,9 +585,12 @@
                     newAdditionalDayDiscount,
                     newDiscounts: initialNewDiscounts.map((d) => ({ ...d })),
                     creditDue: 0,
+                    overrideNetPrice: null,
                     resolve
                 };
                 $('#issue-house-credit-checkbox').prop('checked', false);
+                $('#override-net-price-checkbox').prop('checked', false);
+                $('#override-net-price-value').val('').addClass('hidden');
                 updateRegistrationUpdateModalUI();
                 confirmRegistrationUpdateModal.showModal();
             });
@@ -592,6 +633,13 @@
 
             const oldBasePrice = parseFloat(priceChange.old_price);
             const newBasePrice = parseFloat(priceChange.new_price);
+
+            if (oldBasePrice === newBasePrice) {
+                // Same base price on both activities - nothing to review or
+                // adjust.
+                return null;
+            }
+
             // Nullable - the new activity may have no two-day pricing tier
             // at all (see get_price_change()/get_additional_day_discount()
             // server-side), which is meaningfully different from a $0
@@ -608,17 +656,6 @@
             const currentOwed = computeCurrentOwed(purchaseRow);
 
             const recomputedDiscounts = oldDiscounts.map((d) => recomputeDiscount(d, newBasePrice, newAdditionalDayDiscount));
-            const recomputedNetPrice = Math.max(0, newBasePrice - sumDiscounts(recomputedDiscounts));
-
-            if (Math.abs(recomputedNetPrice - oldNetPrice) < 0.01) {
-                // Base price and every discount that could be recomputed net
-                // back out to the same amount already owed - nothing to
-                // review or adjust, but the individual discount amounts may
-                // still have shifted (e.g. a second_day discount re-derived
-                // for the new activity), so still hand back the recomputed
-                // list for updateRegistration() to persist.
-                return { cancelled: false, reviewed: false, ledgerEntries: [], discounts: recomputedDiscounts };
-            }
 
             const result = await reviewRegistrationUpdate(
                 oldBasePrice, oldDiscounts, oldNetPrice, currentOwed,
@@ -628,7 +665,16 @@
                 return { cancelled: true };
             }
 
-            const finalNetPrice = Math.max(0, newBasePrice - sumDiscounts(result.discounts));
+            // An admin override replaces the computed (base - discounts)
+            // price outright - e.g. a one-off discount that isn't
+            // represented in the discount metadata. The discount list is
+            // still saved as whatever the admin left it as (see
+            // updateRegistration()'s purchaseUpdate.discounts); it's just a
+            // record of what's tracked and isn't required to sum to the
+            // final price in that case.
+            const finalNetPrice = result.overrideNetPrice !== null && result.overrideNetPrice !== undefined
+                ? Math.max(0, result.overrideNetPrice)
+                : Math.max(0, newBasePrice - sumDiscounts(result.discounts));
             const absoluteDelta = Math.round(Math.abs(finalNetPrice - oldNetPrice) * 100) / 100;
             if (absoluteDelta === 0) {
                 return { cancelled: false, reviewed: true, ledgerEntries: [], discounts: result.discounts };
@@ -670,7 +716,14 @@
             return { cancelled: false, reviewed: true, ledgerEntries, discounts: result.discounts };
         }
 
-        async function updateRegistration(rowData, fields) {
+        // `purchaseFields` carries any purchase-level (not registration-
+        // level) fields that should be saved alongside the registration
+        // change - currently just a dirtied notes textarea (see the
+        // save-registration-btn handler below). It's merged with the
+        // discounts update this function already issues on a reviewed
+        // activity change, so a registration+notes edit made together only
+        // hits ajax_update_purchase() once.
+        async function updateRegistration(rowData, fields, purchaseFields = {}) {
             const isActivityChange = fields.activity_id
                 && parseInt(fields.activity_id, 10) !== parseInt(rowData.activity_id, 10);
 
@@ -689,6 +742,7 @@
                 throw Error("Failed to update registration.");
             }
 
+            const purchaseUpdate = { ...purchaseFields };
             if (review) {
                 // Keeps usctdp_purchase.discounts in sync with whatever
                 // discount list actually applies now - otherwise the next
@@ -700,9 +754,10 @@
                 // silently survive - send '' instead, same convention
                 // handleBatchSave() uses for phone_numbers/emails in
                 // usctdp-mgmt-admin-families.js.
-                await savePurchaseFields(rowData.purchase_id, {
-                    discounts: review.discounts.length === 0 ? '' : review.discounts
-                });
+                purchaseUpdate.discounts = review.discounts.length === 0 ? '' : review.discounts;
+            }
+            if (Object.keys(purchaseUpdate).length > 0) {
+                await savePurchaseFields(rowData.purchase_id, purchaseUpdate);
             }
 
             if (review && review.ledgerEntries.length > 0) {
@@ -1270,18 +1325,37 @@
                 return;
             }
 
+            // The notes textarea (see save-notes-btn above) is a separate
+            // control, but it lives in the same card and turns readonly
+            // below - fold in whatever's currently in it if it's been
+            // dirtied since the last save, so an in-progress note edit
+            // isn't silently dropped by clicking Save here instead.
+            const $notesSection = $row.find('.notes-section');
+            const notesDirty = $notesSection.hasClass('is-dirty');
+            const notesValue = $row.find('.notes-input').first().val();
+
             $row.find('.purchase-card .registration-fields').removeClass('editing');
             $row.find('select').prop('disabled', true);
             $row.find('input').prop('readonly', true);
             $row.find('textarea').prop('readonly', true);
             $saveButton.prop('disabled', true);
+            $row.find('.save-notes-btn').prop('disabled', true);
 
             var update = {
                 activity_id: activityId,
                 student_level: studentLevel
             }
+            var purchaseUpdate = {};
+            if (notesDirty) {
+                purchaseUpdate.notes = notesValue;
+            }
 
-            updateRegistration(rowData, update)
+            updateRegistration(rowData, update, purchaseUpdate)
+                .then(() => {
+                    if (notesDirty) {
+                        $notesSection.removeClass('is-dirty');
+                    }
+                })
                 .catch((error) => {
                     window.Swal.fire({
                         icon: "error",
