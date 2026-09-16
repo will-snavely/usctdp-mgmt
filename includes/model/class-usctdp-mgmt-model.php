@@ -40,6 +40,7 @@ class Usctdp_Mgmt_Model
         $berlindb_entities = [
             "activity",
             "activity-staff",
+            "camp",
             "clinic",
             "family",
             "import-pending",
@@ -85,6 +86,7 @@ class Usctdp_Mgmt_Model
             new Usctdp_Mgmt_Reservation_Group_Table(),
             new Usctdp_Mgmt_Activity_Table(),
             new Usctdp_Mgmt_Activity_Staff_Table(),
+            new Usctdp_Mgmt_Camp_Table(),
             new Usctdp_Mgmt_Clinic_Table(),
             new Usctdp_Mgmt_Family_Table(),
             new Usctdp_Mgmt_Import_Pending_Table(),
