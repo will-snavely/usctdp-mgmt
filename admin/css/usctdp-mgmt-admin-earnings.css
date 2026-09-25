@@ -141,7 +141,7 @@
        Capping the table keeps Session comfortably sized instead of
        stretching to fill the card. */
     width: 100%;
-    max-width: 760px;
+    max-width: 900px;
     /* DataTables' own CSS sets margin: 0 auto, which centers the table
        once max-width kicks in on a wide screen - left-align it instead. */
     margin: 0;
@@ -165,10 +165,17 @@
    and since it's an ID selector it would beat that table's !important
    class rules on specificity, corrupting its column widths too. The ">"
    combinators scope this to the outer table's own header row only. */
-#earnings-table > thead > tr > th:nth-child(4),
 #earnings-table > thead > tr > th:nth-child(5),
-#earnings-table > thead > tr > th:nth-child(6) {
+#earnings-table > thead > tr > th:nth-child(6),
+#earnings-table > thead > tr > th:nth-child(7) {
     width: 110px !important;
+}
+
+/* Purchases (nth-child(4)) - "Purchases" is as long as "Receivable"/
+   "Collected", so it needs at least as much room as the amount columns to
+   avoid wrapping onto a second line. */
+#earnings-table > thead > tr > th:nth-child(4) {
+    width: 130px !important;
 }
 
 /* DataTables wraps each header's text in a flex child (.dt-column-title)
@@ -214,7 +221,7 @@
    full-width by default, so those controls sprawled past the table's
    760px cap instead of lining up with it. */
 #earnings-table-scroll .dt-container {
-    max-width: 760px;
+    max-width: 860px;
     margin: 0;
 }
 
@@ -406,7 +413,8 @@ td.details-control:hover .details-toggle {
     #earnings-table > thead > tr > th:nth-child(3),
     #earnings-table > thead > tr > th:nth-child(4),
     #earnings-table > thead > tr > th:nth-child(5),
-    #earnings-table > thead > tr > th:nth-child(6) {
+    #earnings-table > thead > tr > th:nth-child(6),
+    #earnings-table > thead > tr > th:nth-child(7) {
         width: 52px !important;
     }
 

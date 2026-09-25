@@ -62,7 +62,7 @@
             columnDefs: [
                 { width: "36px", targets: 0 },
                 { width: "100px", targets: 2 },
-                { width: "80px", targets: 3 },
+                { width: "130px", targets: 3 },
                 { width: "110px", targets: [4, 5, 6] },
             ],
             columns: [
