@@ -91,6 +91,9 @@ class Usctdp_Cli_Command
 
         require_once plugin_dir_path(dirname(__FILE__)) .
             "includes/cli/class-usctdp-backfill-second-day-discounts.php";
+
+        require_once plugin_dir_path(dirname(__FILE__)) .
+            "includes/cli/class-usctdp-backfill-session-variation-ids.php";
     }
 
     public function gen_people($args, $assoc_args)
@@ -927,6 +930,37 @@ class Usctdp_Cli_Command
     {
         $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
         $backfiller = new Usctdp_Backfill_Second_Day_Discounts();
+        $backfiller->run($fix);
+    }
+
+    /**
+     * Backfills '_session_id' meta onto every existing clinic/cardio/
+     * tournament product's WooCommerce variations - published or disabled -
+     * so Usctdp_Mgmt_Woocommerce::find_variations_for_session() can resolve
+     * them right away instead of waiting for sync_product_variations() to
+     * naturally re-touch each one (which never happens at all for a
+     * variation whose session is already off sale). Run this once after
+     * deploying that change; see Usctdp_Backfill_Session_Variation_Ids's
+     * class doc comment for exactly how it resolves each variation.
+     *
+     * Report-only by default - always run without --fix first and check the
+     * listing, especially any "no session titled..." lines.
+     *
+     * ## OPTIONS
+     *
+     * [--fix]
+     * : Actually write the meta. Without this flag, only reports what would
+     * change.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp backfill_session_variation_ids
+     *     wp usctdp backfill_session_variation_ids --fix
+     */
+    public function backfill_session_variation_ids($args, $assoc_args)
+    {
+        $fix = \WP_CLI\Utils\get_flag_value($assoc_args, 'fix', false);
+        $backfiller = new Usctdp_Backfill_Session_Variation_Ids();
         $backfiller->run($fix);
     }
 }
