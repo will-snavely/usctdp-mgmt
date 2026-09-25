@@ -2551,6 +2551,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     'session_title' => $row->session_title,
                     'start_date' => $row->session_start_date,
                     'end_date' => $row->session_end_date,
+                    'purchase_count' => (int) $row->purchase_count,
                 ], $this->format_earnings_amounts($amount_fmt, $row->gross_revenue, $row->receivable));
             }
 
@@ -2618,6 +2619,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     'product_id' => (int) $row->product_id,
                     'product_title' => $row->product_title,
                     'product_type' => $row->product_type,
+                    'purchase_count' => (int) $row->purchase_count,
                 ], $this->format_earnings_amounts($amount_fmt, $row->gross_revenue, $row->receivable));
             }
 

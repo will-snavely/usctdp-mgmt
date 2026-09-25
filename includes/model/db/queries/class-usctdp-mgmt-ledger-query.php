@@ -296,6 +296,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
                     MAX(sesh.title) AS session_title,
                     MAX(sesh.start_date) AS session_start_date,
                     MAX(sesh.end_date) AS session_end_date,
+                    COUNT(DISTINCT pur.id) AS purchase_count,
                     SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
                     SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
                              THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable
@@ -374,6 +375,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
                     prod.id AS product_id,
                     MAX(prod.title) AS product_title,
                     MAX(prod.type) AS product_type,
+                    COUNT(DISTINCT pur.id) AS purchase_count,
                     SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
                     SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
                              THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable

@@ -62,7 +62,8 @@
             columnDefs: [
                 { width: "36px", targets: 0 },
                 { width: "100px", targets: 2 },
-                { width: "110px", targets: [3, 4, 5] },
+                { width: "80px", targets: 3 },
+                { width: "110px", targets: [4, 5, 6] },
             ],
             columns: [
                 {
@@ -82,6 +83,10 @@
                     // start date alone is enough to tell sessions apart.
                     data: 'start_date',
                     defaultContent: '',
+                },
+                {
+                    data: 'purchase_count',
+                    defaultContent: '0',
                 },
                 {
                     data: 'gross_revenue_display',
@@ -108,6 +113,7 @@
             var rows = products.map(function (p) {
                 return '<tr>'
                     + '<td>' + $('<div>').text(p.product_title).html() + '</td>'
+                    + '<td>' + p.purchase_count + '</td>'
                     + '<td>' + p.gross_revenue_display + '</td>'
                     + '<td>' + p.receivable_display + '</td>'
                     + '<td>' + p.collected_display + '</td>'
@@ -116,7 +122,7 @@
             return '<div class="session-detail">'
                 + '<div class="session-detail-scroll">'
                 + '<table class="usctdp-mini-table session-detail-table">'
-                + '<thead><tr><th>Product</th><th>Gross</th><th>Receivable</th><th>Collected</th></tr></thead>'
+                + '<thead><tr><th>Product</th><th>Purchases</th><th>Gross</th><th>Receivable</th><th>Collected</th></tr></thead>'
                 + '<tbody>' + rows + '</tbody>'
                 + '</table></div></div>';
         }
