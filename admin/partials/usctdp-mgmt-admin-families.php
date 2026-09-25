@@ -16,12 +16,12 @@
 
                 <div class="modal_field">
                     <label for="student_modal_birthdate">Birthday</label>
-                    <input type="date" id="student_modal_birthdate" name="birthdate" required>
+                    <input type="date" id="student_modal_birthdate" name="birthdate">
                 </div>
 
                 <div class="modal_field">
                     <label for="student_modal_level">Level</label>
-                    <input type="text" id="student_modal_level" name="level" required>
+                    <input type="text" id="student_modal_level" name="level">
                 </div>
 
                 <div class="actions-footer">
@@ -48,12 +48,12 @@
 
                 <div class="modal_field">
                     <label for="edit_student_modal_birthdate">Birthday</label>
-                    <input type="date" id="edit_student_modal_birthdate" name="birthdate" required>
+                    <input type="date" id="edit_student_modal_birthdate" name="birthdate">
                 </div>
 
                 <div class="modal_field">
                     <label for="edit_student_modal_level">Level</label>
-                    <input type="text" id="edit_student_modal_level" name="level" required>
+                    <input type="text" id="edit_student_modal_level" name="level">
                 </div>
 
                 <div class="actions-footer">
