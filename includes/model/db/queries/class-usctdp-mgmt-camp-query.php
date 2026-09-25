@@ -52,8 +52,7 @@ class Usctdp_Mgmt_Camp_Query extends Query
             "   SELECT
                     act.id as activity_id, act.title as activity_name, resg.capacity as activity_capacity,
                     act.level as activity_level,
-                    camp.activity_date as camp_activity_date, camp.week_number as camp_week_number,
-                    camp.start_time as camp_start_time, camp.end_time as camp_end_time,
+                    camp.schedule as camp_schedule,
                     sess.id as session_id, sess.title as session_name,
                     sess.start_date as session_start_date, sess.end_date as session_end_date,
                     sess.num_weeks as session_num_weeks, sess.category as session_category,
@@ -64,7 +63,7 @@ class Usctdp_Mgmt_Camp_Query extends Query
                 JOIN {$wpdb->prefix}usctdp_session AS sess ON act.session_id = sess.id
                 JOIN {$wpdb->prefix}usctdp_product AS prod ON act.product_id = prod.id
                 {$where_clause}
-                ORDER BY camp.activity_date ASC, act.id DESC
+                ORDER BY act.id DESC
                 {$limit_clause}",
             array_merge($where_args, $limit_args)
         );

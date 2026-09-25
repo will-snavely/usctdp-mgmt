@@ -31,6 +31,7 @@ enum Usctdp_Session_Category: int
     case Cardio = 4;
     case Junior_Tournament = 5;
     case Adult_Tournament = 6;
+    case Camp = 7;
 }
 
 enum Usctdp_Payment_Method: int

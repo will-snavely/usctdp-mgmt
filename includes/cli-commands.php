@@ -221,6 +221,30 @@ class Usctdp_Cli_Command
         $sender->send($dry_run, $resend, $limit !== null ? intval($limit) : null);
     }
 
+    /**
+     * ## OPTIONS
+     *
+     * <file>
+     * : Path to the products JSON file to import.
+     *
+     * [<skip_download>]
+     * : Pass the literal string "true" to reuse whatever's already at
+     * /tmp/*.webp and /tmp/flyer-*.pdf instead of re-downloading from
+     * Drive. Incompatible with --force-images (nothing new to refresh
+     * from).
+     *
+     * [--force-images]
+     * : Drive image/flyer ids are normally deduped by id and never
+     * revisited once an attachment exists for them - use this after
+     * replacing a file's content at the same Drive link (id unchanged) to
+     * overwrite the existing WordPress attachment with the freshly
+     * downloaded content instead of leaving the stale one in place.
+     *
+     * ## EXAMPLES
+     *
+     *     wp usctdp import_products data/products.json
+     *     wp usctdp import_products data/products.json --force-images
+     */
     public function import_products($args, $assoc_args)
     {
         $file_path = '';
@@ -237,8 +261,9 @@ class Usctdp_Cli_Command
                 $skip_download = true;
             }
         }
+        $force_images = \WP_CLI\Utils\get_flag_value($assoc_args, 'force-images', false);
         $generator = new Usctdp_Import_Product_Data();
-        $generator->import($file_path, $skip_download);
+        $generator->import($file_path, $skip_download, $force_images);
     }
 
     public function import_sessions($args, $assoc_args)
