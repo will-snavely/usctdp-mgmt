@@ -117,6 +117,7 @@ class Usctdp_Mgmt_Admin
                     'select2_search',
                     'purchase_history_datatable',
                     'preview_registration_activity_change',
+                    'reassign_registration',
                     'update_registration',
                     'update_purchase',
                     'set_registration_status',

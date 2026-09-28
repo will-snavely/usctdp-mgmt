@@ -175,7 +175,31 @@
                     </button>`;
             }
 
+            _renderReadonlyField(fieldClass, label, value) {
+                return `
+                    <div class="flex-col gap-5 registration-readonly-field ${fieldClass}">
+                        <label class="upper-heavy">${label}</label>
+                        <span class="badge registration-field-value">${value ?? '--'}</span>
+                    </div>`;
+            }
+
             _renderMiddleSection() {
+                // Clinics are edited exclusively through the Modify
+                // Registration modal now (see openModifyRegistrationModal()),
+                // so these never need to become editable dropdowns in the
+                // card itself - just display them plainly. Tournament/camp
+                // registrations don't have their own modal yet and still use
+                // the inline session/activity/level editing below (see the
+                // edit-registration-btn handler's activity_type branch).
+                if (this.data.activity_type === 'clinic') {
+                    return `
+                        <div class="registration-fields flex-row gap-10 w-100">
+                            ${this._renderReadonlyField('registration-field-session', 'Session', this.data.session_name)}
+                            ${this._renderReadonlyField('registration-field-activity', 'Activity', this.data.activity_name)}
+                            ${this._renderReadonlyField('registration-field-level', 'Level', this.data.registration_student_level)}
+                        </div>`;
+                }
+
                 const sessionSelectId = `session-selector-${this.idx}`;
                 const activitySelectId = `activity-selector-${this.idx}`;
                 return `
@@ -217,6 +241,7 @@
         var newPurchases = null;
         const paymentHistoryModal = new USCTDP_Admin.PaymentHistoryModal('payment-history-modal-container');
         const confirmRegistrationUpdateModal = document.querySelector('#confirm-registration-update-modal');
+        const modifyRegistrationModal = document.querySelector('#modify-registration-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
         const postRefundModal = document.querySelector('#post-refund-modal');
         const paymentSettings = {
@@ -228,6 +253,93 @@
         };
         const paymentTableId = "registration-payment-table";
         const paymentTable = new USCTDP_Admin.RegistrationPaymentTable(paymentTableId, paymentSettings);
+
+        // Family/Student and Session/Clinic/Day are two independent
+        // cascades (both isRoot) rather than one long chain - reassigning
+        // which student a registration belongs to has nothing to do with
+        // which activity it's for, so neither picker should gate the other.
+        // Clinic-only for now (see openModifyRegistrationModal()'s
+        // activity_type guard) - a tournament/camp variant of this cascade
+        // (with its own session-category filtering) is a later addition.
+        // dropdownParent is required on every one of these - see the
+        // comment on #modify-registration-modal in
+        // usctdp-mgmt-admin-history.css for why a select2 dropdown inside a
+        // <dialog> needs it (otherwise it renders behind the dialog's own
+        // top-layer stacking, same issue usctdp-mgmt-admin-activities.js
+        // works around for #waitlist-student-modal/#manage-reservation-group-modal).
+        const modifyRegistrationSelectorConfig = {
+            'modify-family-selector': {
+                name: 'family_id',
+                label: 'Family',
+                target: 'family',
+                next: 'modify-student-selector',
+                isRoot: true,
+                dropdownParent: $('#modify-registration-modal'),
+                // Explicit widths, not left to select2's own auto-detection
+                // - see the comment on CascasdingSelect.initSelect2()'s
+                // settings.width handling for why that's unreliable here
+                // (this selector starts out inside a closed <dialog>).
+                width: '150px'
+            },
+            'modify-student-selector': {
+                name: 'student_id',
+                label: 'Student',
+                target: 'student',
+                next: null,
+                filter: function () {
+                    return { family_id: $('#modify-family-selector').val() };
+                },
+                dropdownParent: $('#modify-registration-modal'),
+                width: '170px'
+            },
+            'modify-session-selector': {
+                name: 'session_id',
+                label: 'Session',
+                target: 'session',
+                // Same reasoning as initSessionSelector() above - moving a
+                // registration into an archived session isn't offered as a
+                // choice, though the registration's own current session
+                // still displays fine (applyData() injects it directly,
+                // bypassing this search filter).
+                filter: function () {
+                    return { active: 1 };
+                },
+                next: 'modify-clinic-selector',
+                isRoot: true,
+                dropdownParent: $('#modify-registration-modal'),
+                width: '220px'
+            },
+            'modify-clinic-selector': {
+                name: 'product_id',
+                label: 'Clinic',
+                target: 'product',
+                next: 'modify-activity-selector',
+                filter: function () {
+                    return { session_id: $('#modify-session-selector').val() };
+                },
+                dropdownParent: $('#modify-registration-modal'),
+                width: '170px'
+            },
+            'modify-activity-selector': {
+                name: 'activity_id',
+                label: 'Day',
+                target: 'activity',
+                next: null,
+                filter: function () {
+                    return {
+                        session_id: $('#modify-session-selector').val(),
+                        product_id: $('#modify-clinic-selector').val(),
+                    };
+                },
+                dropdownParent: $('#modify-registration-modal'),
+                width: '360px'
+            },
+        };
+        const modifyRegistrationSelectHandler = new USCTDP_Admin.CascasdingSelect(
+            'modify-registration-selectors',
+            modifyRegistrationSelectorConfig
+        );
+        var modifyRegistrationState = null;
 
         function refreshFamilyBalance() {
             const family_id = $('#family-filter').val();
@@ -715,6 +827,113 @@
 
             return { cancelled: false, reviewed: true, ledgerEntries, discounts: result.discounts };
         }
+
+        // Clinic version of the "Modify Registration" modal - lets the admin
+        // change family/student, session/clinic/day, and level all in one
+        // place. Deliberately does NOT duplicate any price/discount review
+        // logic - once Save is clicked, it hands off to the same
+        // updateRegistration()/reviewPriceChange() pipeline the tournament/
+        // legacy inline-edit flow already uses below, which shows
+        // #confirm-registration-update-modal only when the activity actually
+        // changed AND its base price differs from what's on file (see
+        // reviewPriceChange()'s "oldBasePrice === newBasePrice" check) -
+        // otherwise it's a silent no-op on the price/discount side.
+        function openModifyRegistrationModal(rowData) {
+            modifyRegistrationState = { rowData };
+
+            $('#modify-registration-level').val(rowData.registration_student_level || '');
+
+            modifyRegistrationSelectHandler.applyData({
+                'modify-family-selector': { id: rowData.family_id, text: rowData.family_name, disable: false },
+                'modify-student-selector': {
+                    id: rowData.student_id,
+                    text: `${rowData.student_first} ${rowData.student_last}`,
+                    first: rowData.student_first,
+                    last: rowData.student_last,
+                    disable: false
+                },
+                'modify-session-selector': { id: rowData.session_id, text: rowData.session_name, disable: false },
+                'modify-clinic-selector': { id: rowData.purchase_product_id, text: rowData.product_name, disable: false },
+                'modify-activity-selector': {
+                    id: rowData.activity_id,
+                    text: rowData.activity_name,
+                    type: rowData.activity_type,
+                    product_id: rowData.purchase_product_id,
+                    disable: false
+                },
+            });
+
+            modifyRegistrationModal.showModal();
+        }
+
+        $('#cancel-modify-registration-btn').on('click', () => {
+            modifyRegistrationModal.close();
+        });
+
+        modifyRegistrationModal.addEventListener('close', function () {
+            modifyRegistrationState = null;
+        });
+
+        $('#save-modify-registration-btn').on('click', async function () {
+            if (!modifyRegistrationState) return;
+            const originalRowData = modifyRegistrationState.rowData;
+
+            const newActivityId = $('#modify-activity-selector').val();
+            const newStudentId = $('#modify-student-selector').val();
+            const newFamilyId = $('#modify-family-selector').val();
+            const level = $('#modify-registration-level').val();
+
+            if (!newActivityId) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Activity Required",
+                    text: "Please select a session, clinic, and day before saving!",
+                });
+                return;
+            }
+            if (!newStudentId) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Student Required",
+                    text: "Please select a student before saving!",
+                });
+                return;
+            }
+
+            const $btn = $(this);
+            $btn.prop('disabled', true);
+
+            try {
+                if (parseInt(newStudentId, 10) !== parseInt(originalRowData.student_id, 10)) {
+                    const reassignResponse = await USCTDP_Admin.ajax_reassignRegistration(originalRowData.registration_id, newStudentId);
+                    if (!reassignResponse.success) {
+                        throw new Error(reassignResponse.data || 'Failed to reassign registration.');
+                    }
+                }
+
+                // family_id/student_id are the POST-reassignment values here
+                // (not necessarily what's still in originalRowData), so any
+                // ledger adjustment reviewPriceChange() ends up creating is
+                // attributed to whoever now actually owns this purchase.
+                await updateRegistration(
+                    { ...originalRowData, student_id: newStudentId, family_id: newFamilyId },
+                    { activity_id: newActivityId, student_level: level }
+                );
+
+                modifyRegistrationState = null;
+                modifyRegistrationModal.close();
+            } catch (error) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Error!",
+                    text: "A server error occured. Please inform a developer. Details: " + error.message,
+                });
+            } finally {
+                $btn.prop('disabled', false);
+                historyTable.ajax.reload();
+                refreshFamilyBalance();
+            }
+        });
 
         // `purchaseFields` carries any purchase-level (not registration-
         // level) fields that should be saved alongside the registration
@@ -1297,6 +1516,19 @@
 
         $('#history-table tbody').on('click', 'button.edit-registration-btn', function (e) {
             const $row = $(this).closest('tr');
+            var rowData = historyTable.row($row).data();
+
+            // Clinics use the unified Modify Registration modal (family/
+            // student reassignment + activity + live price review in one
+            // place). Tournament/camp registrations don't have their own
+            // modal variant yet, so they still fall back to the old inline
+            // row editing below - see openModifyRegistrationModal()'s doc
+            // comment.
+            if (rowData.activity_type === 'clinic') {
+                openModifyRegistrationModal(rowData);
+                return;
+            }
+
             const $editButton = $(this);
             const saveButton = $row.find(".save-registration-btn");
 

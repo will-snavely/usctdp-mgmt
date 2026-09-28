@@ -394,6 +394,29 @@ class Usctdp_Mgmt_Ledger_Query extends Query
     }
 
     /**
+     * Re-keys every ledger entry tied to a purchase onto a different
+     * family - used when the admin history page's "Modify Registration"
+     * modal moves an existing registration onto a different student (and
+     * therefore family). The registration/purchase rows themselves are
+     * updated separately (see Usctdp_Mgmt_Admin_Ajax::ajax_reassign_registration());
+     * this just keeps usctdp_ledger.family_id (its own family_id column -
+     * see Usctdp_Mgmt_Ledger_Schema, there's no student_id column on this
+     * table) in sync so the family's balance/history queries, which filter
+     * on ulgr.family_id directly, immediately reflect the new owner.
+     */
+    public function reassign_family($purchase_id, $family_id)
+    {
+        global $wpdb;
+        return $wpdb->update(
+            "{$wpdb->prefix}usctdp_ledger",
+            ['family_id' => $family_id],
+            ['purchase_id' => $purchase_id],
+            ['%d'],
+            ['%d']
+        );
+    }
+
+    /**
      * Net house credit ('payment_house_credit' account) available to a
      * family, optionally narrowed to one student. Shared by the admin
      * "Family Balance" lookup (Usctdp_Mgmt_Admin_Ajax::get_house_credit_balance(),

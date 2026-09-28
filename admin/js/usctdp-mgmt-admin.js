@@ -59,6 +59,24 @@
         return response;
     }
 
+    // Moves an existing registration (and its purchase/ledger rows) onto a
+    // different student/family - see ajax_reassign_registration() server-
+    // side. Nothing about the activity or price changes here.
+    USCTDP_Admin.ajax_reassignRegistration = async function (registrationId, studentId) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.reassign_registration_action,
+                security: usctdp_mgmt_admin.reassign_registration_nonce,
+                registration_id: registrationId,
+                student_id: studentId
+            }
+        });
+        return response;
+    }
+
     USCTDP_Admin.ajax_setRegistrationStatus = async function (id, status) {
         const response = await $.ajax({
             url: usctdp_mgmt_admin.ajax_url,
@@ -962,6 +980,15 @@
             }
             if (settings.dropdownParent) {
                 args.dropdownParent = settings.dropdownParent;
+            }
+            // select2's default width ('resolve') measures the original
+            // <select>'s rendered outerWidth once, at init time - which is
+            // meaningless (and inconsistent per-element) for a selector
+            // initialized while its section is hidden or its dialog is
+            // closed, since select2 never re-measures later. An explicit
+            // width bypasses that measurement entirely and is set as-is.
+            if (settings.width) {
+                args.width = settings.width;
             }
             $el.select2(select2Options(args));
         }

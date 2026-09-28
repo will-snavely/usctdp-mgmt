@@ -68,6 +68,38 @@
             </form>
         </dialog>
 
+        <dialog id="modify-registration-modal" class="modify-registration-modal">
+            <h2>Modify Registration</h2>
+            <div id="modify-registration-selectors" class="flex-col gap-10">
+                <!-- Forces the Family/Student/Level -> Session/Clinic -> Day
+                     grouping regardless of how much horizontal room is
+                     available - see the "order"/"flex-basis: 100%" rules on
+                     .selector-row-break in usctdp-mgmt-admin-history.css.
+                     CascasdingSelect appends its generated sections after
+                     these two (DOM order doesn't matter for the "order"
+                     property, only which row each one visually lands in). -->
+                <div class="selector-row-break" id="modify-selectors-break-1"></div>
+                <div class="selector-row-break" id="modify-selectors-break-2"></div>
+                <div class="modify-registration-level-field">
+                    <label for="modify-registration-level">Level</label>
+                    <input type="text" id="modify-registration-level">
+                </div>
+            </div>
+            <!-- Any price/discount impact from an activity change is
+                 reviewed separately, in #confirm-registration-update-modal -
+                 same modal + reviewPriceChange()/updateRegistration() flow
+                 the tournament/legacy inline edit already uses (see
+                 usctdp-mgmt-admin-history.js), including its rule that
+                 nothing is shown at all when the new activity's base price
+                 matches what's already on file. -->
+            <div class="actions-footer">
+                <button type="button" class="button button-primary" id="save-modify-registration-btn">
+                    Save
+                </button>
+                <button type="button" class="button" id="cancel-modify-registration-btn">Cancel</button>
+            </div>
+        </dialog>
+
         <dialog id="confirm-registration-update-modal">
             <h2>Confirm Registration Update</h2>
             <div class="registration-update-columns">
