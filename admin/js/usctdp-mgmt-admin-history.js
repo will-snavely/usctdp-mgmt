@@ -179,7 +179,7 @@
                 return `
                     <div class="flex-col gap-5 registration-readonly-field ${fieldClass}">
                         <label class="upper-heavy">${label}</label>
-                        <span class="badge registration-field-value">${value ?? '--'}</span>
+                        <span class="badge registration-field-value">${value || '--'}</span>
                     </div>`;
             }
 
