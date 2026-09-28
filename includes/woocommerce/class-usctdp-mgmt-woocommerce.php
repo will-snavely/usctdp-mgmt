@@ -11,37 +11,6 @@ class Usctdp_Mgmt_Woocommerce
         return wc_get_product($product->woocommerce_id);
     }
 
-    private function find_variations($product, $match_criteria)
-    {
-        if (!$product || !$product->is_type('variable')) {
-            return null;
-        }
-
-        $results = [];
-        foreach ($product->get_available_variations() as $variation_data) {
-            $attrs = $variation_data['attributes'];
-            $is_match = true;
-            foreach ($match_criteria as $key => $value) {
-                $search = 'attribute_' . sanitize_title($key);
-                if (isset($attrs[$search])) {
-                    if ($attrs[$search] !== '' && $attrs[$search] !== $value) {
-                        $is_match = false;
-                        break;
-                    }
-                } else {
-                    $is_match = false;
-                    break;
-                }
-            }
-
-            if ($is_match) {
-                $results[] = $variation_data['variation_id'];
-            }
-        }
-
-        return $results;
-    }
-
     private function find_variations_for_session($product_id, $session_id)
     {
         $product = Usctdp_Mgmt_Model::get_product($product_id);
@@ -50,19 +19,22 @@ class Usctdp_Mgmt_Woocommerce
         }
 
         $woo_product = wc_get_product($product->woocommerce_id);
-        if (!$woo_product) {
+        if (!$woo_product || !$woo_product->is_type('variable')) {
             $id = $product->woocommerce_id;
             throw new Usctdp_Woocommerce_Exception("WooCommerce product with ID $id not found.");
         }
 
-        $session_name = null;
-        $session_meta = $woo_product->get_meta('_session_post_ids');
-        foreach ($session_meta as $name => $meta_session_id) {
-            if ($meta_session_id == $session_id) {
-                $session_name = $name;
-                break;
-            }
-        }
+        // Resolved directly off each variation's own '_session_id' meta
+        // (written by sync_product_variations() when the variation is
+        // created/reused) rather than by matching the 'Session' attribute's
+        // value - that attribute's dropdown options only ever list
+        // currently on_sale sessions (sync_product_variations() rebuilds
+        // them to match), so a session going off sale would otherwise make
+        // its variation unresolvable here. This is an admin billing path,
+        // not the storefront: an admin needs to charge for a session's
+        // variation regardless of whether it's still on sale, enabled, or
+        // even still listed in the attribute's options.
+        //
         // 'tournament' is the only type with no "Days Per Week" attribute -
         // everything else (clinic, and 'cardio' for Cardio Tennis, which is
         // priced/scheduled exactly like a clinic despite its own product
@@ -70,16 +42,30 @@ class Usctdp_Mgmt_Woocommerce
         // the session, not just the "One day" one being registered. Same
         // === 'tournament' branching convention get_session_price_lines()
         // uses server-side and sync_product_variations() uses above.
-        if ($product->type === 'tournament') {
-            return $this->find_variations($woo_product, [
-                'session' => $session_name,
-            ]);
-        } else {
-            return $this->find_variations($woo_product, [
-                'session' => $session_name,
-                'days-per-week' => "One",
-            ]);
+        $day = $product->type === 'tournament' ? null : 'One';
+
+        $results = [];
+        foreach ($woo_product->get_children() as $variation_id) {
+            $variation = wc_get_product($variation_id);
+            if (!$variation || !$variation->exists()) {
+                continue;
+            }
+
+            if ((int) $variation->get_meta('_session_id') !== (int) $session_id) {
+                continue;
+            }
+
+            if ($day !== null) {
+                $attrs = $variation->get_variation_attributes();
+                if (($attrs['attribute_days-per-week'] ?? null) !== $day) {
+                    continue;
+                }
+            }
+
+            $results[] = $variation_id;
         }
+
+        return $results;
     }
 
     /**
@@ -255,6 +241,7 @@ class Usctdp_Mgmt_Woocommerce
                 }
                 $desired[$this->variation_combo_key($session_name, null)] = [
                     'session' => $session_name,
+                    'session_id' => $info['id'],
                     'day' => null,
                     'price' => $amt,
                 ];
@@ -266,6 +253,7 @@ class Usctdp_Mgmt_Woocommerce
                     }
                     $desired[$this->variation_combo_key($session_name, $day)] = [
                         'session' => $session_name,
+                        'session_id' => $info['id'],
                         'day' => $day,
                         'price' => $amt,
                     ];
@@ -308,10 +296,16 @@ class Usctdp_Mgmt_Woocommerce
             }
 
             $price_changed = abs((float) $variation->get_regular_price() - (float) $combo['price']) > 0.001;
-            $needs_save = $is_new || $variation->get_status() !== 'publish' || $price_changed;
+            // Checked (not just set unconditionally) so pre-existing
+            // variations that predate this meta get backfilled here too,
+            // the first time their session's status changes again - no
+            // separate migration needed.
+            $session_id_changed = (int) $variation->get_meta('_session_id') !== (int) $combo['session_id'];
+            $needs_save = $is_new || $variation->get_status() !== 'publish' || $price_changed || $session_id_changed;
             if ($needs_save) {
                 $variation->set_status('publish');
                 $variation->set_regular_price($combo['price']);
+                $variation->update_meta_data('_session_id', $combo['session_id']);
                 $variation->save();
             }
         }
@@ -560,10 +554,11 @@ class Usctdp_Mgmt_Woocommerce
             if ($order instanceof WC_Order) {
                 try {
                     $order->delete(true);
-                } catch (Throwable $e) {
-                    Usctdp_Mgmt::logger()->log_exception('Error cleaning up order', $e);
+                } catch (Throwable $cleanup_e) {
+                    Usctdp_Mgmt::logger()->log_exception('Error cleaning up order', $cleanup_e);
                 }
             }
+            throw $e;
         }
     }
 }

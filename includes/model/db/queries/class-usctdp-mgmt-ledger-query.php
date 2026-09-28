@@ -296,6 +296,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
                     MAX(sesh.title) AS session_title,
                     MAX(sesh.start_date) AS session_start_date,
                     MAX(sesh.end_date) AS session_end_date,
+                    COUNT(DISTINCT pur.id) AS purchase_count,
                     SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
                     SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
                              THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable
@@ -374,6 +375,7 @@ class Usctdp_Mgmt_Ledger_Query extends Query
                     prod.id AS product_id,
                     MAX(prod.title) AS product_title,
                     MAX(prod.type) AS product_type,
+                    COUNT(DISTINCT pur.id) AS purchase_count,
                     SUM(CASE WHEN ulgr.account = 'revenue' THEN ulgr.credit - ulgr.debit ELSE 0 END) AS gross_revenue,
                     SUM(CASE WHEN ulgr.account IN ('registration_fees', 'merchandise_fees')
                              THEN ulgr.debit - ulgr.credit ELSE 0 END) AS receivable
@@ -389,6 +391,29 @@ class Usctdp_Mgmt_Ledger_Query extends Query
             array_merge($where_args, $limit_args)
         );
         return $wpdb->get_results($query);
+    }
+
+    /**
+     * Re-keys every ledger entry tied to a purchase onto a different
+     * family - used when the admin history page's "Modify Registration"
+     * modal moves an existing registration onto a different student (and
+     * therefore family). The registration/purchase rows themselves are
+     * updated separately (see Usctdp_Mgmt_Admin_Ajax::ajax_reassign_registration());
+     * this just keeps usctdp_ledger.family_id (its own family_id column -
+     * see Usctdp_Mgmt_Ledger_Schema, there's no student_id column on this
+     * table) in sync so the family's balance/history queries, which filter
+     * on ulgr.family_id directly, immediately reflect the new owner.
+     */
+    public function reassign_family($purchase_id, $family_id)
+    {
+        global $wpdb;
+        return $wpdb->update(
+            "{$wpdb->prefix}usctdp_ledger",
+            ['family_id' => $family_id],
+            ['purchase_id' => $purchase_id],
+            ['%d'],
+            ['%d']
+        );
     }
 
     /**

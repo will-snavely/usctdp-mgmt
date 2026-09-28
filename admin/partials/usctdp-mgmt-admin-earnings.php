@@ -83,6 +83,7 @@
                                 <th class="details-control-col"></th>
                                 <th>Session</th>
                                 <th>Start</th>
+                                <th>Purchases</th>
                                 <th>Gross</th>
                                 <th>Receivable</th>
                                 <th>Collected</th>

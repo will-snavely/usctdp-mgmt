@@ -206,6 +206,60 @@
     max-width: 40px;
 }
 
+/* Clinic registrations' read-only Session/Activity/Level (see
+   RegistrationCard._renderReadonlyField() in usctdp-mgmt-admin-history.js) -
+   editing now happens exclusively in the Modify Registration modal, so
+   these no longer need to look like (disabled, non-functional) form
+   controls. Reuses the shared .badge pill shape the financial section's own
+   Fees/Paid/Owed badges use, but on a near-white background so it reads as
+   a plain value tag against the card's grey (#bababa), not a status color.
+
+   Session/Activity get a generous min-width so Activity/Level line up at
+   roughly the same spot from one card to the next regardless of how long a
+   given session/activity name happens to be - same alignment role the old
+   selector-wrap's 400px min-width played. Activity's own names tend to run
+   longer than session names (e.g. a clinic's day/time description), hence
+   the wider min-width. Level stays narrow since its values are always short
+   (a grade/number, not a name). */
+.registration-field-session {
+    min-width: 220px;
+}
+
+.registration-field-activity {
+    min-width: 320px;
+}
+
+.registration-field-level {
+    min-width: 0;
+    /* The badge itself shrink-wraps to its short content (no min-width), so
+       text-align:center on the badge alone has no room to work with - it's
+       the badge's own position under the wider "LEVEL" label that needs
+       centering, not just the text inside it. Overrides the flex-col
+       utility class's default align-items:flex-start (see the markup in
+       usctdp-mgmt-admin-history.js), which is why Session/Activity sit
+       flush-left instead. */
+    align-items: center;
+}
+
+/* Belt-and-suspenders alongside align-items above, in case the badge ever
+   does end up wider than its text (e.g. a future min-width). */
+.registration-field-level .registration-field-value {
+    text-align: center;
+}
+
+.registration-readonly-field .registration-field-value {
+    display: inline-block;
+    /* Overrides the shared .badge class's own text-align:center - these
+       stretch wide (min-width above) to keep cards aligned, and centered
+       text in a wide pill reads oddly for a name/value like this. */
+    text-align: left;
+    background-color: #f8f9fa;
+    color: #475569;
+    font-size: 0.9rem;
+    font-weight: 400;
+    padding: 5px 10px;
+}
+
 /* Payment information section*/
 .purchase-card .payment-action-select {
     width: 170px;
@@ -348,6 +402,171 @@ dialog#post-refund-modal #refund-check-number {
 
 dialog#refund-action {
     width: 100%;
+}
+
+/*
+ * Styling for the clinic "Modify Registration" modal - just the family/
+ * student/session/clinic/day selectors and a level field. Any price/
+ * discount review is handled separately by the existing
+ * #confirm-registration-update-modal below (reviewPriceChange()/
+ * reviewRegistrationUpdate() in usctdp-mgmt-admin-history.js) once Save is
+ * clicked, same as the tournament/legacy inline-edit flow - so this dialog
+ * itself stays short and never needs its own scrolling/height cap.
+ */
+
+/* The selectors use dropdownParent: $('#modify-registration-modal') (see
+   modifyRegistrationSelectorConfig in usctdp-mgmt-admin-history.js) so their
+   select2 dropdowns stay inside the dialog's own top-layer stacking -
+   otherwise, since dialogs are promoted to the browser's top layer while
+   open, a dropdown appended to document.body (select2's default) would
+   render BEHIND the dialog regardless of z-index. The tradeoff: an open
+   <dialog> gets `overflow: auto` from the browser's own UA stylesheet,
+   which then clips that dropdown - override it to visible so the dropdown
+   can escape the dialog's clipping. Same fix as #waitlist-student-modal in
+   usctdp-mgmt-admin-activities.css. */
+dialog#modify-registration-modal {
+    width: 100%;
+    max-width: 640px;
+    overflow: visible;
+}
+
+/* Flex-wrap row layout instead of the shared .context-selector-group's
+   vertical stack (see usctdp-mgmt-admin.css). Natural content-width wrapping
+   alone doesn't reliably land Family+Student / Session+Clinic / Day+Level on
+   their own rows (several of them can be narrow enough to share a row), so
+   the grouping is forced explicitly: every section gets an "order", and two
+   invisible flex-basis:100% "row-break" items (see .selector-row-break
+   below, and the static markup in usctdp-mgmt-admin-history.php) sit between
+   the groups, each one eating the rest of its row and pushing whatever comes
+   next onto a new line - regardless of how much horizontal space is
+   actually available. */
+dialog#modify-registration-modal #modify-registration-selectors {
+    display: flex;
+    /* The container's own "flex-col" class (see usctdp-mgmt-admin-history.php)
+       sets flex-direction: column - CSS resolves that per-property, so this
+       rule's higher selector specificity elsewhere doesn't override it
+       without explicitly setting flex-direction here too. */
+    flex-direction: row;
+    flex-wrap: wrap;
+    /* Explicit margins below control spacing instead of this container's own
+       "gap" - gap's cross-line accounting got inconsistent once a
+       zero-height, flex-basis:100% row-break item was involved (Family-
+       >Student ended up visibly wider than Session->Clinic despite both
+       being the same declared gap). Margins on the items themselves aren't
+       subject to that. */
+    margin-bottom: 12px;
+}
+
+dialog#modify-registration-modal .selector-row-break {
+    flex-basis: 100%;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+dialog#modify-registration-modal #modify-family-selector-section,
+dialog#modify-registration-modal #modify-student-selector-section,
+dialog#modify-registration-modal #modify-session-selector-section {
+    margin-right: 8px;
+}
+
+dialog#modify-registration-modal #modify-family-selector-section,
+dialog#modify-registration-modal #modify-student-selector-section,
+dialog#modify-registration-modal #modify-session-selector-section,
+dialog#modify-registration-modal #modify-clinic-selector-section,
+dialog#modify-registration-modal #modify-activity-selector-section,
+dialog#modify-registration-modal .modify-registration-level-field {
+    margin-bottom: 6px;
+}
+
+dialog#modify-registration-modal #modify-family-selector-section {
+    order: 1;
+}
+
+dialog#modify-registration-modal #modify-student-selector-section {
+    order: 2;
+}
+
+/* Level rides on the first row, after Student - Day's own section can be
+   hidden/shown as Session and Clinic get picked (see CascasdingSelect's
+   isRoot/hidden handling), which made pairing Level with Day look
+   inconsistent as that row appeared and disappeared. */
+dialog#modify-registration-modal .modify-registration-level-field {
+    order: 3;
+}
+
+dialog#modify-registration-modal #modify-selectors-break-1 {
+    order: 4;
+}
+
+dialog#modify-registration-modal #modify-session-selector-section {
+    order: 5;
+}
+
+dialog#modify-registration-modal #modify-clinic-selector-section {
+    order: 6;
+}
+
+dialog#modify-registration-modal #modify-selectors-break-2 {
+    order: 7;
+}
+
+dialog#modify-registration-modal #modify-activity-selector-section {
+    order: 8;
+}
+
+/* Both halves matter here, and have to agree: select2's own "width" option
+   (see the `width: '...px'` entries in modifyRegistrationSelectorConfig and
+   CascasdingSelect.initSelect2()'s settings.width handling in
+   usctdp-mgmt-admin.js) sizes the *visible* .select2-container it renders,
+   but the outer flex layout (order/wrapping/margins above) is driven by
+   .context-selector-wrap's own box - and without an explicit width here,
+   that falls back to the shared 370px default (usctdp-mgmt-admin.css),
+   forcing each section to claim 370px of row space regardless of how narrow
+   its visible input actually is. Same pixel values as the matching
+   select2 width above, so the wrap's box and its content line up exactly. */
+dialog#modify-registration-modal #modify-family-selector-section .context-selector-wrap {
+    width: 150px;
+}
+
+dialog#modify-registration-modal #modify-student-selector-section .context-selector-wrap {
+    width: 170px;
+}
+
+dialog#modify-registration-modal #modify-session-selector-section .context-selector-wrap {
+    width: 220px;
+}
+
+dialog#modify-registration-modal #modify-clinic-selector-section .context-selector-wrap {
+    width: 170px;
+}
+
+dialog#modify-registration-modal #modify-activity-selector-section .context-selector-wrap {
+    width: 360px;
+}
+
+/* Matches the selectors' own label/field look (bold uppercase label above a
+   field - see .context-selector-label/.context-selector-section in
+   usctdp-mgmt-admin.css) instead of the generic dialog .modal_field grid
+   row, and keeps the input short since "Level" is only ever a couple of
+   characters. */
+dialog#modify-registration-modal .modify-registration-level-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+dialog#modify-registration-modal .modify-registration-level-field label {
+    font-weight: bold;
+    text-align: left;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+dialog#modify-registration-modal #modify-registration-level {
+    width: 100px;
 }
 
 /*

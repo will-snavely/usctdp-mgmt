@@ -27,6 +27,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'move_activity_to_group' => 'ajax_move_activity_to_group',
         'preview_registration_activity_change' => 'ajax_preview_registration_activity_change',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
+        'reassign_registration' => 'ajax_reassign_registration',
         'recent_registrations' => 'ajax_recent_registrations',
         'registrations_datatable' => 'ajax_registrations_datatable',
         'roster_add_session' => 'ajax_roster_add_session',
@@ -1160,6 +1161,86 @@ class Usctdp_Mgmt_Admin_Ajax
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_preview_registration_activity_change', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    /**
+     * Moves an existing registration - and the purchase/ledger rows tied to
+     * it - onto a different student (and, transitively, that student's
+     * family, since usctdp_purchase.family_id/usctdp_ledger.family_id must
+     * stay in sync with whoever now owns the balance). Used by the admin
+     * history page's "Modify Registration" modal when the admin picks a
+     * different student for an existing clinic registration; the activity/
+     * price change (if any) is saved separately by the same modal's Save
+     * flow, through ajax_update_registration() and ajax_update_purchase() -
+     * this endpoint only ever touches student/family ownership.
+     */
+    public function ajax_reassign_registration()
+    {
+        $this->check_nonce('reassign_registration');
+
+        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : '';
+        if (empty($registration_id)) {
+            wp_send_json_error('Missing required parameter registration_id', 400);
+        }
+        $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : '';
+        if (empty($student_id)) {
+            wp_send_json_error('Missing required parameter student_id', 400);
+        }
+
+        $registration = Usctdp_Mgmt_Model::get_registration($registration_id);
+        if (!$registration) {
+            wp_send_json_error('No registration found with id: ' . $registration_id, 400);
+        }
+
+        $student = Usctdp_Mgmt_Model::get_student($student_id);
+        if (!$student) {
+            wp_send_json_error('No student found with id: ' . $student_id, 400);
+        }
+
+        if ((int) $student_id !== (int) $registration->student_id
+            && $this->is_student_enrolled($student_id, $registration->activity_id)) {
+            wp_send_json_error('That student is already enrolled in this activity.', 400);
+        }
+
+        global $wpdb;
+        $transaction_started = false;
+        try {
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+
+            $registration_query = new Usctdp_Mgmt_Registration_Query();
+            if (!$registration_query->update_item($registration_id, ['student_id' => $student_id])) {
+                throw new Web_Request_Exception('Failed to reassign registration.');
+            }
+
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            if (!$purchase_query->update_item($registration->purchase_id, [
+                'student_id' => $student_id,
+                'family_id' => $student->family_id,
+            ])) {
+                throw new Web_Request_Exception('Failed to reassign purchase.');
+            }
+
+            $ledger_query = new Usctdp_Mgmt_Ledger_Query();
+            // false means the UPDATE itself errored - 0 (no matching rows,
+            // e.g. a brand new $0 purchase with no ledger entries yet) is a
+            // legitimate no-op, not a failure.
+            if ($ledger_query->reassign_family($registration->purchase_id, $student->family_id) === false) {
+                throw new Web_Request_Exception('Failed to reassign ledger entries.');
+            }
+
+            $wpdb->query('COMMIT');
+            $transaction_started = false;
+
+            $purchase_data = $purchase_query->get_purchase_data(['purchase_id' => $registration->purchase_id]);
+            wp_send_json_success(['purchase_data' => $purchase_data]);
+        } catch (Throwable $e) {
+            if ($transaction_started) {
+                $wpdb->query('ROLLBACK');
+            }
+            Usctdp_Mgmt::logger()->log_exception('ajax_reassign_registration', $e);
+            wp_send_json_error('An unexpected server error occurred while reassigning the registration.', 500);
         }
     }
 
@@ -2551,6 +2632,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     'session_title' => $row->session_title,
                     'start_date' => $row->session_start_date,
                     'end_date' => $row->session_end_date,
+                    'purchase_count' => (int) $row->purchase_count,
                 ], $this->format_earnings_amounts($amount_fmt, $row->gross_revenue, $row->receivable));
             }
 
@@ -2618,6 +2700,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     'product_id' => (int) $row->product_id,
                     'product_title' => $row->product_title,
                     'product_type' => $row->product_type,
+                    'purchase_count' => (int) $row->purchase_count,
                 ], $this->format_earnings_amounts($amount_fmt, $row->gross_revenue, $row->receivable));
             }
 

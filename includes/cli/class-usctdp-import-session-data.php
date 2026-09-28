@@ -323,6 +323,7 @@ class Usctdp_Import_Session_Data
                     ]);
                     $variation->set_regular_price($amt);
                     $variation->set_manage_stock(false);
+                    $variation->update_meta_data('_session_id', $this->sessions_by_name[$session_name]);
                     $variation->save();
                 }
             }
@@ -625,6 +626,7 @@ class Usctdp_Import_Session_Data
                 ]);
                 $variation->set_regular_price($info['price']);
                 $variation->set_manage_stock(false);
+                $variation->update_meta_data('_session_id', $info['session_id']);
                 $variation->save();
             }
         }
