@@ -85,6 +85,8 @@ class Usctdp_Import_Session_Data
             'cardio tennis' => 4,
             'junior tournaments' => 5,
             'adult tournaments' => 6,
+            'junior camp' => 7,
+            'travel team' => 8,
         ];
         $normalized_cat = strtolower(trim($cat));
         return $cats[$normalized_cat] ?? false;
@@ -243,6 +245,13 @@ class Usctdp_Import_Session_Data
                 $clinics_by_title[$clinic_title] = $this->get_clinic_by_title($clinic_title);
             }
             $clinic = $clinics_by_title[$clinic_title];
+            if (!$clinic) {
+                continue;
+            }
+            if (!isset($this->sessions_by_name[$pricing['session']])) {
+                WP_CLI::log("No session found with name {$pricing['session']} for clinic $clinic_title");
+                continue;
+            }
             $session_id = $this->sessions_by_name[$pricing['session']];
             $woo_product_id = $clinic->woocommerce_id;
 
@@ -632,6 +641,256 @@ class Usctdp_Import_Session_Data
         }
     }
 
+    /**
+     * Unlike clinics/tournaments (many activities share one broad session),
+     * each "Junior Camp" entry in data["sessions"] is both its own session
+     * *and* its own activity - the camp-specific fields (schedule,
+     * price_per_day, bulk_price) live right on the session object instead
+     * of a separate top-level array, matching how the user actually
+     * structured this data rather than mirroring tournaments' split.
+     *
+     * The product for each camp must already exist (imported separately by
+     * Usctdp_Import_Product_Data from products.json's "camps" key) with a
+     * title matching the session's name exactly.
+     */
+    private function import_camp_activities($data)
+    {
+        $primary_sort_order = 0;
+        foreach ($data["sessions"] as $session) {
+            if (strtolower(trim($session['category'] ?? '')) !== 'junior camp') {
+                continue;
+            }
+
+            $name = trim($session['name']);
+            $primary_sort_order += 1;
+
+            $product = $this->get_product_by_title($name);
+            if (!$product) {
+                WP_CLI::log("No product found with title $name");
+                continue;
+            }
+            if (!isset($this->sessions_by_name[$name])) {
+                WP_CLI::log("No session found with name $name");
+                continue;
+            }
+            $session_id = $this->sessions_by_name[$name];
+
+            $title = sanitize_text_field($name);
+            $search_term = Usctdp_Mgmt_Model::append_token_suffix($title);
+
+            $activity_query = new Usctdp_Mgmt_Activity_Query([
+                "session_id" => $session_id,
+                "product_id" => $product->id,
+                "title" => $title,
+            ]);
+            $existing_activity = !empty($activity_query->items) ? $activity_query->items[0] : null;
+
+            $activity_data = [
+                "session_id" => $session_id,
+                "product_id" => $product->id,
+                "type" => "camp",
+                "title" => $title,
+                "search_term" => $search_term,
+                // No capacity field in the source data yet (the old paper
+                // flyer's "Max 40/day" never made it into this JSON) - 0
+                // until that's added and re-imported.
+                "reservation_group_id" => $this->resolve_reservation_group_id($existing_activity, $session['capacity'] ?? 0),
+                "primary_sort_order" => $primary_sort_order,
+                "secondary_sort_order" => 1,
+                "meta" => isset($session['meta']) ? json_encode($session['meta']) : '{}'
+            ];
+
+            if ($existing_activity) {
+                $activity_id = $existing_activity->id;
+                WP_CLI::log("Activity exists: $title, updating (id=$activity_id)");
+                $activity_query->update_item($activity_id, $activity_data);
+            } else {
+                WP_CLI::log("Creating activity: $title");
+                $activity_id = $activity_query->add_item($activity_data);
+            }
+
+            $camp_data = [
+                "schedule" => isset($session['schedule']) ? json_encode($session['schedule']) : '[]',
+            ];
+            $camp_query = new Usctdp_Mgmt_Camp_Query([
+                "id" => $activity_id
+            ]);
+            if (!empty($camp_query->items)) {
+                $camp_query->update_item($activity_id, $camp_data);
+            } else {
+                $camp_query->add_item(array_merge(["id" => $activity_id], $camp_data));
+            }
+
+            // Per-day / 10-or-more-day tiers, same (session_id, product_id)
+            // => pricing-json shape as clinic/tournament pricing. Not turned
+            // into WooCommerce variations here - a customer's final price
+            // depends on how many days they pick at registration time, which
+            // doesn't map onto a fixed-price variation the way a clinic's
+            // "Session" or a tournament's flat price does. This just
+            // persists the two rates for checkout/registration logic to
+            // consume later.
+            $prices = [];
+            if (isset($session['price_per_day']) && $session['price_per_day'] !== '') {
+                $prices['per_day'] = $session['price_per_day'];
+            }
+            if (isset($session['bulk_price']) && $session['bulk_price'] !== '') {
+                $prices['bulk'] = $session['bulk_price'];
+            }
+            if (!empty($prices)) {
+                $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+                    "session_id" => $session_id,
+                    "product_id" => $product->id,
+                    "number" => 1,
+                ]);
+                if (!empty($pricing_query->items)) {
+                    $pricing_query->update_item($pricing_query->items[0]->id, [
+                        "pricing" => json_encode($prices),
+                    ]);
+                } else {
+                    $pricing_query->add_item([
+                        "session_id" => $session_id,
+                        "product_id" => $product->id,
+                        "pricing" => json_encode($prices),
+                    ]);
+                }
+            } else {
+                WP_CLI::log("No per-day/bulk pricing for $name");
+            }
+
+            $this->sync_product_sessions($product->id, [$session_id => true]);
+        }
+    }
+
+    /**
+     * A "Travel Team" session isn't its own activity - it's a package deal
+     * that bundles a fixed number of days at an *existing* camp (one of a
+     * few camp_options the buyer picks between) plus a count of competitive
+     * matches. Matches have no schedule/roster of their own in this data,
+     * so they're carried as a plain count on the variation, not modeled as
+     * an activity.
+     *
+     * Per the user: "packages (A or B) and the camp options should probably
+     * be variations on the product" - so this builds a Package x Camp
+     * Option WooCommerce variation grid, priced per combination from
+     * packages[].camp_options[].price. Each variation records which camp
+     * activity it resolves to (_camp_activity_id) plus its day/match counts,
+     * so a future registration flow has what it needs to book the right
+     * camp days without re-deriving any of this from the product.
+     *
+     * Must run after import_camp_activities() - it looks up camp activities
+     * by the camp's own session name, which only exist once that's run.
+     */
+    private function import_travel_team_packages($data)
+    {
+        foreach ($data["sessions"] as $session) {
+            if (strtolower(trim($session['category'] ?? '')) !== 'travel team') {
+                continue;
+            }
+
+            $name = trim($session['name']);
+            $product = $this->get_product_by_title($name);
+            if (!$product) {
+                WP_CLI::log("No product found with title $name");
+                continue;
+            }
+            if (empty($session['packages'])) {
+                WP_CLI::log("No packages found for travel team $name");
+                continue;
+            }
+            if (!isset($this->sessions_by_name[$name])) {
+                WP_CLI::log("No session found with name $name");
+                continue;
+            }
+
+            $woo_product_id = $product->woocommerce_id;
+            $wc_product = wc_get_product($woo_product_id);
+            if (!$wc_product) {
+                WP_CLI::log("No WooCommerce product found for id $woo_product_id");
+                continue;
+            }
+
+            $package_names = [];
+            $camp_option_names = [];
+            $variations = [];
+
+            foreach ($session['packages'] as $package) {
+                $package_name = trim($package['name']);
+                $package_names[$package_name] = true;
+
+                foreach ($package['camp_options'] as $option) {
+                    $camp_name = trim($option['camp']);
+                    $camp_option_names[$camp_name] = true;
+
+                    $camp_activity_id = null;
+                    if (isset($this->sessions_by_name[$camp_name])) {
+                        $camp_activity_query = new Usctdp_Mgmt_Activity_Query([
+                            "session_id" => $this->sessions_by_name[$camp_name],
+                            "type" => "camp",
+                            "number" => 1,
+                        ]);
+                        if (!empty($camp_activity_query->items)) {
+                            $camp_activity_id = $camp_activity_query->items[0]->id;
+                        }
+                    }
+                    if (!$camp_activity_id) {
+                        WP_CLI::log("No camp activity found for '$camp_name' (package '$package_name' of '$name') - skipping this variation");
+                        continue;
+                    }
+
+                    $variations[] = [
+                        'package' => $package_name,
+                        'camp' => $camp_name,
+                        'price' => $option['price'],
+                        'camp_days' => $package['camp_days'] ?? null,
+                        'matches' => $package['matches'] ?? null,
+                        'camp_activity_id' => $camp_activity_id,
+                    ];
+                }
+            }
+
+            if (empty($variations)) {
+                WP_CLI::log("No valid package/camp-option combinations for $name - skipping variation setup");
+                continue;
+            }
+
+            $this->delete_all_product_variations($woo_product_id);
+
+            $package_attribute = new WC_Product_Attribute();
+            $package_attribute->set_name('Package');
+            $package_attribute->set_options(array_keys($package_names));
+            $package_attribute->set_position(0);
+            $package_attribute->set_visible(true);
+            $package_attribute->set_variation(true);
+
+            $camp_option_attribute = new WC_Product_Attribute();
+            $camp_option_attribute->set_name('Camp Option');
+            $camp_option_attribute->set_options(array_keys($camp_option_names));
+            $camp_option_attribute->set_position(1);
+            $camp_option_attribute->set_visible(true);
+            $camp_option_attribute->set_variation(true);
+
+            $wc_product->set_attributes([$package_attribute, $camp_option_attribute]);
+            $wc_product->save();
+
+            foreach ($variations as $v) {
+                $variation = new WC_Product_Variation();
+                $variation->set_parent_id($woo_product_id);
+                $variation->set_attributes([
+                    sanitize_title('Package') => $v['package'],
+                    sanitize_title('Camp Option') => $v['camp'],
+                ]);
+                $variation->set_regular_price($v['price']);
+                $variation->set_manage_stock(false);
+                $variation->update_meta_data('_camp_activity_id', $v['camp_activity_id']);
+                $variation->update_meta_data('_camp_days', $v['camp_days']);
+                $variation->update_meta_data('_matches', $v['matches']);
+                $variation->save();
+            }
+
+            $this->sync_product_sessions($product->id, [$this->sessions_by_name[$name] => true]);
+        }
+    }
+
     public function import($file_path)
     {
         if (!file_exists($file_path)) {
@@ -661,6 +920,10 @@ class Usctdp_Import_Session_Data
         $this->import_tournament_activities($data);
         WP_CLI::log('Importing tournament pricing...');
         $this->import_tournament_pricing($data);
+        WP_CLI::log('Importing camp activities...');
+        $this->import_camp_activities($data);
+        WP_CLI::log('Importing travel team packages...');
+        $this->import_travel_team_packages($data);
         WP_CLI::log('Building program schedule...');
         (new Usctdp_Build_Program_Schedule())->build();
     }
