@@ -223,6 +223,15 @@
                             <input type="date" id="date-to-filter" class="table-filter" name="date-to-filter">
                         </div>
                     </div>
+                    <div class="filter-row">
+                        <!-- Exports every row matching the filters above,
+                             not just the current page - see exportHistory()
+                             in usctdp-mgmt-admin-history.js. -->
+                        <div id="export-section" class="filter-item flex-row gap-5 align-center">
+                            <button type="button" id="export-csv-btn" class="button">Export CSV</button>
+                            <button type="button" id="export-print-btn" class="button">Print / PDF</button>
+                        </div>
+                    </div>
                 </div>
 
                 <table id="history-table" class="w-100">

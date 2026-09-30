@@ -2,6 +2,26 @@
     "use strict";
 
     $(document).ready(function () {
+        // The per-purchase money picture shown on each card's badges -
+        // shared by the cards, the payment/price-review flows and the
+        // CSV/print exports so they can never disagree. Refunds and house
+        // credit both count as money paid back down (see the 'owes' filter
+        // in Usctdp_Mgmt_Purchase_Query::get_purchase_data()).
+        function purchaseFinancials(row) {
+            const fees = USCTDP_Admin.safeParseFloat(row.total_fees);
+            const adjustments = USCTDP_Admin.safeParseFloat(row.total_adjustments);
+            const payments = USCTDP_Admin.safeParseFloat(row.total_payments);
+            const refunds = USCTDP_Admin.safeParseFloat(row.total_refunds);
+            const houseCredits = USCTDP_Admin.safeParseFloat(row.total_house_credits);
+            const netFees = fees - adjustments;
+            const netPayments = payments - (refunds + houseCredits);
+            return {
+                fees, adjustments, payments, refunds, houseCredits,
+                netFees, netPayments,
+                owed: netFees - netPayments
+            };
+        }
+
         class PurchaseCard {
             constructor(data, idx, isNew = false) {
                 this.data = data;
@@ -86,16 +106,7 @@
             }
 
             _renderFinancialSection() {
-                const adjustments = USCTDP_Admin.safeParseFloat(this.data.total_adjustments);
-                const fees = USCTDP_Admin.safeParseFloat(this.data.total_fees);
-                const payments = USCTDP_Admin.safeParseFloat(this.data.total_payments);
-                const refunds = USCTDP_Admin.safeParseFloat(this.data.total_refunds);
-                const houseCredits = USCTDP_Admin.safeParseFloat(this.data.total_house_credits);
-
-                const netFees = fees - adjustments;
-                const netPayments = payments - (refunds + houseCredits);
-                const owed = netFees - netPayments;
-
+                const { netFees, netPayments, refunds, houseCredits, owed } = purchaseFinancials(this.data);
                 const format = (val) => USCTDP_Admin.formatUsd(val);
                 return `
                     <div class="financial-section flex-col gap-10">
@@ -469,19 +480,12 @@
             return discounts.reduce((sum, d) => sum + USCTDP_Admin.safeParseFloat(d.amount), 0);
         }
 
-        // Same formula PurchaseCard._renderFinancialSection() uses for the
-        // "Owed" badge - the amount currently outstanding (or, if negative,
-        // already overpaid) *before* this registration change is applied.
+        // The card's "Owed" badge - the amount currently outstanding (or, if
+        // negative, already overpaid) *before* this registration change is
+        // applied.
         function computeCurrentOwed(purchaseRow) {
             if (!purchaseRow) return 0;
-            const fees = USCTDP_Admin.safeParseFloat(purchaseRow.total_fees);
-            const adjustments = USCTDP_Admin.safeParseFloat(purchaseRow.total_adjustments);
-            const payments = USCTDP_Admin.safeParseFloat(purchaseRow.total_payments);
-            const refunds = USCTDP_Admin.safeParseFloat(purchaseRow.total_refunds);
-            const houseCredits = USCTDP_Admin.safeParseFloat(purchaseRow.total_house_credits);
-            const netFees = fees - adjustments;
-            const netPayments = payments - (refunds + houseCredits);
-            return netFees - netPayments;
+            return purchaseFinancials(purchaseRow).owed;
         }
 
         function discountLabel(discount) {
@@ -1004,6 +1008,55 @@
             return response;
         }
 
+        // Reads the filter controls into request params - shared by the
+        // datatable and the exports (see purchase_history_filter_args()
+        // server-side) so an export always matches what's on screen.
+        function collectHistoryFilters() {
+            const filters = {};
+
+            const familyFilterValue = $('#family-filter').val();
+            if (familyFilterValue) {
+                filters.family_id = familyFilterValue;
+            }
+
+            const studentFilterValue = $('#student-filter').val();
+            if (studentFilterValue) {
+                filters.student_id = studentFilterValue;
+            }
+
+            const sessionFilterValue = $('#session-filter').val();
+            if (sessionFilterValue) {
+                filters.session_id = sessionFilterValue;
+            }
+
+            const typeFilterValue = $('#type-filter').val();
+            if (typeFilterValue) {
+                filters.type = typeFilterValue;
+            }
+
+            const statusFilterValue = $('#status-filter').val();
+            if (statusFilterValue) {
+                filters.status = statusFilterValue;
+            }
+
+            filters.owes = $('#owes-filter').is(':checked') ? 1 : 0;
+
+            // Purchases are stored in UTC; the date inputs are plain
+            // Y-m-d values interpreted as Eastern-time calendar days
+            // server-side (see purchase_history_filter_args()).
+            const dateFromValue = $('#date-from-filter').val();
+            if (dateFromValue) {
+                filters.date_from = dateFromValue;
+            }
+
+            const dateToValue = $('#date-to-filter').val();
+            if (dateToValue) {
+                filters.date_to = dateToValue;
+            }
+
+            return filters;
+        }
+
         var historyTable = $('#history-table').DataTable({
             processing: true,
             responsive: true,
@@ -1021,50 +1074,7 @@
                 data: function (d) {
                     d.action = usctdp_mgmt_admin.purchase_history_datatable_action;
                     d.security = usctdp_mgmt_admin.purchase_history_datatable_nonce;
-
-                    var familyFilterValue = $('#family-filter').val();
-                    if (familyFilterValue) {
-                        d.family_id = familyFilterValue;
-                    }
-
-                    var studentFilterValue = $('#student-filter').val();
-                    if (studentFilterValue) {
-                        d.student_id = studentFilterValue;
-                    }
-
-                    var sessionFilterValue = $('#session-filter').val();
-                    if (sessionFilterValue) {
-                        d.session_id = sessionFilterValue;
-                    }
-
-                    var typeFilterValue = $('#type-filter').val();
-                    if (typeFilterValue) {
-                        d.type = typeFilterValue;
-                    }
-
-                    var statusFilterValue = $('#status-filter').val();
-                    if (statusFilterValue) {
-                        d.status = statusFilterValue;
-                    }
-
-                    if ($('#owes-filter').is(':checked')) {
-                        d.owes = 1;
-                    } else {
-                        d.owes = 0;
-                    }
-
-                    // Purchases are stored in UTC; the date inputs are plain
-                    // Y-m-d values interpreted as Eastern-time calendar days
-                    // server-side (see ajax_purchase_history_datatable).
-                    var dateFromValue = $('#date-from-filter').val();
-                    if (dateFromValue) {
-                        d.date_from = dateFromValue;
-                    }
-
-                    var dateToValue = $('#date-to-filter').val();
-                    if (dateToValue) {
-                        d.date_to = dateToValue;
-                    }
+                    Object.assign(d, collectHistoryFilters());
                 }
             },
             columns: [
@@ -1149,16 +1159,7 @@
             paymentTable.clear();
             let count = 0;
             for (const purchase of purchases) {
-                const adjustments = USCTDP_Admin.safeParseFloat(purchase.total_adjustments);
-                const fees = USCTDP_Admin.safeParseFloat(purchase.total_fees);
-                const payments = USCTDP_Admin.safeParseFloat(purchase.total_payments);
-                const refunds = USCTDP_Admin.safeParseFloat(purchase.total_refunds);
-                const houseCredits = USCTDP_Admin.safeParseFloat(purchase.total_house_credits);
-                const netFees = fees - adjustments;
-                const netPayments = payments - (refunds + houseCredits);
-                const owed = netFees - netPayments;
-
-                if (owed > 0) {
+                if (purchaseFinancials(purchase).owed > 0) {
                     if (purchase.purchase_type === 'registration') {
                         paymentTable.addExistingRegistration(purchase);
                         count++;
@@ -1669,6 +1670,345 @@
                         });
                 }
             });
+        });
+
+        // ---- Export (CSV download / printable page) ----
+        //
+        // Both exports cover every purchase matching the current filters,
+        // not just the visible page - ajax_purchase_history_export() runs
+        // the same query as the datatable, minus pagination. The printable
+        // page is plain HTML the browser prints (or "Save as PDF"s), so
+        // there's no server-side PDF rendering involved.
+
+        const EXPORT_TIMEZONE = 'America/New_York';
+
+        function formatExportDate(isoString, includeTime = true) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            if (isNaN(date)) return isoString;
+            const options = { timeZone: EXPORT_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' };
+            if (includeTime) {
+                options.hour = '2-digit';
+                options.minute = '2-digit';
+            }
+            return date.toLocaleString('en-US', options);
+        }
+
+        function purchaseStatus(row) {
+            return row.registration_status || row.purchase_status || '';
+        }
+
+        function discountSummary(row) {
+            return parseStoredDiscounts(row.purchase_discounts)
+                .map((d) => `${discountLabel(d)}: ${USCTDP_Admin.formatUsd(d.amount)}`)
+                .join('; ');
+        }
+
+        // One CSV column per entry, in order. value(row, fin) gets the raw
+        // purchase row plus its purchaseFinancials(); money columns return
+        // numbers (written unformatted so spreadsheets can sum them).
+        const EXPORT_COLUMNS = [
+            { header: 'Purchase ID', value: (r) => r.purchase_id },
+            { header: 'Created At (ET)', value: (r) => formatExportDate(r.purchase_created_at) },
+            { header: 'Type', value: (r) => r.purchase_type },
+            { header: 'Status', value: purchaseStatus },
+            { header: 'Family ID', value: (r) => r.family_id },
+            { header: 'Family', value: (r) => r.family_name },
+            { header: 'Student ID', value: (r) => r.student_id },
+            { header: 'Student Last', value: (r) => r.student_last },
+            { header: 'Student First', value: (r) => r.student_first },
+            { header: 'Student Birth Date', value: (r) => r.student_birth_date },
+            { header: 'Student Age', value: (r) => r.student_age },
+            { header: 'Session', value: (r) => r.session_name },
+            { header: 'Product', value: (r) => r.product_name },
+            { header: 'Activity', value: (r) => r.activity_name },
+            { header: 'Level', value: (r) => r.registration_student_level },
+            { header: 'Registration ID', value: (r) => r.registration_id },
+            { header: 'Gross Fees', money: true, value: (r, f) => f.fees },
+            { header: 'Adjustments', money: true, value: (r, f) => f.adjustments },
+            { header: 'Fees', money: true, value: (r, f) => f.netFees },
+            { header: 'Paid', money: true, value: (r, f) => f.netPayments },
+            { header: 'Refunds', money: true, value: (r, f) => f.refunds },
+            { header: 'House Credit', money: true, value: (r, f) => f.houseCredits },
+            { header: 'Owed', money: true, value: (r, f) => f.owed },
+            { header: 'Discounts', value: discountSummary },
+            { header: 'Notes', value: (r) => r.purchase_notes },
+        ];
+
+        function csvCell(value, isMoney) {
+            let text = value === null || value === undefined ? '' : String(value);
+            // Free-text fields (notes, names) starting with a formula
+            // character would otherwise be evaluated by Excel/Sheets.
+            if (!isMoney && /^[=+\-@\t\r]/.test(text)) {
+                text = "'" + text;
+            }
+            return '"' + text.replace(/"/g, '""') + '"';
+        }
+
+        function buildCsv(rows) {
+            const lines = [EXPORT_COLUMNS.map((col) => csvCell(col.header, false)).join(',')];
+            for (const row of rows) {
+                const fin = purchaseFinancials(row);
+                lines.push(EXPORT_COLUMNS.map((col) => {
+                    const value = col.value(row, fin);
+                    return csvCell(col.money ? value.toFixed(2) : value, col.money);
+                }).join(','));
+            }
+            return lines.join('\r\n');
+        }
+
+        function downloadCsv(csv, filename) {
+            // BOM so Excel opens it as UTF-8 (names/notes with accents).
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function selectedFilterText(selector) {
+            return $(selector).val() ? $(selector).find('option:selected').text().trim() : '';
+        }
+
+        // Human-readable list of the active filters, for the printout's
+        // header - so a printed page says what it's a report *of*.
+        function describeFilters() {
+            const parts = [];
+            const family = selectedFilterText('#family-filter');
+            const student = selectedFilterText('#student-filter');
+            const session = selectedFilterText('#session-filter');
+            const type = selectedFilterText('#type-filter');
+            const status = selectedFilterText('#status-filter');
+            const dateFrom = $('#date-from-filter').val();
+            const dateTo = $('#date-to-filter').val();
+            if (family) parts.push(`Family: ${family}`);
+            if (student) parts.push(`Student: ${student}`);
+            if (session) parts.push(`Session: ${session}`);
+            if (type) parts.push(`Type: ${type}`);
+            if (status) parts.push(`Status: ${status}`);
+            if ($('#owes-filter').is(':checked')) parts.push('Owes money only');
+            if (dateFrom || dateTo) parts.push(`Purchased: ${dateFrom || '…'} to ${dateTo || '…'}`);
+            return parts.length ? parts.join(' · ') : 'All purchases';
+        }
+
+        function exportFilename(extension) {
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: EXPORT_TIMEZONE });
+            const family = selectedFilterText('#family-filter')
+                .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            return `purchase-history${family ? '-' + family : ''}-${today}.${extension}`;
+        }
+
+        function buildPrintHtml(rows) {
+            const format = (val) => USCTDP_Admin.formatUsd(val);
+            const totals = { netFees: 0, netPayments: 0, refunds: 0, houseCredits: 0, owed: 0 };
+
+            const bodyRows = rows.map((row) => {
+                const fin = purchaseFinancials(row);
+                Object.keys(totals).forEach((key) => { totals[key] += fin[key]; });
+                const status = purchaseStatus(row);
+                const item = row.activity_name
+                    ? `${escapeHtml(row.activity_name)}<div class="sub">${escapeHtml(row.product_name)}</div>`
+                    : escapeHtml(row.product_name);
+                return `
+                    <tr class="${status === 'void' ? 'void' : ''}">
+                        <td>${escapeHtml(row.purchase_id)}</td>
+                        <td>${escapeHtml(formatExportDate(row.purchase_created_at, false))}</td>
+                        <td>${escapeHtml(row.family_name)}</td>
+                        <td>${escapeHtml(row.student_last)}, ${escapeHtml(row.student_first)}</td>
+                        <td>${escapeHtml(row.session_name || '')}</td>
+                        <td>${item}</td>
+                        <td>${escapeHtml(status)}</td>
+                        <td class="num">${format(fin.netFees)}</td>
+                        <td class="num">${format(fin.netPayments)}</td>
+                        <td class="num">${format(fin.refunds)}</td>
+                        <td class="num">${format(fin.houseCredits)}</td>
+                        <td class="num owed">${format(fin.owed)}</td>
+                        <td class="notes">${escapeHtml(row.purchase_notes || '')}</td>
+                    </tr>`;
+            }).join('');
+
+            const generatedAt = new Date().toLocaleString('en-US', { timeZone: EXPORT_TIMEZONE });
+            return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(exportFilename('pdf').replace(/\.pdf$/, ''))}</title>
+<style>
+    @page { size: landscape; margin: 0.4in; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 9pt; color: #111; margin: 16px; }
+    h1 { font-size: 14pt; margin: 0 0 4px; }
+    .meta { color: #555; margin-bottom: 10px; }
+    .toolbar { margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #bbb; padding: 3px 5px; vertical-align: top; text-align: left; }
+    th { background: #eee; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    .num { text-align: right; white-space: nowrap; }
+    .owed { font-weight: 600; }
+    .sub { color: #666; font-size: 8pt; }
+    .notes { max-width: 2.5in; white-space: pre-wrap; }
+    tr.void td { color: #888; font-style: italic; }
+    tr.totals td { font-weight: 700; background: #f5f5f5; }
+    @media print { .toolbar { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+    <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
+    <h1>Purchase History</h1>
+    <div class="meta">
+        ${escapeHtml(describeFilters())}<br>
+        ${rows.length} purchase(s) · Generated ${escapeHtml(generatedAt)} ET
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th><th>Date</th><th>Family</th><th>Student</th><th>Session</th>
+                <th>Activity / Item</th><th>Status</th>
+                <th>Fees</th><th>Paid</th><th>Refunds</th><th>House Cr.</th><th>Owed</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${bodyRows}
+            <tr class="totals">
+                <td colspan="7">Totals</td>
+                <td class="num">${format(totals.netFees)}</td>
+                <td class="num">${format(totals.netPayments)}</td>
+                <td class="num">${format(totals.refunds)}</td>
+                <td class="num">${format(totals.houseCredits)}</td>
+                <td class="num">${format(totals.owed)}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>`;
+        }
+
+        async function fetchExportRows() {
+            const response = await $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.purchase_history_export_action,
+                    security: usctdp_mgmt_admin.purchase_history_export_nonce,
+                    ...collectHistoryFilters()
+                }
+            });
+            if (!response.success) {
+                throw new Error(response.data || 'Export failed.');
+            }
+            return response.data.rows;
+        }
+
+        function showExportError() {
+            window.Swal.fire({
+                icon: "error",
+                title: "Export Failed",
+                text: "Could not load the purchase history for export. Please inform a developer.",
+            });
+        }
+
+        function showNothingToExport() {
+            window.Swal.fire("Nothing to Export", "No purchases match the current filters.", "info");
+        }
+
+        // 'owes' is always sent (0 when unchecked), so it only counts as a
+        // filter when it's actually on.
+        function hasActiveFilters() {
+            const { owes, ...rest } = collectHistoryFilters();
+            return owes === 1 || Object.keys(rest).length > 0;
+        }
+
+        // An unfiltered export pulls every purchase ever made in one
+        // request - resolves true straight away when filters are set,
+        // otherwise only if the admin confirms that's really what they want.
+        async function confirmExportScope() {
+            if (hasActiveFilters()) {
+                return true;
+            }
+            const result = await window.Swal.fire({
+                icon: "warning",
+                title: "No Filters Set",
+                text: "This will export every purchase on record, which may be slow. Continue?",
+                showCancelButton: true,
+                confirmButtonText: "Export anyway",
+                cancelButtonText: "Cancel"
+            });
+            return result.isConfirmed;
+        }
+
+        $('#export-csv-btn').on('click', async function () {
+            if (!(await confirmExportScope())) {
+                return;
+            }
+            const $btn = $(this);
+            $btn.prop('disabled', true);
+            try {
+                const rows = await fetchExportRows();
+                if (rows.length === 0) {
+                    showNothingToExport();
+                    return;
+                }
+                downloadCsv(buildCsv(rows), exportFilename('csv'));
+            } catch (error) {
+                console.error(error);
+                showExportError();
+            } finally {
+                $btn.prop('disabled', false);
+            }
+        });
+
+        $('#export-print-btn').on('click', async function () {
+            if (!(await confirmExportScope())) {
+                return;
+            }
+            // Opened before the rows are fetched, while still within the
+            // click's (or the confirm dialog's click's) user activation, so
+            // pop-up blockers allow it - it's filled in once the rows arrive.
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                window.Swal.fire("Pop-up Blocked", "Allow pop-ups for this site to print the purchase history.", "warning");
+                return;
+            }
+            printWindow.document.write('<p style="font-family: sans-serif">Loading purchase history…</p>');
+
+            const $btn = $(this);
+            $btn.prop('disabled', true);
+            try {
+                const rows = await fetchExportRows();
+                if (rows.length === 0) {
+                    printWindow.close();
+                    showNothingToExport();
+                    return;
+                }
+                printWindow.document.open();
+                printWindow.document.write(buildPrintHtml(rows));
+                printWindow.document.close();
+                printWindow.focus();
+                printWindow.print();
+            } catch (error) {
+                console.error(error);
+                printWindow.close();
+                showExportError();
+            } finally {
+                $btn.prop('disabled', false);
+            }
         });
 
         $(`#${paymentTableId}`).on('payment:complete', function () {

@@ -27,6 +27,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'move_activity_to_group' => 'ajax_move_activity_to_group',
         'preview_registration_activity_change' => 'ajax_preview_registration_activity_change',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
+        'purchase_history_export' => 'ajax_purchase_history_export',
         'reassign_registration' => 'ajax_reassign_registration',
         'recent_registrations' => 'ajax_recent_registrations',
         'registrations_datatable' => 'ajax_registrations_datatable',
@@ -2503,6 +2504,53 @@ class Usctdp_Mgmt_Admin_Ajax
     {
         $this->check_nonce('purchase_history_datatable');
 
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
+
+        $args = array_merge($this->purchase_history_filter_args(), [
+            'number' => $length,
+            'offset' => $start,
+        ]);
+
+        $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);
+        $results = $purchase_query->get_purchase_data($args);
+        $response = array(
+            "draw" => $draw,
+            "recordsTotal" => $results['count'],
+            "recordsFiltered" => $results['count'],
+            "data" => $results['data']
+        );
+        wp_send_json($response);
+    }
+
+    /**
+     * Same filters as ajax_purchase_history_datatable(), but unpaginated -
+     * feeds the Purchase History page's CSV / printable exports, which are
+     * built client-side from these rows (see exportHistory() in
+     * usctdp-mgmt-admin-history.js).
+     */
+    public function ajax_purchase_history_export()
+    {
+        $this->check_nonce('purchase_history_export');
+
+        try {
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);
+            $results = $purchase_query->get_purchase_data($this->purchase_history_filter_args());
+            wp_send_json_success(['rows' => $results['data']]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_purchase_history_export', $e);
+            wp_send_json_error('Failed to export purchase history.', 500);
+        }
+    }
+
+    /**
+     * Reads the Purchase History page's filter controls out of $_POST into
+     * get_purchase_data() args (no pagination) - shared by the datatable
+     * and the export so an export always matches what's on screen.
+     */
+    private function purchase_history_filter_args()
+    {
         $family_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : null;
         $student_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : null;
         $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : null;
@@ -2512,13 +2560,7 @@ class Usctdp_Mgmt_Admin_Ajax
         $date_from = isset($_POST['date_from']) ? sanitize_text_field($_POST['date_from']) : null;
         $date_to = isset($_POST['date_to']) ? sanitize_text_field($_POST['date_to']) : null;
 
-        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
-        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
-        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
-
         $args = [
-            'number' => $length,
-            'offset' => $start,
             // credit_import purchases are internal placeholders used to attach
             // imported house credit to a ledger entry (see ajax_issue_house_credit)
             // - they have no student and nothing to show, so never list them here.
@@ -2543,17 +2585,7 @@ class Usctdp_Mgmt_Admin_Ajax
             $args['status'] = $status;
         }
 
-        $args = array_merge($args, $this->eastern_date_range_to_utc($date_from, $date_to));
-
-        $purchase_query = new Usctdp_Mgmt_Purchase_Query([]);
-        $results = $purchase_query->get_purchase_data($args);
-        $response = array(
-            "draw" => $draw,
-            "recordsTotal" => $results['count'],
-            "recordsFiltered" => $results['count'],
-            "data" => $results['data']
-        );
-        wp_send_json($response);
+        return array_merge($args, $this->eastern_date_range_to_utc($date_from, $date_to));
     }
 
     /**
