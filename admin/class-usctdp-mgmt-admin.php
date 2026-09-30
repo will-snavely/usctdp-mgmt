@@ -116,6 +116,7 @@ class Usctdp_Mgmt_Admin
                 'ajax' => [
                     'select2_search',
                     'purchase_history_datatable',
+                    'purchase_history_export',
                     'preview_registration_activity_change',
                     'reassign_registration',
                     'update_registration',

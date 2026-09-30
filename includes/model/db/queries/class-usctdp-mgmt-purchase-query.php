@@ -100,6 +100,7 @@ class Usctdp_Mgmt_Purchase_Query extends Query
         $query = $wpdb->prepare(
             "   SELECT
                     pur.id as purchase_id, pur.type as purchase_type,
+                    pur.status as purchase_status,
                     pur.product_id as purchase_product_id,
                     DATE_FORMAT(pur.created_at, '%%Y-%%m-%%dT%%T.%%fZ') as purchase_created_at,
                     pur.created_by as purchase_created_by,
