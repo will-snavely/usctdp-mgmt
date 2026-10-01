@@ -146,6 +146,36 @@ dialog#view-roster-modal {
     width: 60px;
 }
 
+/* 3-column, 2-row grid (label row, input row) instead of the field-row
+   label-left/input-right pattern used elsewhere - Daily/Bulk/Threshold read
+   better side by side than stacked, and a plain .field-row per field left
+   the inputs oddly narrow relative to their labels. */
+#camp-pricing-fields {
+    display: grid;
+    /* "Bulk Threshold (days)" is the longest label of the three - give its
+       column extra room so it fits on one line instead of wrapping and
+       throwing off the row heights next to the shorter Daily/Bulk labels. */
+    grid-template-columns: 1fr 1fr 1.5fr;
+    gap: 4px 10px;
+}
+
+.camp-pricing-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.camp-pricing-field label {
+    white-space: nowrap;
+}
+
+/* The grid column is sized to fit the label (see "Bulk Threshold (days)"
+   above), not the input - these only ever hold a couple of digits, so keep
+   them narrow instead of stretching to the full column width. */
+.camp-price-input {
+    width: 55px;
+}
+
 .preorder-details label {
     display: block;
     font-size: 14px;

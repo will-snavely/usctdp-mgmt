@@ -76,5 +76,10 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
             'allow_null' => true,
             'default' => '[]',
         ],
+        'travel_team_package' => [
+            'name' => 'travel_team_package',
+            'type' => 'json',
+            'allow_null' => true,
+        ],
     ];
 }

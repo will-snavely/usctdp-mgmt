@@ -358,14 +358,19 @@
         }
     }
 
-    // Usctdp_Session_Category::Junior_Tournament / Adult_Tournament
-    USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES = [5, 6];
+    // Usctdp_Session_Category::Junior_Tournament / Adult_Tournament / Camp -
+    // the categories where a session has exactly one activity, same as
+    // tournaments (see resolveTournamentActivity below). Travel Team (8) is
+    // deliberately excluded - a travel team session maps to a product-level
+    // package/variation choice, not a single activity to auto-resolve.
+    USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES = [5, 6, 7];
 
     /**
-     * Tournament sessions have exactly one activity, so there's nothing
-     * meaningful to pick beyond the session itself. Given a selected session's
-     * select2 data, resolves the session's sole activity (or null if the
-     * session isn't a tournament, or doesn't have exactly one activity).
+     * Tournament (and camp) sessions have exactly one activity, so there's
+     * nothing meaningful to pick beyond the session itself. Given a selected
+     * session's select2 data, resolves the session's sole activity (or null
+     * if the session's category isn't in TOURNAMENT_SESSION_CATEGORIES, or
+     * it doesn't have exactly one activity).
      */
     USCTDP_Admin.resolveTournamentActivity = async function (sessionId, sessionData) {
         if (!sessionData || USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(sessionData.category) === -1) {
@@ -1209,17 +1214,31 @@
             this.activity_id = data.activity_id || null;
             this.discounts = data.discounts || null;
             this.notes = data.notes || "";
+            // Only meaningful for type 'camp' - the specific calendar dates
+            // (Y-m-d) this registration covers, picked from the camp's
+            // week-by-week day grid. See getSelectedCampDates() in
+            // usctdp-mgmt-admin-register.js.
+            this.camp_dates = data.camp_dates || null;
+            // Only meaningful for a Travel Team registration - which
+            // package (and its day/match counts) the purchase was made
+            // under, since activity_id alone can't distinguish that (the
+            // same camp activity can be sold through more than one
+            // package). See loadTravelTeamCampInfo() in
+            // usctdp-mgmt-admin-register.js and
+            // usctdp_purchase.travel_team_package.
+            this.travel_team_package = data.travel_team_package || null;
 
             this.debit = parseFloat(data.debit || 0);
             this.credit = parseFloat(data.credit || 0);
 
-            // Tournament activity names just repeat the session name (e.g.
-            // session "Junior Singles Round Robin (Fall) - 2026/2027",
-            // activity "Junior Singles Round Robin (Fall)") - "session:
-            // activity" reads as a redundant, duplicated string for those,
-            // so show the session name alone instead.
+            // Tournament and camp activity names just repeat the session
+            // name (e.g. session "Summer Camp: Yellow Ball", activity
+            // "Summer Camp: Yellow Ball" - see import_camp_activities() in
+            // class-usctdp-import-session-data.php) - "session: activity"
+            // reads as a redundant, duplicated string for those, so show
+            // the session name alone instead.
             this.item_name = this.type === 'registration'
-                ? (data.activity_type === 'tournament'
+                ? (['tournament', 'camp'].indexOf(data.activity_type) !== -1
                     ? data.session_name
                     : `${data.session_name}: ${data.activity_name}`)
                 : data.product_name;

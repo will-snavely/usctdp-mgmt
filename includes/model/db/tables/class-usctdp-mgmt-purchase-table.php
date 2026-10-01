@@ -11,9 +11,10 @@ class Usctdp_Mgmt_Purchase_Table extends Table
     public $name = 'usctdp_purchase';
     protected $db_version_key = 'usctdp_purchase_version';
     public $description = 'USCTDP Purchases';
-    protected $version = '1.1.0';
+    protected $version = '1.2.0';
     protected $upgrades = [
         '1.1.0' => 'add_status_created_at_index',
+        '1.2.0' => 'add_travel_team_package_column',
     ];
 
     public function set_schema()
@@ -39,6 +40,7 @@ class Usctdp_Mgmt_Purchase_Table extends Table
             created_by bigint(20) unsigned NOT NULL,
             notes text DEFAULT NULL,
             discounts json DEFAULT '[]',
+            travel_team_package json DEFAULT NULL,
             PRIMARY KEY (id),
             KEY product_id (product_id),
             KEY family_id (family_id),
@@ -82,6 +84,38 @@ class Usctdp_Mgmt_Purchase_Table extends Table
         }
 
         $result = $wpdb->query("ALTER TABLE {$table} ADD INDEX idx_status_created_at (status, created_at)");
+        return $result !== false;
+    }
+
+    /**
+     * Structured record of which Travel Team package/camp-option a
+     * registration's purchase was made under - e.g.
+     * {"package":"Package A","camp_days":12,"matches":6}. Previously this
+     * only existed as free text stuffed into usctdp_purchase.notes (an
+     * admin-editable field every other purchase type leaves alone), which
+     * meant it could be silently edited away or overwritten, and nothing
+     * could query/filter on it. NULL for every non-travel-team purchase.
+     * Same idempotent information_schema-check pattern as
+     * add_status_created_at_index() above, for the same reason - dbDelta
+     * alone isn't trusted to reach existing installations.
+     */
+    public function add_travel_team_package_column()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'usctdp_purchase';
+
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE table_schema = %s AND table_name = %s AND column_name = %s",
+            DB_NAME,
+            $table,
+            'travel_team_package'
+        ));
+        if ($exists > 0) {
+            return true;
+        }
+
+        $result = $wpdb->query("ALTER TABLE {$table} ADD COLUMN travel_team_package json DEFAULT NULL");
         return $result !== false;
     }
 }

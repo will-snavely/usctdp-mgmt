@@ -25,6 +25,7 @@ class Usctdp_Import_Product_Data
             'junior tournaments' => 5,
             'adult tournaments' => 6,
             'camps' => 7,
+            'travel team' => 8,
         ];
         $normalized_cat = strtolower(trim($cat));
         return $cats[$normalized_cat] ?? false;

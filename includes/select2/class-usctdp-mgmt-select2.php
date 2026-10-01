@@ -63,6 +63,19 @@ class Usctdp_Mgmt_Select2
                     'exclude_activity_id' => intval(...)
                 ]
             ],
+            'travel_package' => [
+                'callback' => $this->select2_travel_package_search(...),
+                'filters' => [
+                    'session_id' => intval(...)
+                ]
+            ],
+            'travel_camp_option' => [
+                'callback' => $this->select2_travel_camp_option_search(...),
+                'filters' => [
+                    'session_id' => intval(...),
+                    'package' => sanitize_text_field(...)
+                ]
+            ],
         ];
     }
 
@@ -230,6 +243,147 @@ class Usctdp_Mgmt_Select2
                     'last' => $result->last,
                 );
             }
+        }
+        return $results;
+    }
+
+    /**
+     * Travel Team packages/camp-options aren't backed by their own DB rows -
+     * a "package" is just a grouping of the travel team product's WC
+     * variations by their Package/Camp Option attributes (see
+     * Usctdp_Import_Session_Data::import_travel_team_packages()), with each
+     * variation's _camp_activity_id meta pointing at the real camp activity
+     * that the days/capacity/registration actually get booked against.
+     * Resolves the one product linked to $session_id (via
+     * usctdp_product_session, not select2_product_search()'s category-level
+     * match - see the dead-end this replaced, previously
+     * Usctdp_Mgmt_Admin_Ajax::ajax_get_travel_team_options()) and walks its
+     * variations into that same package => camp_options shape, shared by
+     * both targets below so a package's camp option count/sole option can
+     * be computed once per package regardless of which target is asking.
+     */
+    private function resolve_travel_team_packages($session_id)
+    {
+        global $wpdb;
+        $product_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT product_id FROM {$wpdb->prefix}usctdp_product_session WHERE session_id = %d",
+            $session_id
+        ));
+        if (count($product_ids) !== 1) {
+            return [];
+        }
+
+        $product = Usctdp_Mgmt_Model::get_product($product_ids[0]);
+        if (!$product) {
+            return [];
+        }
+
+        $woo_product = wc_get_product($product->woocommerce_id);
+        if (!$woo_product || !$woo_product->is_type('variable')) {
+            return [];
+        }
+
+        $packages = [];
+        foreach ($woo_product->get_children() as $variation_id) {
+            $variation = wc_get_product($variation_id);
+            if (!$variation) {
+                continue;
+            }
+            $attributes = $variation->get_attributes();
+            $package_name = $attributes['package'] ?? null;
+            $camp_name = $attributes['camp-option'] ?? null;
+            $camp_activity_id = $variation->get_meta('_camp_activity_id');
+            if (!$package_name || !$camp_name || !$camp_activity_id) {
+                continue;
+            }
+
+            if (!isset($packages[$package_name])) {
+                $packages[$package_name] = [
+                    'name' => $package_name,
+                    'camp_days' => $variation->get_meta('_camp_days'),
+                    'matches' => $variation->get_meta('_matches'),
+                    'product_id' => $product->id,
+                    'product_name' => $product->title,
+                    'camp_options' => [],
+                ];
+            }
+            $packages[$package_name]['camp_options'][] = [
+                'camp_activity_id' => (int) $camp_activity_id,
+                'camp_name' => $camp_name,
+                'price' => $variation->get_price(),
+            ];
+        }
+
+        return array_values($packages);
+    }
+
+    private function format_travel_camp_option($option)
+    {
+        return array(
+            'id' => $option['camp_activity_id'],
+            'text' => $option['camp_name'] . ' - $' . number_format((float) $option['price'], 2),
+            'camp_name' => $option['camp_name'],
+            'price' => $option['price'],
+        );
+    }
+
+    private function select2_travel_package_search($search, $filters)
+    {
+        $session_id = $filters['session_id'] ?? null;
+        if (!$session_id) {
+            return [];
+        }
+
+        $results = [];
+        foreach ($this->resolve_travel_team_packages($session_id) as $pkg) {
+            if ($search && stripos($pkg['name'], $search) === false) {
+                continue;
+            }
+            $camp_options = $pkg['camp_options'];
+            $matches = (int) $pkg['matches'];
+            $results[] = array(
+                'id' => $pkg['name'],
+                'text' => $pkg['name'] . ' (' . $pkg['camp_days'] . ' days, ' . $matches . ' ' . ($matches === 1 ? 'match' : 'matches') . ')',
+                'camp_days' => $pkg['camp_days'],
+                'matches' => $matches,
+                'product_id' => $pkg['product_id'],
+                'product_name' => $pkg['product_name'],
+                // Lets the package selector auto-resolve its sole camp
+                // option (see 'travel-package-selector'.autoSelectChild in
+                // usctdp-mgmt-admin-register.js) without a second
+                // select2_search round-trip for the common one-camp case.
+                'camp_option_count' => count($camp_options),
+                'sole_camp_option' => count($camp_options) === 1 ? $this->format_travel_camp_option($camp_options[0]) : null,
+            );
+        }
+        return $results;
+    }
+
+    private function select2_travel_camp_option_search($search, $filters)
+    {
+        $session_id = $filters['session_id'] ?? null;
+        $package = $filters['package'] ?? null;
+        if (!$session_id || !$package) {
+            return [];
+        }
+
+        $pkg = null;
+        foreach ($this->resolve_travel_team_packages($session_id) as $candidate) {
+            if ($candidate['name'] === $package) {
+                $pkg = $candidate;
+                break;
+            }
+        }
+        if (!$pkg) {
+            return [];
+        }
+
+        $results = [];
+        foreach ($pkg['camp_options'] as $option) {
+            if ($search && stripos($option['camp_name'], $search) === false) {
+                continue;
+            }
+            $results[] = $this->format_travel_camp_option($option);
         }
         return $results;
     }

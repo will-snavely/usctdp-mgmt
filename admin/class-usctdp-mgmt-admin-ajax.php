@@ -369,6 +369,24 @@ class Usctdp_Mgmt_Admin_Ajax
         $student_registered = $this->is_student_enrolled($student_id, $activity_id);
         $student_waitlisted = $this->is_student_waitlisted($student_id, $activity_id);
 
+        // Camp registration needs actual calendar dates to offer the admin
+        // a day-picker, not just the day-of-week/time pattern usctdp_camp
+        // stores - build_camp_week_grid() combines that pattern with the
+        // session's date range to produce them. Only fetched for camps;
+        // every other type has nothing to pick beyond the activity itself.
+        $camp_weeks = null;
+        if ($activity->activity_type === 'camp') {
+            $camp_query = new Usctdp_Mgmt_Camp_Query(['id' => $activity_id, 'number' => 1]);
+            if (!empty($camp_query->items)) {
+                $camp_weeks = $this->build_camp_week_grid(
+                    $activity->session_start_date,
+                    $activity->session_end_date,
+                    $camp_query->items[0]->schedule,
+                    $activity->session_num_weeks
+                );
+            }
+        }
+
         wp_send_json_success([
             'capacity' => $capacity,
             'session_id' => $activity->session_id,
@@ -382,8 +400,98 @@ class Usctdp_Mgmt_Admin_Ajax
             'student_registered' => $student_registered,
             'student_waitlisted' => $student_waitlisted,
             'student_level' => $student->level,
-            'pricing' => $pricing->pricing
+            'pricing' => $pricing->pricing,
+            'camp_weeks' => $camp_weeks,
         ]);
+    }
+
+    /**
+     * Combines a camp's day-of-week/time pattern (usctdp_camp.schedule -
+     * see import_camp_activities() in class-usctdp-import-session-data.php)
+     * with its session's date range into a week-by-week list of actual
+     * calendar dates, for the admin registration day-picker. A partial
+     * final week only lists the days that actually fall within the
+     * session's end date.
+     *
+     * @return array [['week' => 1, 'days' => [['date' => 'Y-m-d', 'day_name' => 'Monday', 'start_time' => ..., 'end_time' => ...], ...]], ...]
+     */
+    private function build_camp_week_grid($start_date, $end_date, $schedule, $num_weeks = null)
+    {
+        if (empty($schedule) || empty($start_date) || empty($end_date)) {
+            return [];
+        }
+
+        $day_name_to_number = [
+            'Sunday' => 0, 'Monday' => 1, 'Tuesday' => 2, 'Wednesday' => 3,
+            'Thursday' => 4, 'Friday' => 5, 'Saturday' => 6,
+        ];
+        $scheduled_days = [];
+        foreach ($schedule as $entry) {
+            $day_name = $entry->day ?? null;
+            if ($day_name === null || !isset($day_name_to_number[$day_name])) {
+                continue;
+            }
+            $scheduled_days[$day_name_to_number[$day_name]] = [
+                'day_name' => $day_name,
+                'start_time' => $entry->start_time ?? null,
+                'end_time' => $entry->end_time ?? null,
+            ];
+        }
+        if (empty($scheduled_days)) {
+            return [];
+        }
+        ksort($scheduled_days);
+
+        $start = new DateTime($start_date);
+        $end = new DateTime($end_date);
+
+        $weeks = [];
+        $week_number = 1;
+        $cursor = clone $start;
+        // The date range is what actually determines iteration, but it can
+        // overshoot the camp's stated length_weeks by a day or two (e.g. an
+        // end_date that lands a week's first scheduled day just past the
+        // "real" last week) - cap on week_number itself, not the date loop,
+        // so an overshoot day just gets excluded rather than spilling into
+        // an extra "Week 11" on a 10-week camp.
+        while ($cursor <= $end && (empty($num_weeks) || $week_number <= $num_weeks)) {
+            $week_end = (clone $cursor)->modify('+6 days');
+            $days = [];
+            foreach ($scheduled_days as $day_number => $info) {
+                $date = clone $cursor;
+                $delta = $day_number - (int) $date->format('w');
+                if ($delta < 0) {
+                    $delta += 7;
+                }
+                $date->modify("+{$delta} days");
+                if ($date <= $week_end && $date <= $end) {
+                    $days[] = [
+                        'date' => $date->format('Y-m-d'),
+                        'day_name' => $info['day_name'],
+                        'start_time' => $info['start_time'],
+                        'end_time' => $info['end_time'],
+                    ];
+                }
+            }
+            if (!empty($days)) {
+                // A week's days were built in scheduled-day-of-week order
+                // (e.g. Mon, Tue, Thu), not chronological order - only the
+                // same thing when the week starts on a Sunday/Monday. The
+                // very first week starts on the session's own start_date
+                // instead, whatever weekday that falls on, so e.g. a
+                // Thursday can land before that week's Monday.
+                usort($days, function ($a, $b) {
+                    return strcmp($a['date'], $b['date']);
+                });
+                $weeks[] = [
+                    'week' => $week_number,
+                    'days' => $days,
+                ];
+            }
+            $cursor->modify('+7 days');
+            $week_number += 1;
+        }
+        return $weeks;
     }
 
     /**
@@ -3021,6 +3129,47 @@ class Usctdp_Mgmt_Admin_Ajax
             $line_item_id = sanitize_text_field($data['line_item_id']);
         }
 
+        // Only present for camp registrations (see CartItem.camp_dates in
+        // usctdp-mgmt-admin.js) - the specific calendar days this
+        // registration covers, written to usctdp_registration_camp_day by
+        // create_purchase_and_registration(). Anything malformed (wrong
+        // type, not a plain Y-m-d date) is silently dropped rather than
+        // erroring the whole registration over one bad date.
+        $camp_dates = [];
+        if (!empty($data['camp_dates']) && is_array($data['camp_dates'])) {
+            foreach ($data['camp_dates'] as $date) {
+                $date = sanitize_text_field($date);
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                    $camp_dates[] = $date;
+                }
+            }
+        }
+
+        // Only present for a registration made through the Travel Team
+        // package/camp-option selectors (see 'travel-camp-option-selector'
+        // in usctdp-mgmt-admin-register.js) - which specific package the
+        // family bought, since that's not otherwise derivable from
+        // activity_id alone (activity_id is the real camp activity, which
+        // can be sold through more than one package at different
+        // price/day/match counts). Stored structurally on the purchase
+        // instead of folded into the free-text notes field, which every
+        // other registration type leaves untouched for the admin alone to
+        // edit. An unexpected shape (missing fields, non-scalar values) is
+        // dropped entirely rather than persisting a partial/malformed record.
+        $travel_team_package = null;
+        if (!empty($data['travel_team_package']) && is_array($data['travel_team_package'])) {
+            $package = $data['travel_team_package'];
+            if (isset($package['package'], $package['camp_days'], $package['matches'])
+                && is_scalar($package['package']) && is_scalar($package['camp_days']) && is_scalar($package['matches'])
+            ) {
+                $travel_team_package = json_encode([
+                    'package' => sanitize_text_field((string) $package['package']),
+                    'camp_days' => (int) $package['camp_days'],
+                    'matches' => (int) $package['matches'],
+                ]);
+            }
+        }
+
         return [
             "student" => $student['entity'],
             "family" => $family['entity'],
@@ -3036,6 +3185,8 @@ class Usctdp_Mgmt_Admin_Ajax
                 'student_level' => $student_level,
                 'notes' => $notes,
                 'discounts' => $discounts,
+                'camp_dates' => $camp_dates,
+                'travel_team_package' => $travel_team_package,
             ]
         ];
     }
@@ -3168,6 +3319,7 @@ class Usctdp_Mgmt_Admin_Ajax
             // shows up there too, and vice versa, instead of the two
             // tables silently drifting apart.
             'notes' => $args['notes'],
+            'travel_team_package' => $args['travel_team_package'] ?? null,
         ];
         $purchase_id = $purchase_query->add_item($purchase_args);
         if (!$purchase_id) {
@@ -3189,6 +3341,16 @@ class Usctdp_Mgmt_Admin_Ajax
         $registration_id = $registration_query->add_item($registration_args);
         if (!$registration_id) {
             throw new Web_Request_Exception('Failed to create registration.');
+        }
+
+        // Camp-only: which specific calendar days this registration covers
+        // (see parse_registration_data()'s camp_dates extraction). Absent
+        // for every other activity type.
+        if (!empty($args['camp_dates'])) {
+            $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
+            foreach ($args['camp_dates'] as $date) {
+                $camp_day_query->add_day($registration_id, $date);
+            }
         }
 
         return [

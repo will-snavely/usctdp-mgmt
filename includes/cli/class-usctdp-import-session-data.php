@@ -2,6 +2,12 @@
 
 class Usctdp_Import_Session_Data
 {
+    // Camps don't carry a real per-day capacity in the source data yet (see
+    // resolve_camp_capacity() below) - a large placeholder so a camp never
+    // shows as "full" by default, rather than the 0 a missing value would
+    // otherwise resolve to.
+    const DEFAULT_CAMP_CAPACITY = 999;
+
     private $session_data;
     private $sessions_by_category;
     private $sessions_by_name;
@@ -76,6 +82,33 @@ class Usctdp_Import_Session_Data
         return $group_id;
     }
 
+    /**
+     * Clinics/tournaments carry a real capacity in their source data, which
+     * resolve_reservation_group_id() re-asserts on every import run - that's
+     * correct for them, since the source is the authoritative current value.
+     * Camps have no such value yet, so re-asserting a hardcoded default on
+     * every run would silently overwrite any real capacity an admin later
+     * sets by hand (e.g. via `wp usctdp set_reservation_group_capacity` or
+     * the activities admin page). Instead: a brand-new camp activity gets
+     * DEFAULT_CAMP_CAPACITY, but re-importing an existing one just rounds
+     * its current capacity back through resolve_reservation_group_id() -
+     * effectively a no-op - rather than resetting it.
+     */
+    private function resolve_camp_capacity($existing_activity)
+    {
+        if (!$existing_activity) {
+            return self::DEFAULT_CAMP_CAPACITY;
+        }
+        $group_query = new Usctdp_Mgmt_Reservation_Group_Query([
+            'id' => (int) $existing_activity->reservation_group_id,
+            'number' => 1,
+        ]);
+        if (!empty($group_query->items)) {
+            return (int) $group_query->items[0]->capacity;
+        }
+        return self::DEFAULT_CAMP_CAPACITY;
+    }
+
     private function get_category_integer(string $cat)
     {
         $cats = [
@@ -134,9 +167,15 @@ class Usctdp_Import_Session_Data
                 "category" => $session_category->value,
                 "meta" => isset($session['meta']) ? json_encode($session['meta']) : '{}'
             ];
+            // title alone identifies "the same session" across re-imports -
+            // start_date used to be part of this lookup too, but that meant
+            // editing a session's date range (while its title - name + year,
+            // see Usctdp_Mgmt_Session_Table::create_title() - stayed the
+            // same) couldn't find the existing row and created a duplicate
+            // session (and, downstream, a duplicate activity/roster
+            // group/pricing row) instead of updating it in place.
             $query = new Usctdp_Mgmt_Session_Query([
                 "title" => $title,
-                "start_date" => $start_date->format("Y-m-d"),
                 "number" => 1
             ]);
             if (!empty($query->items)) {
@@ -235,7 +274,7 @@ class Usctdp_Import_Session_Data
         $product_data = [];
         $active_sessions_by_product = [];
 
-        foreach ($data["class_pricing"] as $pricing) {
+        foreach ($data["clinic_pricing"] as $pricing) {
             $clinic_title = $pricing['clinic'];
             if (!isset($clinics_by_title[$clinic_title])) {
                 $clinic = $this->get_clinic_by_title($clinic_title);
@@ -267,7 +306,7 @@ class Usctdp_Import_Session_Data
                 "Two" => $pricing['2_day_price'],
             ];
 
-            // Appearing in class_pricing at all is the signal this session
+            // Appearing in clinic_pricing at all is the signal this session
             // should be wired up for this product - no separate "active"
             // flag needed on top of that.
             $product_data[$woo_product_id][$pricing['session']] = $prices;
@@ -363,6 +402,10 @@ class Usctdp_Import_Session_Data
             $dow = $class['day'];
             $start_time = new DateTime($class['start_time']);
             $end_time = new DateTime($class['end_time']);
+            if (!isset($this->sessions_by_category[$clinic_category->value])) {
+                WP_CLI::log("No session found with category {$clinic_category->name} for clinic $clinic_name - skipping this class");
+                continue;
+            }
             $sessions = $this->sessions_by_category[$clinic_category->value];
 
             $session_filter = null;
@@ -645,9 +688,9 @@ class Usctdp_Import_Session_Data
      * Unlike clinics/tournaments (many activities share one broad session),
      * each "Junior Camp" entry in data["sessions"] is both its own session
      * *and* its own activity - the camp-specific fields (schedule,
-     * price_per_day, bulk_price) live right on the session object instead
-     * of a separate top-level array, matching how the user actually
-     * structured this data rather than mirroring tournaments' split.
+     * price_per_day, bulk_price, bulk_threshold) live right on the session
+     * object instead of a separate top-level array, matching how the user
+     * actually structured this data rather than mirroring tournaments' split.
      *
      * The product for each camp must already exist (imported separately by
      * Usctdp_Import_Product_Data from products.json's "camps" key) with a
@@ -692,9 +735,13 @@ class Usctdp_Import_Session_Data
                 "title" => $title,
                 "search_term" => $search_term,
                 // No capacity field in the source data yet (the old paper
-                // flyer's "Max 40/day" never made it into this JSON) - 0
-                // until that's added and re-imported.
-                "reservation_group_id" => $this->resolve_reservation_group_id($existing_activity, $session['capacity'] ?? 0),
+                // flyer's "Max 40/day" never made it into this JSON) - see
+                // resolve_camp_capacity() for how the placeholder is chosen
+                // without clobbering a capacity an admin later sets by hand.
+                "reservation_group_id" => $this->resolve_reservation_group_id(
+                    $existing_activity,
+                    $session['capacity'] ?? $this->resolve_camp_capacity($existing_activity)
+                ),
                 "primary_sort_order" => $primary_sort_order,
                 "secondary_sort_order" => 1,
                 "meta" => isset($session['meta']) ? json_encode($session['meta']) : '{}'
@@ -721,20 +768,24 @@ class Usctdp_Import_Session_Data
                 $camp_query->add_item(array_merge(["id" => $activity_id], $camp_data));
             }
 
-            // Per-day / 10-or-more-day tiers, same (session_id, product_id)
-            // => pricing-json shape as clinic/tournament pricing. Not turned
+            // Per-day / bulk-day tiers, same (session_id, product_id) =>
+            // pricing-json shape as clinic/tournament pricing. Not turned
             // into WooCommerce variations here - a customer's final price
             // depends on how many days they pick at registration time, which
             // doesn't map onto a fixed-price variation the way a clinic's
             // "Session" or a tournament's flat price does. This just
-            // persists the two rates for checkout/registration logic to
-            // consume later.
+            // persists the rates (and the day count bulk_price kicks in at -
+            // it varies per camp, e.g. Match Play's is 9 not the usual 10)
+            // for checkout/registration logic to consume later.
             $prices = [];
             if (isset($session['price_per_day']) && $session['price_per_day'] !== '') {
                 $prices['per_day'] = $session['price_per_day'];
             }
             if (isset($session['bulk_price']) && $session['bulk_price'] !== '') {
                 $prices['bulk'] = $session['bulk_price'];
+                if (isset($session['bulk_threshold']) && $session['bulk_threshold'] !== '') {
+                    $prices['bulk_threshold'] = $session['bulk_threshold'];
+                }
             }
             if (!empty($prices)) {
                 $pricing_query = new Usctdp_Mgmt_Pricing_Query([

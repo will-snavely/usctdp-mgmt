@@ -57,6 +57,14 @@
                 <div id="context-selection-header" class="section-header">
                     <h2>Select Item</h2>
                 </div>
+                <!-- Travel Team's Package/Camp selectors are two more
+                     entries in the CascasdingSelect config below
+                     ('travel-package-selector'/'travel-camp-option-selector',
+                     backed by the 'travel_package'/'travel_camp_option'
+                     select2_search targets) - CascasdingSelect renders their
+                     markup into this container itself, same as
+                     Family/Student/Session/etc., so there's nothing to add
+                     here by hand. -->
                 <div id="context-selectors" class="flex-col gap-10"></div>
             </div>
             <div id="notifications-section" class="hidden flex-col gap-10">
@@ -116,8 +124,27 @@
                             <label for="activity_base_price">Base Price</label>
                             <input type="number" name="activity_base_price" id="activity_base_price">
                         </div>
+                        <div id="camp-pricing-fields" class="hidden">
+                            <div id="camp-price-per-day-field" class="camp-pricing-field">
+                                <label for="camp-price-per-day">Daily Price</label>
+                                <input type="number" step="0.01" min="0" name="camp-price-per-day" id="camp-price-per-day" class="camp-price-input">
+                            </div>
+                            <div id="camp-price-bulk-field" class="camp-pricing-field">
+                                <label for="camp-price-bulk">Bulk Price</label>
+                                <input type="number" step="0.01" min="0" name="camp-price-bulk" id="camp-price-bulk" class="camp-price-input">
+                            </div>
+                            <div id="camp-price-bulk-threshold-field" class="camp-pricing-field">
+                                <label for="camp-price-bulk-threshold">Bulk Threshold (days)</label>
+                                <input type="number" step="1" min="0" name="camp-price-bulk-threshold" id="camp-price-bulk-threshold" class="camp-price-input">
+                            </div>
+                        </div>
+                        <div id="camp-day-picker" class="hidden flex-col gap-5">
+                            <h4>Camp Days</h4>
+                            <p id="camp-day-picker-note" class="camp-day-picker-note"></p>
+                            <div id="camp-day-picker-table-wrap"></div>
+                        </div>
                         <div id="activity-discounts" class="flex-col gap-5">
-                            <h4>Discounts</h4>
+                            <h4 id="activity-discounts-heading">Discounts</h4>
                             <div id="clinic-only-discounts" class="type-only-discounts hidden flex-col gap-5">
                                 <div class="field-row discount-field">
                                     <input type="checkbox" name="discount-additional-day" id="discount-additional-day">

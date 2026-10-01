@@ -792,6 +792,74 @@ dialog .actions-footer {
     align-items: center;
 }
 
+/* Week x day checkbox grid for picking specific camp registration dates -
+   see #camp-day-picker in usctdp-mgmt-admin-register.php and
+   renderCampDayPicker() in usctdp-mgmt-admin-register.js. */
+.camp-day-picker-note {
+    font-size: 0.85em;
+    color: #555;
+    margin: 0;
+}
+
+.camp-day-picker-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.camp-day-picker-table td,
+.camp-day-picker-table th {
+    border: 1px solid #e5e7eb;
+    padding: 4px 6px;
+}
+
+.camp-week-label {
+    text-align: left;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.85em;
+    background: #f9fafb;
+}
+
+/* One cell per recurring schedule slot (see renderCampDayPicker() in
+   usctdp-mgmt-admin-register.js) - a real table column, not a flex-wrapped
+   row, is what makes every week's Monday chip line up under every other
+   week's Monday chip regardless of that row's own date text width. */
+.camp-week-day-cell {
+    text-align: left;
+}
+
+.camp-day-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85em;
+    white-space: nowrap;
+    padding: 5px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+    cursor: pointer;
+    user-select: none;
+}
+
+.camp-day-checkbox:has(.camp-date-checkbox:checked) {
+    background: #eef2ff;
+    border-color: #a5b4fc;
+    color: #3730a3;
+    font-weight: 600;
+}
+
+.camp-day-checkbox .camp-date-checkbox {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+.camp-day-checkbox .camp-date-checkbox {
+    margin: 0;
+}
+
 .align-end {
     align-items: flex-end;
 }

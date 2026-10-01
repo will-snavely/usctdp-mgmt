@@ -8,6 +8,9 @@
         var selectedActivity;
         var selectedMerchandise;
 
+        // Usctdp_Session_Category::Travel_Team
+        const TRAVEL_TEAM_SESSION_CATEGORY = 8;
+
         const MERCHANDISE_PRICING = {
             'tshirt': USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.tshirt_pricing),
             'racket': USCTDP_Admin.safeParseFloat(usctdp_mgmt_admin.racket_pricing)
@@ -184,7 +187,12 @@
                 ? parseFloat(pricing.with_clinic) : null;
             const hasTiers = early_signup_price !== null || with_clinic_price !== null;
 
-            $('#activity_base_price').val(base_price.toFixed(2));
+            $('#activity-base-price-field').removeClass('hidden');
+            $('#activity_base_price').prop('readonly', false).val(base_price.toFixed(2));
+            $('#camp-pricing-fields').addClass('hidden');
+            $('#camp-day-picker').addClass('hidden');
+            $('#activity-addons').removeClass('hidden');
+            $('#activity-discounts-heading').removeClass('hidden');
             $('#clinic-only-discounts').addClass('hidden');
             $('#tournament-only-discounts').toggleClass('hidden', !hasTiers);
 
@@ -214,7 +222,12 @@
                 discount = one_day_price - diff;
             }
 
-            $('#activity_base_price').val(one_day_price.toFixed(2));
+            $('#activity-base-price-field').removeClass('hidden');
+            $('#activity_base_price').prop('readonly', false).val(one_day_price.toFixed(2));
+            $('#camp-pricing-fields').addClass('hidden');
+            $('#camp-day-picker').addClass('hidden');
+            $('#activity-addons').removeClass('hidden');
+            $('#activity-discounts-heading').removeClass('hidden');
             $('#tournament-only-discounts').addClass('hidden');
             $('#clinic-only-discounts').removeClass('hidden');
             $('#discount-additional-day-value').text('($' + discount.toFixed(2) + ')');
@@ -224,6 +237,228 @@
             $("#activity-preorder").data('pricing', pricing);
             $("#activity-preorder").data('additional_day_discount', discount);
         }
+
+        /**
+         * Camp pricing is quantity-based (per-day rate, or a discounted
+         * per-day "bulk" rate once bulk_threshold days are selected) rather
+         * than a flat price with opt-in discount checkboxes - so unlike
+         * clinic/tournament, there's no #activity_base_price for the admin
+         * to set directly. Instead the admin edits the three rate inputs
+         * (#camp-price-per-day/-bulk/-bulk-threshold, pre-filled from this
+         * camp's stored pricing but freely overridable per registration -
+         * e.g. a one-off discount) and #activity_base_price is computed from
+         * those plus the day-picker selection (see update_camp_price()) -
+         * kept in the DOM (paymentTable.addNewRegistration() still reads it
+         * as the registration's base price) but hidden, since showing a
+         * plain "Base Price" input next to the rate fields that actually
+         * drive it is confusing, not editable in any meaningful sense here.
+         */
+        function bind_camp_info(info) {
+            const { pricing, camp_weeks } = info;
+            $('#clinic-only-discounts').addClass('hidden');
+            $('#tournament-only-discounts').addClass('hidden');
+            $('#activity-discounts-heading').addClass('hidden');
+            $('#activity-base-price-field').addClass('hidden');
+            $('#camp-pricing-fields').removeClass('hidden');
+            $('#camp-day-picker').removeClass('hidden');
+            $('#activity-addons').addClass('hidden');
+            $('#activity_base_price').prop('readonly', true);
+
+            $('#camp-price-per-day').val(pricing.per_day ?? '');
+            $('#camp-price-bulk').val(pricing.bulk ?? '');
+            $('#camp-price-bulk-threshold').val(pricing.bulk_threshold ?? '');
+
+            renderCampDayPicker(camp_weeks || []);
+            update_camp_price();
+        }
+
+        /**
+         * A Travel Team registration reuses the ordinary camp flow entirely
+         * once a package + camp option resolves to a real camp activity id
+         * (see loadTravelTeamCampInfo()) - same capacity/waitlist display,
+         * same day-picker. It differs only in pricing: a package is a flat
+         * price (still admin-editable, like clinic/tournament's Base Price)
+         * rather than a per-day rate computed from the day-picker
+         * selection, so #camp-pricing-fields stays hidden and
+         * #activity-base-price-field is shown instead.
+         */
+        function bind_travel_team_info(info, packagePrice, campDays) {
+            const { camp_weeks } = info;
+            $('#clinic-only-discounts').addClass('hidden');
+            $('#tournament-only-discounts').addClass('hidden');
+            $('#activity-discounts-heading').addClass('hidden');
+            $('#camp-pricing-fields').addClass('hidden');
+            $('#activity-base-price-field').removeClass('hidden');
+            $('#activity_base_price').prop('readonly', false).val(parseFloat(packagePrice).toFixed(2));
+            $('#camp-day-picker').removeClass('hidden');
+            $('#activity-addons').addClass('hidden');
+
+            $('#activity-preorder').data('travel_team_camp_days', campDays);
+
+            renderCampDayPicker(camp_weeks || []);
+            update_travel_team_day_note();
+        }
+
+        // "11:00 AM" / "6:00 PM" -> minutes since midnight, so same-weekday
+        // columns (e.g. a Thursday day session and a separate Thursday
+        // evening one) sort in actual time order - a plain string compare
+        // would put "9:00 AM" after "11:00 AM" (comparing '9' > '1').
+        function campTimeToMinutes(timeStr) {
+            const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((timeStr || '').trim());
+            if (!match) {
+                return 0;
+            }
+            let hours = parseInt(match[1], 10) % 12;
+            if (match[3].toUpperCase() === 'PM') {
+                hours += 12;
+            }
+            return hours * 60 + parseInt(match[2], 10);
+        }
+
+        function formatCampDayLabel(day) {
+            const parts = day.date.split('-').map(Number);
+            const localDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            const monthDay = (localDate.getMonth() + 1) + '/' + localDate.getDate();
+            return day.day_name.slice(0, 3) + ' ' + monthDay;
+        }
+
+        /**
+         * One <td> per recurring schedule slot (day_name + start_time, not
+         * just day_name - a camp can run the same weekday twice with
+         * different times, e.g. a Thursday day session and a separate
+         * Thursday evening one) rather than one <td> holding all of a
+         * week's chips in a flex-wrapped row. A real table column is what
+         * makes every week's Monday chip line up under every other week's
+         * Monday chip - a flex row can't guarantee that since each chip's
+         * width (and so its neighbors' starting position) depends on that
+         * row's own date text.
+         *
+         * The column order/set is built from every week, not just the
+         * first, because a partial first/last week can be missing a slot
+         * the rest of the weeks have - using only week 1 could drop a
+         * column entirely or assign the wrong slot to it.
+         */
+        function renderCampDayPicker(weeks) {
+            const $wrap = $('#camp-day-picker-table-wrap');
+            $wrap.empty();
+            if (!weeks.length) {
+                $wrap.text('No schedule available for this camp.');
+                return;
+            }
+
+            // Sorted by (weekday number, start_time) rather than left in
+            // first-seen order - a partial first week missing an earlier
+            // weekday (e.g. it starts on a Tuesday) would otherwise push
+            // that weekday's column to the end once a later week reveals
+            // it, instead of it sorting back to where it chronologically
+            // belongs within the week.
+            const DAY_NUMBERS = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+            const columnsByKey = {};
+            weeks.forEach(function (week) {
+                week.days.forEach(function (day) {
+                    const key = day.day_name + '|' + day.start_time;
+                    columnsByKey[key] = day;
+                });
+            });
+            const columnKeys = Object.keys(columnsByKey).sort(function (a, b) {
+                const dayA = columnsByKey[a];
+                const dayB = columnsByKey[b];
+                const dowDiff = DAY_NUMBERS[dayA.day_name] - DAY_NUMBERS[dayB.day_name];
+                return dowDiff !== 0 ? dowDiff : campTimeToMinutes(dayA.start_time) - campTimeToMinutes(dayB.start_time);
+            });
+
+            const $table = $('<table class="camp-day-picker-table"></table>');
+            const $tbody = $('<tbody></tbody>');
+            weeks.forEach(function (week) {
+                const $row = $('<tr class="camp-week-row"></tr>');
+                $row.append($('<th class="camp-week-label"></th>').text('Week ' + week.week));
+
+                const dayByKey = {};
+                week.days.forEach(function (day) {
+                    dayByKey[day.day_name + '|' + day.start_time] = day;
+                });
+
+                columnKeys.forEach(function (key) {
+                    const $cell = $('<td class="camp-week-day-cell"></td>');
+                    const day = dayByKey[key];
+                    if (day) {
+                        const $option = $('<label class="camp-day-checkbox"></label>');
+                        const $checkbox = $('<input type="checkbox" class="camp-date-checkbox">').val(day.date);
+                        $option.append($checkbox);
+                        $option.append($('<span></span>').text(formatCampDayLabel(day)));
+                        $cell.append($option);
+                    }
+                    $row.append($cell);
+                });
+                $tbody.append($row);
+            });
+            $table.append($tbody);
+            $wrap.append($table);
+        }
+
+        function getSelectedCampDates() {
+            return $('.camp-date-checkbox:checked').map(function () {
+                return $(this).val();
+            }).get();
+        }
+
+        // Reads the current (admin-editable) rate fields rather than the
+        // pricing bind_camp_info() originally pre-filled them with, so
+        // overriding a rate for this one registration actually affects the
+        // computed total.
+        function update_camp_price() {
+            const count = getSelectedCampDates().length;
+            const perDay = USCTDP_Admin.safeParseFloat($('#camp-price-per-day').val());
+            const bulkVal = $('#camp-price-bulk').val();
+            const bulk = bulkVal !== '' ? USCTDP_Admin.safeParseFloat(bulkVal) : null;
+            const thresholdVal = $('#camp-price-bulk-threshold').val();
+            const threshold = thresholdVal !== '' ? parseInt(thresholdVal, 10) : null;
+            const usingBulkRate = bulk !== null && threshold !== null && count >= threshold;
+            const rate = usingBulkRate ? bulk : perDay;
+            const total = count * rate;
+
+            $('#activity_base_price').val(total.toFixed(2));
+            $('#camp-day-picker-note').text(
+                count === 0
+                    ? 'Select the days this student will attend.'
+                    : count + (count === 1 ? ' day' : ' days') + ' × ' + USCTDP_Admin.formatUsd(rate)
+                        + (usingBulkRate ? ' (bulk rate)' : '')
+            );
+            update_sale_price();
+        }
+
+        // A Travel Team package is a flat price regardless of which/how many
+        // days are picked (unlike direct camp registration, where the day
+        // count drives the total) - so it just reports how many of the
+        // package's included days have been picked, and leaves
+        // #activity_base_price alone.
+        function update_travel_team_day_note() {
+            const count = getSelectedCampDates().length;
+            const campDays = parseInt($('#activity-preorder').data('travel_team_camp_days'), 10) || 0;
+            $('#camp-day-picker-note').text(
+                'Package includes ' + campDays + (campDays === 1 ? ' day' : ' days') + ' - ' + count + ' selected.'
+            );
+            update_sale_price();
+        }
+
+        // #camp-pricing-fields (the editable Daily/Bulk/Threshold rate
+        // inputs) is only ever shown for direct camp registration - hidden
+        // for clinic/tournament (which never render day checkboxes at all)
+        // and for Travel Team (flat package price, see
+        // update_travel_team_day_note() above) - so its visibility doubles
+        // as the mode flag for which recompute the day checkboxes should
+        // trigger.
+        $('#camp-day-picker-table-wrap').on('change', '.camp-date-checkbox', function () {
+            if ($('#camp-pricing-fields').hasClass('hidden')) {
+                update_travel_team_day_note();
+            } else {
+                update_camp_price();
+            }
+        });
+
+        $('#camp-price-per-day, #camp-price-bulk, #camp-price-bulk-threshold').on('input change', function () {
+            update_camp_price();
+        });
 
         $('#activity_base_price').on('change', function () {
             update_sale_price();
@@ -318,12 +553,107 @@
             }
         }
 
+        async function loadCampRegistration(campId, studentId) {
+            try {
+                const info = await getPreregistrationInfo(campId, studentId);
+                bind_activity_basic_info(info);
+                bind_camp_info(info);
+                discounts = [];
+                if (info.student_registered) {
+                    set_notification(
+                        'student-registered',
+                        'This student is already registered for this activity.',
+                        false
+                    );
+                } else if (info.active >= info.capacity) {
+                    set_notification(
+                        'activity-full',
+                        'This activity is full.',
+                        true
+                    );
+                } else {
+                    togglePreorderDetails(true, "activity-preorder");
+                }
+            } catch (error) {
+                console.log("Error: ", error);
+                alert("Failed to load camp registration data. Try again or report this to a developer.");
+            }
+        }
+
+        /**
+         * Travel Team flow: session -> package selector ('travel-package-
+         * selector', target 'travel_package') -> (if >1 camp option)
+         * camp-option selector ('travel-camp-option-selector', target
+         * 'travel_camp_option') -> here, all driven through the same
+         * CascasdingSelect/select2_search mechanism as Family/Student/
+         * Session (see the selectorConfig entries below and
+         * select2_travel_package_search()/select2_travel_camp_option_search()
+         * in includes/select2/class-usctdp-mgmt-select2.php) rather than a
+         * bespoke endpoint and plain <select> elements.
+         *
+         * pkgData/campData are select2 "data" objects (i.e. whatever those
+         * two targets returned, as read off $el.select2('data')[0]) - not
+         * the raw PHP arrays. Reuses getPreregistrationInfo()/
+         * bind_activity_basic_info() exactly like the other
+         * loadXRegistration() functions - the only genuinely new parts are
+         * bind_travel_team_info()'s flat-price handling and populating
+         * selectedActivity with the *travel team's* product/session display
+         * info (not the underlying camp's) plus a travel_team_package
+         * record (read by the #add-activity-registration click handler
+         * below and persisted onto the purchase - see
+         * parse_registration_data()/create_purchase_and_registration() in
+         * class-usctdp-mgmt-admin-ajax.php), so the cart and the eventual
+         * registration record what was actually purchased while still
+         * booking days against the real camp activity (campData.id).
+         */
+        async function loadTravelTeamCampInfo(pkgData, campData) {
+            try {
+                const info = await getPreregistrationInfo(campData.id, selectedStudent.id);
+                selectedActivity = {
+                    id: campData.id,
+                    name: campData.camp_name,
+                    type: 'camp',
+                    product_id: pkgData.product_id,
+                    session_id: info.session_id,
+                    session_name: pkgData.product_name + ' - ' + pkgData.id + ' (' + campData.camp_name + ')',
+                    travel_team_package: {
+                        package: pkgData.id,
+                        camp_days: pkgData.camp_days,
+                        matches: pkgData.matches
+                    }
+                };
+                bind_activity_basic_info(info);
+                bind_travel_team_info(info, campData.price, pkgData.camp_days);
+                discounts = [];
+                if (info.student_registered) {
+                    set_notification(
+                        'student-registered',
+                        'This student is already registered for this activity.',
+                        false
+                    );
+                } else if (info.active >= info.capacity) {
+                    set_notification(
+                        'activity-full',
+                        'This activity is full.',
+                        true
+                    );
+                } else {
+                    togglePreorderDetails(true, "activity-preorder");
+                }
+            } catch (error) {
+                console.log("Error: ", error);
+                alert("Failed to load travel team registration data. Try again or report this to a developer.");
+            }
+        }
+
         async function loadActivityRegistration(activityId, activityType, studentId) {
             clearNotifications();
-            if (activityType === "clinic") { // Clinic
+            if (activityType === "clinic") {
                 await loadClinicRegistration(activityId, studentId);
             } else if (activityType === "tournament") {
                 await loadTournamentRegistration(activityId, studentId);
+            } else if (activityType === "camp") {
+                await loadCampRegistration(activityId, studentId);
             }
         }
 
@@ -394,6 +724,19 @@
                 notes: $('#activity-notes').val()
             };
 
+            if (selectedActivity.type === 'camp') {
+                const campDates = getSelectedCampDates();
+                if (campDates.length === 0) {
+                    alert("Select at least one day for this camp.");
+                    return;
+                }
+                registration.camp_dates = campDates;
+            }
+
+            if (selectedActivity.travel_team_package) {
+                registration.travel_team_package = selectedActivity.travel_team_package;
+            }
+
             const basePrice = USCTDP_Admin.safeParseFloat($('#activity_base_price').val());
             const additionalDayDiscount = $('#discount-additional-day').data('discount_value');
             const result = paymentTable.addNewRegistration(
@@ -443,6 +786,12 @@
             togglePreorderDetails(false);
             togglePaymentTable(true);
             $('#activity-selector').val(null).trigger('change');
+            // #activity-selector's reset above is a no-op for a travel team
+            // registration (it was never actually populated), so its own
+            // package/camp choice needs clearing here too, ready for the
+            // next student - resetting travel-package-selector cascades
+            // into travel-camp-option-selector via its own branches config.
+            $('#travel-package-selector').val(null).trigger('change');
         });
 
         $('#discount-sibling').on('change', function () {
@@ -547,7 +896,7 @@
                 filter: function () {
                     return { active: 1 };
                 },
-                branches: ['clinic-selector', 'activity-selector', 'merchandise-selector'],
+                branches: ['clinic-selector', 'activity-selector', 'merchandise-selector', 'travel-package-selector', 'travel-camp-option-selector'],
                 next: function (value, $el) {
                     if (value === 'merch_only') {
                         return 'merchandise-selector';
@@ -555,9 +904,12 @@
                         return null;
                     } else {
                         var sessionData = $el.select2('data')[0];
-                        var isTournament = sessionData &&
-                            USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(sessionData.category) !== -1;
-                        return isTournament ? null : 'clinic-selector';
+                        var category = sessionData && sessionData.category;
+                        var isTournamentOrCamp = USCTDP_Admin.TOURNAMENT_SESSION_CATEGORIES.indexOf(category) !== -1;
+                        if (category === TRAVEL_TEAM_SESSION_CATEGORY) {
+                            return 'travel-package-selector';
+                        }
+                        return isTournamentOrCamp ? null : 'clinic-selector';
                     }
                 },
                 autoSelectChild: {
@@ -605,6 +957,52 @@
                     };
                 }
             },
+            // Travel Team: session -> package -> (if >1 camp option) camp
+            // option -> ordinary camp registration against the resolved
+            // camp activity (see loadTravelTeamCampInfo() above and
+            // select2_travel_package_search()/select2_travel_camp_option_search()
+            // in includes/select2/class-usctdp-mgmt-select2.php).
+            'travel-package-selector': {
+                name: 'travel_package',
+                label: 'Package',
+                target: 'travel_package',
+                branches: ['travel-camp-option-selector'],
+                next: function (value, $el) {
+                    if (!value) {
+                        return null;
+                    }
+                    var data = $el.select2('data')[0];
+                    return (data && data.camp_option_count === 1) ? null : 'travel-camp-option-selector';
+                },
+                filter: function () {
+                    return {
+                        session_id: $('#session-selector').val()
+                    };
+                },
+                // Most packages only ever have one camp option (see
+                // select2_travel_package_search()'s sole_camp_option field)
+                // - nothing meaningful to pick there, same reasoning as
+                // session-selector's own autoSelectChild for activity-selector.
+                autoSelectChild: {
+                    id: 'travel-camp-option-selector',
+                    resolve: function (value, $el) {
+                        var data = $el.select2('data')[0];
+                        return (data && data.camp_option_count === 1) ? data.sole_camp_option : null;
+                    }
+                }
+            },
+            'travel-camp-option-selector': {
+                name: 'travel_camp_option',
+                label: 'Camp',
+                target: 'travel_camp_option',
+                next: null,
+                filter: function () {
+                    return {
+                        session_id: $('#session-selector').val(),
+                        package: $('#travel-package-selector').val()
+                    };
+                }
+            },
         };
 
         const selectHandler = new USCTDP_Admin.CascasdingSelect('context-selectors', selectorConfig);
@@ -613,6 +1011,21 @@
             const { selectorId, value, complete } = e.detail;
             clearNotifications();
             togglePreorderDetails(false);
+
+            // A tournament/camp session has next: null (see selectorConfig
+            // above), so its own change event already reports complete:
+            // true - before autoSelectChild's async resolveTournamentActivity
+            // lookup has actually set activity-selector's value. Without
+            // this reset, the complete-event handler below would still see
+            // whatever selectedActivity was left over from a previous
+            // session (or none at all), firing loadActivityRegistration
+            // once for the stale activity and then again moments later for
+            // the real one once the lookup resolves - showing every
+            // notification (e.g. "This activity is full") twice.
+            if (selectorId === 'session-selector') {
+                selectedActivity = null;
+                selectedMerchandise = null;
+            }
 
             if (selectorId === 'family-selector') {
                 if (value) {
@@ -680,6 +1093,18 @@
                     loadMerchandiseRegistration(selectedMerchandise.id, selectedMerchandise.code);
                 } else if (selectorId === 'session-selector' && value === 'new_session') {
                     togglePreorderDetails(true, "new-session-preorder");
+                } else if (selectorId === 'travel-camp-option-selector') {
+                    // Fires for both a manual camp-option pick (>1 option)
+                    // and the autoSelectChild-resolved sole option (1
+                    // option) - setSilently() triggers this selector's own
+                    // change event either way, so there's exactly one
+                    // terminal event per package pick, same as
+                    // activity-selector's autoSelectChild above.
+                    var pkgData = $('#travel-package-selector').select2('data')[0];
+                    var campData = $('#travel-camp-option-selector').select2('data')[0];
+                    if (pkgData && campData) {
+                        loadTravelTeamCampInfo(pkgData, campData);
+                    }
                 }
             }
         });

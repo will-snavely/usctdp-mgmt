@@ -22,5 +22,6 @@ class Usctdp_Mgmt_Purchase_Row extends Row
         $this->created_by = (int) $this->created_by;
         $this->notes = (string) $this->notes;
         $this->discounts = json_decode($this->discounts, true);
+        $this->travel_team_package = $this->travel_team_package ? json_decode($this->travel_team_package, true) : null;
     }
 }
