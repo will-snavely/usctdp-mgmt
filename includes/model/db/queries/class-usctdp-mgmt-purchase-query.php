@@ -125,7 +125,12 @@ class Usctdp_Mgmt_Purchase_Query extends Query
                     sesh.title as session_name,
                     sesh.id as session_id,
                     reg.id as registration_id, reg.status as registration_status,
-                    reg.student_level as registration_student_level
+                    reg.student_level as registration_student_level,
+                    (
+                        SELECT GROUP_CONCAT(camp_day.activity_date ORDER BY camp_day.activity_date SEPARATOR ',')
+                        FROM {$wpdb->prefix}usctdp_registration_camp_day AS camp_day
+                        WHERE camp_day.registration_id = reg.id
+                    ) as registration_camp_dates
                 {$from_clause}
                 {$where_clause}
                 ORDER BY pur.id DESC

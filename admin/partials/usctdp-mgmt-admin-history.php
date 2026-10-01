@@ -100,6 +100,36 @@
             </div>
         </dialog>
 
+        <!-- Camp's variant of the modal above (see openModifyCampRegistrationModal()
+             in usctdp-mgmt-admin-history.js) - Family/Student/Level work the
+             same way, but there's no Clinic/Day step (a camp session always
+             resolves to its one activity, same as the register page's
+             tournament/camp handling) - Session is instead followed
+             directly by a day-picker, reusing the exact same table/
+             checkbox markup+styling the register page's own picker uses
+             (USCTDP_Admin.renderCampDayPicker() in usctdp-mgmt-admin.js). -->
+        <dialog id="modify-camp-registration-modal" class="modify-registration-modal">
+            <h2>Modify Camp Registration</h2>
+            <div id="modify-camp-registration-selectors" class="flex-col gap-10">
+                <div class="selector-row-break" id="modify-camp-selectors-break-1"></div>
+                <div class="modify-registration-level-field">
+                    <label for="modify-camp-registration-level">Level</label>
+                    <input type="text" id="modify-camp-registration-level">
+                </div>
+            </div>
+            <div id="modify-camp-days-field" class="flex-col gap-5">
+                <label class="upper-heavy">Days</label>
+                <div id="modify-camp-days-wrap"></div>
+                <p id="modify-camp-days-note" class="camp-days-modal-note"></p>
+            </div>
+            <div class="actions-footer">
+                <button type="button" class="button button-primary" id="save-modify-camp-registration-btn">
+                    Save
+                </button>
+                <button type="button" class="button" id="cancel-modify-camp-registration-btn">Cancel</button>
+            </div>
+        </dialog>
+
         <dialog id="confirm-registration-update-modal">
             <h2>Confirm Registration Update</h2>
             <div class="registration-update-columns">

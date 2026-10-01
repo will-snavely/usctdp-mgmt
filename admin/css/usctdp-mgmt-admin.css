@@ -196,6 +196,68 @@ dialog#discount-modal #discount-value {
 }
 
 /*
+ * Styling for the Manage Days modal (see ManageCampDaysModal in
+ * usctdp-mgmt-admin.js). No explicit width on the base `dialog` rule
+ * above would stretch this to fit however many week columns the day-
+ * picker table ends up rendering - cap it like dialog#view-roster-modal
+ * does, with overflow-x on the wrap as a safety net for a camp with an
+ * unusually large number of distinct day/time slots.
+ *
+ * max-height + flex-column, same reasoning as
+ * dialog#modify-camp-registration-modal in usctdp-mgmt-admin-history.css:
+ * a flat max-height on just the table-wrap left the actions-footer able
+ * to spill past the dialog's own (unbounded) box on a short viewport,
+ * since this dialog's content otherwise sizes to fit everything. Capping
+ * the dialog itself and making h2/note/footer flex: 0 0 auto (natural
+ * size, below) leaves #camp-days-modal-table-wrap - the one section
+ * whose height actually varies per camp - to absorb whatever's left and
+ * scroll internally instead.
+ */
+dialog#camp-days-modal {
+    width: 100%;
+    max-width: 600px;
+    max-height: 85vh;
+}
+
+/* display:flex has to be scoped to [open] - see the matching comment on
+   dialog#modify-camp-registration-modal in usctdp-mgmt-admin-history.css.
+   An unscoped "display: flex" here overrode the browser's own
+   `dialog:not([open]) { display: none; }` default (an ID selector beats
+   type+:not()), leaving this dialog permanently visible in normal page
+   flow instead of hidden until showModal() is called. */
+dialog#camp-days-modal[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+dialog#camp-days-modal > h2,
+dialog#camp-days-modal > .camp-days-modal-note,
+dialog#camp-days-modal > .actions-footer {
+    flex: 0 0 auto;
+}
+
+#camp-days-modal-table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+.camp-days-modal-note {
+    font-size: 0.85rem;
+    color: #555;
+    margin: 10px 0 0;
+}
+
+/* Sits directly under the cart item's name/session text (see
+   addOrderRow() below) - a small, visually secondary link rather than a
+   button, consistent with it being a quick in-place edit rather than a
+   primary cart action like Discounts/Remove. */
+.manage-camp-days-link {
+    font-size: 0.8rem;
+}
+
+/*
  * Styling for the payment history modal
  */
 
@@ -820,10 +882,10 @@ dialog .actions-footer {
     background: #f9fafb;
 }
 
-/* One cell per recurring schedule slot (see renderCampDayPicker() in
-   usctdp-mgmt-admin-register.js) - a real table column, not a flex-wrapped
-   row, is what makes every week's Monday chip line up under every other
-   week's Monday chip regardless of that row's own date text width. */
+/* One cell per recurring schedule slot (see USCTDP_Admin.renderCampDayPicker()
+   in usctdp-mgmt-admin.js) - a real table column, not a flex-wrapped row,
+   is what makes every week's Monday chip line up under every other week's
+   Monday chip regardless of that row's own date text width. */
 .camp-week-day-cell {
     text-align: left;
 }

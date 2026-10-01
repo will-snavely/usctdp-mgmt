@@ -194,6 +194,12 @@
     transition:
         background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
         border-left-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Single source of truth for Camp/Level/Days' shared box height (see
+       .registration-field-value and .camp-days-chip-list below) - rather
+       than two independently-tuned sets of padding/font-size that happen
+       to compute to the same height today and silently drift apart the
+       next time either one changes, both are pinned to this one value. */
+    --registration-field-height: 28px;
 }
 
 .registration-fields .selector-wrap {
@@ -242,13 +248,27 @@
 }
 
 /* Belt-and-suspenders alongside align-items above, in case the badge ever
-   does end up wider than its text (e.g. a future min-width). */
+   does end up wider than its text (e.g. a future min-width). justify-
+   content, not text-align - .registration-field-value is a flex container
+   now (see above), where text-align no longer has any say over how its
+   single flex child (the text itself) is positioned. */
 .registration-field-level .registration-field-value {
-    text-align: center;
+    justify-content: center;
 }
 
 .registration-readonly-field .registration-field-value {
-    display: inline-block;
+    /* display:flex + align-items:center, not inline-block - pins this box
+       to the shared --registration-field-height (see .registration-fields
+       above) exactly the same way .camp-days-chip-list does below, so the
+       two are tied to one literal value instead of two independently-
+       tuned padding/font-size pairs that happen to compute the same today.
+       min-height (not height) so a value long enough to wrap - unlikely
+       here, but there's nothing stopping it - still grows instead of
+       clipping. */
+    display: flex;
+    align-items: center;
+    min-height: var(--registration-field-height);
+    box-sizing: border-box;
     /* Overrides the shared .badge class's own text-align:center - these
        stretch wide (min-width above) to keep cards aligned, and centered
        text in a wide pill reads oddly for a name/value like this. */
@@ -257,7 +277,63 @@
     color: #475569;
     font-size: 0.9rem;
     font-weight: 400;
-    padding: 5px 10px;
+    padding: 2px 10px;
+    /* Overrides the shared .badge class's own border-radius:10px to match
+       .camp-days-chip-list's 6px (below) - these sit directly beside the
+       Days box on a camp card, so a visibly different corner radius stood
+       out as inconsistent next to it. */
+    border-radius: 6px;
+}
+
+/* One small pill per camp day (see renderCampDayChips() in
+   usctdp-mgmt-admin-history.js) instead of a single wide badge - a run of
+   "M 6/7, M 6/14, M 6/21, ..." in one block of text got hard to scan once
+   a camp had more than a handful of days. The list itself is enclosed in
+   the same kind of bordered box Camp/Level's own .registration-field-value
+   badge gives them - without it, the chips sat loose with nothing
+   visually tying them together as one field or grouping them apart from
+   Level next to them.
+
+   min-height (not height) is pinned to the same --registration-field-height
+   custom property .registration-field-value uses (see .registration-fields
+   above) - a single source of truth for both, instead of two independently-
+   tuned padding/font-size pairs that happened to compute the same height
+   today and would just as easily drift apart again the next time either
+   one's own padding/font-size changed (which is exactly what kept
+   happening before this). min-height rather than height specifically so a
+   camp with enough days to wrap to a second row still grows instead of
+   clipping - box-sizing:border-box so the border/padding above count
+   toward that height instead of adding to it. */
+.camp-days-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 3px 6px;
+    min-height: var(--registration-field-height);
+    box-sizing: border-box;
+}
+
+/* Same indigo accent as a checked day in the register page's own
+   day-picker (.camp-day-checkbox:has(.camp-date-checkbox:checked), see
+   usctdp-mgmt-admin.css) rather than a new color - these chips are
+   effectively showing "this day is booked" too, and plain white-on-grey
+   read as flat/low-contrast against the enclosing .camp-days-chip-list. */
+.camp-day-chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    padding: 3px 6px;
+    border: 1px solid #a5b4fc;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3730a3;
 }
 
 /* Payment information section*/
@@ -567,6 +643,194 @@ dialog#modify-registration-modal .modify-registration-level-field label {
 
 dialog#modify-registration-modal #modify-registration-level {
     width: 100px;
+}
+
+/*
+ * Styling for the Modify Camp Registration modal - same dropdownParent/
+ * overflow:visible/row-grouping reasoning as #modify-registration-modal
+ * above, just a shorter cascade (no Clinic/Day step) and a day-picker
+ * instead.
+ */
+/* max-height + flex-column: overflow:visible (needed for the select2
+   dropdowns above) means the dialog's own white box/border-radius/shadow
+   never clips anything that spills past it - which, capping just
+   #modify-camp-days-wrap's height alone, still let the actions-footer
+   spill past the box's bottom edge on a short viewport (the box itself
+   had no height cap, so its edge landed wherever the OTHER content
+   stacked up to, with the footer rendered past it rather than inside it).
+   Capping the dialog itself at max-height and making it a flex column
+   fixes that at the source: h2/selectors/footer keep their natural
+   height (flex: 0 0 auto below), and #modify-camp-days-field - the one
+   section whose height actually varies per camp - absorbs whatever's
+   left and scrolls internally instead. */
+dialog#modify-camp-registration-modal {
+    width: 100%;
+    max-width: 640px;
+    max-height: 85vh;
+    overflow: visible;
+}
+
+/* display:flex has to be scoped to [open]. The browser's own default
+   stylesheet hides a closed dialog via `dialog:not([open]) { display:
+   none; }` (not just "dialog { display: none }") - an unscoped
+   "dialog#modify-camp-registration-modal { display: flex }" has higher
+   specificity (an ID beats a type+:not()) and so overrides that default
+   regardless of whether the dialog is actually open, leaving it
+   permanently visible and rendered in normal page flow instead of
+   hidden until showModal() is called. */
+dialog#modify-camp-registration-modal[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+dialog#modify-camp-registration-modal > h2,
+dialog#modify-camp-registration-modal > #modify-camp-registration-selectors,
+dialog#modify-camp-registration-modal > .actions-footer {
+    flex: 0 0 auto;
+}
+
+/* Tighter than #modify-registration-selectors' own h2/12px/6px (this
+   dialog's vertical space is at more of a premium - it also has to fit
+   the day-picker below, see #modify-camp-days-field). */
+dialog#modify-camp-registration-modal h2 {
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+}
+
+/* column-gap/row-gap, not the shorthand "gap" - CascasdingSelect adds its
+   own .context-selector-group class to this container (see
+   usctdp-mgmt-admin.js), which sets "gap: 10px" uniformly in both axes
+   (usctdp-mgmt-admin.css). With flex-wrap, that 10px also lands BETWEEN
+   row 1 (Family/Student/Level) and the invisible, flex-basis:100%
+   .selector-row-break item that forces Session onto its own line below -
+   and then AGAIN between that break and Session itself, visually doubling
+   to ~20px there while the Session->Days gap (plain margins, no gap
+   involved) stayed at 8px. row-gap: 0 here removes that inherited
+   vertical gap entirely - every section below now gets a uniform,
+   explicit margin-bottom instead (see .selector-row-break etc.), so both
+   gaps come out equal. column-gap keeps the horizontal spacing between
+   Family/Student/Level (replaces the old explicit margin-right, which
+   would otherwise stack on top of this and widen it unevenly). */
+dialog#modify-camp-registration-modal #modify-camp-registration-selectors {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: 10px;
+    row-gap: 0;
+    margin-bottom: 0;
+}
+
+dialog#modify-camp-registration-modal .selector-row-break {
+    flex-basis: 100%;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-family-selector-section,
+dialog#modify-camp-registration-modal #modify-camp-student-selector-section,
+dialog#modify-camp-registration-modal #modify-camp-session-selector-section,
+dialog#modify-camp-registration-modal .modify-registration-level-field {
+    margin-bottom: 14px;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-family-selector-section {
+    order: 1;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-student-selector-section {
+    order: 2;
+}
+
+dialog#modify-camp-registration-modal .modify-registration-level-field {
+    order: 3;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-selectors-break-1 {
+    order: 4;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-session-selector-section {
+    order: 5;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-family-selector-section .context-selector-wrap {
+    width: 150px;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-student-selector-section .context-selector-wrap {
+    width: 170px;
+}
+
+dialog#modify-camp-registration-modal #modify-camp-session-selector-section .context-selector-wrap {
+    width: 280px;
+}
+
+dialog#modify-camp-registration-modal .modify-registration-level-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+dialog#modify-camp-registration-modal .modify-registration-level-field label {
+    font-weight: bold;
+    text-align: left;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+/* dialog input's own padding (10px top/bottom, see usctdp-mgmt-admin.css)
+   renders taller than select2's default 28px selection box - override it
+   here so Level lines up with Family/Student/Session instead of standing
+   out as visibly taller. */
+dialog#modify-camp-registration-modal #modify-camp-registration-level {
+    width: 100px;
+    height: 28px;
+    padding: 0 8px;
+    box-sizing: border-box;
+}
+
+/* Flex child of dialog#modify-camp-registration-modal (see that rule) -
+   absorbs whatever height is left over after h2/selectors/footer take
+   their natural size, rather than a flat max-height guess that could
+   still leave the footer spilling past the dialog's own box on a short
+   viewport. display:flex + min-height:0 here let its own child
+   (#modify-camp-days-wrap) size itself to fill this space and scroll
+   internally instead of being pushed out by its content's natural height
+   (the default flex-item behavior, min-height:auto, would otherwise
+   ignore this cap entirely). */
+/* No margin-top here - the 8px gap above this section is already
+   provided by #modify-camp-session-selector-section's own margin-bottom
+   (same value as the Family/Student/Level -> Session gap, see the
+   column-gap/row-gap comment on #modify-camp-registration-selectors), so
+   both gaps are driven by one consistent value instead of two separate
+   margins that would need to be kept in sync by hand. */
+#modify-camp-days-field {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#modify-camp-days-field > label {
+    font-weight: bold;
+    text-align: left;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    flex: 0 0 auto;
+}
+
+#modify-camp-days-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#modify-camp-days-note {
+    flex: 0 0 auto;
 }
 
 /*

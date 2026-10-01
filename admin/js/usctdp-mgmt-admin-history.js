@@ -22,6 +22,51 @@
             };
         }
 
+        // Short enough to disambiguate every weekday with no two sharing an
+        // abbreviation (the usual trap: "T" alone is ambiguous between
+        // Tuesday/Thursday, "S" between Saturday/Sunday) - computed from
+        // the date itself via getDay() rather than needing a day_name
+        // alongside it, since registration_camp_dates (below) only ever
+        // carries plain dates.
+        const SHORT_DAY_NAMES = ['Su', 'M', 'T', 'W', 'Th', 'F', 'Sa'];
+
+        // registration_camp_dates (see Usctdp_Mgmt_Purchase_Query::get_purchase_data())
+        // is a GROUP_CONCAT'd 'Y-m-d,Y-m-d,...' string, or null for a
+        // non-camp registration - turns it into one small pill per date
+        // ("M 6/7", "M 6/14", ...) rather than a single comma-separated
+        // run, which read as a hard-to-scan wall of text once a camp had
+        // more than a handful of days (see .camp-day-chip in
+        // usctdp-mgmt-admin-history.css). Parses each date via its Y/M/D
+        // parts (not `new Date("2027-06-07")` directly) so the day shown
+        // can't shift by one in a negative-UTC-offset timezone - same
+        // reasoning as formatCampDayLabel() in usctdp-mgmt-admin.js.
+        function renderCampDayChips(campDatesStr) {
+            if (!campDatesStr) {
+                return '';
+            }
+            return campDatesStr.split(',').map(function (dateStr) {
+                const parts = dateStr.split('-').map(Number);
+                const localDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                const label = SHORT_DAY_NAMES[localDate.getDay()] + ' ' + (localDate.getMonth() + 1) + '/' + localDate.getDate();
+                return `<span class="camp-day-chip">${label}</span>`;
+            }).join('');
+        }
+
+        // Direct camp registrations use the new Modify Camp Registration
+        // modal (see openModifyCampRegistrationModal()); Travel Team
+        // registrations are ALSO activity_type 'camp' (they're booked
+        // against the same real camp activity - see the DB-shape
+        // explanation earlier in this session) but are deliberately kept on
+        // the old inline-edit fallback for now, since reassigning a Travel
+        // Team registration's Session means reassigning its package too,
+        // a materially different operation from a plain camp Session
+        // change. purchase_travel_team_package (see usctdp_purchase -
+        // null for every non-Travel-Team purchase) is what distinguishes
+        // the two without needing a second DB round-trip.
+        function isModifiableCampRegistration(rowData) {
+            return rowData.activity_type === 'camp' && !rowData.purchase_travel_team_package;
+        }
+
         class PurchaseCard {
             constructor(data, idx, isNew = false) {
                 this.data = data;
@@ -195,18 +240,50 @@
             }
 
             _renderMiddleSection() {
-                // Clinics are edited exclusively through the Modify
-                // Registration modal now (see openModifyRegistrationModal()),
+                // Clinics and direct camp registrations are edited
+                // exclusively through their own Modify modal now (see
+                // openModifyRegistrationModal()/openModifyCampRegistrationModal()),
                 // so these never need to become editable dropdowns in the
-                // card itself - just display them plainly. Tournament/camp
-                // registrations don't have their own modal yet and still use
-                // the inline session/activity/level editing below (see the
-                // edit-registration-btn handler's activity_type branch).
+                // card itself - just display them plainly. Tournament and
+                // Travel Team registrations don't have their own modal yet
+                // and still use the inline session/activity/level editing
+                // below (see the edit-registration-btn handler's
+                // activity_type/isModifiableCampRegistration branch).
                 if (this.data.activity_type === 'clinic') {
                     return `
                         <div class="registration-fields flex-row gap-10 w-100">
                             ${this._renderReadonlyField('registration-field-session', 'Session', this.data.session_name)}
                             ${this._renderReadonlyField('registration-field-activity', 'Activity', this.data.activity_name)}
+                            ${this._renderReadonlyField('registration-field-level', 'Level', this.data.registration_student_level)}
+                        </div>`;
+                }
+
+                if (isModifiableCampRegistration(this.data)) {
+                    // A camp's activity_name just repeats its session_name
+                    // (see CartItem.item_name in usctdp-mgmt-admin.js) -
+                    // there's no separate "which day/class" distinction a
+                    // camp needs a second field for, unlike clinic's
+                    // Session (the overall session) vs. Activity (the
+                    // specific day). session_name alone is shown, under a
+                    // "Camp" label, since it's the more complete of the two
+                    // (it includes the year, e.g. "Summer Camp: Green Ball -
+                    // 2027", where activity_name doesn't).
+                    // Not _renderReadonlyField() - that renders one single
+                    // wide badge, which isn't the right shape for a list of
+                    // several small per-date chips (see renderCampDayChips()
+                    // above and .camp-day-chip/.camp-days-chip-list in
+                    // usctdp-mgmt-admin-history.css).
+                    const daysField = this.data.registration_camp_dates
+                        ? `
+                            <div class="flex-col gap-5 registration-readonly-field registration-field-days">
+                                <label class="upper-heavy">Days</label>
+                                <div class="camp-days-chip-list">${renderCampDayChips(this.data.registration_camp_dates)}</div>
+                            </div>`
+                        : '';
+                    return `
+                        <div class="registration-fields flex-row gap-10 w-100">
+                            ${this._renderReadonlyField('registration-field-session', 'Camp', this.data.session_name)}
+                            ${daysField}
                             ${this._renderReadonlyField('registration-field-level', 'Level', this.data.registration_student_level)}
                         </div>`;
                 }
@@ -253,6 +330,7 @@
         const paymentHistoryModal = new USCTDP_Admin.PaymentHistoryModal('payment-history-modal-container');
         const confirmRegistrationUpdateModal = document.querySelector('#confirm-registration-update-modal');
         const modifyRegistrationModal = document.querySelector('#modify-registration-modal');
+        const modifyCampRegistrationModal = document.querySelector('#modify-camp-registration-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
         const postRefundModal = document.querySelector('#post-refund-modal');
         const paymentSettings = {
@@ -351,6 +429,224 @@
             modifyRegistrationSelectorConfig
         );
         var modifyRegistrationState = null;
+
+        // Usctdp_Session_Category::Camp
+        const MODIFY_CAMP_SESSION_CATEGORY = 7;
+
+        // Camp's variant of modifyRegistrationSelectorConfig above - Family/
+        // Student work the same way, but Session has no Clinic/Day children
+        // in this config at all (next: null) - a camp session always
+        // resolves to its one activity, same as the register page's
+        // tournament/camp handling (see USCTDP_Admin.resolveTournamentActivity()),
+        // so there's nothing for the admin to pick beyond Session itself.
+        // The resolved activity and its day-picker are driven off this
+        // selector's own cascade:change event below instead, rather than a
+        // second CascasdingSelect-managed selector.
+        const modifyCampRegistrationSelectorConfig = {
+            'modify-camp-family-selector': {
+                name: 'family_id',
+                label: 'Family',
+                target: 'family',
+                next: 'modify-camp-student-selector',
+                isRoot: true,
+                dropdownParent: $('#modify-camp-registration-modal'),
+                width: '150px'
+            },
+            'modify-camp-student-selector': {
+                name: 'student_id',
+                label: 'Student',
+                target: 'student',
+                next: null,
+                filter: function () {
+                    return { family_id: $('#modify-camp-family-selector').val() };
+                },
+                dropdownParent: $('#modify-camp-registration-modal'),
+                width: '170px'
+            },
+            'modify-camp-session-selector': {
+                name: 'session_id',
+                label: 'Session',
+                target: 'session',
+                filter: function () {
+                    return { active: 1, category: MODIFY_CAMP_SESSION_CATEGORY };
+                },
+                next: null,
+                isRoot: true,
+                dropdownParent: $('#modify-camp-registration-modal'),
+                width: '280px'
+            },
+        };
+        const modifyCampRegistrationSelectHandler = new USCTDP_Admin.CascasdingSelect(
+            'modify-camp-registration-selectors',
+            modifyCampRegistrationSelectorConfig
+        );
+        var modifyCampRegistrationState = null;
+
+        function updateModifyCampDaysNote() {
+            const count = USCTDP_Admin.getSelectedCampDates($('#modify-camp-days-wrap')).length;
+            $('#modify-camp-days-note').text(
+                count === 0 ? 'Select the days this student will attend.' : (count + (count === 1 ? ' day selected.' : ' days selected.'))
+            );
+        }
+
+        $('#modify-camp-days-wrap').on('change', '.camp-date-checkbox', updateModifyCampDaysNote);
+
+        // Resolves the session's sole camp activity and renders its day-
+        // picker whenever modify-camp-session-selector changes - including
+        // the initial load, since openModifyCampRegistrationModal() below
+        // seeds the session via applyData(), which fires this same cascade.
+        // Preselects the registration's original days only while still
+        // looking at its original activity - a session the admin changed
+        // TO starts with a blank picker, same as a brand new registration,
+        // since the old dates belong to a different camp's calendar.
+        $('#modify-camp-registration-selectors').on('cascade:change', async function (e) {
+            const { selectorId, value } = e.detail;
+            if (selectorId !== 'modify-camp-session-selector' || !modifyCampRegistrationState) {
+                return;
+            }
+
+            modifyCampRegistrationState.activity = null;
+            $('#modify-camp-days-wrap').empty();
+            $('#modify-camp-days-note').text('');
+            if (!value) {
+                return;
+            }
+
+            const sessionData = $('#modify-camp-session-selector').select2('data')[0];
+            const resolved = await USCTDP_Admin.resolveTournamentActivity(value, sessionData);
+            if (!resolved) {
+                $('#modify-camp-days-wrap').text('This session has no camp activity.');
+                return;
+            }
+            modifyCampRegistrationState.activity = resolved;
+
+            const scheduleResponse = await USCTDP_Admin.ajax_getCampSchedule(resolved.id);
+            if (!scheduleResponse.success) {
+                $('#modify-camp-days-wrap').text('Failed to load camp schedule.');
+                return;
+            }
+
+            const preselect = parseInt(resolved.id, 10) === modifyCampRegistrationState.originalActivityId
+                ? modifyCampRegistrationState.originalCampDates
+                : [];
+            USCTDP_Admin.renderCampDayPicker($('#modify-camp-days-wrap'), scheduleResponse.data.camp_weeks || [], preselect);
+            updateModifyCampDaysNote();
+        });
+
+        /**
+         * Camp version of openModifyRegistrationModal() above. Loads the
+         * registration's current days first (ajax_getRegistrationCampDays())
+         * so they're already in modifyCampRegistrationState by the time
+         * applyData() seeds the Session selector and fires the
+         * cascade:change handler above, which is what actually renders the
+         * day-picker and pre-checks them.
+         */
+        async function openModifyCampRegistrationModal(rowData) {
+            const daysResponse = await USCTDP_Admin.ajax_getRegistrationCampDays(rowData.registration_id);
+            const originalCampDates = daysResponse.success ? (daysResponse.data.dates || []) : [];
+
+            modifyCampRegistrationState = {
+                rowData,
+                activity: null,
+                originalActivityId: parseInt(rowData.activity_id, 10),
+                originalCampDates
+            };
+
+            $('#modify-camp-registration-level').val(rowData.registration_student_level || '');
+
+            modifyCampRegistrationSelectHandler.applyData({
+                'modify-camp-family-selector': { id: rowData.family_id, text: rowData.family_name, disable: false },
+                'modify-camp-student-selector': {
+                    id: rowData.student_id,
+                    text: `${rowData.student_first} ${rowData.student_last}`,
+                    first: rowData.student_first,
+                    last: rowData.student_last,
+                    disable: false
+                },
+                'modify-camp-session-selector': {
+                    id: rowData.session_id,
+                    text: rowData.session_name,
+                    category: MODIFY_CAMP_SESSION_CATEGORY,
+                    disable: false
+                },
+            });
+
+            modifyCampRegistrationModal.showModal();
+        }
+
+        $('#cancel-modify-camp-registration-btn').on('click', () => {
+            modifyCampRegistrationModal.close();
+        });
+
+        modifyCampRegistrationModal.addEventListener('close', function () {
+            modifyCampRegistrationState = null;
+        });
+
+        $('#save-modify-camp-registration-btn').on('click', async function () {
+            if (!modifyCampRegistrationState) return;
+            const originalRowData = modifyCampRegistrationState.rowData;
+
+            const activity = modifyCampRegistrationState.activity;
+            const newStudentId = $('#modify-camp-student-selector').val();
+            const newFamilyId = $('#modify-camp-family-selector').val();
+            const level = $('#modify-camp-registration-level').val();
+            const campDates = USCTDP_Admin.getSelectedCampDates($('#modify-camp-days-wrap'));
+
+            if (!activity) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Session Required",
+                    text: "Please select a session before saving!",
+                });
+                return;
+            }
+            if (campDates.length === 0) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Days Required",
+                    text: "Please select at least one day before saving!",
+                });
+                return;
+            }
+            if (!newStudentId) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Student Required",
+                    text: "Please select a student before saving!",
+                });
+                return;
+            }
+
+            const $btn = $(this);
+            $btn.prop('disabled', true);
+
+            try {
+                if (parseInt(newStudentId, 10) !== parseInt(originalRowData.student_id, 10)) {
+                    const reassignResponse = await USCTDP_Admin.ajax_reassignRegistration(originalRowData.registration_id, newStudentId);
+                    if (!reassignResponse.success) {
+                        throw new Error(reassignResponse.data || 'Failed to reassign registration.');
+                    }
+                }
+
+                await updateRegistration(
+                    { ...originalRowData, student_id: newStudentId, family_id: newFamilyId },
+                    { activity_id: activity.id, student_level: level, camp_dates: campDates }
+                );
+
+                modifyCampRegistrationState = null;
+                modifyCampRegistrationModal.close();
+            } catch (error) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Error!",
+                    text: "A server error occured. Please inform a developer. Details: " + error.message,
+                });
+            } finally {
+                $btn.prop('disabled', false);
+                historyTable.ajax.reload();
+                refreshFamilyBalance();
+            }
+        });
 
         function refreshFamilyBalance() {
             const family_id = $('#family-filter').val();
@@ -736,8 +1032,25 @@
         //                                          if the reviewed price
         //                                          ended up matching what
         //                                          was already owed.
-        async function reviewPriceChange(rowData, newActivityId) {
-            const previewResponse = await USCTDP_Admin.ajax_previewRegistrationActivityChange(rowData.registration_id, newActivityId);
+        //
+        // campDates, when given, previews a camp day-count change instead
+        // of an activity swap (via ajax_previewCampRegistrationChange() -
+        // see get_camp_price_change() server-side for why camp needs its
+        // own preview endpoint) - newActivityId is then the camp activity
+        // the Modify Camp Registration modal's Session resolved to, which
+        // is very often unchanged from rowData.activity_id (a day-only
+        // edit), but doesn't have to be (the admin can also move the
+        // registration to a different camp session in the same modal).
+        // Everything from here down - the confirm modal, discount
+        // recompute, ledger booking - is identical either way; camp simply
+        // never has discounts to recompute (bind_camp_info() hides that
+        // whole section) or an additional_day_discount (the preview always
+        // returns null for it), so that logic degenerates to a no-op
+        // rather than needing its own branch.
+        async function reviewPriceChange(rowData, newActivityId, campDates = null) {
+            const previewResponse = campDates
+                ? await USCTDP_Admin.ajax_previewCampRegistrationChange(rowData.registration_id, newActivityId, campDates)
+                : await USCTDP_Admin.ajax_previewRegistrationActivityChange(rowData.registration_id, newActivityId);
             if (!previewResponse.success) {
                 throw Error("Failed to preview registration change.");
             }
@@ -949,10 +1262,15 @@
         async function updateRegistration(rowData, fields, purchaseFields = {}) {
             const isActivityChange = fields.activity_id
                 && parseInt(fields.activity_id, 10) !== parseInt(rowData.activity_id, 10);
+            // A camp day-edit needs a price review too even when the
+            // activity itself didn't change (the common case - editing
+            // which days a registration covers, not moving it to a
+            // different camp) - isActivityChange alone would miss it.
+            const isCampDaysChange = !!fields.camp_dates;
 
             var review = null;
-            if (isActivityChange) {
-                review = await reviewPriceChange(rowData, fields.activity_id);
+            if (isActivityChange || isCampDaysChange) {
+                review = await reviewPriceChange(rowData, fields.activity_id || rowData.activity_id, fields.camp_dates || null);
                 if (review && review.cancelled) {
                     // Nothing has been saved yet - true no-op.
                     window.Swal.fire("Cancelled", "The registration was not changed.", "info");
@@ -1519,14 +1837,19 @@
             const $row = $(this).closest('tr');
             var rowData = historyTable.row($row).data();
 
-            // Clinics use the unified Modify Registration modal (family/
-            // student reassignment + activity + live price review in one
-            // place). Tournament/camp registrations don't have their own
-            // modal variant yet, so they still fall back to the old inline
-            // row editing below - see openModifyRegistrationModal()'s doc
-            // comment.
+            // Clinics and direct camp registrations use their own unified
+            // Modify modal (family/student reassignment + activity/day
+            // editing + live price review in one place). Tournament and
+            // Travel Team registrations don't have their own modal variant
+            // yet, so they still fall back to the old inline row editing
+            // below - see openModifyRegistrationModal()'s doc comment and
+            // isModifiableCampRegistration().
             if (rowData.activity_type === 'clinic') {
                 openModifyRegistrationModal(rowData);
+                return;
+            }
+            if (isModifiableCampRegistration(rowData)) {
+                openModifyCampRegistrationModal(rowData);
                 return;
             }
 

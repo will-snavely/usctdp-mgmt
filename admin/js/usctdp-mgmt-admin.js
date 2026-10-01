@@ -59,6 +59,58 @@
         return response;
     }
 
+    // Camp equivalent of ajax_previewRegistrationActivityChange() above -
+    // see get_camp_price_change() server-side for why camp needs its own
+    // preview endpoint rather than reusing that one.
+    USCTDP_Admin.ajax_previewCampRegistrationChange = async function (registrationId, activityId, campDates) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.preview_camp_registration_change_action,
+                security: usctdp_mgmt_admin.preview_camp_registration_change_nonce,
+                registration_id: registrationId,
+                activity_id: activityId,
+                camp_dates: campDates
+            }
+        });
+        return response;
+    }
+
+    // Every calendar day a registration currently covers - see
+    // ajax_get_registration_camp_days() server-side.
+    USCTDP_Admin.ajax_getRegistrationCampDays = async function (registrationId) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.get_registration_camp_days_action,
+                security: usctdp_mgmt_admin.get_registration_camp_days_nonce,
+                registration_id: registrationId
+            }
+        });
+        return response;
+    }
+
+    // A camp activity's pricing + week/day grid, with no student context -
+    // see ajax_get_camp_schedule() server-side for why this is distinct
+    // from the register page's ajax_activity_preregistration().
+    USCTDP_Admin.ajax_getCampSchedule = async function (activityId) {
+        const response = await $.ajax({
+            url: usctdp_mgmt_admin.ajax_url,
+            method: 'GET',
+            dataType: 'json',
+            data: {
+                action: usctdp_mgmt_admin.get_camp_schedule_action,
+                security: usctdp_mgmt_admin.get_camp_schedule_nonce,
+                activity_id: activityId
+            }
+        });
+        return response;
+    }
+
     // Moves an existing registration (and its purchase/ledger rows) onto a
     // different student/family - see ajax_reassign_registration() server-
     // side. Nothing about the activity or price changes here.
@@ -1199,6 +1251,118 @@
         }
     }
 
+    // "11:00 AM" / "6:00 PM" -> minutes since midnight, so same-weekday
+    // columns (e.g. a Thursday day session and a separate Thursday
+    // evening one) sort in actual time order - a plain string compare
+    // would put "9:00 AM" after "11:00 AM" (comparing '9' > '1').
+    USCTDP_Admin.campTimeToMinutes = function (timeStr) {
+        const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((timeStr || '').trim());
+        if (!match) {
+            return 0;
+        }
+        let hours = parseInt(match[1], 10) % 12;
+        if (match[3].toUpperCase() === 'PM') {
+            hours += 12;
+        }
+        return hours * 60 + parseInt(match[2], 10);
+    };
+
+    USCTDP_Admin.formatCampDayLabel = function (day) {
+        const parts = day.date.split('-').map(Number);
+        const localDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        const monthDay = (localDate.getMonth() + 1) + '/' + localDate.getDate();
+        return day.day_name.slice(0, 3) + ' ' + monthDay;
+    };
+
+    /**
+     * Renders a camp's week-by-week day-picker table into $wrap, with any
+     * dates in selectedDates pre-checked. Shared by the register page's own
+     * picker (#camp-day-picker-table-wrap, see usctdp-mgmt-admin-register.js)
+     * and ManageCampDaysModal below, so a cart item's days can be edited in
+     * a dialog using the exact same table/column layout and checkbox
+     * styling as the original picker that built it.
+     *
+     * One <td> per recurring schedule slot (day_name + start_time, not
+     * just day_name - a camp can run the same weekday twice with
+     * different times, e.g. a Thursday day session and a separate
+     * Thursday evening one) rather than one <td> holding all of a week's
+     * chips in a flex-wrapped row. A real table column is what makes
+     * every week's Monday chip line up under every other week's Monday
+     * chip - a flex row can't guarantee that since each chip's width (and
+     * so its neighbors' starting position) depends on that row's own date
+     * text.
+     *
+     * The column order/set is built from every week, not just the first,
+     * because a partial first/last week can be missing a slot the rest of
+     * the weeks have - using only week 1 could drop a column entirely or
+     * assign the wrong slot to it.
+     */
+    USCTDP_Admin.renderCampDayPicker = function ($wrap, weeks, selectedDates = []) {
+        $wrap.empty();
+        if (!weeks.length) {
+            $wrap.text('No schedule available for this camp.');
+            return;
+        }
+
+        // Sorted by (weekday number, start_time) rather than left in
+        // first-seen order - a partial first week missing an earlier
+        // weekday (e.g. it starts on a Tuesday) would otherwise push
+        // that weekday's column to the end once a later week reveals
+        // it, instead of it sorting back to where it chronologically
+        // belongs within the week.
+        const DAY_NUMBERS = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+        const columnsByKey = {};
+        weeks.forEach(function (week) {
+            week.days.forEach(function (day) {
+                const key = day.day_name + '|' + day.start_time;
+                columnsByKey[key] = day;
+            });
+        });
+        const columnKeys = Object.keys(columnsByKey).sort(function (a, b) {
+            const dayA = columnsByKey[a];
+            const dayB = columnsByKey[b];
+            const dowDiff = DAY_NUMBERS[dayA.day_name] - DAY_NUMBERS[dayB.day_name];
+            return dowDiff !== 0 ? dowDiff : USCTDP_Admin.campTimeToMinutes(dayA.start_time) - USCTDP_Admin.campTimeToMinutes(dayB.start_time);
+        });
+
+        const $table = $('<table class="camp-day-picker-table"></table>');
+        const $tbody = $('<tbody></tbody>');
+        weeks.forEach(function (week) {
+            const $row = $('<tr class="camp-week-row"></tr>');
+            $row.append($('<th class="camp-week-label"></th>').text('Week ' + week.week));
+
+            const dayByKey = {};
+            week.days.forEach(function (day) {
+                dayByKey[day.day_name + '|' + day.start_time] = day;
+            });
+
+            columnKeys.forEach(function (key) {
+                const $cell = $('<td class="camp-week-day-cell"></td>');
+                const day = dayByKey[key];
+                if (day) {
+                    const $option = $('<label class="camp-day-checkbox"></label>');
+                    const $checkbox = $('<input type="checkbox" class="camp-date-checkbox">').val(day.date);
+                    if (selectedDates.indexOf(day.date) !== -1) {
+                        $checkbox.prop('checked', true);
+                    }
+                    $option.append($checkbox);
+                    $option.append($('<span></span>').text(USCTDP_Admin.formatCampDayLabel(day)));
+                    $cell.append($option);
+                }
+                $row.append($cell);
+            });
+            $tbody.append($row);
+        });
+        $table.append($tbody);
+        $wrap.append($table);
+    };
+
+    USCTDP_Admin.getSelectedCampDates = function ($scope) {
+        return $scope.find('.camp-date-checkbox:checked').map(function () {
+            return $(this).val();
+        }).get();
+    };
+
     USCTDP_Admin.CartItem = class {
         constructor(data) {
             this.type = data.type || (data.registration_id ? 'registration' : 'merchandise');
@@ -1214,11 +1378,26 @@
             this.activity_id = data.activity_id || null;
             this.discounts = data.discounts || null;
             this.notes = data.notes || "";
+            this.activity_type = data.activity_type || null;
             // Only meaningful for type 'camp' - the specific calendar dates
             // (Y-m-d) this registration covers, picked from the camp's
-            // week-by-week day grid. See getSelectedCampDates() in
-            // usctdp-mgmt-admin-register.js.
+            // week-by-week day grid. See USCTDP_Admin.getSelectedCampDates().
             this.camp_dates = data.camp_dates || null;
+            // The same week-by-week day grid (see
+            // USCTDP_Admin.renderCampDayPicker()) the register page's own
+            // day-picker was built from for this activity - carried onto
+            // the cart item so "Manage Days" (see ManageCampDaysModal
+            // below) can re-render the exact same picker for this item
+            // without a second activity_preregistration round-trip.
+            this.camp_weeks = data.camp_weeks || null;
+            // Direct-camp only (null for Travel Team, whose price is a flat
+            // package price unaffected by day count) - the per-day/bulk
+            // rate this item's price was computed from, so "Manage Days"
+            // can recompute debit when the day count changes instead of
+            // leaving a stale price after an edit. See the per-day/bulk
+            // rate fields bound in bind_camp_info() in
+            // usctdp-mgmt-admin-register.js.
+            this.camp_pricing = data.camp_pricing || null;
             // Only meaningful for a Travel Team registration - which
             // package (and its day/match counts) the purchase was made
             // under, since activity_id alone can't distinguish that (the
@@ -1252,6 +1431,7 @@
             this.settings = settings ?? {};
             this.items = [];
             this.discountsModal = null;
+            this.campDaysModal = null;
             this.houseCreditAvailable = 0;
             this.houseCreditApplied = 0;
             this.init();
@@ -1269,6 +1449,9 @@
             this.renderLayout();
             if (this.settings.manageDiscounts) {
                 this.discountsModal = new USCTDP_Admin.ManageDiscountsModal('payment-discounts-modal');
+            }
+            if (this.settings.manageCampDays) {
+                this.campDaysModal = new USCTDP_Admin.ManageCampDaysModal('payment-camp-days-modal');
             }
             this.bindEvents();
         }
@@ -1301,6 +1484,7 @@
             const html = `
                 <div class="payment-wrap">
                     <div id="payment-discounts-modal"></div>
+                    <div id="payment-camp-days-modal"></div>
                     <div class="payment-table-wrap">
                         <table class="payment-table">
                             <colgroup>
@@ -1472,6 +1656,42 @@
                         sale_price = item.discounts.reduce((acc, discount) => acc - discount.amount, item.base_price);
                     }
                     item.debit = sale_price;
+                    this.renderTableBody();
+                    this.updatePaymentTotals();
+                });
+            }
+
+            if (this.settings.manageCampDays) {
+                this.container.on('click', '.manage-camp-days-link', (e) => {
+                    e.preventDefault();
+                    const index = $(e.currentTarget).closest('tr').index();
+                    const item = this.items[index];
+                    $('#payment-camp-days-modal').data('item-index', index);
+                    this.campDaysModal.show(item.camp_weeks || [], item.camp_dates || []);
+                });
+
+                $('#payment-camp-days-modal').on('campdays:apply', (e) => {
+                    const index = $('#payment-camp-days-modal').data('item-index');
+                    const item = this.items[index];
+                    item.camp_dates = e.detail.dates;
+                    // Direct camp only - a Travel Team item's camp_pricing
+                    // is null (its price is a flat package price, same
+                    // reasoning as update_travel_team_day_note() in
+                    // usctdp-mgmt-admin-register.js), so its debit is left
+                    // untouched here; only which days are booked changes.
+                    if (item.camp_pricing) {
+                        const count = item.camp_dates.length;
+                        const { per_day, bulk, bulk_threshold } = item.camp_pricing;
+                        const usingBulkRate = bulk !== null && bulk_threshold !== null && count >= bulk_threshold;
+                        const rate = usingBulkRate ? bulk : per_day;
+                        const newBasePrice = count * rate;
+                        item.base_price = newBasePrice;
+                        var sale_price = newBasePrice;
+                        if (item.discounts) {
+                            sale_price = item.discounts.reduce((acc, discount) => acc - discount.amount, newBasePrice);
+                        }
+                        item.debit = sale_price;
+                    }
                     this.renderTableBody();
                     this.updatePaymentTotals();
                 });
@@ -1789,7 +2009,10 @@
                     student: item.student_name,
                     item: item.item_name,
                     debit: item.debit,
-                    credit: item.credit
+                    credit: item.credit,
+                    showManageDays: this.settings.manageCampDays
+                        && item.activity_type === 'camp'
+                        && !!(item.camp_weeks && item.camp_weeks.length)
                 }));
             });
         }
@@ -1800,12 +2023,15 @@
         }
 
         addOrderRow(options) {
-            const { student, item, credit, debit } = options;
+            const { student, item, credit, debit, showManageDays } = options;
+            const manageDaysHtml = showManageDays
+                ? '<br><a href="#" class="manage-camp-days-link">Manage Days</a>'
+                : '';
             return `
-                <tr> 
+                <tr>
                     <td class="cart-student-name">${student ?? '--'}</td>
-                    <td class="cart-item" title="${item}"><span class="cart-item-text">${item}</span></td>
-                    <td class="cart-debit"> 
+                    <td class="cart-item" title="${item}"><span class="cart-item-text">${item}</span>${manageDaysHtml}</td>
+                    <td class="cart-debit">
                         <span class="price-value debit-value">${USCTDP_Admin.formatUsd(debit)}</span>
                     </td>
                     <td>
@@ -2051,6 +2277,88 @@
             this.container.find('#total-savings-display').text(`-${USCTDP_Admin.formatUsd(this.totalSavings)}`);
             this.container.find('#final-price-display').text(USCTDP_Admin.formatUsd(this.salePrice));
             this.trigger('updated', { totalSavings: this.totalSavings, salePrice: this.salePrice });
+        }
+    }
+
+    /**
+     * Lets the admin view/edit which calendar days a camp registration
+     * already sitting in the cart covers - triggered by the "Manage Days"
+     * link addOrderRow() appends to a camp/travel-team cart item's name
+     * (see RegistrationPaymentTable.bindEvents()'s manageCampDays block).
+     * Pure cart-level editing: nothing is persisted here or in the
+     * triggering handler - the edited dates just replace the cart item's
+     * own camp_dates in memory, the same as every other in-cart edit
+     * (price, discounts), and only reach the server once the cart is
+     * actually submitted (ajax_submit_payment -> parse_registration_data's
+     * existing camp_dates handling, unchanged).
+     */
+    USCTDP_Admin.ManageCampDaysModal = class {
+        constructor(containerId) {
+            this.container = $(`#${containerId}`);
+            this.init();
+        }
+
+        trigger(eventName, detail = {}) {
+            const event = new CustomEvent(`campdays:${eventName}`, {
+                detail: { ...detail, manager: this },
+                bubbles: true
+            });
+            this.container[0].dispatchEvent(event);
+        }
+
+        init() {
+            this.renderLayout();
+            this.modal = this.container.find('#camp-days-modal')[0];
+            this.wrap = this.container.find('#camp-days-modal-table-wrap');
+            this.bindEvents();
+        }
+
+        show(weeks, selectedDates = []) {
+            USCTDP_Admin.renderCampDayPicker(this.wrap, weeks || [], selectedDates);
+            this.updateNote();
+            this.modal.showModal();
+            this.trigger('opened');
+        }
+
+        updateNote() {
+            const count = USCTDP_Admin.getSelectedCampDates(this.wrap).length;
+            this.container.find('.camp-days-modal-note').text(
+                count === 0 ? 'No days selected.' : count + (count === 1 ? ' day selected.' : ' days selected.')
+            );
+        }
+
+        renderLayout() {
+            const html = `
+                <dialog id="camp-days-modal">
+                    <h2>Manage Camp Days</h2>
+                    <div id="camp-days-modal-table-wrap"></div>
+                    <p class="camp-days-modal-note"></p>
+                    <div class="actions-footer">
+                        <button type="button" class="button button-primary save-camp-days-btn">Save</button>
+                        <button type="button" class="button button-secondary cancel-btn">Cancel</button>
+                    </div>
+                </dialog>
+            `;
+            this.container.append(html);
+        }
+
+        bindEvents() {
+            this.wrap.on('change', '.camp-date-checkbox', () => this.updateNote());
+
+            this.container.find('.save-camp-days-btn').on('click', () => {
+                const dates = USCTDP_Admin.getSelectedCampDates(this.wrap);
+                if (dates.length === 0) {
+                    alert("Select at least one day for this camp.");
+                    return;
+                }
+                this.trigger('apply', { dates });
+                this.modal.close();
+            });
+
+            this.container.find('.cancel-btn').on('click', () => {
+                this.modal.close();
+                this.trigger('closed');
+            });
         }
     }
 

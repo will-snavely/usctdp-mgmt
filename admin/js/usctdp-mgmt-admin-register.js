@@ -36,6 +36,7 @@
             checkoutButton: true,
             allowPayLater: true,
             manageDiscounts: true,
+            manageCampDays: true,
             paymentMode: "create",
             submitButtonText: "Submit",
             redirectOnComplete: true
@@ -268,7 +269,16 @@
             $('#camp-price-bulk').val(pricing.bulk ?? '');
             $('#camp-price-bulk-threshold').val(pricing.bulk_threshold ?? '');
 
-            renderCampDayPicker(camp_weeks || []);
+            // Carried onto selectedActivity (set by the cascade:change
+            // handler/loadTravelTeamCampInfo() before this runs) so the
+            // #add-activity-registration click handler can hand the same
+            // week grid to the cart item - see CartItem.camp_weeks in
+            // usctdp-mgmt-admin.js and its "Manage Days" cart link.
+            if (selectedActivity) {
+                selectedActivity.camp_weeks = camp_weeks || [];
+            }
+
+            USCTDP_Admin.renderCampDayPicker($('#camp-day-picker-table-wrap'), camp_weeks || []);
             update_camp_price();
         }
 
@@ -295,111 +305,12 @@
 
             $('#activity-preorder').data('travel_team_camp_days', campDays);
 
-            renderCampDayPicker(camp_weeks || []);
+            if (selectedActivity) {
+                selectedActivity.camp_weeks = camp_weeks || [];
+            }
+
+            USCTDP_Admin.renderCampDayPicker($('#camp-day-picker-table-wrap'), camp_weeks || []);
             update_travel_team_day_note();
-        }
-
-        // "11:00 AM" / "6:00 PM" -> minutes since midnight, so same-weekday
-        // columns (e.g. a Thursday day session and a separate Thursday
-        // evening one) sort in actual time order - a plain string compare
-        // would put "9:00 AM" after "11:00 AM" (comparing '9' > '1').
-        function campTimeToMinutes(timeStr) {
-            const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((timeStr || '').trim());
-            if (!match) {
-                return 0;
-            }
-            let hours = parseInt(match[1], 10) % 12;
-            if (match[3].toUpperCase() === 'PM') {
-                hours += 12;
-            }
-            return hours * 60 + parseInt(match[2], 10);
-        }
-
-        function formatCampDayLabel(day) {
-            const parts = day.date.split('-').map(Number);
-            const localDate = new Date(parts[0], parts[1] - 1, parts[2]);
-            const monthDay = (localDate.getMonth() + 1) + '/' + localDate.getDate();
-            return day.day_name.slice(0, 3) + ' ' + monthDay;
-        }
-
-        /**
-         * One <td> per recurring schedule slot (day_name + start_time, not
-         * just day_name - a camp can run the same weekday twice with
-         * different times, e.g. a Thursday day session and a separate
-         * Thursday evening one) rather than one <td> holding all of a
-         * week's chips in a flex-wrapped row. A real table column is what
-         * makes every week's Monday chip line up under every other week's
-         * Monday chip - a flex row can't guarantee that since each chip's
-         * width (and so its neighbors' starting position) depends on that
-         * row's own date text.
-         *
-         * The column order/set is built from every week, not just the
-         * first, because a partial first/last week can be missing a slot
-         * the rest of the weeks have - using only week 1 could drop a
-         * column entirely or assign the wrong slot to it.
-         */
-        function renderCampDayPicker(weeks) {
-            const $wrap = $('#camp-day-picker-table-wrap');
-            $wrap.empty();
-            if (!weeks.length) {
-                $wrap.text('No schedule available for this camp.');
-                return;
-            }
-
-            // Sorted by (weekday number, start_time) rather than left in
-            // first-seen order - a partial first week missing an earlier
-            // weekday (e.g. it starts on a Tuesday) would otherwise push
-            // that weekday's column to the end once a later week reveals
-            // it, instead of it sorting back to where it chronologically
-            // belongs within the week.
-            const DAY_NUMBERS = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
-            const columnsByKey = {};
-            weeks.forEach(function (week) {
-                week.days.forEach(function (day) {
-                    const key = day.day_name + '|' + day.start_time;
-                    columnsByKey[key] = day;
-                });
-            });
-            const columnKeys = Object.keys(columnsByKey).sort(function (a, b) {
-                const dayA = columnsByKey[a];
-                const dayB = columnsByKey[b];
-                const dowDiff = DAY_NUMBERS[dayA.day_name] - DAY_NUMBERS[dayB.day_name];
-                return dowDiff !== 0 ? dowDiff : campTimeToMinutes(dayA.start_time) - campTimeToMinutes(dayB.start_time);
-            });
-
-            const $table = $('<table class="camp-day-picker-table"></table>');
-            const $tbody = $('<tbody></tbody>');
-            weeks.forEach(function (week) {
-                const $row = $('<tr class="camp-week-row"></tr>');
-                $row.append($('<th class="camp-week-label"></th>').text('Week ' + week.week));
-
-                const dayByKey = {};
-                week.days.forEach(function (day) {
-                    dayByKey[day.day_name + '|' + day.start_time] = day;
-                });
-
-                columnKeys.forEach(function (key) {
-                    const $cell = $('<td class="camp-week-day-cell"></td>');
-                    const day = dayByKey[key];
-                    if (day) {
-                        const $option = $('<label class="camp-day-checkbox"></label>');
-                        const $checkbox = $('<input type="checkbox" class="camp-date-checkbox">').val(day.date);
-                        $option.append($checkbox);
-                        $option.append($('<span></span>').text(formatCampDayLabel(day)));
-                        $cell.append($option);
-                    }
-                    $row.append($cell);
-                });
-                $tbody.append($row);
-            });
-            $table.append($tbody);
-            $wrap.append($table);
-        }
-
-        function getSelectedCampDates() {
-            return $('.camp-date-checkbox:checked').map(function () {
-                return $(this).val();
-            }).get();
         }
 
         // Reads the current (admin-editable) rate fields rather than the
@@ -407,7 +318,7 @@
         // overriding a rate for this one registration actually affects the
         // computed total.
         function update_camp_price() {
-            const count = getSelectedCampDates().length;
+            const count = USCTDP_Admin.getSelectedCampDates($('#camp-day-picker-table-wrap')).length;
             const perDay = USCTDP_Admin.safeParseFloat($('#camp-price-per-day').val());
             const bulkVal = $('#camp-price-bulk').val();
             const bulk = bulkVal !== '' ? USCTDP_Admin.safeParseFloat(bulkVal) : null;
@@ -433,7 +344,7 @@
         // package's included days have been picked, and leaves
         // #activity_base_price alone.
         function update_travel_team_day_note() {
-            const count = getSelectedCampDates().length;
+            const count = USCTDP_Admin.getSelectedCampDates($('#camp-day-picker-table-wrap')).length;
             const campDays = parseInt($('#activity-preorder').data('travel_team_camp_days'), 10) || 0;
             $('#camp-day-picker-note').text(
                 'Package includes ' + campDays + (campDays === 1 ? ' day' : ' days') + ' - ' + count + ' selected.'
@@ -725,12 +636,30 @@
             };
 
             if (selectedActivity.type === 'camp') {
-                const campDates = getSelectedCampDates();
+                const campDates = USCTDP_Admin.getSelectedCampDates($('#camp-day-picker-table-wrap'));
                 if (campDates.length === 0) {
                     alert("Select at least one day for this camp.");
                     return;
                 }
                 registration.camp_dates = campDates;
+                // Carried onto the cart item so "Manage Days" (see
+                // ManageCampDaysModal in usctdp-mgmt-admin.js) can
+                // re-render this exact picker later without a second
+                // activity_preregistration round-trip.
+                registration.camp_weeks = selectedActivity.camp_weeks || [];
+                // Direct camp only - #camp-pricing-fields stays hidden for
+                // Travel Team (see bind_travel_team_info()), whose price is
+                // a flat package price unaffected by day count, so there's
+                // no rate to carry forward for a later recompute.
+                if (!$('#camp-pricing-fields').hasClass('hidden')) {
+                    const bulkVal = $('#camp-price-bulk').val();
+                    const thresholdVal = $('#camp-price-bulk-threshold').val();
+                    registration.camp_pricing = {
+                        per_day: USCTDP_Admin.safeParseFloat($('#camp-price-per-day').val()),
+                        bulk: bulkVal !== '' ? USCTDP_Admin.safeParseFloat(bulkVal) : null,
+                        bulk_threshold: thresholdVal !== '' ? parseInt(thresholdVal, 10) : null,
+                    };
+                }
             }
 
             if (selectedActivity.travel_team_package) {
@@ -785,13 +714,21 @@
             clearNotifications();
             togglePreorderDetails(false);
             togglePaymentTable(true);
-            $('#activity-selector').val(null).trigger('change');
-            // #activity-selector's reset above is a no-op for a travel team
-            // registration (it was never actually populated), so its own
-            // package/camp choice needs clearing here too, ready for the
-            // next student - resetting travel-package-selector cascades
-            // into travel-camp-option-selector via its own branches config.
-            $('#travel-package-selector').val(null).trigger('change');
+            // Reset back to a blank Session, ready to add another item for
+            // the same student - Family/Student are left alone since the
+            // next item is usually for the same one. A plain
+            // val(null).trigger('change') (the normal change event, not
+            // CascasdingSelect's own resetAndHide(), which would also hide
+            // #session-selector-section itself) runs session-selector's
+            // ordinary handleChange cascade, which resets *and hides* every
+            // one of its branches - clinic/activity/merchandise/travel-
+            // package/travel-camp-option - via its own branches config.
+            // Resetting session-selector here (rather than resetting
+            // activity-selector/travel-package-selector individually, as
+            // this used to) is what actually fixes a Session left visibly
+            // "selected" with nothing shown underneath it after adding to
+            // cart - Session itself was never being cleared before.
+            $('#session-selector').val(null).trigger('change');
         });
 
         $('#discount-sibling').on('change', function () {
@@ -861,7 +798,10 @@
         });
 
         $('#payment-table-section').on('payment:modify', function () {
-            $('#activity-selector').val(null).trigger('change');
+            // Same reasoning as the #add-activity-registration reset above -
+            // resetting session-selector (not activity-selector alone)
+            // clears/hides every selector downstream of it in one go.
+            $('#session-selector').val(null).trigger('change');
             $('#registration-info').removeClass('hidden');
             $('#registration-container').removeClass('checkout-mode');
             $('#registration-container').addClass('edit-order-mode');

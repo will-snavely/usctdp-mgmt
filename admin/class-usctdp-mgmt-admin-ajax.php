@@ -18,13 +18,16 @@ class Usctdp_Mgmt_Admin_Ajax
         'gen_roster' => 'ajax_gen_roster',
         'gen_statement' => 'ajax_gen_statement',
         'get_activity_details' => 'ajax_get_activity_details',
+        'get_camp_schedule' => 'ajax_get_camp_schedule',
         'get_family' => 'ajax_get_family',
         'get_family_balance' => 'ajax_get_family_balance',
+        'get_registration_camp_days' => 'ajax_get_registration_camp_days',
         'get_session_pricing' => 'ajax_get_session_pricing',
         'issue_house_credit' => 'ajax_issue_house_credit',
         'ledger_datatable' => 'ajax_ledger_datatable',
         'ledger_events_datatable' => 'ajax_ledger_events_datatable',
         'move_activity_to_group' => 'ajax_move_activity_to_group',
+        'preview_camp_registration_change' => 'ajax_preview_camp_registration_change',
         'preview_registration_activity_change' => 'ajax_preview_registration_activity_change',
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
         'purchase_history_export' => 'ajax_purchase_history_export',
@@ -1180,6 +1183,54 @@ class Usctdp_Mgmt_Admin_Ajax
         ];
     }
 
+    /**
+     * Camp's equivalent of get_price_change() above - deliberately a
+     * separate method rather than a branch inside it, because camp pricing
+     * isn't activity-to-activity at all: $activity doesn't change (a camp
+     * day-edit keeps the same activity_id), and usctdp_pricing.pricing is a
+     * completely different shape for camp (per_day/bulk/bulk_threshold,
+     * see bind_camp_info() in usctdp-mgmt-admin-register.js) than clinic's
+     * tiered One/Two pricing get_price_change() reads. Returns the same
+     * old_price/new_price/*_additional_day_discount shape anyway (always
+     * null for the discount fields - camp has no tiered day-count discount
+     * to offer) purely so the JS side's reviewPriceChange()/
+     * reviewRegistrationUpdate() pipeline can treat either source
+     * identically without caring which one ran.
+     */
+    private function get_camp_price_change($activity, $old_day_count, $new_day_count)
+    {
+        $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+            'session_id' => $activity->session_id,
+            'product_id' => $activity->product_id,
+            'number' => 1
+        ]);
+        if (empty($pricing_query->items)) {
+            return null;
+        }
+        $pricing = $pricing_query->items[0]->pricing;
+        $per_day = isset($pricing['per_day']) ? floatval($pricing['per_day']) : 0.0;
+        $bulk = isset($pricing['bulk']) && $pricing['bulk'] !== null && $pricing['bulk'] !== ''
+            ? floatval($pricing['bulk']) : null;
+        $threshold = isset($pricing['bulk_threshold']) && $pricing['bulk_threshold'] !== null && $pricing['bulk_threshold'] !== ''
+            ? intval($pricing['bulk_threshold']) : null;
+
+        $rate_for_count = function ($count) use ($per_day, $bulk, $threshold) {
+            $using_bulk = $bulk !== null && $threshold !== null && $count >= $threshold;
+            return $using_bulk ? $bulk : $per_day;
+        };
+
+        $old_price = round($old_day_count * $rate_for_count($old_day_count), 2);
+        $new_price = round($new_day_count * $rate_for_count($new_day_count), 2);
+
+        return [
+            'delta' => round($new_price - $old_price, 2),
+            'old_price' => $old_price,
+            'new_price' => $new_price,
+            'old_additional_day_discount' => null,
+            'new_additional_day_discount' => null,
+        ];
+    }
+
     public function ajax_ledger_events_datatable()
     {
         $this->check_nonce('ledger_events_datatable');
@@ -1271,6 +1322,155 @@ class Usctdp_Mgmt_Admin_Ajax
             Usctdp_Mgmt::logger()->log_exception('ajax_preview_registration_activity_change', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
+    }
+
+    /**
+     * Camp equivalent of ajax_preview_registration_activity_change() above -
+     * see get_camp_price_change()'s doc comment for why this is a separate
+     * endpoint rather than a branch in that one. $activity_id is whatever
+     * camp activity the Modify Camp Registration modal has currently
+     * resolved (the session may or may not have changed from the
+     * registration's original one - either way it's the same activity this
+     * preview and the eventual save both act on), and camp_dates is the
+     * full new set of calendar days, not a diff.
+     */
+    public function ajax_preview_camp_registration_change()
+    {
+        $this->check_nonce('preview_camp_registration_change');
+
+        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : '';
+        if (empty($registration_id)) {
+            wp_send_json_error('Missing required parameter registration_id', 400);
+        }
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : '';
+        if (empty($activity_id)) {
+            wp_send_json_error('Missing required parameter activity_id', 400);
+        }
+        $camp_dates = [];
+        if (!empty($_POST['camp_dates']) && is_array($_POST['camp_dates'])) {
+            foreach ($_POST['camp_dates'] as $date) {
+                $date = sanitize_text_field($date);
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                    $camp_dates[] = $date;
+                }
+            }
+        }
+
+        $registration = Usctdp_Mgmt_Model::get_registration($registration_id);
+        if (!$registration) {
+            wp_send_json_error('No registration found with id: ' . $registration_id, 400);
+        }
+        $activity = Usctdp_Mgmt_Model::get_activity($activity_id);
+        if (!$activity) {
+            wp_send_json_error('No activity found with id: ' . $activity_id, 400);
+        }
+
+        try {
+            $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
+            $old_day_count = count($camp_day_query->get_days_for_registration($registration_id));
+
+            $price_change = $this->get_camp_price_change($activity, $old_day_count, count($camp_dates));
+
+            $purchase_query = new Usctdp_Mgmt_Purchase_Query();
+            $purchase_data = $purchase_query->get_purchase_data([
+                "purchase_id" => $registration->purchase_id
+            ]);
+
+            wp_send_json_success([
+                'price_change' => $price_change,
+                'purchase_data' => $purchase_data
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_preview_camp_registration_change', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    /**
+     * Every calendar day a registration currently covers - used by the
+     * Modify Camp Registration modal (usctdp-mgmt-admin-history.js) to
+     * pre-check the day-picker when it opens, since the datatable row
+     * itself doesn't carry this (see Usctdp_Mgmt_Purchase_Query -
+     * usctdp_registration_camp_day isn't joined into the main history
+     * query, it's only ever needed by this one modal).
+     */
+    public function ajax_get_registration_camp_days()
+    {
+        $this->check_nonce('get_registration_camp_days');
+
+        $registration_id = isset($_POST['registration_id']) ? intval($_POST['registration_id']) : '';
+        if (empty($registration_id)) {
+            wp_send_json_error('Missing required parameter registration_id', 400);
+        }
+
+        try {
+            $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
+            $days = $camp_day_query->get_days_for_registration($registration_id);
+            // Usctdp_Mgmt_Registration_Camp_Day_Row casts activity_date to a
+            // DateTime object, not a plain string - format it back to Y-m-d
+            // for the JS side (USCTDP_Admin.renderCampDayPicker()'s
+            // selectedDates comparison is a plain string match against each
+            // day's own 'date' field).
+            $dates = array_map(function ($day) {
+                return $day->activity_date->format('Y-m-d');
+            }, $days);
+            wp_send_json_success(['dates' => $dates]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_get_registration_camp_days', $e);
+            wp_send_json_error('An unexpected server error occurred.', 500);
+        }
+    }
+
+    /**
+     * A camp activity's pricing + week/day grid, with no student context -
+     * used by the Modify Camp Registration modal to render the day-picker
+     * once a Session resolves to its camp activity. Deliberately NOT
+     * ajax_activity_preregistration() (which this would otherwise
+     * duplicate most of): that endpoint's capacity/waitlist/
+     * student_registered checks are about a NEW signup attempt, and
+     * student_registered would always be true here since the student
+     * being "checked" is the one who already holds this exact
+     * registration - this endpoint only returns the schedule/pricing data
+     * the day-picker actually needs, with no such check to get confused by.
+     */
+    public function ajax_get_camp_schedule()
+    {
+        $this->check_nonce('get_camp_schedule');
+
+        $activity_id = isset($_GET['activity_id']) ? intval($_GET['activity_id']) : '';
+        if (empty($activity_id)) {
+            wp_send_json_error('Missing required parameter activity_id', 400);
+        }
+
+        $activity = Usctdp_Mgmt_Model::get_expanded_activity($activity_id);
+        if (!$activity) {
+            wp_send_json_error('Activity with ID ' . $activity_id . ' not found.', 404);
+        }
+
+        $pricing_query = new Usctdp_Mgmt_Pricing_Query([
+            'session_id' => $activity->session_id,
+            'product_id' => $activity->product_id,
+            'number' => 1
+        ]);
+        if (empty($pricing_query->items)) {
+            wp_send_json_error('Pricing for activity ' . $activity_id . ' not found.', 404);
+        }
+
+        $camp_weeks = [];
+        $camp_query = new Usctdp_Mgmt_Camp_Query(['id' => $activity_id, 'number' => 1]);
+        if (!empty($camp_query->items)) {
+            $camp_weeks = $this->build_camp_week_grid(
+                $activity->session_start_date,
+                $activity->session_end_date,
+                $camp_query->items[0]->schedule,
+                $activity->session_num_weeks
+            );
+        }
+
+        wp_send_json_success([
+            'pricing' => $pricing_query->items[0]->pricing,
+            'camp_weeks' => $camp_weeks,
+        ]);
     }
 
     /**
@@ -1393,6 +1593,42 @@ class Usctdp_Mgmt_Admin_Ajax
                 'Usctdp_Mgmt_Registration_Query',
                 $post_fields
             );
+
+            // Camp-only (see the Modify Camp Registration modal in
+            // usctdp-mgmt-admin-history.js) - replaces the registration's
+            // whole set of calendar days with camp_dates, diffed against
+            // what's there now rather than a blanket remove-then-readd, so
+            // an unrelated concurrent write to one date (there isn't one
+            // today, but nothing prevents it) can't be clobbered by this
+            // save touching every row. add_day()/remove_day() are both
+            // already idempotent (see Usctdp_Mgmt_Registration_Camp_Day_Query).
+            if (isset($_POST['camp_dates']) && is_array($_POST['camp_dates'])) {
+                $new_dates = [];
+                foreach ($_POST['camp_dates'] as $date) {
+                    $date = sanitize_text_field($date);
+                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                        $new_dates[] = $date;
+                    }
+                }
+
+                $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
+                // Usctdp_Mgmt_Registration_Camp_Day_Row casts activity_date
+                // to a DateTime object, not a plain string - without
+                // ->format() here, array_diff() below would try to string-
+                // cast a DateTime (which has no __toString()) against
+                // $new_dates' plain Y-m-d strings and fatal.
+                $existing_dates = array_map(function ($day) {
+                    return $day->activity_date->format('Y-m-d');
+                }, $camp_day_query->get_days_for_registration($entity_id));
+
+                foreach (array_diff($existing_dates, $new_dates) as $remove_date) {
+                    $camp_day_query->remove_day($entity_id, $remove_date);
+                }
+                foreach (array_diff($new_dates, $existing_dates) as $add_date) {
+                    $camp_day_query->add_day($entity_id, $add_date);
+                }
+            }
+
             wp_send_json_success([
                 'updated' => $result,
                 'price_change' => $price_change,
