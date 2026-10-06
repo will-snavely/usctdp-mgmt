@@ -52,19 +52,42 @@
             }).join('');
         }
 
-        // Direct camp registrations use the new Modify Camp Registration
-        // modal (see openModifyCampRegistrationModal()); Travel Team
-        // registrations are ALSO activity_type 'camp' (they're booked
-        // against the same real camp activity - see the DB-shape
-        // explanation earlier in this session) but are deliberately kept on
-        // the old inline-edit fallback for now, since reassigning a Travel
-        // Team registration's Session means reassigning its package too,
-        // a materially different operation from a plain camp Session
-        // change. purchase_travel_team_package (see usctdp_purchase -
-        // null for every non-Travel-Team purchase) is what distinguishes
-        // the two without needing a second DB round-trip.
+        // Direct camp registrations use the Modify Camp Registration modal
+        // (see openModifyCampRegistrationModal()); Travel Team registrations
+        // are ALSO activity_type 'camp' (they're booked against the same
+        // real camp activity - see the DB-shape explanation earlier in this
+        // session) but get their own Modify Travel Team Registration modal
+        // (see openModifyTravelTeamRegistrationModal()) instead, since
+        // reassigning a Travel Team registration's Session means
+        // reassigning its package too, a materially different operation
+        // from a plain camp Session change. purchase_travel_team_package
+        // (see usctdp_purchase - null for every non-Travel-Team purchase)
+        // is what distinguishes the two without needing a second DB
+        // round-trip.
         function isModifiableCampRegistration(rowData) {
             return rowData.activity_type === 'camp' && !rowData.purchase_travel_team_package;
+        }
+
+        function isModifiableTravelTeamRegistration(rowData) {
+            return rowData.activity_type === 'camp' && !!rowData.purchase_travel_team_package;
+        }
+
+        // usctdp_purchase.travel_team_package (see
+        // Usctdp_Mgmt_Purchase_Query::get_purchase_data()) comes back as a
+        // raw JSON string ('{"package":"Package A","camp_days":12,"matches":6}')
+        // or null - get_purchase_data() returns plain wpdb rows, not
+        // through Usctdp_Mgmt_Purchase_Row's own json_decode cast. Returns
+        // null (rather than throwing) for anything malformed, same
+        // defensive posture as parseStoredDiscounts() below.
+        function parseTravelTeamPackage(jsonStr) {
+            if (!jsonStr) {
+                return null;
+            }
+            try {
+                return JSON.parse(jsonStr);
+            } catch (e) {
+                return null;
+            }
         }
 
         class PurchaseCard {
@@ -239,21 +262,67 @@
                     </div>`;
             }
 
+            // Not _renderReadonlyField() - that renders one single wide
+            // badge, which isn't the right shape for a list of several
+            // small per-date chips (see renderCampDayChips() above and
+            // .camp-day-chip/.camp-days-chip-list in
+            // usctdp-mgmt-admin-history.css). Shared by camp and Travel
+            // Team cards below - both read the same registration_camp_dates
+            // column (the activity each books against is a real camp
+            // activity either way).
+            _renderCampDaysField() {
+                if (!this.data.registration_camp_dates) {
+                    return '';
+                }
+                return `
+                    <div class="flex-col gap-5 registration-readonly-field registration-field-days">
+                        <label class="upper-heavy">Days</label>
+                        <div class="camp-days-chip-list">${renderCampDayChips(this.data.registration_camp_dates)}</div>
+                    </div>`;
+            }
+
             _renderMiddleSection() {
-                // Clinics and direct camp registrations are edited
-                // exclusively through their own Modify modal now (see
-                // openModifyRegistrationModal()/openModifyCampRegistrationModal()),
-                // so these never need to become editable dropdowns in the
-                // card itself - just display them plainly. Tournament and
-                // Travel Team registrations don't have their own modal yet
-                // and still use the inline session/activity/level editing
-                // below (see the edit-registration-btn handler's
-                // activity_type/isModifiableCampRegistration branch).
+                // Clinics, direct camp, and Travel Team registrations are
+                // all edited exclusively through their own Modify modal now
+                // (see openModifyRegistrationModal()/
+                // openModifyCampRegistrationModal()/
+                // openModifyTravelTeamRegistrationModal()), so these never
+                // need to become editable dropdowns in the card itself -
+                // just display them plainly. Tournament registrations don't
+                // have their own modal yet and still use the inline
+                // session/activity/level editing below (see the
+                // edit-registration-btn handler's activity_type branch).
                 if (this.data.activity_type === 'clinic') {
                     return `
                         <div class="registration-fields flex-row gap-10 w-100">
                             ${this._renderReadonlyField('registration-field-session', 'Session', this.data.session_name)}
                             ${this._renderReadonlyField('registration-field-activity', 'Activity', this.data.activity_name)}
+                            ${this._renderReadonlyField('registration-field-level', 'Level', this.data.registration_student_level)}
+                        </div>`;
+                }
+
+                if (isModifiableTravelTeamRegistration(this.data)) {
+                    // product_name is the Travel Team product itself (e.g.
+                    // "Summer Travel Team: Yellow Ball"), not the underlying
+                    // camp's own name - this is what the family actually
+                    // purchased, matching how the register page's cart item
+                    // name and purchase.product_id both already identify a
+                    // Travel Team purchase. Package comes from
+                    // usctdp_purchase.travel_team_package (see
+                    // parseTravelTeamPackage() above), which is the one
+                    // thing not otherwise derivable from activity_id alone
+                    // (the same camp activity can be sold through more than
+                    // one package, see the DB-shape explanation earlier in
+                    // this session).
+                    const pkg = parseTravelTeamPackage(this.data.purchase_travel_team_package);
+                    const packageLabel = pkg
+                        ? pkg.package + ' (' + pkg.matches + (pkg.matches == 1 ? ' match' : ' matches') + ')'
+                        : null;
+                    return `
+                        <div class="registration-fields flex-row gap-10 w-100">
+                            ${this._renderReadonlyField('registration-field-session', 'Travel Team', this.data.product_name)}
+                            ${this._renderReadonlyField('registration-field-package', 'Package', packageLabel)}
+                            ${this._renderCampDaysField()}
                             ${this._renderReadonlyField('registration-field-level', 'Level', this.data.registration_student_level)}
                         </div>`;
                 }
@@ -268,22 +337,10 @@
                     // "Camp" label, since it's the more complete of the two
                     // (it includes the year, e.g. "Summer Camp: Green Ball -
                     // 2027", where activity_name doesn't).
-                    // Not _renderReadonlyField() - that renders one single
-                    // wide badge, which isn't the right shape for a list of
-                    // several small per-date chips (see renderCampDayChips()
-                    // above and .camp-day-chip/.camp-days-chip-list in
-                    // usctdp-mgmt-admin-history.css).
-                    const daysField = this.data.registration_camp_dates
-                        ? `
-                            <div class="flex-col gap-5 registration-readonly-field registration-field-days">
-                                <label class="upper-heavy">Days</label>
-                                <div class="camp-days-chip-list">${renderCampDayChips(this.data.registration_camp_dates)}</div>
-                            </div>`
-                        : '';
                     return `
                         <div class="registration-fields flex-row gap-10 w-100">
                             ${this._renderReadonlyField('registration-field-session', 'Camp', this.data.session_name)}
-                            ${daysField}
+                            ${this._renderCampDaysField()}
                             ${this._renderReadonlyField('registration-field-level', 'Level', this.data.registration_student_level)}
                         </div>`;
                 }
@@ -331,6 +388,7 @@
         const confirmRegistrationUpdateModal = document.querySelector('#confirm-registration-update-modal');
         const modifyRegistrationModal = document.querySelector('#modify-registration-modal');
         const modifyCampRegistrationModal = document.querySelector('#modify-camp-registration-modal');
+        const modifyTravelTeamRegistrationModal = document.querySelector('#modify-travel-team-registration-modal');
         const postPaymentModal = document.querySelector('#post-payment-modal');
         const postRefundModal = document.querySelector('#post-refund-modal');
         const paymentSettings = {
@@ -635,6 +693,334 @@
 
                 modifyCampRegistrationState = null;
                 modifyCampRegistrationModal.close();
+            } catch (error) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Error!",
+                    text: "A server error occured. Please inform a developer. Details: " + error.message,
+                });
+            } finally {
+                $btn.prop('disabled', false);
+                historyTable.ajax.reload();
+                refreshFamilyBalance();
+            }
+        });
+
+        // Usctdp_Session_Category::Travel_Team
+        const MODIFY_TRAVEL_TEAM_SESSION_CATEGORY = 8;
+
+        // Travel Team's variant of modifyCampRegistrationSelectorConfig
+        // above - Family/Student/Session work the same way (Session
+        // filtered to category 8 instead of 7), but a Travel Team session
+        // doesn't resolve straight to one camp activity the way a plain
+        // camp session does. It resolves to a product with several
+        // Package x Camp Option combinations (WC variations), each its own
+        // price and its own underlying camp activity - so this config adds
+        // two more real CascasdingSelect-managed levels, reusing the exact
+        // same 'travel_package'/'travel_camp_option' select2 targets (and
+        // autoSelectChild-for-the-common-one-camp-option pattern) the
+        // register page's own Travel Team flow already uses (see
+        // selectorConfig in usctdp-mgmt-admin-register.js) - same
+        // mechanism, just addressed at a different registration's data.
+        const modifyTravelTeamRegistrationSelectorConfig = {
+            'modify-travel-team-family-selector': {
+                name: 'family_id',
+                label: 'Family',
+                target: 'family',
+                next: 'modify-travel-team-student-selector',
+                isRoot: true,
+                dropdownParent: $('#modify-travel-team-registration-modal'),
+                width: '150px'
+            },
+            'modify-travel-team-student-selector': {
+                name: 'student_id',
+                label: 'Student',
+                target: 'student',
+                next: null,
+                filter: function () {
+                    return { family_id: $('#modify-travel-team-family-selector').val() };
+                },
+                dropdownParent: $('#modify-travel-team-registration-modal'),
+                width: '170px'
+            },
+            'modify-travel-team-session-selector': {
+                name: 'session_id',
+                label: 'Session',
+                target: 'session',
+                filter: function () {
+                    return { active: 1, category: MODIFY_TRAVEL_TEAM_SESSION_CATEGORY };
+                },
+                branches: ['modify-travel-team-package-selector', 'modify-travel-team-camp-option-selector'],
+                next: function (value) {
+                    return value ? 'modify-travel-team-package-selector' : null;
+                },
+                isRoot: true,
+                dropdownParent: $('#modify-travel-team-registration-modal'),
+                width: '260px'
+            },
+            'modify-travel-team-package-selector': {
+                name: 'travel_package',
+                label: 'Package',
+                target: 'travel_package',
+                branches: ['modify-travel-team-camp-option-selector'],
+                next: function (value, $el) {
+                    if (!value) {
+                        return null;
+                    }
+                    var data = $el.select2('data')[0];
+                    return (data && data.camp_option_count === 1) ? null : 'modify-travel-team-camp-option-selector';
+                },
+                filter: function () {
+                    return { session_id: $('#modify-travel-team-session-selector').val() };
+                },
+                autoSelectChild: {
+                    id: 'modify-travel-team-camp-option-selector',
+                    resolve: function (value, $el) {
+                        var data = $el.select2('data')[0];
+                        return (data && data.camp_option_count === 1) ? data.sole_camp_option : null;
+                    }
+                },
+                dropdownParent: $('#modify-travel-team-registration-modal'),
+                width: '220px'
+            },
+            'modify-travel-team-camp-option-selector': {
+                name: 'travel_camp_option',
+                label: 'Camp',
+                target: 'travel_camp_option',
+                next: null,
+                filter: function () {
+                    return {
+                        session_id: $('#modify-travel-team-session-selector').val(),
+                        package: $('#modify-travel-team-package-selector').val()
+                    };
+                },
+                dropdownParent: $('#modify-travel-team-registration-modal'),
+                width: '220px'
+            },
+        };
+        const modifyTravelTeamRegistrationSelectHandler = new USCTDP_Admin.CascasdingSelect(
+            'modify-travel-team-registration-selectors',
+            modifyTravelTeamRegistrationSelectorConfig
+        );
+        var modifyTravelTeamRegistrationState = null;
+
+        function updateModifyTravelTeamDaysNote() {
+            const count = USCTDP_Admin.getSelectedCampDates($('#modify-travel-team-days-wrap')).length;
+            $('#modify-travel-team-days-note').text(
+                count === 0 ? 'Select the days this student will attend.' : (count + (count === 1 ? ' day selected.' : ' days selected.'))
+            );
+        }
+
+        $('#modify-travel-team-days-wrap').on('change', '.camp-date-checkbox', updateModifyTravelTeamDaysNote);
+
+        // Resolves the day-picker once Camp Option resolves (whether from
+        // a direct pick or autoSelectChild's silent resolution - either
+        // way fires exactly one terminal change event here, same reasoning
+        // as the register page's own travel-package-selector/
+        // travel-camp-option-selector cascade). A Session change alone
+        // just clears everything downstream and waits - package/camp-
+        // option/day state all depend on it.
+        $('#modify-travel-team-registration-selectors').on('cascade:change', async function (e) {
+            const { selectorId, value } = e.detail;
+            if (!modifyTravelTeamRegistrationState) {
+                return;
+            }
+
+            if (selectorId === 'modify-travel-team-session-selector') {
+                modifyTravelTeamRegistrationState.pkg = null;
+                modifyTravelTeamRegistrationState.activity = null;
+                $('#modify-travel-team-days-wrap').empty();
+                $('#modify-travel-team-days-note').text('');
+                return;
+            }
+
+            if (selectorId !== 'modify-travel-team-camp-option-selector' || !value) {
+                return;
+            }
+
+            const pkgData = $('#modify-travel-team-package-selector').select2('data')[0];
+            const campData = $('#modify-travel-team-camp-option-selector').select2('data')[0];
+            if (!pkgData || !campData) {
+                return;
+            }
+            modifyTravelTeamRegistrationState.pkg = pkgData;
+            modifyTravelTeamRegistrationState.activity = campData;
+
+            const scheduleResponse = await USCTDP_Admin.ajax_getCampSchedule(campData.id);
+            if (!scheduleResponse.success) {
+                $('#modify-travel-team-days-wrap').text('Failed to load camp schedule.');
+                return;
+            }
+
+            const preselect = parseInt(campData.id, 10) === modifyTravelTeamRegistrationState.originalActivityId
+                ? modifyTravelTeamRegistrationState.originalCampDates
+                : [];
+            USCTDP_Admin.renderCampDayPicker($('#modify-travel-team-days-wrap'), scheduleResponse.data.camp_weeks || [], preselect);
+            updateModifyTravelTeamDaysNote();
+        });
+
+        /**
+         * Travel Team version of openModifyCampRegistrationModal(). Package
+         * and Camp Option are preloaded too (not just Family/Student/
+         * Session) - applyData() applies entries in config (cascade) order
+         * and fires each one's normal change cascade, so seeding all five
+         * levels at once resolves correctly the same way it already does
+         * for Family->Student (see CascasdingSelect.applyData()'s doc
+         * comment) - a later entry's own application simply overrides
+         * whatever an earlier one's change handler reset.
+         *
+         * The preloaded Camp Option entry's price is deliberately left
+         * null - it's only ever populated by a real select2 search (see
+         * the cascade:change handler above), not by this preload. That's
+         * intentional, not an oversight: it's exactly how the save handler
+         * below tells "the admin actually re-picked Package/Camp Option"
+         * apart from "left it exactly as loaded" - and Travel Team's price
+         * is flat per package/camp-option, so if neither was ever touched,
+         * there is nothing to review.
+         */
+        async function openModifyTravelTeamRegistrationModal(rowData) {
+            const daysResponse = await USCTDP_Admin.ajax_getRegistrationCampDays(rowData.registration_id);
+            const originalCampDates = daysResponse.success ? (daysResponse.data.dates || []) : [];
+            const originalPackage = parseTravelTeamPackage(rowData.purchase_travel_team_package);
+
+            modifyTravelTeamRegistrationState = {
+                rowData,
+                pkg: null,
+                activity: null,
+                originalActivityId: parseInt(rowData.activity_id, 10),
+                originalCampDates,
+                originalProductId: parseInt(rowData.purchase_product_id, 10)
+            };
+
+            $('#modify-travel-team-registration-level').val(rowData.registration_student_level || '');
+
+            modifyTravelTeamRegistrationSelectHandler.applyData({
+                'modify-travel-team-family-selector': { id: rowData.family_id, text: rowData.family_name, disable: false },
+                'modify-travel-team-student-selector': {
+                    id: rowData.student_id,
+                    text: `${rowData.student_first} ${rowData.student_last}`,
+                    first: rowData.student_first,
+                    last: rowData.student_last,
+                    disable: false
+                },
+                'modify-travel-team-session-selector': {
+                    id: rowData.session_id,
+                    text: rowData.session_name,
+                    category: MODIFY_TRAVEL_TEAM_SESSION_CATEGORY,
+                    disable: false
+                },
+                ...(originalPackage ? {
+                    'modify-travel-team-package-selector': {
+                        id: originalPackage.package,
+                        text: originalPackage.package + ' (' + originalPackage.camp_days + ' days, ' + originalPackage.matches + ' matches)',
+                        camp_days: originalPackage.camp_days,
+                        matches: originalPackage.matches,
+                        product_id: rowData.purchase_product_id,
+                        product_name: rowData.product_name,
+                        disable: false
+                    },
+                    'modify-travel-team-camp-option-selector': {
+                        id: rowData.activity_id,
+                        text: rowData.activity_name,
+                        camp_name: rowData.activity_name,
+                        price: null,
+                        disable: false
+                    }
+                } : {})
+            });
+
+            modifyTravelTeamRegistrationModal.showModal();
+        }
+
+        $('#cancel-modify-travel-team-registration-btn').on('click', () => {
+            modifyTravelTeamRegistrationModal.close();
+        });
+
+        modifyTravelTeamRegistrationModal.addEventListener('close', function () {
+            modifyTravelTeamRegistrationState = null;
+        });
+
+        $('#save-modify-travel-team-registration-btn').on('click', async function () {
+            if (!modifyTravelTeamRegistrationState) return;
+            const originalRowData = modifyTravelTeamRegistrationState.rowData;
+
+            const pkg = modifyTravelTeamRegistrationState.pkg;
+            const activity = modifyTravelTeamRegistrationState.activity;
+            const newStudentId = $('#modify-travel-team-student-selector').val();
+            const newFamilyId = $('#modify-travel-team-family-selector').val();
+            const level = $('#modify-travel-team-registration-level').val();
+            const campDates = USCTDP_Admin.getSelectedCampDates($('#modify-travel-team-days-wrap'));
+
+            if (!activity || !pkg) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Package Required",
+                    text: "Please select a session, package, and camp before saving!",
+                });
+                return;
+            }
+            if (campDates.length === 0) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Days Required",
+                    text: "Please select at least one day before saving!",
+                });
+                return;
+            }
+            if (!newStudentId) {
+                window.Swal.fire({
+                    icon: "error",
+                    title: "Student Required",
+                    text: "Please select a student before saving!",
+                });
+                return;
+            }
+
+            const $btn = $(this);
+            $btn.prop('disabled', true);
+
+            try {
+                if (parseInt(newStudentId, 10) !== parseInt(originalRowData.student_id, 10)) {
+                    const reassignResponse = await USCTDP_Admin.ajax_reassignRegistration(originalRowData.registration_id, newStudentId);
+                    if (!reassignResponse.success) {
+                        throw new Error(reassignResponse.data || 'Failed to reassign registration.');
+                    }
+                }
+
+                // null (not a {old_price, new_price} object) when Package/
+                // Camp Option were never actually re-resolved - see
+                // openModifyTravelTeamRegistrationModal()'s doc comment on
+                // why activity.price only comes from a real selection.
+                const flatPriceChange = (activity.price !== null && activity.price !== undefined) ? {
+                    old_price: USCTDP_Admin.safeParseFloat(originalRowData.total_fees) - USCTDP_Admin.safeParseFloat(originalRowData.total_adjustments),
+                    new_price: parseFloat(activity.price),
+                    new_additional_day_discount: null
+                } : null;
+
+                const purchaseFields = {
+                    travel_team_package: {
+                        package: pkg.id,
+                        camp_days: pkg.camp_days,
+                        matches: pkg.matches
+                    }
+                };
+                // Only sent when the admin actually moved to a different
+                // Travel Team session (a different product) - a Package/
+                // Camp Option change within the same session leaves
+                // usctdp_purchase.product_id untouched.
+                if (parseInt(pkg.product_id, 10) !== modifyTravelTeamRegistrationState.originalProductId) {
+                    purchaseFields.product_id = pkg.product_id;
+                }
+
+                await updateRegistration(
+                    { ...originalRowData, student_id: newStudentId, family_id: newFamilyId },
+                    { activity_id: activity.id, student_level: level, camp_dates: campDates },
+                    purchaseFields,
+                    flatPriceChange
+                );
+
+                modifyTravelTeamRegistrationState = null;
+                modifyTravelTeamRegistrationModal.close();
             } catch (error) {
                 window.Swal.fire({
                     icon: "error",
@@ -1041,21 +1427,47 @@
         // is very often unchanged from rowData.activity_id (a day-only
         // edit), but doesn't have to be (the admin can also move the
         // registration to a different camp session in the same modal).
+        //
+        // flatPriceChange, when given, skips the server preview call
+        // entirely and uses that {old_price, new_price,
+        // new_additional_day_discount} directly - Travel Team's price is a
+        // flat package price with nothing resembling the day-count math
+        // get_camp_price_change() does, or the tiered One/Two pricing
+        // get_price_change() reads, so there's no shared preview endpoint
+        // for it to call: the new price is already known client-side the
+        // moment Package/Camp Option resolves (it's literally the matched
+        // WC variation's own price, read straight off the select2 data -
+        // see openModifyTravelTeamRegistrationModal()'s cascade:change
+        // handler), and the old price is just rowData's own current net
+        // fees, same as every other "old price" here. purchase_data isn't
+        // needed in that case either - rowData already carries the exact
+        // same fields (total_fees/total_adjustments/purchase_discounts)
+        // get_purchase_data() would have returned fresh.
+        //
         // Everything from here down - the confirm modal, discount
-        // recompute, ledger booking - is identical either way; camp simply
-        // never has discounts to recompute (bind_camp_info() hides that
-        // whole section) or an additional_day_discount (the preview always
-        // returns null for it), so that logic degenerates to a no-op
-        // rather than needing its own branch.
-        async function reviewPriceChange(rowData, newActivityId, campDates = null) {
-            const previewResponse = campDates
-                ? await USCTDP_Admin.ajax_previewCampRegistrationChange(rowData.registration_id, newActivityId, campDates)
-                : await USCTDP_Admin.ajax_previewRegistrationActivityChange(rowData.registration_id, newActivityId);
-            if (!previewResponse.success) {
-                throw Error("Failed to preview registration change.");
+        // recompute, ledger booking - is identical across all three paths;
+        // camp and Travel Team simply never have discounts to recompute
+        // (bind_camp_info()/bind_travel_team_info() both hide that whole
+        // section) or an additional_day_discount (always null for both),
+        // so that logic degenerates to a no-op rather than needing its own
+        // branch.
+        async function reviewPriceChange(rowData, newActivityId, campDates = null, flatPriceChange = null) {
+            var priceChange, purchaseRow;
+            if (flatPriceChange) {
+                priceChange = flatPriceChange;
+                purchaseRow = rowData;
+            } else {
+                const previewResponse = campDates
+                    ? await USCTDP_Admin.ajax_previewCampRegistrationChange(rowData.registration_id, newActivityId, campDates)
+                    : await USCTDP_Admin.ajax_previewRegistrationActivityChange(rowData.registration_id, newActivityId);
+                if (!previewResponse.success) {
+                    throw Error("Failed to preview registration change.");
+                }
+                priceChange = previewResponse.data.price_change;
+                const purchaseData = previewResponse.data.purchase_data;
+                purchaseRow = purchaseData && purchaseData.data && purchaseData.data[0];
             }
 
-            const priceChange = previewResponse.data.price_change;
             if (!priceChange) {
                 return null;
             }
@@ -1076,8 +1488,6 @@
             // safeParseFloat().
             const newAdditionalDayDiscount = priceChange.new_additional_day_discount;
 
-            const purchaseData = previewResponse.data.purchase_data;
-            const purchaseRow = purchaseData && purchaseData.data && purchaseData.data[0];
             const oldDiscounts = purchaseRow ? parseStoredDiscounts(purchaseRow.purchase_discounts) : [];
             const oldNetPrice = purchaseRow
                 ? USCTDP_Admin.safeParseFloat(purchaseRow.total_fees) - USCTDP_Admin.safeParseFloat(purchaseRow.total_adjustments)
@@ -1259,7 +1669,18 @@
         // discounts update this function already issues on a reviewed
         // activity change, so a registration+notes edit made together only
         // hits ajax_update_purchase() once.
-        async function updateRegistration(rowData, fields, purchaseFields = {}) {
+        // flatPriceChange is Travel Team's own price-review path - see
+        // reviewPriceChange()'s doc comment for why. Passing it at all
+        // (even as null, which callers do when Package/Camp Option were
+        // never actually re-resolved - see
+        // openModifyTravelTeamRegistrationModal()'s save handler) opts a
+        // call out of the isCampDaysChange gate below entirely, which
+        // would otherwise misfire for Travel Team: its own fields.camp_dates
+        // is submitted on every save the same as direct camp's is, but
+        // Travel Team's price has nothing to do with day count (it's a
+        // flat package price) - a days-only edit there has zero price
+        // impact and nothing to review.
+        async function updateRegistration(rowData, fields, purchaseFields = {}, flatPriceChange = undefined) {
             const isActivityChange = fields.activity_id
                 && parseInt(fields.activity_id, 10) !== parseInt(rowData.activity_id, 10);
             // A camp day-edit needs a price review too even when the
@@ -1267,9 +1688,21 @@
             // which days a registration covers, not moving it to a
             // different camp) - isActivityChange alone would miss it.
             const isCampDaysChange = !!fields.camp_dates;
+            const isFlatPriceCall = flatPriceChange !== undefined;
 
             var review = null;
-            if (isActivityChange || isCampDaysChange) {
+            if (isFlatPriceCall) {
+                if (flatPriceChange) {
+                    review = await reviewPriceChange(rowData, fields.activity_id || rowData.activity_id, null, flatPriceChange);
+                    if (review && review.cancelled) {
+                        window.Swal.fire("Cancelled", "The registration was not changed.", "info");
+                        return;
+                    }
+                }
+                // flatPriceChange === null: Package/Camp Option weren't
+                // touched, so there's genuinely nothing to review - fall
+                // through to the save below with review left null.
+            } else if (isActivityChange || isCampDaysChange) {
                 review = await reviewPriceChange(rowData, fields.activity_id || rowData.activity_id, fields.camp_dates || null);
                 if (review && review.cancelled) {
                     // Nothing has been saved yet - true no-op.
@@ -1837,15 +2270,19 @@
             const $row = $(this).closest('tr');
             var rowData = historyTable.row($row).data();
 
-            // Clinics and direct camp registrations use their own unified
-            // Modify modal (family/student reassignment + activity/day
-            // editing + live price review in one place). Tournament and
-            // Travel Team registrations don't have their own modal variant
+            // Clinics, direct camp, and Travel Team registrations each use
+            // their own unified Modify modal (family/student reassignment +
+            // activity/day editing + live price review in one place).
+            // Tournament registrations don't have their own modal variant
             // yet, so they still fall back to the old inline row editing
             // below - see openModifyRegistrationModal()'s doc comment and
-            // isModifiableCampRegistration().
+            // isModifiableCampRegistration()/isModifiableTravelTeamRegistration().
             if (rowData.activity_type === 'clinic') {
                 openModifyRegistrationModal(rowData);
+                return;
+            }
+            if (isModifiableTravelTeamRegistration(rowData)) {
+                openModifyTravelTeamRegistrationModal(rowData);
                 return;
             }
             if (isModifiableCampRegistration(rowData)) {

@@ -235,6 +235,15 @@
     min-width: 320px;
 }
 
+/* Travel Team cards only (see isModifiableTravelTeamRegistration() in
+   usctdp-mgmt-admin-history.js) - "Package A (6 matches)" is short enough
+   that it doesn't need Session/Activity's own wider min-width, but still
+   wants some so it doesn't shrink-wrap to a visibly narrower box than its
+   "PACKAGE" label on a short value like "Package B (4 matches)". */
+.registration-field-package {
+    min-width: 180px;
+}
+
 .registration-field-level {
     min-width: 0;
     /* The badge itself shrink-wraps to its short content (no min-width), so
@@ -830,6 +839,172 @@ dialog#modify-camp-registration-modal #modify-camp-registration-level {
 }
 
 #modify-camp-days-note {
+    flex: 0 0 auto;
+}
+
+/*
+ * Styling for the Modify Travel Team Registration modal - same
+ * dropdownParent/overflow:visible/[open]/flex-column/row-grouping
+ * reasoning as #modify-camp-registration-modal above, just with two more
+ * real selector levels (Package, Camp) between Session and the day-picker
+ * instead of going straight from Session to it. See that modal's own
+ * comments for why each individual piece (max-height+flex-column,
+ * [open]-scoping, column-gap/row-gap replacing the inherited
+ * .context-selector-group gap, the Level input's height override) is
+ * shaped the way it is - not repeated here.
+ */
+dialog#modify-travel-team-registration-modal {
+    width: 100%;
+    max-width: 640px;
+    max-height: 85vh;
+    overflow: visible;
+}
+
+dialog#modify-travel-team-registration-modal[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+dialog#modify-travel-team-registration-modal > h2,
+dialog#modify-travel-team-registration-modal > #modify-travel-team-registration-selectors,
+dialog#modify-travel-team-registration-modal > .actions-footer {
+    flex: 0 0 auto;
+}
+
+dialog#modify-travel-team-registration-modal h2 {
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-registration-selectors {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: 10px;
+    row-gap: 0;
+    margin-bottom: 0;
+}
+
+dialog#modify-travel-team-registration-modal .selector-row-break {
+    flex-basis: 100%;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-family-selector-section,
+dialog#modify-travel-team-registration-modal #modify-travel-team-student-selector-section,
+dialog#modify-travel-team-registration-modal #modify-travel-team-session-selector-section,
+dialog#modify-travel-team-registration-modal #modify-travel-team-package-selector-section,
+dialog#modify-travel-team-registration-modal #modify-travel-team-camp-option-selector-section,
+dialog#modify-travel-team-registration-modal .modify-registration-level-field {
+    margin-bottom: 14px;
+}
+
+/* Family, Student, Level (row 1) -> break-1 -> Session (row 2) -> break-2
+   -> Package, Camp (row 3). DOM order of the static row-break markers
+   doesn't matter - only these order values do (see the matching comment
+   on usctdp-mgmt-admin-history.php's clinic modal markup). */
+dialog#modify-travel-team-registration-modal #modify-travel-team-family-selector-section {
+    order: 1;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-student-selector-section {
+    order: 2;
+}
+
+dialog#modify-travel-team-registration-modal .modify-registration-level-field {
+    order: 3;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-selectors-break-1 {
+    order: 4;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-session-selector-section {
+    order: 5;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-selectors-break-2 {
+    order: 6;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-package-selector-section {
+    order: 7;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-camp-option-selector-section {
+    order: 8;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-family-selector-section .context-selector-wrap {
+    width: 150px;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-student-selector-section .context-selector-wrap {
+    width: 170px;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-session-selector-section .context-selector-wrap {
+    width: 260px;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-package-selector-section .context-selector-wrap {
+    width: 220px;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-camp-option-selector-section .context-selector-wrap {
+    width: 220px;
+}
+
+dialog#modify-travel-team-registration-modal .modify-registration-level-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+dialog#modify-travel-team-registration-modal .modify-registration-level-field label {
+    font-weight: bold;
+    text-align: left;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+dialog#modify-travel-team-registration-modal #modify-travel-team-registration-level {
+    width: 100px;
+    height: 28px;
+    padding: 0 8px;
+    box-sizing: border-box;
+}
+
+/* No margin-top here, same reasoning as #modify-camp-days-field - the gap
+   above comes from #modify-travel-team-camp-option-selector-section's own
+   margin-bottom. */
+#modify-travel-team-days-field {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#modify-travel-team-days-field > label {
+    font-weight: bold;
+    text-align: left;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    flex: 0 0 auto;
+}
+
+#modify-travel-team-days-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#modify-travel-team-days-note {
     flex: 0 0 auto;
 }
 

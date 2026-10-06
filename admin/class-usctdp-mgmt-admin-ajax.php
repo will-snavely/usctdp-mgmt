@@ -1837,6 +1837,28 @@ class Usctdp_Mgmt_Admin_Ajax
                 }, $value);
                 return wp_json_encode($sanitized);
             },
+            // Both only ever posted by the Modify Travel Team Registration
+            // modal (see openModifyTravelTeamRegistrationModal() in
+            // usctdp-mgmt-admin-history.js). product_id moves the purchase
+            // onto a different travel-team product when the admin changes
+            // Session to a different travel team entirely (a plain
+            // Package/Camp Option change within the same session leaves it
+            // alone). travel_team_package mirrors the shape
+            // parse_registration_data() already validates at creation time
+            // - {package, camp_days, matches} - re-saved (even when
+            // unchanged) so it always reflects whichever package the
+            // registration's activity_id/camp_dates now actually match.
+            'product_id' => intval(...),
+            'travel_team_package' => function ($value) {
+                if (!is_array($value) || !isset($value['package'], $value['camp_days'], $value['matches'])) {
+                    return null;
+                }
+                return wp_json_encode([
+                    'package' => sanitize_text_field((string) $value['package']),
+                    'camp_days' => (int) $value['camp_days'],
+                    'matches' => (int) $value['matches'],
+                ]);
+            },
         ];
 
         try {

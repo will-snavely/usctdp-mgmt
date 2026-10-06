@@ -130,6 +130,39 @@
             </div>
         </dialog>
 
+        <!-- Travel Team's variant of the modal above (see
+             openModifyTravelTeamRegistrationModal() in
+             usctdp-mgmt-admin-history.js) - Family/Student/Level/Days work
+             the same way as the camp modal, but Session is followed by two
+             more real CascasdingSelect-managed levels (Package, then Camp -
+             reusing the register page's own 'travel_package'/
+             'travel_camp_option' select2 targets) instead of going
+             straight to the day-picker, since a Travel Team session
+             doesn't resolve to one camp activity on its own the way a
+             plain camp session does. -->
+        <dialog id="modify-travel-team-registration-modal" class="modify-registration-modal">
+            <h2>Modify Travel Team Registration</h2>
+            <div id="modify-travel-team-registration-selectors" class="flex-col gap-10">
+                <div class="selector-row-break" id="modify-travel-team-selectors-break-1"></div>
+                <div class="modify-registration-level-field">
+                    <label for="modify-travel-team-registration-level">Level</label>
+                    <input type="text" id="modify-travel-team-registration-level">
+                </div>
+                <div class="selector-row-break" id="modify-travel-team-selectors-break-2"></div>
+            </div>
+            <div id="modify-travel-team-days-field" class="flex-col gap-5">
+                <label class="upper-heavy">Days</label>
+                <div id="modify-travel-team-days-wrap"></div>
+                <p id="modify-travel-team-days-note" class="camp-days-modal-note"></p>
+            </div>
+            <div class="actions-footer">
+                <button type="button" class="button button-primary" id="save-modify-travel-team-registration-btn">
+                    Save
+                </button>
+                <button type="button" class="button" id="cancel-modify-travel-team-registration-btn">Cancel</button>
+            </div>
+        </dialog>
+
         <dialog id="confirm-registration-update-modal">
             <h2>Confirm Registration Update</h2>
             <div class="registration-update-columns">
