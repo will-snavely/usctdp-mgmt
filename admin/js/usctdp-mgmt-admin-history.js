@@ -1272,13 +1272,18 @@
             postRefundModal.showModal();
         }
 
+        // Guards against a double-click (or Enter + click) posting the same
+        // refund's ledger entries twice while the first request is in flight.
+        let refundSubmitting = false;
+
         $('#refund-form').on('submit', function (e) {
+            e.preventDefault();
+            if (refundSubmitting) return;
             const form = $('#refund-form')[0];
             if (!form.checkValidity()) {
                 form.reportValidity();
                 return;
             }
-            e.preventDefault();
             const action = refundMode.val();
             const amount = $('#refund-amount').val();
             const method = $('#refund-method').val();
@@ -1332,6 +1337,10 @@
                 });
             }
 
+            refundSubmitting = true;
+            const $btn = $('#post-refund-btn');
+            $btn.prop('disabled', true);
+
             USCTDP_Admin.ajax_submitLedgerEntries(entries)
                 .then(() => {
                     postRefundModal.close();
@@ -1340,6 +1349,10 @@
                 })
                 .catch((error) => {
                     alert("Failed to post refund: " + error.message);
+                })
+                .finally(() => {
+                    refundSubmitting = false;
+                    $btn.prop('disabled', false);
                 });
         });
 

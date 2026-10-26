@@ -396,6 +396,9 @@
             }
             e.preventDefault();
 
+            const $btn = $('#save-student-modal');
+            $btn.prop('disabled', true);
+
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
@@ -420,6 +423,9 @@
                     var userMessage = "Failed to create student.\n\n" + responseMessage;
                     userMessage += "\n\nTry again or inform a developer.";
                     alert(userMessage);
+                },
+                complete: function () {
+                    $btn.prop('disabled', false);
                 }
             });
         });
@@ -506,6 +512,10 @@
             }
             e.preventDefault();
 
+            const $btn = $('#save-family-modal');
+            $btn.prop('disabled', true);
+            let createdFamily = false;
+
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 type: 'POST',
@@ -522,6 +532,9 @@
                 },
                 success: function (response) {
                     if (response.success) {
+                        // Leave the button disabled - the page navigates to
+                        // the new family once the success dialog closes.
+                        createdFamily = true;
                         newFamilyModal.close();
                         Swal.fire({
                             title: 'Success',
@@ -545,6 +558,11 @@
                         icon: 'error',
                         confirmButtonText: 'OK'
                     });
+                },
+                complete: function () {
+                    if (!createdFamily) {
+                        $btn.prop('disabled', false);
+                    }
                 }
             });
         });

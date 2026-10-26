@@ -1594,9 +1594,15 @@
 
         async handleFormSubmit(e) {
             e.preventDefault();
+            // Disabling the button alone doesn't cover a resubmit via Enter,
+            // and the button comes back in `finally` even while a card
+            // redirect is still navigating away - so guard on a flag too.
+            if (this.submitting) return;
+            this.submitting = true;
             const $btn = $('#' + this.getId('submit-payment-btn'));
             $btn.prop('disabled', true).val('Processing...');
 
+            let redirecting = false;
             try {
                 const $form = $(e.currentTarget);
                 const orderData = this.getOrderData();
@@ -1604,11 +1610,15 @@
                 this.trigger('complete', { response });
                 if (orderData.payment_method === 'card' || this.settings.redirectOnComplete) {
                     this.finalizeFormRedirect($form, response, orderData);
+                    redirecting = true;
                 }
             } catch (err) {
                 alert('Error processing payment.');
             } finally {
-                $btn.prop('disabled', false).val(this.settings.submitButtonText || "Submit Payment");
+                if (!redirecting) {
+                    this.submitting = false;
+                    $btn.prop('disabled', false).val(this.settings.submitButtonText || "Submit Payment");
+                }
             }
         }
 
