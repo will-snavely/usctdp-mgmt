@@ -380,6 +380,7 @@
 
         $('#new-student-button').on('click', (e) => {
             e.preventDefault();
+            $('#new-student-form')[0].reset();
             newStudentModal.showModal();
         });
 
