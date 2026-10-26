@@ -24,12 +24,15 @@ class Usctdp_Mgmt_Student_Row extends Row
         $this->last = (string) $this->last;
         $this->title = (string) $this->title;
         $this->search_term = (string) $this->search_term;
-        if ($this->birth_date == "0000-00-00") {
+        $birth_date = empty($this->birth_date) || $this->birth_date == "0000-00-00"
+            ? false
+            : DateTime::createFromFormat('Y-m-d', $this->birth_date);
+        if ($birth_date === false) {
             $this->birth_date = null;
             $this->age = null;
         } else {
-            $this->birth_date = DateTime::createFromFormat('Y-m-d', $this->birth_date);
-            $this->age = $this->age_from_birthdate($this->birth_date);
+            $this->birth_date = $birth_date;
+            $this->age = $this->age_from_birthdate($birth_date);
         }
 
         $this->level = (string) $this->level;

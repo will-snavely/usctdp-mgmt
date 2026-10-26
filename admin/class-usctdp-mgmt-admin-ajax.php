@@ -1807,9 +1807,13 @@ class Usctdp_Mgmt_Admin_Ajax
                     $last_name = $this->get_sanitized_post_field_text('last');
                     return Usctdp_Mgmt_Model::append_token_suffix($first_name . ' ' . $last_name);
                 },
+                // Birthday is optional. Empty is stored as '' (zero date), the
+                // same as update_student and the WooCommerce paths - not null,
+                // which BerlinDB's validate_item() rejects outright since the
+                // column isn't allow_null, failing the whole insert.
                 'birth_date' => function ($raw) {
                     if (empty($raw)) {
-                        return null;
+                        return '';
                     }
                     $date = new DateTime($raw);
                     return $date->format('Y-m-d');
