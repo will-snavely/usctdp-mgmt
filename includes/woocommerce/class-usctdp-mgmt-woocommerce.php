@@ -485,7 +485,10 @@ class Usctdp_Mgmt_Woocommerce
                     $item->save();
                 }
 
-                $discounts = isset($line_item["discounts"]) ? $line_item["discounts"] : [];
+                // jQuery serializes a null `discounts` as an empty string.
+                $discounts = isset($line_item["discounts"]) && is_array($line_item["discounts"])
+                    ? $line_item["discounts"]
+                    : [];
                 foreach ($discounts as $discount) {
                     $discount_amount = floatval($discount["amount"]);
                     $discount_total += $discount_amount;
