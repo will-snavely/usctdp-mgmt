@@ -104,6 +104,10 @@
 
         familyObserver.subscribe(result => {
             if (result.data) {
+                // Only reachable for a deleted family via a direct
+                // ?family_id= link - search no longer returns it.
+                $('#family-deleted-notice').toggleClass('hidden', !result.data.is_deleted);
+                $('#delete-family-btn').toggleClass('hidden', !!result.data.is_deleted);
                 try {
                     renderUI(result.data);
                 } catch (err) {
@@ -369,6 +373,7 @@
                                     <a href="${registerUrl}" class="button button-small">Register</a>
                                     <a href="${historyUrl}" class="button button-small">History</a>
                                     <button type="button" class="button button-small edit-student-btn" data-student-id="${data}">Edit</button>
+                                    <button type="button" class="button button-small button-link-delete delete-student-btn" data-student-id="${data}">Delete</button>
                                 </div>
                             </div>`;
                         }
@@ -415,14 +420,24 @@
                     if (response.success) {
                         newStudentModal.close();
                         membersTable.ajax.reload();
-                        alert("Student created successfully!");
+                        Swal.fire({
+                            title: 'Success',
+                            text: 'Student created successfully!',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
                     }
                 },
                 error: function (response) {
-                    const responseMessage = response.responseJSON.data;
+                    const responseMessage = response.responseJSON ? response.responseJSON.data : 'Unknown error';
                     var userMessage = "Failed to create student.\n\n" + responseMessage;
                     userMessage += "\n\nTry again or inform a developer.";
-                    alert(userMessage);
+                    Swal.fire({
+                        title: 'Error',
+                        text: userMessage,
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
                 },
                 complete: function () {
                     $btn.prop('disabled', false);
@@ -443,6 +458,58 @@
 
         $('#close-edit-student-modal').on('click', () => {
             editStudentModal.close();
+        });
+
+        $('#family-members-table-body').on('click', '.delete-student-btn', function (e) {
+            e.preventDefault();
+            const $btn = $(this);
+            const rowData = membersTable.row($btn.closest('tr')).data();
+            const studentName = `${rowData.first} ${rowData.last}`.trim();
+
+            Swal.fire({
+                title: 'Delete student?',
+                text: `${studentName} will be removed from this family and from student search. ` +
+                    'Their registration and purchase history is kept.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Delete',
+                confirmButtonColor: '#d63638',
+                cancelButtonText: 'Cancel',
+                focusCancel: true
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                $btn.prop('disabled', true);
+                $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.delete_student_action,
+                        security: usctdp_mgmt_admin.delete_student_nonce,
+                        student_id: rowData.id,
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            membersTable.ajax.reload();
+                            Swal.fire({
+                                title: 'Deleted',
+                                text: `${studentName} was deleted.`,
+                                icon: 'success',
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    },
+                    error: function (response) {
+                        $btn.prop('disabled', false);
+                        const responseMessage = response.responseJSON ? response.responseJSON.data : 'Unknown error';
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to delete student.\n\n' + responseMessage,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                });
+            });
         });
 
         $('#save-edit-student-modal').on('click', (e) => {
@@ -634,6 +701,63 @@
                 complete: function () {
                     $btn.prop('disabled', false);
                 }
+            });
+        });
+
+        $('#delete-family-btn').on('click', (e) => {
+            e.preventDefault();
+            const family = queryClient.getQueryData(['family', currentId]);
+            const familyName = family ? family.title : $('#family-title').text();
+            const $btn = $('#delete-family-btn');
+
+            Swal.fire({
+                title: 'Delete family?',
+                text: `${familyName} will be removed from family search, and its members from student search. ` +
+                    'Their website login will be disabled and any active sessions signed out. ' +
+                    'Registration, purchase and ledger history is kept.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Delete Family',
+                confirmButtonColor: '#d63638',
+                cancelButtonText: 'Cancel',
+                focusCancel: true
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                $btn.prop('disabled', true);
+                $.ajax({
+                    url: usctdp_mgmt_admin.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: usctdp_mgmt_admin.delete_family_action,
+                        security: usctdp_mgmt_admin.delete_family_nonce,
+                        family_id: currentId,
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            // Leave the button disabled - the page navigates
+                            // back to an empty Families page once the dialog
+                            // closes, since the family is no longer selectable.
+                            Swal.fire({
+                                title: 'Deleted',
+                                text: `${familyName} was deleted.`,
+                                icon: 'success',
+                                confirmButtonText: 'OK'
+                            }).then(() => {
+                                window.location.href = usctdp_mgmt_admin.family_url;
+                            });
+                        }
+                    },
+                    error: function (response) {
+                        $btn.prop('disabled', false);
+                        const responseMessage = response.responseJSON ? response.responseJSON.data : 'Unknown error';
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to delete family.\n\n' + responseMessage,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                });
             });
         });
 

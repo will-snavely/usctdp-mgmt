@@ -75,6 +75,44 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         return $this->insert_menu_item($items, 'registrations', 'house-credit', __('House Credit', 'usctdp-mgmt'));
     }
 
+    /**
+     * True when $user_id's family has been soft-deleted from the admin
+     * Families page. Never true for a user who can manage_options, so an
+     * admin whose own account happens to be linked to a deleted family can't
+     * lock themselves out.
+     */
+    public static function is_login_disabled_for_user($user_id)
+    {
+        if (empty($user_id) || user_can($user_id, 'manage_options')) {
+            return false;
+        }
+        $family_query = new Usctdp_Mgmt_Family_Query([
+            'user_id' => $user_id,
+            'is_deleted' => 1,
+            'number' => 1,
+        ]);
+        return !empty($family_query->items);
+    }
+
+    public function block_deleted_family_login($user)
+    {
+        if ($user instanceof WP_User && self::is_login_disabled_for_user($user->ID)) {
+            return new WP_Error(
+                'usctdp_account_disabled',
+                __('This account has been disabled. Please contact the office.', 'usctdp-mgmt')
+            );
+        }
+        return $user;
+    }
+
+    public function block_deleted_family_password_reset($allow, $user_id)
+    {
+        if (self::is_login_disabled_for_user($user_id)) {
+            return false;
+        }
+        return $allow;
+    }
+
     private function get_current_user_family()
     {
         $family_query = new Usctdp_Mgmt_Family_Query([
@@ -97,6 +135,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         if ($family) {
             $student_query = new Usctdp_Mgmt_Student_Query([
                 'family_id' => $family->id,
+                'is_deleted' => 0,
                 'orderby' => 'first',
                 'order' => 'ASC',
             ]);

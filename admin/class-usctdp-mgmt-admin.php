@@ -39,6 +39,8 @@ class Usctdp_Mgmt_Admin
                     'update_student',
                     'get_family_balance',
                     'issue_house_credit',
+                    'delete_family',
+                    'delete_student',
                 ],
                 'context' => ['family_id']
             ],

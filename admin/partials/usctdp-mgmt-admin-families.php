@@ -157,7 +157,11 @@
             <h2 class="family-title">
                 Family: <span id="family-title"></span>
                 <button type="button" class="button button-small" id="edit-family-name-btn">Edit Family Name...</button>
+                <button type="button" class="button button-small button-link-delete" id="delete-family-btn">Delete Family...</button>
             </h2>
+            <div id="family-deleted-notice" class="notice notice-warning inline hidden">
+                <p>This family has been deleted. It no longer appears in family search, and its website login is disabled.</p>
+            </div>
             <div id="family-container">
                 <div>
                     <a href="#" class="button button-primary" id="family-registration-history-link">

@@ -12,6 +12,8 @@ class Usctdp_Mgmt_Admin_Ajax
         'create_ledger_entries' => 'ajax_create_ledger_entries',
         'create_student' => 'ajax_create_student',
         'datatable_balances' => 'ajax_datatable_balances',
+        'delete_family' => 'ajax_delete_family',
+        'delete_student' => 'ajax_delete_student',
         'datatable_balances_detail' => 'ajax_datatable_balances_detail',
         'earnings_rollup' => 'ajax_earnings_rollup',
         'earnings_session_detail' => 'ajax_earnings_session_detail',
@@ -167,6 +169,68 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
+     * Capacity guard for admin edits that put an existing registration
+     * (back) into a class - an activity change, or a void -> active restore.
+     * Without it those edits silently overbooked: an admin moved a student
+     * into an already-full clinic and nothing stopped it. Mirrors the
+     * register screen's check in create_order_records(), including its
+     * ignore-full override, which the callers handle.
+     *
+     * Returns null when the change is fine, or a user-facing message when
+     * the target reservation group is already at capacity. A registration
+     * that's already active in the same group is already counted, so
+     * moving it between activities sharing that group never trips this.
+     *
+     * With $lock, takes the same reservation_group row lock checkout and
+     * lock_registrations() do, so it must run inside the caller's
+     * transaction for the check to still hold when the write lands.
+     */
+    private function get_registration_change_capacity_error($registration, $new_activity_id, $new_status, $lock = true)
+    {
+        global $wpdb;
+        if ($new_status !== 'active') {
+            return null;
+        }
+        $new_activity = Usctdp_Mgmt_Model::get_activity($new_activity_id);
+        if (!$new_activity) {
+            throw new Web_Request_Exception('No activity found with id: ' . $new_activity_id);
+        }
+        $new_group_id = (int) $new_activity->reservation_group_id;
+
+        if ($registration->status === 'active') {
+            $current_activity = Usctdp_Mgmt_Model::get_activity($registration->activity_id);
+            if ($current_activity && (int) $current_activity->reservation_group_id === $new_group_id) {
+                return null;
+            }
+        }
+
+        if ($lock) {
+            $wpdb->get_results($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}usctdp_reservation_group WHERE id = %d FOR UPDATE",
+                $new_group_id
+            ));
+        }
+        $capacity = $this->get_activity_capacity($new_activity_id);
+        $active = $this->get_activity_enrollment_counts($new_activity_id)['active'];
+        if ($capacity !== null && $active >= (int) $capacity) {
+            return $new_activity->title . " is full ($active of $capacity spots taken).";
+        }
+        return null;
+    }
+
+    /**
+     * modified_at/modified_by for admin edits to an existing registration,
+     * in the same UTC convention create_purchase_and_registration() uses.
+     */
+    private function registration_modified_stamp()
+    {
+        return [
+            'modified_at' => current_time('mysql', true),
+            'modified_by' => get_current_user_id(),
+        ];
+    }
+
+    /**
      * The other activities (if any) sharing this one's reservation group -
      * {id, title} pairs, not just titles, since the Activities page's
      * "Manage Group" modal needs ids to offer removing a specific sibling
@@ -241,7 +305,13 @@ class Usctdp_Mgmt_Admin_Ajax
         return $query->add_item($args);
     }
 
-    private function save_entity($entity_id, $source, $query_object, $fields, $id_field = 'id')
+    /**
+     * $on_change is merged into the update only when at least one of
+     * $fields actually changed - e.g. modified_at/modified_by stamps (see
+     * registration_modified_stamp()), which shouldn't turn a no-op save into
+     * a write.
+     */
+    private function save_entity($entity_id, $source, $query_object, $fields, $id_field = 'id', $on_change = [])
     {
         $query = new $query_object([$id_field => $entity_id, 'number' => 1]);
         if (empty($query->items)) {
@@ -262,6 +332,7 @@ class Usctdp_Mgmt_Admin_Ajax
         if (empty($args)) {
             return $entity;
         }
+        $args = array_merge($args, $on_change);
 
         global $wpdb;
         $wpdb->last_error = '';
@@ -1155,9 +1226,20 @@ class Usctdp_Mgmt_Admin_Ajax
                 "purchase_id" => $registration->purchase_id
             ]);
 
+            // Advisory only (no lock) - ajax_update_registration() re-checks
+            // under the group lock when the change is actually saved.
+            $capacity_error = $this->get_registration_change_capacity_error(
+                $registration,
+                $new_activity_id,
+                $registration->status,
+                false
+            );
+
             wp_send_json_success([
                 'price_change' => $price_change,
-                'purchase_data' => $purchase_data
+                'purchase_data' => $purchase_data,
+                'class_full' => $capacity_error !== null,
+                'capacity_message' => $capacity_error,
             ]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_preview_registration_activity_change', $e);
@@ -1211,7 +1293,8 @@ class Usctdp_Mgmt_Admin_Ajax
             $transaction_started = true;
 
             $registration_query = new Usctdp_Mgmt_Registration_Query();
-            if (!$registration_query->update_item($registration_id, ['student_id' => $student_id])) {
+            $registration_update = array_merge(['student_id' => $student_id], $this->registration_modified_stamp());
+            if (!$registration_query->update_item($registration_id, $registration_update)) {
                 throw new Web_Request_Exception('Failed to reassign registration.');
             }
 
@@ -1278,19 +1361,56 @@ class Usctdp_Mgmt_Admin_Ajax
             ]);
         }
 
+        $ignore_full = isset($_POST['ignore_class_full']) && $_POST['ignore_class_full'] === '1';
+
+        global $wpdb;
+        $transaction_started = false;
         try {
+            $wpdb->query('START TRANSACTION');
+            $transaction_started = true;
+
+            if (!$ignore_full) {
+                $new_activity_id = isset($_POST['activity_id'])
+                    ? intval($_POST['activity_id'])
+                    : (int) $registration->activity_id;
+                $new_status = isset($_POST['status'])
+                    ? sanitize_text_field($_POST['status'])
+                    : $registration->status;
+                $capacity_error = $this->get_registration_change_capacity_error(
+                    $registration,
+                    $new_activity_id,
+                    $new_status
+                );
+                if ($capacity_error !== null) {
+                    $wpdb->query('ROLLBACK');
+                    $transaction_started = false;
+                    // Not an HTTP error: the client checks class_full and
+                    // offers to retry with ignore_class_full.
+                    wp_send_json_error(['class_full' => true, 'message' => $capacity_error]);
+                }
+            }
+
             $result = $this->save_entity(
                 $entity_id,
                 $_POST,
                 'Usctdp_Mgmt_Registration_Query',
-                $post_fields
+                $post_fields,
+                'id',
+                $this->registration_modified_stamp()
             );
+
+            $wpdb->query('COMMIT');
+            $transaction_started = false;
+
             wp_send_json_success([
                 'updated' => $result,
                 'price_change' => $price_change,
                 'purchase_data' => $purchase_data
             ]);
         } catch (Throwable $e) {
+            if ($transaction_started) {
+                $wpdb->query('ROLLBACK');
+            }
             Usctdp_Mgmt::logger()->log_exception('ajax_update_registration', $e);
             wp_send_json_error('An unexpected server error occurred.', 500);
         }
@@ -1315,17 +1435,34 @@ class Usctdp_Mgmt_Admin_Ajax
             wp_send_json_error('No registration found with id: ' . $entity_id, 400);
         }
 
+        $ignore_full = isset($_POST['ignore_class_full']) && $_POST['ignore_class_full'] === '1';
+
         global $wpdb;
         $transaction_started = false;
         try {
             $wpdb->query('START TRANSACTION');
             $transaction_started = true;
 
+            if (!$ignore_full) {
+                $capacity_error = $this->get_registration_change_capacity_error(
+                    $registration,
+                    (int) $registration->activity_id,
+                    $status
+                );
+                if ($capacity_error !== null) {
+                    $wpdb->query('ROLLBACK');
+                    $transaction_started = false;
+                    wp_send_json_error(['class_full' => true, 'message' => $capacity_error]);
+                }
+            }
+
             $registration_result = $this->save_entity(
                 $entity_id,
                 $_POST,
                 'Usctdp_Mgmt_Registration_Query',
-                ['status' => sanitize_text_field(...)]
+                ['status' => sanitize_text_field(...)],
+                'id',
+                $this->registration_modified_stamp()
             );
 
             $purchase_result = $this->save_entity(
@@ -1903,6 +2040,95 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
+    /**
+     * Soft delete - only flags the family row (is_deleted/deleted_at/
+     * deleted_by), nothing is removed. Its students, purchases, ledger and
+     * registrations are left exactly as they are; the family just stops
+     * showing up in family search, and its students in student search (see
+     * Usctdp_Mgmt_Family_Query::search_families() and
+     * Usctdp_Mgmt_Student_Query::search_students()). For a real, permanent
+     * delete of test/spam accounts there's still the delete-family CLI
+     * command (Usctdp_Delete_Family).
+     */
+    public function ajax_delete_family()
+    {
+        $this->check_nonce('delete_family');
+
+        $entity_id = isset($_POST['family_id']) ? intval($_POST['family_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter family_id', 400);
+        }
+
+        $family = Usctdp_Mgmt_Model::get_family($entity_id);
+        if (!$family) {
+            wp_send_json_error('No family found with id: ' . $entity_id, 400);
+        }
+        if ($family->is_deleted) {
+            wp_send_json_error('This family has already been deleted.', 400);
+        }
+
+        try {
+            $family_query = new Usctdp_Mgmt_Family_Query();
+            if (!$family_query->update_item($entity_id, [
+                'is_deleted' => 1,
+                'deleted_at' => current_time('mysql', true),
+                'deleted_by' => get_current_user_id(),
+            ])) {
+                wp_send_json_error('Failed to delete family.', 500);
+            }
+
+            // New logins are refused by
+            // Usctdp_Mgmt_Woocommerce_Hooks::block_deleted_family_login();
+            // this signs the account out of any session it already has.
+            if (Usctdp_Mgmt_Woocommerce_Hooks::is_login_disabled_for_user($family->user_id)) {
+                WP_Session_Tokens::get_instance($family->user_id)->destroy_all();
+            }
+
+            wp_send_json_success(['family_id' => $entity_id]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_delete_family', $e);
+            wp_send_json_error('An unexpected server error occurred during family deletion.', 500);
+        }
+    }
+
+    /**
+     * Soft delete - same as ajax_delete_family(), only flags the student
+     * row. Registrations/waitlist entries/purchases for the student are
+     * untouched.
+     */
+    public function ajax_delete_student()
+    {
+        $this->check_nonce('delete_student');
+
+        $entity_id = isset($_POST['student_id']) ? intval($_POST['student_id']) : '';
+        if (empty($entity_id)) {
+            wp_send_json_error('Missing required parameter student_id', 400);
+        }
+
+        $student = Usctdp_Mgmt_Model::get_student($entity_id);
+        if (!$student) {
+            wp_send_json_error('No student found with id: ' . $entity_id, 400);
+        }
+        if ($student->is_deleted) {
+            wp_send_json_error('This student has already been deleted.', 400);
+        }
+
+        try {
+            $student_query = new Usctdp_Mgmt_Student_Query();
+            if (!$student_query->update_item($entity_id, [
+                'is_deleted' => 1,
+                'deleted_at' => current_time('mysql', true),
+                'deleted_by' => get_current_user_id(),
+            ])) {
+                wp_send_json_error('Failed to delete student.', 500);
+            }
+            wp_send_json_success(['student_id' => $entity_id]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_delete_student', $e);
+            wp_send_json_error('An unexpected server error occurred during student deletion.', 500);
+        }
+    }
+
     private function create_ledger_entry($source)
     {
         $fields = [
@@ -2475,6 +2701,7 @@ class Usctdp_Mgmt_Admin_Ajax
 
         $args = [
             'family_id' => $family_id,
+            'is_deleted' => 0,
             'orderby' => 'id',
             'order' => 'DESC',
         ];

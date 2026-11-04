@@ -908,6 +908,23 @@
             $btn.prop('disabled', true);
 
             try {
+                // Asked up front, before the student reassignment below
+                // writes anything, so declining leaves the registration
+                // untouched. updateRegistration() still handles a
+                // class_full answer from the save itself (e.g. the last
+                // spot sold in between).
+                let ignoreFull = false;
+                if (parseInt(newActivityId, 10) !== parseInt(originalRowData.activity_id, 10)) {
+                    const preview = await USCTDP_Admin.ajax_previewRegistrationActivityChange(originalRowData.registration_id, newActivityId);
+                    if (preview.success && preview.data.class_full) {
+                        if (!(await USCTDP_Admin.confirmOverCapacity(preview.data.capacity_message))) {
+                            window.Swal.fire("Cancelled", "The registration was not changed.", "info");
+                            return;
+                        }
+                        ignoreFull = true;
+                    }
+                }
+
                 if (parseInt(newStudentId, 10) !== parseInt(originalRowData.student_id, 10)) {
                     const reassignResponse = await USCTDP_Admin.ajax_reassignRegistration(originalRowData.registration_id, newStudentId);
                     if (!reassignResponse.success) {
@@ -921,7 +938,9 @@
                 // attributed to whoever now actually owns this purchase.
                 await updateRegistration(
                     { ...originalRowData, student_id: newStudentId, family_id: newFamilyId },
-                    { activity_id: newActivityId, student_level: level }
+                    { activity_id: newActivityId, student_level: level },
+                    {},
+                    ignoreFull
                 );
 
                 modifyRegistrationState = null;
@@ -946,7 +965,7 @@
         // discounts update this function already issues on a reviewed
         // activity change, so a registration+notes edit made together only
         // hits ajax_update_purchase() once.
-        async function updateRegistration(rowData, fields, purchaseFields = {}) {
+        async function updateRegistration(rowData, fields, purchaseFields = {}, ignoreFull = false) {
             const isActivityChange = fields.activity_id
                 && parseInt(fields.activity_id, 10) !== parseInt(rowData.activity_id, 10);
 
@@ -960,7 +979,22 @@
                 }
             }
 
-            const saveResponse = await USCTDP_Admin.ajax_saveRegistrationFields(rowData.registration_id, fields);
+            // Nothing else (purchase/ledger) has been written yet, so a
+            // declined over-capacity prompt is still a true no-op.
+            let saveResponse = await USCTDP_Admin.ajax_saveRegistrationFields(
+                rowData.registration_id,
+                ignoreFull ? { ...fields, ignore_class_full: '1' } : fields
+            );
+            if (USCTDP_Admin.isClassFullResponse(saveResponse)) {
+                if (!(await USCTDP_Admin.confirmOverCapacity(saveResponse.data.message))) {
+                    window.Swal.fire("Cancelled", "The registration was not changed.", "info");
+                    return;
+                }
+                saveResponse = await USCTDP_Admin.ajax_saveRegistrationFields(
+                    rowData.registration_id,
+                    { ...fields, ignore_class_full: '1' }
+                );
+            }
             if (!saveResponse.success) {
                 throw Error("Failed to update registration.");
             }
@@ -1652,6 +1686,22 @@
             });
         });
 
+        // Restoring a voided registration puts the student back into the
+        // class, so it's subject to the same capacity check as a new
+        // registration (see ajax_set_registration_status()).
+        async function restoreRegistration(registrationId) {
+            let response = await USCTDP_Admin.ajax_setRegistrationStatus(registrationId, 'active');
+            if (USCTDP_Admin.isClassFullResponse(response)) {
+                if (!(await USCTDP_Admin.confirmOverCapacity(response.data.message))) {
+                    return;
+                }
+                response = await USCTDP_Admin.ajax_setRegistrationStatus(registrationId, 'active', true);
+            }
+            if (!response.success) {
+                throw new Error(response.data || 'Failed to restore registration.');
+            }
+        }
+
         $('#history-table tbody').on('click', 'button.restore-registration-btn', function (e) {
             const $row = $(this).closest('tr');
             var rowData = historyTable.row($row).data();
@@ -1669,7 +1719,7 @@
                 denyButtonText: `No`
             }).then((result) => {
                 if (result.isConfirmed) {
-                    USCTDP_Admin.ajax_setRegistrationStatus(rowData.registration_id, 'active')
+                    restoreRegistration(rowData.registration_id)
                         .catch((error) => {
                             window.Swal.fire({
                                 icon: "error",

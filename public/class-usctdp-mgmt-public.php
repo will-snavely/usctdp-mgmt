@@ -350,6 +350,7 @@ class Usctdp_Mgmt_Public
         }
         $student_query = new Usctdp_Mgmt_Student_Query([
             "family_id" => $family->id,
+            "is_deleted" => 0,
             "sort" => "id",
             "order" => "DESC"
         ]);

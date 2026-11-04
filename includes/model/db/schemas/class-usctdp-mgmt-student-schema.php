@@ -48,5 +48,24 @@ class Usctdp_Mgmt_Student_Schema extends Schema
             'name' => 'level',
             'type' => 'tinytext',
         ],
+        'is_deleted' => [
+            'name' => 'is_deleted',
+            'type' => 'tinyint',
+            'length' => '1',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'deleted_at' => [
+            'name' => 'deleted_at',
+            'type' => 'datetime',
+            'allow_null' => true,
+        ],
+        'deleted_by' => [
+            'name' => 'deleted_by',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'allow_null' => true,
+        ],
     ];
 }

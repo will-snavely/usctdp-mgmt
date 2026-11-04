@@ -40,5 +40,6 @@ class Usctdp_Mgmt_Family_Row extends Row
         $this->emails = $email_result;
     
         $this->notes = (string) $this->notes;
+        $this->is_deleted = !empty($this->is_deleted);
     }
 }

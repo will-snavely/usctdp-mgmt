@@ -305,6 +305,24 @@ class Usctdp_Mgmt
             $commerce_handler,
             'add_lost_password_link_to_existing_account_error'
         );
+        // Soft-deleted families (see Usctdp_Mgmt_Admin_Ajax::ajax_delete_family)
+        // can't log in or reset their password. Priority 30 runs after core's
+        // username/password and email/password checks (20), so this only
+        // ever sees an already-verified WP_User.
+        $this->loader->add_filter(
+            'authenticate',
+            $commerce_handler,
+            'block_deleted_family_login',
+            30,
+            1
+        );
+        $this->loader->add_filter(
+            'allow_password_reset',
+            $commerce_handler,
+            'block_deleted_family_password_reset',
+            10,
+            2
+        );
         $this->loader->add_filter(
             'woocommerce_new_customer_data',
             $commerce_handler,

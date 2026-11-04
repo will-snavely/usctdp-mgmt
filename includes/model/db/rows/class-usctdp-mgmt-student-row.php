@@ -36,5 +36,6 @@ class Usctdp_Mgmt_Student_Row extends Row
         }
 
         $this->level = (string) $this->level;
+        $this->is_deleted = !empty($this->is_deleted);
     }
 }

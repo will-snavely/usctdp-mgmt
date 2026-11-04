@@ -77,7 +77,7 @@
         return response;
     }
 
-    USCTDP_Admin.ajax_setRegistrationStatus = async function (id, status) {
+    USCTDP_Admin.ajax_setRegistrationStatus = async function (id, status, ignoreFull = false) {
         const response = await $.ajax({
             url: usctdp_mgmt_admin.ajax_url,
             method: 'POST',
@@ -86,10 +86,34 @@
                 action: usctdp_mgmt_admin.set_registration_status_action,
                 security: usctdp_mgmt_admin.set_registration_status_nonce,
                 registration_id: id,
-                status: status
+                status: status,
+                ignore_class_full: ignoreFull ? '1' : '0'
             }
         });
         return response;
+    }
+
+    // True when a registration save/restore was refused because the target
+    // class is full - see get_registration_change_capacity_error()
+    // server-side, which answers with a non-HTTP-error
+    // { success: false, data: { class_full: true, message } }.
+    USCTDP_Admin.isClassFullResponse = function (response) {
+        return !!(response && !response.success && response.data && response.data.class_full);
+    }
+
+    // Asks the admin whether to go over capacity anyway - the same choice
+    // the register screen's "This activity is full" notification offers.
+    // Resolves true to proceed (callers then retry with ignore_class_full).
+    USCTDP_Admin.confirmOverCapacity = async function (message) {
+        const result = await window.Swal.fire({
+            icon: 'warning',
+            title: 'Class Full',
+            text: message + ' Do you want to go over capacity anyway?',
+            showDenyButton: true,
+            confirmButtonText: 'Yes, go over capacity',
+            denyButtonText: 'No'
+        });
+        return result.isConfirmed;
     }
 
     USCTDP_Admin.ajax_generateStatement = async function (family_id, purchase_ids) {

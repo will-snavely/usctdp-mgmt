@@ -61,6 +61,25 @@ class Usctdp_Mgmt_Family_Schema extends Schema
         'notes' => [
             'name' => 'notes',
             'type' => 'text',
-        ]
+        ],
+        'is_deleted' => [
+            'name' => 'is_deleted',
+            'type' => 'tinyint',
+            'length' => '1',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'deleted_at' => [
+            'name' => 'deleted_at',
+            'type' => 'datetime',
+            'allow_null' => true,
+        ],
+        'deleted_by' => [
+            'name' => 'deleted_by',
+            'type' => 'bigint',
+            'length' => '20',
+            'unsigned' => true,
+            'allow_null' => true,
+        ],
     ];
 }

@@ -33,11 +33,15 @@ class Usctdp_Mgmt_Student_Query extends Query
     public function search_students($query, $family_id, $limit = 10)
     {
         global $wpdb;
-        $sql = "SELECT * FROM {$wpdb->prefix}{$this->table_name}";
+        // Soft-deleted students are hidden, and so are the (not themselves
+        // deleted) students of a soft-deleted family - deleting a family
+        // only flags the family row, see ajax_delete_family().
+        $sql = "SELECT stud.* FROM {$wpdb->prefix}{$this->table_name} AS stud
+                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id";
         $args = [];
-        $conditions = [];
+        $conditions = ["stud.is_deleted = 0", "fam.is_deleted = 0"];
         if ($family_id !== null) {
-            $conditions[] = "family_id = %d";
+            $conditions[] = "stud.family_id = %d";
             $args[] = $family_id;
         }
         if ($query) {
@@ -46,13 +50,11 @@ class Usctdp_Mgmt_Student_Query extends Query
             foreach ($parts as $part) {
                 $query_terms[] = "+$part*";
             }
-            $conditions[] = "MATCH(search_term) AGAINST(%s IN BOOLEAN MODE)";
+            $conditions[] = "MATCH(stud.search_term) AGAINST(%s IN BOOLEAN MODE)";
             $args[] = implode(" ", $query_terms);
         }
-        if (!empty($conditions)) {
-            $sql .= " WHERE " . implode(" AND ", $conditions);
-        }
-        $sql .= " ORDER BY title ASC LIMIT %d";
+        $sql .= " WHERE " . implode(" AND ", $conditions);
+        $sql .= " ORDER BY stud.title ASC LIMIT %d";
         $args[] = $limit;
 
         $query = $wpdb->prepare($sql, $args);
