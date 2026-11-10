@@ -1994,6 +1994,8 @@ class Usctdp_Mgmt_Admin_Ajax
      * DataTables server-side paging). Same data shape as
      * ajax_session_rosters_datatable(), just without the draw/paging
      * envelope - see Usctdp_Mgmt_Roster_Group_Query::search_rosters().
+     * Limited to rosters with at least one scheduled or on-sale session;
+     * fully archived ones are still on the Rosters page.
      */
     public function ajax_session_rosters()
     {
@@ -2002,7 +2004,7 @@ class Usctdp_Mgmt_Admin_Ajax
         $query_results = [];
         try {
             $roster_query = new Usctdp_Mgmt_Roster_Group_Query();
-            $query_results = $roster_query->search_rosters([])['data'];
+            $query_results = $roster_query->search_rosters(['current_only' => true])['data'];
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_session_rosters', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);

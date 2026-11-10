@@ -271,11 +271,18 @@ class Usctdp_Mgmt_Roster_Group_Query extends Query
             GROUP BY rg.id
         ";
 
-        $where_sql = '';
+        $conditions = [];
         if (!empty($args['q'])) {
             $like = '%' . $wpdb->esc_like($args['q']) . '%';
-            $where_sql = $wpdb->prepare("WHERE combined.name LIKE %s OR combined.session_titles LIKE %s", $like, $like);
+            $conditions[] = $wpdb->prepare("(combined.name LIKE %s OR combined.session_titles LIKE %s)", $like, $like);
         }
+        // session_ids only aggregates non-archived (scheduled/on_sale)
+        // members - see the sesh LEFT JOIN above - so NULL here means the
+        // group has no current session left (or none at all).
+        if (!empty($args['current_only'])) {
+            $conditions[] = "combined.session_ids IS NOT NULL";
+        }
+        $where_sql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         $limit_sql = '';
         if (isset($args['number']) && $args['number'] !== null) {
