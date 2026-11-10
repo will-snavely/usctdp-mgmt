@@ -90,7 +90,7 @@ class Usctdp_Random_Registration_Generator
     private function create_purchase_and_registration($activity, $student)
     {
         $created_by = get_current_user_id();
-        $created_at = current_time('mysql');
+        $created_at = current_time('mysql', true);
 
         $purchase_query = new Usctdp_Mgmt_Purchase_Query();
         $purchase_id = $purchase_query->add_item([
@@ -148,7 +148,7 @@ class Usctdp_Random_Registration_Generator
     private function create_ledger_entries_for_registration($purchase_id, $student, $base_price, $is_paid)
     {
         $created_by = get_current_user_id();
-        $created_at = current_time('mysql');
+        $created_at = current_time('mysql', true);
         $zero = '0.00';
         $base_price_str = number_format($base_price, 2, '.', '');
 

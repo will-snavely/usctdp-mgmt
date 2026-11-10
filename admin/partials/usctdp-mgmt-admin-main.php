@@ -114,25 +114,21 @@ $google_timestamp = get_option('usctdp_google_refresh_token_timestamp');
 
             <div id="item-4" class="dashboard-card">
                 <div class="dashboard-card-header">
-                    <span class="card-title">Recent Registrations</span>
+                    <span class="card-title">Recent Enrollments</span>
                 </div>
-                <div id="usctdp-recent-registrations-manager" class="dashboard-card-body">
-                    <div class="table-scroll">
-                        <table id="recent-registrations-table" class="usctdp-mini-table" width="100%"
+                <div id="usctdp-recent-enrollments-manager" class="dashboard-card-body">
+                    <div class="table-scroll-x">
+                        <table id="recent-enrollments-table" class="usctdp-mini-table" width="100%"
                             cellspacing="0">
                             <thead>
                                 <tr>
-                                    <th>Student</th>
-                                    <th>Family</th>
+                                    <th>Clinic</th>
                                     <th>Session</th>
-                                    <th>Activity</th>
+                                    <th>Enrolled</th>
+                                    <th>Last Registration</th>
                                 </tr>
                             </thead>
-                            <tbody id="recent-registrations-table-body">
-                                <tr class="loading-row">
-                                    <td colspan="4">Loading...</td>
-                                </tr>
-                            </tbody>
+                            <tbody id="recent-enrollments-table-body"></tbody>
                         </table>
                     </div>
                 </div>

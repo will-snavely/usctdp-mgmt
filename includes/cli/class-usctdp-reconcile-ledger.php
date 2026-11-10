@@ -348,7 +348,7 @@ class Usctdp_Reconcile_Ledger
         $charge = $this->get_activity_charge($item, (int) $row->activity_id, $activity_ids, $order_id);
         $payment_method = $order->get_payment_method();
         $reference_id = $order->get_transaction_id() ?: (string) $order_id;
-        $created_at = current_time('mysql');
+        $created_at = current_time('mysql', true);
         $created_by = get_current_user_id();
 
         $entries = $this->build_ledger_entries(
@@ -400,7 +400,7 @@ class Usctdp_Reconcile_Ledger
         $charge = $this->get_activity_charge($item, (int) $row->activity_id, $activity_ids, $order_id);
         $payment_method = $order->get_payment_method();
         $reference_id = $order->get_transaction_id() ?: (string) $order_id;
-        $created_at = current_time('mysql');
+        $created_at = current_time('mysql', true);
         $created_by = get_current_user_id();
         $discounts_json = $this->get_discounts_json($charge);
 

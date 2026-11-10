@@ -163,41 +163,32 @@
             window.location.href = usctdp_mgmt_admin.family_url + '&family_id=' + id;
         });
 
-        function loadRecentRegistrations() {
-            var $tbody = $('#recent-registrations-table-body');
-            $.ajax({
+        // Clinics ordered by their most recent registration - server-side
+        // paginated, see ajax_recent_enrollments().
+        $('#recent-enrollments-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            searching: false,
+            lengthChange: false,
+            pageLength: 10,
+            language: {
+                emptyTable: 'No recent enrollments.'
+            },
+            ajax: {
                 url: usctdp_mgmt_admin.ajax_url,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    action: usctdp_mgmt_admin.recent_registrations_action,
-                    security: usctdp_mgmt_admin.recent_registrations_nonce,
-                    limit: 8
-                },
-                success: function (response) {
-                    $tbody.empty();
-                    var rows = (response && response.data) || [];
-                    if (rows.length === 0) {
-                        $tbody.append('<tr class="empty-row"><td colspan="4">No recent registrations.</td></tr>');
-                        return;
-                    }
-                    rows.forEach(function (row) {
-                        var $tr = $('<tr></tr>');
-                        $tr.append($('<td></td>').text(row.student_name));
-                        $tr.append($('<td></td>').text(row.family_name));
-                        $tr.append($('<td></td>').text(row.session_name));
-                        $tr.append($('<td></td>').text(row.activity_name));
-                        $tbody.append($tr);
-                    });
-                },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("AJAX Error:", textStatus, errorThrown);
-                    $tbody.empty();
-                    $tbody.append('<tr class="empty-row"><td colspan="4">Failed to load recent registrations.</td></tr>');
+                type: 'POST',
+                data: function (d) {
+                    d.action = usctdp_mgmt_admin.recent_enrollments_action;
+                    d.security = usctdp_mgmt_admin.recent_enrollments_nonce;
                 }
-            });
-        }
-
-        loadRecentRegistrations();
+            },
+            columns: [
+                { data: 'activity_name', render: $.fn.dataTable.render.text() },
+                { data: 'session_name', render: $.fn.dataTable.render.text() },
+                { data: 'enrolled' },
+                { data: 'last_registration_display' }
+            ]
+        });
     });
 })(jQuery);

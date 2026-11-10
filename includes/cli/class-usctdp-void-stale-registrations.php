@@ -61,7 +61,7 @@ class Usctdp_Void_Stale_Registrations
                 JOIN {$wpdb->prefix}usctdp_activity AS act ON act.id = reg.activity_id
                 WHERE reg.status = 'pending'
                 AND reg.order_id IS NULL
-                AND reg.created_at < NOW() - INTERVAL %d MINUTE
+                AND reg.created_at < UTC_TIMESTAMP() - INTERVAL %d MINUTE
                 ORDER BY reg.id ASC",
             $older_than_minutes
         ));
@@ -78,7 +78,7 @@ class Usctdp_Void_Stale_Registrations
         $reg_query = new Usctdp_Mgmt_Registration_Query();
         return $reg_query->update_item($registration_id, [
             'status' => 'void',
-            'modified_at' => current_time('mysql'),
+            'modified_at' => current_time('mysql', true),
             'modified_by' => get_current_user_id(),
         ]);
     }

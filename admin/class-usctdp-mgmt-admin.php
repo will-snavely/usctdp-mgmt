@@ -334,7 +334,7 @@ class Usctdp_Mgmt_Admin
             // Session"/"Hide" controls on the Rosters widget) is gone -
             // session status is now set on the dedicated 'sessions' page,
             // via update_session_status.
-            $main_ajax = ['gen_roster', 'select2_search', 'session_rosters', 'recent_registrations'];
+            $main_ajax = ['gen_roster', 'select2_search', 'session_rosters', 'recent_enrollments'];
             $this->load_admin_page('main', $main_ajax, [], []);
         });
 
