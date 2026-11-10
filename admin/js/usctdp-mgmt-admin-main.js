@@ -165,7 +165,7 @@
 
         // Clinics ordered by their most recent registration - server-side
         // paginated, see ajax_recent_enrollments().
-        $('#recent-enrollments-table').DataTable({
+        var recentEnrollmentsTable = $('#recent-enrollments-table').DataTable({
             processing: true,
             serverSide: true,
             ordering: false,
@@ -187,8 +187,73 @@
                 { data: 'activity_name', render: $.fn.dataTable.render.text() },
                 { data: 'session_name', render: $.fn.dataTable.render.text() },
                 { data: 'enrolled' },
-                { data: 'last_registration_display' }
+                { data: 'last_registration_display' },
+                {
+                    data: 'activity_id',
+                    render: function (data, type, row) {
+                        if (type !== 'display') {
+                            return '';
+                        }
+                        var $cell = $('<div></div>');
+                        $cell.addClass('session-actions');
+                        addAction($cell, 'View', 'view-roster-link', { 'drive-id': row.roster_drive_id || '' }, !row.roster_drive_id, 'Not yet generated');
+                        addAction($cell, 'Regenerate', 'regenerate-roster-btn', { 'activity-id': row.activity_id });
+                        if (row.roster_stale) {
+                            $cell.append($('<span class="roster-stale-label"></span>')
+                                .text('Out of date')
+                                .attr('title', 'Generated before the latest registration'));
+                        }
+                        return $cell.get(0);
+                    }
+                }
             ]
+        });
+
+        $('#recent-enrollments-table').on('click', 'button.view-roster-link', function () {
+            var driveId = $(this).attr('data-drive-id');
+            if (!driveId) {
+                return;
+            }
+            window.open('https://drive.google.com/file/d/' + driveId + '/view', '_blank');
+        });
+
+        // Generates at the clinic's reservation-group level (see
+        // ajax_gen_roster()'s activity_id branch), so merged clinics share
+        // one roster - the redraw refreshes every affected row's state.
+        $('#recent-enrollments-table').on('click', 'button.regenerate-roster-btn', function () {
+            var $btn = $(this);
+            var originalText = $btn.text();
+            var $spinner = $('<span class="spinner is-active"></span>');
+
+            $btn.prop('disabled', true);
+            $btn.text('Working...');
+            $btn.after($spinner);
+
+            $.ajax({
+                url: usctdp_mgmt_admin.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                    activity_id: $btn.attr('data-activity-id'),
+                },
+                success: function (response) {
+                    window.open(response.data.doc_url, '_blank');
+                    recentEnrollmentsTable.ajax.reload(null, false);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    window.Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to generate roster. Inform a developer.',
+                        icon: 'error'
+                    });
+                    $btn.prop('disabled', false);
+                    $btn.text(originalText);
+                    $spinner.remove();
+                }
+            });
         });
     });
 })(jQuery);

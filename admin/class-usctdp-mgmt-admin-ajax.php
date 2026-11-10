@@ -2760,6 +2760,12 @@ class Usctdp_Mgmt_Admin_Ajax
      * misorder those against admin-created ones. The auto-increment id is
      * monotonic regardless. The displayed date is that latest
      * registration's created_at, converted from UTC to the site timezone.
+     *
+     * Each row also carries the clinic's own roster (the one ajax_gen_roster()
+     * builds from activity_id, keyed in usctdp_roster_link by the clinic's
+     * reservation_group_id), so the widget can offer View/Regenerate and
+     * flag a roster generated before the clinic's latest registration as
+     * out of date.
      */
     public function ajax_recent_enrollments()
     {
@@ -2777,7 +2783,9 @@ class Usctdp_Mgmt_Admin_Ajax
                         act.title AS activity_name,
                         sesh.title AS session_name,
                         agg.enrolled AS enrolled,
-                        last_reg.created_at AS last_registration_at
+                        last_reg.created_at AS last_registration_at,
+                        roster.drive_id AS roster_drive_id,
+                        roster.updated_at AS roster_updated_at
                     FROM (
                         SELECT reg.activity_id, COUNT(*) AS enrolled, MAX(reg.id) AS last_reg_id
                         FROM {$wpdb->prefix}usctdp_registration AS reg
@@ -2787,6 +2795,13 @@ class Usctdp_Mgmt_Admin_Ajax
                     JOIN {$wpdb->prefix}usctdp_registration AS last_reg ON last_reg.id = agg.last_reg_id
                     JOIN {$wpdb->prefix}usctdp_activity AS act ON agg.activity_id = act.id
                     JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
+                    -- Oldest link row per entity, matching what
+                    -- Usctdp_Mgmt_Docgen::get_roster_link() resolves to.
+                    LEFT JOIN {$wpdb->prefix}usctdp_roster_link AS roster ON roster.id = (
+                        SELECT MIN(rl.id)
+                        FROM {$wpdb->prefix}usctdp_roster_link AS rl
+                        WHERE rl.entity_id = act.reservation_group_id
+                    )
                     WHERE act.type = 'clinic'
                     ORDER BY agg.last_reg_id DESC
                     LIMIT %d OFFSET %d",
@@ -2812,6 +2827,10 @@ class Usctdp_Mgmt_Admin_Ajax
                     'enrolled' => (int) $result->enrolled,
                     'last_registration_at' => $result->last_registration_at,
                     'last_registration_display' => get_date_from_gmt($result->last_registration_at, 'M j, Y'),
+                    'roster_drive_id' => $result->roster_drive_id ?: null,
+                    'roster_stale' => $result->roster_drive_id
+                        && $result->roster_updated_at
+                        && $result->roster_updated_at < $result->last_registration_at,
                 ];
             }
 

@@ -18,6 +18,18 @@
     margin-top: 16px;
 }
 
+/* Always two columns, even with a lone card - auto-fit would collapse the
+   empty track and stretch that card across the whole row. */
+.dashboard-grid-halves {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+    .dashboard-grid-halves {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .dashboard-card {
     display: flex;
     flex-direction: column;
@@ -197,6 +209,14 @@
     text-align: center;
     color: #94a3b8;
     font-style: italic;
+}
+
+/* Recent Enrollments: roster generated before the clinic's latest
+   registration. Text label, not just color, so it reads without it. */
+.roster-stale-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #b45309;
 }
 
 .action-buttons {
