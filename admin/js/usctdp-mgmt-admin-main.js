@@ -130,6 +130,9 @@
                         row.data(rowData).draw(false);
                     }
                     window.open(response.data.doc_url, '_blank');
+                    // Recent Enrollments rows point at these same session
+                    // rosters (View link, "Out of date" flag).
+                    $('#recent-enrollments-table').DataTable().ajax.reload(null, false);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error("AJAX Error:", textStatus, errorThrown);
@@ -196,8 +199,9 @@
                         }
                         var $cell = $('<div></div>');
                         $cell.addClass('session-actions');
-                        addAction($cell, 'View', 'view-roster-link', { 'drive-id': row.roster_drive_id || '' }, !row.roster_drive_id, 'Not yet generated');
-                        addAction($cell, 'Regenerate', 'regenerate-roster-btn', { 'activity-id': row.activity_id });
+                        var noRoster = !row.roster_group_id;
+                        addAction($cell, 'View', 'view-roster-link', { 'drive-id': row.roster_drive_id || '' }, !row.roster_drive_id, noRoster ? 'This session has no roster' : 'Not yet generated');
+                        addAction($cell, 'Regenerate', 'regenerate-roster-btn', { 'roster-group-id': row.roster_group_id || '' }, noRoster, 'This session has no roster');
                         if (row.roster_stale) {
                             $cell.append($('<span class="roster-stale-label"></span>')
                                 .text('Out of date')
@@ -217,9 +221,9 @@
             window.open('https://drive.google.com/file/d/' + driveId + '/view', '_blank');
         });
 
-        // Generates at the clinic's reservation-group level (see
-        // ajax_gen_roster()'s activity_id branch), so merged clinics share
-        // one roster - the redraw refreshes every affected row's state.
+        // Regenerates the clinic's whole session roster (the same doc the
+        // Rosters widget lists) - every row in that session shares it, so
+        // the redraw refreshes all of them.
         $('#recent-enrollments-table').on('click', 'button.regenerate-roster-btn', function () {
             var $btn = $(this);
             var originalText = $btn.text();
@@ -236,11 +240,12 @@
                 data: {
                     action: usctdp_mgmt_admin.gen_roster_action,
                     security: usctdp_mgmt_admin.gen_roster_nonce,
-                    activity_id: $btn.attr('data-activity-id'),
+                    roster_group_id: $btn.attr('data-roster-group-id'),
                 },
                 success: function (response) {
                     window.open(response.data.doc_url, '_blank');
                     recentEnrollmentsTable.ajax.reload(null, false);
+                    sessionsRosterTable.ajax.reload(null, false);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error("AJAX Error:", textStatus, errorThrown);

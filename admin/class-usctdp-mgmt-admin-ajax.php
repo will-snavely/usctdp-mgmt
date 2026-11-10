@@ -2763,11 +2763,12 @@ class Usctdp_Mgmt_Admin_Ajax
      * monotonic regardless. The displayed date is that latest
      * registration's created_at, converted from UTC to the site timezone.
      *
-     * Each row also carries the clinic's own roster (the one ajax_gen_roster()
-     * builds from activity_id, keyed in usctdp_roster_link by the clinic's
-     * reservation_group_id), so the widget can offer View/Regenerate and
-     * flag a roster generated before the clinic's latest registration as
-     * out of date.
+     * Each row also carries the roster of the clinic's session - the same
+     * usctdp_roster_group the dashboard's Rosters widget lists - so the
+     * widget can offer View/Regenerate (ajax_gen_roster() by
+     * roster_group_id) and flag a roster generated before the clinic's
+     * latest registration as out of date. A session can belong to more
+     * than one roster group; the earliest-created one is used.
      */
     public function ajax_recent_enrollments()
     {
@@ -2786,6 +2787,7 @@ class Usctdp_Mgmt_Admin_Ajax
                         sesh.title AS session_name,
                         agg.enrolled AS enrolled,
                         last_reg.created_at AS last_registration_at,
+                        roster.id AS roster_group_id,
                         roster.drive_id AS roster_drive_id,
                         roster.updated_at AS roster_updated_at
                     FROM (
@@ -2797,12 +2799,10 @@ class Usctdp_Mgmt_Admin_Ajax
                     JOIN {$wpdb->prefix}usctdp_registration AS last_reg ON last_reg.id = agg.last_reg_id
                     JOIN {$wpdb->prefix}usctdp_activity AS act ON agg.activity_id = act.id
                     JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                    -- Oldest link row per entity, matching what
-                    -- Usctdp_Mgmt_Docgen::get_roster_link() resolves to.
-                    LEFT JOIN {$wpdb->prefix}usctdp_roster_link AS roster ON roster.id = (
-                        SELECT MIN(rl.id)
-                        FROM {$wpdb->prefix}usctdp_roster_link AS rl
-                        WHERE rl.entity_id = act.reservation_group_id
+                    LEFT JOIN {$wpdb->prefix}usctdp_roster_group AS roster ON roster.id = (
+                        SELECT MIN(rgs.roster_group_id)
+                        FROM {$wpdb->prefix}usctdp_roster_group_session AS rgs
+                        WHERE rgs.session_id = act.session_id
                     )
                     WHERE act.type = 'clinic'
                     ORDER BY agg.last_reg_id DESC
@@ -2829,6 +2829,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     'enrolled' => (int) $result->enrolled,
                     'last_registration_at' => $result->last_registration_at,
                     'last_registration_display' => get_date_from_gmt($result->last_registration_at, 'M j, Y'),
+                    'roster_group_id' => $result->roster_group_id ? (int) $result->roster_group_id : null,
                     'roster_drive_id' => $result->roster_drive_id ?: null,
                     'roster_stale' => $result->roster_drive_id
                         && $result->roster_updated_at

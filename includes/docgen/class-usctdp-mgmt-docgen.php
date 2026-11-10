@@ -587,8 +587,12 @@ class Usctdp_Mgmt_Docgen
         $file = $this->upload_document_to_drive($templateProcessor, $drive_id, $title);
 
         if ($roster_link) {
+            // drive_id too, not just updated_at: upload_document_to_drive()
+            // recreates the file (new id) when the old one is missing or the
+            // wrong type, and the link must follow it.
             $link_query = new Usctdp_Mgmt_Roster_Link_Query([]);
             $link_query->update_item($roster_link->id, [
+                'drive_id' => $file->id,
                 'updated_at' => current_time('mysql', true)
             ]);
         } else {
@@ -704,7 +708,16 @@ class Usctdp_Mgmt_Docgen
                     'fields' => 'id, webViewLink'
                 ]);
             }
-            $drive->files->delete($existing_drive_id);
+            // drive_file_matches_mime_type() also returns false when the
+            // file is already gone (deleted/trashed in Drive) - nothing to
+            // delete then, so a 404 here isn't an error.
+            try {
+                $drive->files->delete($existing_drive_id);
+            } catch (\Google\Service\Exception $e) {
+                if ($e->getCode() !== 404) {
+                    throw $e;
+                }
+            }
         }
 
         if (!empty($destinationFolderId)) {
