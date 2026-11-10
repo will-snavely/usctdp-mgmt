@@ -1326,13 +1326,15 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         // Note both status placeholders are %s: an earlier version of this
         // query bound the "pending" literal against a %d placeholder, which
         // silently coerced it to 0 and meant the held-pending branch below
-        // never actually matched anything.
+        // never actually matched anything. UTC_TIMESTAMP(), not NOW():
+        // created_at is stored in UTC, and NOW() follows the DB session's
+        // timezone, which WordPress never pins.
         $count_query_template = "
             SELECT COUNT(*) FROM $registration_table reg
             JOIN $activity_table act ON act.id = reg.activity_id
             WHERE act.reservation_group_id = %d
             AND (reg.status = %s
-            OR (reg.status = %s AND reg.created_at > NOW() - INTERVAL %d MINUTE))";
+            OR (reg.status = %s AND reg.created_at > UTC_TIMESTAMP() - INTERVAL %d MINUTE))";
         $group_lock_template = "SELECT * FROM $reservation_group_table WHERE id=%d FOR UPDATE";
         $txn_started = false;
         $txn_commited = false;
@@ -1460,7 +1462,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     throw new Usctdp_Checkout_Exception($msg, 'out_of_stock');
                 }
 
-                $current_time = current_time('mysql');
+                $current_time = current_time('mysql', true);
                 $reg_query = new Usctdp_Mgmt_Registration_Query();
                 $result = $reg_query->add_item([
                     'activity_id' => $reg["activity_id"],
@@ -1472,8 +1474,8 @@ class Usctdp_Mgmt_Woocommerce_Hooks
                     'status' => 'pending',
                     'created_at' => $current_time,
                     'created_by' => get_current_user_id(),
-                    'last_modified_at' => $current_time,
-                    'last_modified_by' => get_current_user_id(),
+                    'modified_at' => $current_time,
+                    'modified_by' => get_current_user_id(),
                     'notes' => '',
                 ]);
                 if (!$result) {
@@ -1701,7 +1703,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         foreach ($query->items as $item) {
             $query->update_item($item->id, [
                 "status" => "active",
-                "modified_at" => current_time('mysql'),
+                "modified_at" => current_time('mysql', true),
                 "modified_by" => get_current_user_id(),
             ]);
         }
@@ -1733,7 +1735,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
         foreach ($query->items as $item) {
             $query->update_item($item->id, [
                 'status' => 'void',
-                'modified_at' => current_time('mysql'),
+                'modified_at' => current_time('mysql', true),
                 'modified_by' => get_current_user_id(),
             ]);
         }
@@ -1761,7 +1763,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
             $family_id = $family_query->items[0]->id;
             $payment_method = $order->get_payment_method();
             $reference_id = $order->get_transaction_id() ?: (string) $order_id;
-            $created_at = current_time('mysql');
+            $created_at = current_time('mysql', true);
             $created_by = get_current_user_id();
 
             $wpdb->query('START TRANSACTION');
@@ -2043,7 +2045,7 @@ class Usctdp_Mgmt_Woocommerce_Hooks
 
             $payment_method = $order->get_payment_method();
             $reference_id = $order->get_transaction_id() ?: (string) $order_id;
-            $created_at = current_time('mysql');
+            $created_at = current_time('mysql', true);
             $created_by = get_current_user_id();
             $event_id = 'wc_order' . $order_id;
             $event = 'WooCommerce Order ' . $order_id;

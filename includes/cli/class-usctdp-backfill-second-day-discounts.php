@@ -228,7 +228,7 @@ class Usctdp_Backfill_Second_Day_Discounts
                 'order_id' => $row->order_id,
                 'event_id' => 'wc_order' . $row->order_id,
                 'event' => 'WooCommerce Order ' . $row->order_id,
-                'created_at' => current_time('mysql'),
+                'created_at' => current_time('mysql', true),
                 'created_by' => get_current_user_id(),
             ];
 

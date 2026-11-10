@@ -315,7 +315,7 @@ class Usctdp_Ledger_Adjust
             'event' => $event,
             'payment_method' => null,
             'reference_id' => $opts['reference_id'],
-            'created_at' => current_time('mysql'),
+            'created_at' => current_time('mysql', true),
             'created_by' => get_current_user_id(),
         ];
 

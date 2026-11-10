@@ -130,6 +130,9 @@
                         row.data(rowData).draw(false);
                     }
                     window.open(response.data.doc_url, '_blank');
+                    // Recent Enrollments rows point at these same session
+                    // rosters (View link, "Out of date" flag).
+                    $('#recent-enrollments-table').DataTable().ajax.reload(null, false);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error("AJAX Error:", textStatus, errorThrown);
@@ -163,41 +166,99 @@
             window.location.href = usctdp_mgmt_admin.family_url + '&family_id=' + id;
         });
 
-        function loadRecentRegistrations() {
-            var $tbody = $('#recent-registrations-table-body');
+        // Clinics ordered by their most recent registration - server-side
+        // paginated, see ajax_recent_enrollments().
+        var recentEnrollmentsTable = $('#recent-enrollments-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ordering: false,
+            searching: false,
+            lengthChange: false,
+            pageLength: 10,
+            language: {
+                emptyTable: 'No recent enrollments.'
+            },
+            ajax: {
+                url: usctdp_mgmt_admin.ajax_url,
+                type: 'POST',
+                data: function (d) {
+                    d.action = usctdp_mgmt_admin.recent_enrollments_action;
+                    d.security = usctdp_mgmt_admin.recent_enrollments_nonce;
+                }
+            },
+            columns: [
+                { data: 'activity_name', render: $.fn.dataTable.render.text() },
+                { data: 'session_name', render: $.fn.dataTable.render.text() },
+                { data: 'enrolled' },
+                { data: 'last_registration_display' },
+                {
+                    data: 'activity_id',
+                    render: function (data, type, row) {
+                        if (type !== 'display') {
+                            return '';
+                        }
+                        var $cell = $('<div></div>');
+                        $cell.addClass('session-actions');
+                        var noRoster = !row.roster_group_id;
+                        addAction($cell, 'View', 'view-roster-link', { 'drive-id': row.roster_drive_id || '' }, !row.roster_drive_id, noRoster ? 'This session has no roster' : 'Not yet generated');
+                        addAction($cell, 'Regenerate', 'regenerate-roster-btn', { 'roster-group-id': row.roster_group_id || '' }, noRoster, 'This session has no roster');
+                        if (row.roster_stale) {
+                            $cell.append($('<span class="roster-stale-label"></span>')
+                                .text('Out of date')
+                                .attr('title', 'Generated before the latest registration'));
+                        }
+                        return $cell.get(0);
+                    }
+                }
+            ]
+        });
+
+        $('#recent-enrollments-table').on('click', 'button.view-roster-link', function () {
+            var driveId = $(this).attr('data-drive-id');
+            if (!driveId) {
+                return;
+            }
+            window.open('https://drive.google.com/file/d/' + driveId + '/view', '_blank');
+        });
+
+        // Regenerates the clinic's whole session roster (the same doc the
+        // Rosters widget lists) - every row in that session shares it, so
+        // the redraw refreshes all of them.
+        $('#recent-enrollments-table').on('click', 'button.regenerate-roster-btn', function () {
+            var $btn = $(this);
+            var originalText = $btn.text();
+            var $spinner = $('<span class="spinner is-active"></span>');
+
+            $btn.prop('disabled', true);
+            $btn.text('Working...');
+            $btn.after($spinner);
+
             $.ajax({
                 url: usctdp_mgmt_admin.ajax_url,
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: usctdp_mgmt_admin.recent_registrations_action,
-                    security: usctdp_mgmt_admin.recent_registrations_nonce,
-                    limit: 8
+                    action: usctdp_mgmt_admin.gen_roster_action,
+                    security: usctdp_mgmt_admin.gen_roster_nonce,
+                    roster_group_id: $btn.attr('data-roster-group-id'),
                 },
                 success: function (response) {
-                    $tbody.empty();
-                    var rows = (response && response.data) || [];
-                    if (rows.length === 0) {
-                        $tbody.append('<tr class="empty-row"><td colspan="4">No recent registrations.</td></tr>');
-                        return;
-                    }
-                    rows.forEach(function (row) {
-                        var $tr = $('<tr></tr>');
-                        $tr.append($('<td></td>').text(row.student_name));
-                        $tr.append($('<td></td>').text(row.family_name));
-                        $tr.append($('<td></td>').text(row.session_name));
-                        $tr.append($('<td></td>').text(row.activity_name));
-                        $tbody.append($tr);
-                    });
+                    window.open(response.data.doc_url, '_blank');
+                    recentEnrollmentsTable.ajax.reload(null, false);
+                    sessionsRosterTable.ajax.reload(null, false);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error("AJAX Error:", textStatus, errorThrown);
-                    $tbody.empty();
-                    $tbody.append('<tr class="empty-row"><td colspan="4">Failed to load recent registrations.</td></tr>');
+                    window.Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to generate roster. Inform a developer.',
+                        icon: 'error'
+                    });
+                    $btn.prop('disabled', false);
+                    $btn.text(originalText);
+                    $spinner.remove();
                 }
             });
-        }
-
-        loadRecentRegistrations();
+        });
     });
 })(jQuery);

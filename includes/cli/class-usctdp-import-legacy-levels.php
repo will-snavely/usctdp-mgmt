@@ -196,7 +196,7 @@ class Usctdp_Import_Legacy_Levels
             foreach ($op['registrations'] as $registration) {
                 if ($registration_query->update_item($registration->id, [
                     'student_level' => $op['new_level'],
-                    'modified_at' => current_time('mysql'),
+                    'modified_at' => current_time('mysql', true),
                     'modified_by' => get_current_user_id(),
                 ])) {
                     $updated_registrations++;

@@ -248,7 +248,7 @@ class Usctdp_Mgmt_Public
             FROM $activity_table as act
             LEFT JOIN $registration_table as reg ON act.id = reg.activity_id
                 AND (reg.status = %s
-                    OR (reg.status = %s AND reg.created_at > NOW() - INTERVAL %d MINUTE))
+                    OR (reg.status = %s AND reg.created_at > UTC_TIMESTAMP() - INTERVAL %d MINUTE))
             WHERE act.reservation_group_id IN ($placeholders)
             GROUP BY act.reservation_group_id",
             array_merge(['active', 'pending', Usctdp_Mgmt_Woocommerce_Hooks::HOLD_MINUTES], $group_ids)
@@ -454,7 +454,7 @@ class Usctdp_Mgmt_Public
             'activity_id' => intval($activity_id),
             'student_id' => intval($student_id),
             'status' => 'pending',
-            'created_at' => current_time('mysql'),
+            'created_at' => current_time('mysql', true),
         ]);
         if (!$result) {
             error_log("Failed to create waitlist entry.");

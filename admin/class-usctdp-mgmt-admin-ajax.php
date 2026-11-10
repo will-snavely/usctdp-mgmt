@@ -32,7 +32,7 @@ class Usctdp_Mgmt_Admin_Ajax
         'purchase_history_datatable' => 'ajax_purchase_history_datatable',
         'purchase_history_export' => 'ajax_purchase_history_export',
         'reassign_registration' => 'ajax_reassign_registration',
-        'recent_registrations' => 'ajax_recent_registrations',
+        'recent_enrollments' => 'ajax_recent_enrollments',
         'registrations_datatable' => 'ajax_registrations_datatable',
         'roster_add_session' => 'ajax_roster_add_session',
         'roster_create' => 'ajax_roster_create',
@@ -139,7 +139,7 @@ class Usctdp_Mgmt_Admin_Ajax
                     "SELECT COUNT(*) FROM {$wpdb->prefix}usctdp_registration
                      WHERE activity_id IN ($placeholders)
                      AND (status = %s
-                         OR (status = %s AND created_at > NOW() - INTERVAL %d MINUTE))",
+                         OR (status = %s AND created_at > UTC_TIMESTAMP() - INTERVAL %d MINUTE))",
                     array_merge($member_activity_ids, ['active', 'pending', Usctdp_Mgmt_Woocommerce_Hooks::HOLD_MINUTES])
                 ));
             }
@@ -2173,9 +2173,13 @@ class Usctdp_Mgmt_Admin_Ajax
                     $last_name = $this->get_sanitized_post_field_text('last');
                     return Usctdp_Mgmt_Model::append_token_suffix($first_name . ' ' . $last_name);
                 },
+                // Birthday is optional. Empty is stored as '' (zero date), the
+                // same as update_student and the WooCommerce paths - not null,
+                // which BerlinDB's validate_item() rejects outright since the
+                // column isn't allow_null, failing the whole insert.
                 'birth_date' => function ($raw) {
                     if (empty($raw)) {
-                        return null;
+                        return '';
                     }
                     $date = new DateTime($raw);
                     return $date->format('Y-m-d');
@@ -2356,6 +2360,8 @@ class Usctdp_Mgmt_Admin_Ajax
      * DataTables server-side paging). Same data shape as
      * ajax_session_rosters_datatable(), just without the draw/paging
      * envelope - see Usctdp_Mgmt_Roster_Group_Query::search_rosters().
+     * Limited to rosters with at least one scheduled or on-sale session;
+     * fully archived ones are still on the Rosters page.
      */
     public function ajax_session_rosters()
     {
@@ -2364,7 +2370,7 @@ class Usctdp_Mgmt_Admin_Ajax
         $query_results = [];
         try {
             $roster_query = new Usctdp_Mgmt_Roster_Group_Query();
-            $query_results = $roster_query->search_rosters([])['data'];
+            $query_results = $roster_query->search_rosters(['current_only' => true])['data'];
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_session_rosters', $e);
             wp_send_json_error('A system error occurred. Please try again.', 500);
@@ -3109,46 +3115,104 @@ class Usctdp_Mgmt_Admin_Ajax
         }
     }
 
-    public function ajax_recent_registrations()
+    /**
+     * Feeds the main dashboard's Recent Enrollments widget - one row per
+     * clinic that has at least one active registration, most recently
+     * registered-into first, server-side paginated (same
+     * draw/recordsTotal/recordsFiltered/data envelope as
+     * ajax_session_rosters_datatable()).
+     *
+     * Ordered by MAX(reg.id) rather than MAX(reg.created_at): registrations
+     * created by the WooCommerce checkout path before created_at was
+     * standardized on UTC hold site-local time, so sorting on it could
+     * misorder those against admin-created ones. The auto-increment id is
+     * monotonic regardless. The displayed date is that latest
+     * registration's created_at, converted from UTC to the site timezone.
+     *
+     * Each row also carries the roster of the clinic's session - the same
+     * usctdp_roster_group the dashboard's Rosters widget lists - so the
+     * widget can offer View/Regenerate (ajax_gen_roster() by
+     * roster_group_id) and flag a roster generated before the clinic's
+     * latest registration as out of date. A session can belong to more
+     * than one roster group; the earliest-created one is used.
+     */
+    public function ajax_recent_enrollments()
     {
-        $this->check_nonce('recent_registrations');
+        $this->check_nonce('recent_enrollments');
 
-        $limit = isset($_POST['limit']) ? intval($_POST['limit']) : 8;
+        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
+        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
+        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
 
         global $wpdb;
-        $query = $wpdb->prepare(
-            "   SELECT
-                    stud.first as student_first,
-                    stud.last as student_last,
-                    fam.title as family_name,
-                    sesh.title as session_name,
-                    act.title as activity_name,
-                    reg.created_at as created_at
-                FROM {$wpdb->prefix}usctdp_registration AS reg
-                JOIN {$wpdb->prefix}usctdp_student AS stud ON reg.student_id = stud.id
-                JOIN {$wpdb->prefix}usctdp_family AS fam ON stud.family_id = fam.id
-                JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
-                JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
-                WHERE reg.status = 'active'
-                ORDER BY reg.id DESC
-                LIMIT %d",
-            $limit
-        );
+        try {
+            $query = $wpdb->prepare(
+                "   SELECT
+                        act.id AS activity_id,
+                        act.title AS activity_name,
+                        sesh.title AS session_name,
+                        agg.enrolled AS enrolled,
+                        last_reg.created_at AS last_registration_at,
+                        roster.id AS roster_group_id,
+                        roster.drive_id AS roster_drive_id,
+                        roster.updated_at AS roster_updated_at
+                    FROM (
+                        SELECT reg.activity_id, COUNT(*) AS enrolled, MAX(reg.id) AS last_reg_id
+                        FROM {$wpdb->prefix}usctdp_registration AS reg
+                        WHERE reg.status = 'active'
+                        GROUP BY reg.activity_id
+                    ) AS agg
+                    JOIN {$wpdb->prefix}usctdp_registration AS last_reg ON last_reg.id = agg.last_reg_id
+                    JOIN {$wpdb->prefix}usctdp_activity AS act ON agg.activity_id = act.id
+                    JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
+                    LEFT JOIN {$wpdb->prefix}usctdp_roster_group AS roster ON roster.id = (
+                        SELECT MIN(rgs.roster_group_id)
+                        FROM {$wpdb->prefix}usctdp_roster_group_session AS rgs
+                        WHERE rgs.session_id = act.session_id
+                    )
+                    WHERE act.type = 'clinic'
+                    ORDER BY agg.last_reg_id DESC
+                    LIMIT %d OFFSET %d",
+                $length,
+                $start
+            );
+            $query_results = $wpdb->get_results($query);
 
-        $query_results = $wpdb->get_results($query);
-        $output_data = [];
-        if ($query_results) {
+            $count = (int) $wpdb->get_var(
+                "   SELECT COUNT(DISTINCT reg.activity_id)
+                    FROM {$wpdb->prefix}usctdp_registration AS reg
+                    JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
+                    WHERE reg.status = 'active'
+                    AND act.type = 'clinic'"
+            );
+
+            $data = [];
             foreach ($query_results as $result) {
-                $output_data[] = [
-                    "student_name" => $result->student_first . ' ' . $result->student_last,
-                    "family_name" => $result->family_name,
-                    "session_name" => $result->session_name,
-                    "activity_name" => $result->activity_name,
-                    "created_at" => $result->created_at,
+                $data[] = [
+                    'activity_id' => (int) $result->activity_id,
+                    'activity_name' => $result->activity_name,
+                    'session_name' => $result->session_name,
+                    'enrolled' => (int) $result->enrolled,
+                    'last_registration_at' => $result->last_registration_at,
+                    'last_registration_display' => get_date_from_gmt($result->last_registration_at, 'M j, Y'),
+                    'roster_group_id' => $result->roster_group_id ? (int) $result->roster_group_id : null,
+                    'roster_drive_id' => $result->roster_drive_id ?: null,
+                    'roster_stale' => $result->roster_drive_id
+                        && $result->roster_updated_at
+                        && $result->roster_updated_at < $result->last_registration_at,
                 ];
             }
+
+            wp_send_json([
+                'draw' => $draw,
+                'recordsTotal' => $count,
+                'recordsFiltered' => $count,
+                'data' => $data,
+            ]);
+        } catch (Throwable $e) {
+            Usctdp_Mgmt::logger()->log_exception('ajax_recent_enrollments', $e);
+            wp_send_json(['draw' => $draw, 'recordsTotal' => 0, 'recordsFiltered' => 0, 'data' => []]);
         }
-        wp_send_json_success($output_data);
     }
 
     public function ajax_registrations_datatable()
