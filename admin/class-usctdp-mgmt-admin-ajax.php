@@ -2751,7 +2751,8 @@ class Usctdp_Mgmt_Admin_Ajax
 
     /**
      * Feeds the main dashboard's Recent Enrollments widget - one row per
-     * clinic that has at least one active registration, most recently
+     * activity (any type: clinic, tournament, cardio...) that has at least
+     * one active registration, most recently
      * registered-into first, server-side paginated (same
      * draw/recordsTotal/recordsFiltered/data envelope as
      * ajax_session_rosters_datatable()).
@@ -2763,12 +2764,16 @@ class Usctdp_Mgmt_Admin_Ajax
      * monotonic regardless. The displayed date is that latest
      * registration's created_at, converted from UTC to the site timezone.
      *
-     * Each row also carries the roster of the clinic's session - the same
+     * Each row also carries the roster of the activity's session - the same
      * usctdp_roster_group the dashboard's Rosters widget lists - so the
      * widget can offer View/Regenerate (ajax_gen_roster() by
-     * roster_group_id) and flag a roster generated before the clinic's
-     * latest registration as out of date. A session can belong to more
-     * than one roster group; the earliest-created one is used.
+     * roster_group_id) and flag a roster generated before the activity's
+     * latest registration as out of date. Only clinics and tournaments get
+     * that flag: they're the only types session rosters print (see
+     * Usctdp_Mgmt_Docgen::generate_roster_for_sessions()), so another
+     * type's registrations never make the roster stale. A session can
+     * belong to more than one roster group; the earliest-created one is
+     * used.
      */
     public function ajax_recent_enrollments()
     {
@@ -2784,6 +2789,7 @@ class Usctdp_Mgmt_Admin_Ajax
                 "   SELECT
                         act.id AS activity_id,
                         act.title AS activity_name,
+                        act.type AS activity_type,
                         sesh.title AS session_name,
                         agg.enrolled AS enrolled,
                         last_reg.created_at AS last_registration_at,
@@ -2804,7 +2810,6 @@ class Usctdp_Mgmt_Admin_Ajax
                         FROM {$wpdb->prefix}usctdp_roster_group_session AS rgs
                         WHERE rgs.session_id = act.session_id
                     )
-                    WHERE act.type = 'clinic'
                     ORDER BY agg.last_reg_id DESC
                     LIMIT %d OFFSET %d",
                 $length,
@@ -2812,12 +2817,13 @@ class Usctdp_Mgmt_Admin_Ajax
             );
             $query_results = $wpdb->get_results($query);
 
+            // Same joins as the row query, so pagination totals line up.
             $count = (int) $wpdb->get_var(
                 "   SELECT COUNT(DISTINCT reg.activity_id)
                     FROM {$wpdb->prefix}usctdp_registration AS reg
                     JOIN {$wpdb->prefix}usctdp_activity AS act ON reg.activity_id = act.id
-                    WHERE reg.status = 'active'
-                    AND act.type = 'clinic'"
+                    JOIN {$wpdb->prefix}usctdp_session AS sesh ON act.session_id = sesh.id
+                    WHERE reg.status = 'active'"
             );
 
             $data = [];
@@ -2825,13 +2831,15 @@ class Usctdp_Mgmt_Admin_Ajax
                 $data[] = [
                     'activity_id' => (int) $result->activity_id,
                     'activity_name' => $result->activity_name,
+                    'activity_type' => $result->activity_type,
                     'session_name' => $result->session_name,
                     'enrolled' => (int) $result->enrolled,
                     'last_registration_at' => $result->last_registration_at,
                     'last_registration_display' => get_date_from_gmt($result->last_registration_at, 'M j, Y'),
                     'roster_group_id' => $result->roster_group_id ? (int) $result->roster_group_id : null,
                     'roster_drive_id' => $result->roster_drive_id ?: null,
-                    'roster_stale' => $result->roster_drive_id
+                    'roster_stale' => in_array($result->activity_type, ['clinic', 'tournament'], true)
+                        && $result->roster_drive_id
                         && $result->roster_updated_at
                         && $result->roster_updated_at < $result->last_registration_at,
                 ];

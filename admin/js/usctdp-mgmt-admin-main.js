@@ -166,8 +166,8 @@
             window.location.href = usctdp_mgmt_admin.family_url + '&family_id=' + id;
         });
 
-        // Clinics ordered by their most recent registration - server-side
-        // paginated, see ajax_recent_enrollments().
+        // Activities of every type, ordered by their most recent
+        // registration - server-side paginated, see ajax_recent_enrollments().
         var recentEnrollmentsTable = $('#recent-enrollments-table').DataTable({
             processing: true,
             serverSide: true,
@@ -188,6 +188,13 @@
             },
             columns: [
                 { data: 'activity_name', render: $.fn.dataTable.render.text() },
+                {
+                    data: 'activity_type',
+                    render: function (data, type) {
+                        var label = data ? data.charAt(0).toUpperCase() + data.slice(1) : '';
+                        return type === 'display' ? $('<span></span>').text(label).html() : label;
+                    }
+                },
                 { data: 'session_name', render: $.fn.dataTable.render.text() },
                 { data: 'enrolled' },
                 { data: 'last_registration_display' },
