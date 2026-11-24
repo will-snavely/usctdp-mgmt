@@ -1,0 +1,116 @@
+/*
+ * Compact buttons and form controls on USCTDP admin pages.
+ *
+ * WordPress 7.0 restyled wp-admin: buttons, text inputs and selects went
+ * from 30px to 40px tall, and default buttons became transparent. On our
+ * dense card and dialog layouts (payment history, register, rosters...)
+ * that made controls oversized, let the card's grey show through buttons,
+ * and left text inputs taller than the Select2 dropdowns beside them.
+ *
+ * This keeps the WordPress 7 look (theme color via --wp-admin-theme-color,
+ * 2px corners, borders, focus rings) and only restores the old sizing plus
+ * an opaque background on default buttons.
+ *
+ * Specificity: each selector is core's selector plus a leading `body` and
+ * :where(.wrap). WordPress prints its admin stylesheets (forms, buttons,
+ * colors...) AFTER plugin stylesheets, so a rule that merely ties with core
+ * loses. :where() adds zero specificity and `body` adds one element, so
+ * these beat core by exactly one element - and our page stylesheets, which
+ * load after this file, still win wherever they were already beating core.
+ *
+ * Sizes apply above 782px only. Below that, WordPress uses 40px controls
+ * for touch in both 6.x and 7.x, so we leave its mobile sizing alone.
+ *
+ * Loaded only via enqueue_usctdp_page_style(), i.e. on our own pages.
+ */
+
+@media screen and (min-width: 783px) {
+
+	/* Button sizes -------------------------------------------------------- */
+
+	body.wp-core-ui :where(.wrap) .button,
+	body.wp-core-ui :where(.wrap) .button-primary,
+	body.wp-core-ui :where(.wrap) .button-secondary {
+		font-weight: 400;
+		line-height: 2.15384615; /* 28px */
+		min-height: 30px;
+		padding: 0 10px;
+	}
+
+	body.wp-core-ui :where(.wrap) .button.button-large {
+		line-height: 2.30769231; /* 30px */
+		min-height: 32px;
+		padding: 0 12px;
+	}
+
+	body.wp-core-ui :where(.wrap) .button.button-small {
+		line-height: 2.18181818; /* 24px */
+		min-height: 26px;
+		padding: 0 8px;
+	}
+
+	body.wp-core-ui :where(.wrap) .button .dashicons {
+		line-height: 1.4; /* 28px */
+	}
+
+	/* Text input and select sizes ------------------------------------------ */
+
+	body :where(.wrap) input[type="text"],
+	body :where(.wrap) input[type="password"],
+	body :where(.wrap) input[type="date"],
+	body :where(.wrap) input[type="datetime"],
+	body :where(.wrap) input[type="datetime-local"],
+	body :where(.wrap) input[type="email"],
+	body :where(.wrap) input[type="month"],
+	body :where(.wrap) input[type="number"],
+	body :where(.wrap) input[type="search"],
+	body :where(.wrap) input[type="tel"],
+	body :where(.wrap) input[type="time"],
+	body :where(.wrap) input[type="url"],
+	body :where(.wrap) input[type="week"] {
+		padding: 0 8px;
+		/* Fixed px, not a multiplier: some of our inputs use a larger font
+		   (e.g. `dialog input` is 1rem), and 30px should hold regardless. */
+		line-height: 28px;
+		min-height: 30px;
+	}
+
+	body.wp-core-ui :where(.wrap) select {
+		padding: 0 24px 0 8px;
+		line-height: 28px;
+		min-height: 30px;
+	}
+
+	body :where(.wrap) textarea {
+		padding: 4px 8px;
+	}
+}
+
+/* Opaque background for default/secondary buttons ----------------------------
+   WordPress 7 uses `transparent` plus a faint theme-color tint on hover and
+   active. Swap transparent for a solid near-white; keep core's border and
+   text colors. Applies at all widths. */
+
+body.wp-core-ui :where(.wrap) .button:where(:not(.button-link):not(.button-primary)),
+body.wp-core-ui :where(.wrap) .button-secondary,
+body.wp-core-ui :where(.wrap) .button:where(:not(.button-link):not(.button-primary)):focus,
+body.wp-core-ui :where(.wrap) .button-secondary:focus {
+	background: #f6f7f7;
+}
+
+body.wp-core-ui :where(.wrap) .button:where(:not(.button-link):not(.button-primary)):hover,
+body.wp-core-ui :where(.wrap) .button-secondary:hover {
+	background: #f0f0f1;
+}
+
+body.wp-core-ui :where(.wrap) .button:where(:not(.button-link):not(.button-primary)):active,
+body.wp-core-ui :where(.wrap) .button-secondary:active {
+	background: #e6e7e8;
+}
+
+body.wp-core-ui :where(.wrap) .button:where(:not(.button-link):not(.button-primary)):disabled,
+body.wp-core-ui :where(.wrap) .button:where(:not(.button-link):not(.button-primary)).disabled,
+body.wp-core-ui :where(.wrap) .button-secondary:disabled,
+body.wp-core-ui :where(.wrap) .button-secondary.disabled {
+	background: #f6f7f7 !important;
+}
