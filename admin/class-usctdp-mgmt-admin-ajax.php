@@ -1459,7 +1459,13 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         $post_fields = [
+            // Roster note - printed on the class roster next to the student.
             'notes' => function ($value) {
+                return sanitize_textarea_field(stripslashes($value));
+            },
+            // Internal-only note - shown on the Purchase History page, never
+            // printed on a roster.
+            'admin_notes' => function ($value) {
                 return sanitize_textarea_field(stripslashes($value));
             },
             'status' => sanitize_text_field(...),

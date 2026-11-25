@@ -130,14 +130,29 @@
                     </div>`;
             }
 
+            // Two independent notes fields, each saved on its own:
+            //  - Roster Notes (usctdp_purchase.notes): printed on the class
+            //    roster next to the student.
+            //  - Admin Notes (usctdp_purchase.admin_notes): internal only,
+            //    shown here but never printed on a roster.
+            // data-field is the ajax_update_purchase() field name each
+            // section's Save button posts to.
             _renderNotesSection() {
                 return `
-                    <div class="notes-section flex-col gap-5">
+                    <div class="notes-sections flex-row gap-10">
+                        ${this._renderNotesField('notes', 'Roster Notes', this.data.purchase_notes)}
+                        ${this._renderNotesField('admin_notes', 'Admin Notes', this.data.purchase_admin_notes)}
+                    </div>`;
+            }
+
+            _renderNotesField(field, label, value) {
+                return `
+                    <div class="notes-section flex-col gap-5" data-field="${field}">
                         <div class="flex-row gap-10 align-center">
-                            <label class="upper-heavy">Notes</label>
-                            <button id="save-notes-${this.idx}" class="button button-small save-notes-btn" disabled>Save</button>
+                            <label class="upper-heavy">${label}</label>
+                            <button class="button button-small save-notes-btn" disabled>Save</button>
                         </div>
-                        <textarea rows=3 id="notes-input-${this.idx}" class="notes-input">${this.data.purchase_notes || ''}</textarea>
+                        <textarea rows=3 class="notes-input">${escapeHtml(value || '')}</textarea>
                     </div>`;
             }
 
@@ -941,7 +956,7 @@
 
         // `purchaseFields` carries any purchase-level (not registration-
         // level) fields that should be saved alongside the registration
-        // change - currently just a dirtied notes textarea (see the
+        // change - currently just dirtied notes textareas (see the
         // save-registration-btn handler below). It's merged with the
         // discounts update this function already issues on a reviewed
         // activity change, so a registration+notes edit made together only
@@ -1386,24 +1401,29 @@
             updateBulkUI();
         });
 
+        // Each .notes-section (roster / admin) tracks its own dirty state
+        // and saves only its own field - see _renderNotesField().
         $('#history-table tbody').on('input', '.notes-input', function () {
-            const $row = $(this).closest('tr');
-            $row.find('.notes-section').addClass('is-dirty');
-            $row.find('.save-notes-btn').prop('disabled', false);
+            const $section = $(this).closest('.notes-section');
+            $section.addClass('is-dirty');
+            $section.find('.save-notes-btn').prop('disabled', false);
         });
 
         $('#history-table tbody').on('click', '.save-notes-btn', function () {
             const $row = $(this).closest('tr');
-            $row.find('.save-notes-btn').prop('disabled', true);
+            const $section = $(this).closest('.notes-section');
+            const $btn = $(this);
+            $btn.prop('disabled', true);
             var rowData = historyTable.row($row).data();
             var update = {
-                notes: $row.find('.notes-input').first().val()
+                [$section.data('field')]: $section.find('.notes-input').val()
             }
             savePurchaseFields(rowData.purchase_id, update)
                 .then(() => {
-                    $row.find('.notes-section').removeClass('is-dirty');
+                    $section.removeClass('is-dirty');
                 })
                 .catch((error) => {
+                    $btn.prop('disabled', false);
                     alert("Saving notes failed! " + error);
                 });
         });
@@ -1571,14 +1591,16 @@
                 return;
             }
 
-            // The notes textarea (see save-notes-btn above) is a separate
-            // control, but it lives in the same card and turns readonly
-            // below - fold in whatever's currently in it if it's been
-            // dirtied since the last save, so an in-progress note edit
+            // The notes textareas (see save-notes-btn above) are separate
+            // controls, but they live in the same card and turn readonly
+            // below - fold in whatever's currently in any of them that's
+            // been dirtied since the last save, so an in-progress note edit
             // isn't silently dropped by clicking Save here instead.
-            const $notesSection = $row.find('.notes-section');
-            const notesDirty = $notesSection.hasClass('is-dirty');
-            const notesValue = $row.find('.notes-input').first().val();
+            const $dirtyNotes = $row.find('.notes-section.is-dirty');
+            var purchaseUpdate = {};
+            $dirtyNotes.each(function () {
+                purchaseUpdate[$(this).data('field')] = $(this).find('.notes-input').val();
+            });
 
             $row.find('.purchase-card .registration-fields').removeClass('editing');
             $row.find('select').prop('disabled', true);
@@ -1591,16 +1613,10 @@
                 activity_id: activityId,
                 student_level: studentLevel
             }
-            var purchaseUpdate = {};
-            if (notesDirty) {
-                purchaseUpdate.notes = notesValue;
-            }
 
             updateRegistration(rowData, update, purchaseUpdate)
                 .then(() => {
-                    if (notesDirty) {
-                        $notesSection.removeClass('is-dirty');
-                    }
+                    $dirtyNotes.removeClass('is-dirty');
                 })
                 .catch((error) => {
                     window.Swal.fire({
@@ -1745,7 +1761,8 @@
             { header: 'House Credit', money: true, value: (r, f) => f.houseCredits },
             { header: 'Owed', money: true, value: (r, f) => f.owed },
             { header: 'Discounts', value: discountSummary },
-            { header: 'Notes', value: (r) => r.purchase_notes },
+            { header: 'Roster Notes', value: (r) => r.purchase_notes },
+            { header: 'Admin Notes', value: (r) => r.purchase_admin_notes },
         ];
 
         function csvCell(value, isMoney) {
@@ -1850,6 +1867,7 @@
                         <td class="num">${format(fin.houseCredits)}</td>
                         <td class="num owed">${format(fin.owed)}</td>
                         <td class="notes">${escapeHtml(row.purchase_notes || '')}</td>
+                        <td class="notes">${escapeHtml(row.purchase_admin_notes || '')}</td>
                     </tr>`;
             }).join('');
 
@@ -1892,7 +1910,7 @@
                 <th>ID</th><th>Date</th><th>Family</th><th>Student</th><th>Session</th>
                 <th>Activity / Item</th><th>Status</th>
                 <th>Fees</th><th>Paid</th><th>Refunds</th><th>House Cr.</th><th>Owed</th>
-                <th>Notes</th>
+                <th>Roster Notes</th><th>Admin Notes</th>
             </tr>
         </thead>
         <tbody>
@@ -1904,7 +1922,7 @@
                 <td class="num">${format(totals.refunds)}</td>
                 <td class="num">${format(totals.houseCredits)}</td>
                 <td class="num">${format(totals.owed)}</td>
-                <td></td>
+                <td></td><td></td>
             </tr>
         </tbody>
     </table>

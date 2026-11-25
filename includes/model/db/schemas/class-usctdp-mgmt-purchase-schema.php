@@ -70,6 +70,11 @@ class Usctdp_Mgmt_Purchase_Schema extends Schema
             'type' => 'text',
             'allow_null' => true,
         ],
+        'admin_notes' => [
+            'name' => 'admin_notes',
+            'type' => 'text',
+            'allow_null' => true,
+        ],
         'discounts' => [
             'name' => 'discounts',
             'type' => 'json',
