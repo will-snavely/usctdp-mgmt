@@ -33,7 +33,6 @@ class Usctdp_Mgmt_Docgen
     const ROSTER_ROW_TITLE_HEIGHT = 432;
     const ROSTER_ROW_INFO_HEIGHT = 300;
     const ROSTER_ROW_ATTENDANCE_HEIGHT = 1200;
-    const ROSTER_ROW_FOOTER_HEIGHT = 300;
     const ROSTER_ROW_WAITLIST_HEIGHT = 2547;
     const ROSTER_TITLE_BORDER_SIZE = 4; // eighths of a point
     const ROSTER_FIELD_SPACE_BEFORE = 120; // gap above each label group in row 2
@@ -1132,16 +1131,13 @@ class Usctdp_Mgmt_Docgen
      * via gridSpan. PhpWord's Word2007 writer doesn't compute <w:tblGrid>
      * from a table style - it derives it from whichever *row* has the most
      * actual cell objects (see Element\Table::findFirstDefinedCellWidths()),
-     * oblivious to gridSpan. None of the 5 rows below has 5 real (unmerged)
+     * oblivious to gridSpan. None of the 4 rows below has 5 real (unmerged)
      * cells, so that row would end up being row 2 (4 real cells: schedule,
      * level, date labels, date values), collapsing the grid to 4 columns:
      * [5760, 1920, 1920, 1920] - i.e. the template's first two columns
-     * (3840 + 1920) merged into one. Every row happens to divide cleanly on
-     * that 4-column grid *except* row 4 (attendance total / signature),
-     * which the template splits at 3840 instead of 5760; that one split is
-     * nudged to match (5760 / 5760) rather than fighting the writer with an
-     * invisible spacer row just to preserve an exact 1/3-2/3 proportion on a
-     * signature line.
+     * (3840 + 1920) merged into one. Every row divides cleanly on that
+     * 4-column grid. (The template's attendance total / signature row,
+     * which split at 3840 instead, has been removed.)
      */
     private function add_roster_activity_block($section, $activity_id, array $fields)
     {
@@ -1222,29 +1218,21 @@ class Usctdp_Mgmt_Docgen
         $attendanceCell = $row3->addCell(self::ROSTER_TABLE_WIDTH, ['gridSpan' => 4]);
         $this->add_attendance_table($attendanceCell, $registrants, $preset);
 
-        // Row 4: attendance total / signature line. Split 50/50 rather than
-        // the template's 3840/7680 - see the class doc comment above.
-        $footerStyle = ['bold' => true, 'size' => $preset['font_footer']];
-        $row4 = $table->addRow(self::ROSTER_ROW_FOOTER_HEIGHT);
-        $row4->addCell(self::ROSTER_COL_WIDE)->addText('Attendance Total ___________', $footerStyle);
-        $row4->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3])->addText(
-            "Attendance Taker\u{2019}s Signature ____________________",
-            $footerStyle
-        );
-
-        // Row 5: waitlist / absentees & notes. See auto_line_spacing() for
-        // why the heading/notes-line spacing goes through that helper
-        // instead of a plain 'spacing' value.
-        $row5 = $table->addRow(self::ROSTER_ROW_WAITLIST_HEIGHT);
+        // Row 4: waitlist / makeups, absentees & notes. (The template's
+        // attendance total / signature row used to sit between this and
+        // the attendance table; it was dropped as unused.) See
+        // auto_line_spacing() for why the heading/notes-line spacing goes
+        // through that helper instead of a plain 'spacing' value.
+        $row4 = $table->addRow(self::ROSTER_ROW_WAITLIST_HEIGHT);
         $headingStyle = ['bold' => true, 'size' => $preset['font_footer']];
         $headingSpacing = $this->auto_line_spacing(240); // single-spaced
 
-        $waitlistCell = $row5->addCell(self::ROSTER_COL_WIDE);
+        $waitlistCell = $row4->addCell(self::ROSTER_COL_WIDE);
         $waitlistCell->addText('Waitlist', $headingStyle, $headingSpacing);
         $this->add_waitlist_table($waitlistCell, $activity_id, $preset);
 
-        $notesCell = $row5->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3]);
-        $notesCell->addText('Absentees/Notes', $headingStyle, $headingSpacing);
+        $notesCell = $row4->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3]);
+        $notesCell->addText('Makeups/Absentees/Notes', $headingStyle, $headingSpacing);
         $notesLineSpacing = $this->auto_line_spacing(276);
         for ($i = 0; $i < self::NOTES_LINE_COUNT; $i++) {
             $notesCell->addText(
