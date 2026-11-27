@@ -33,10 +33,10 @@ class Usctdp_Mgmt_Docgen
     const ROSTER_ROW_TITLE_HEIGHT = 432;
     const ROSTER_ROW_INFO_HEIGHT = 300;
     const ROSTER_ROW_ATTENDANCE_HEIGHT = 1200;
-    const ROSTER_ROW_FOOTER_HEIGHT = 300;
     const ROSTER_ROW_WAITLIST_HEIGHT = 2547;
     const ROSTER_TITLE_BORDER_SIZE = 4; // eighths of a point
     const ROSTER_FIELD_SPACE_BEFORE = 120; // gap above each label group in row 2
+    const ROSTER_INSTRUCTOR_SPACE_BEFORE = 80; // gap between the "Clinic: ..." line and "Instructor(s): ..." (twips)
     const BORDER_COLOR = '000000';
 
     /**
@@ -114,25 +114,35 @@ class Usctdp_Mgmt_Docgen
      * supplies the actual per-registrant values in this same order,
      * skipping 'attnd' - see add_attendance_table()).
      *
-     * Widths are deliberately narrow, not stretched to fill the full row -
-     * a wide gap between the name columns and Phone made it easy to lose
-     * track of which phone number belongs to which row while scanning
-     * across, so the table only takes up as much of the row as it needs
-     * and the rest stays blank rather than stretched.
+     * Widths together fill the usable width of the attendance cell
+     * (ROSTER_TABLE_WIDTH minus Word's default ~108-twip left/right cell
+     * margins, so ~11300). 'notes' sits right after the name so a
+     * registrant's roster note reads alongside who it's about; a long note
+     * wraps within its own column (growing that row) rather than pushing
+     * other columns around. First-pass widths - adjust freely.
+     *
+     * 'small' => true renders that column's data cells at
+     * ATTENDANCE_NOTE_FONT_SIZE instead of the preset's font_table (the
+     * header row always uses the normal header style).
      */
     const ATTENDANCE_COLUMNS = [
-        'attnd' => ['label' => 'Attnd?', 'width' => 1000],
-        'last' => ['label' => 'Last', 'width' => 2000],
-        'first' => ['label' => 'First', 'width' => 2000],
-        'age' => ['label' => 'Age', 'width' => 800],
-        'level' => ['label' => 'Lvl', 'width' => 800],
-        'phone' => ['label' => 'Phone Number(s)', 'width' => 4200],
+        'attnd' => ['label' => 'Attnd?', 'width' => 900],
+        'last' => ['label' => 'Last', 'width' => 1600],
+        'first' => ['label' => 'First', 'width' => 1500],
+        'notes' => ['label' => 'Notes', 'width' => 2400, 'small' => true],
+        'age' => ['label' => 'Age', 'width' => 700],
+        'level' => ['label' => 'Lvl', 'width' => 700],
+        'phone' => ['label' => 'Phone Number(s)', 'width' => 3500],
     ];
     const ATTENDANCE_ROW_HEIGHT = 300;
-    // Font size (points) for a registrant's note, appended after their
-    // phone numbers in that same cell - see add_attendance_table(). Fixed,
-    // not derived from the preset's font_table - a note is already the
-    // smaller, secondary part of that cell regardless of roster size.
+    // Points to shrink the attendance table's header row (Attnd?/Last/
+    // First/...) relative to the preset's font_table - see
+    // add_attendance_table().
+    const ATTENDANCE_HEADER_FONT_REDUCTION = 1;
+    // Font size (points) for the Notes column's data cells - see
+    // ATTENDANCE_COLUMNS. Fixed, not derived from the preset's font_table -
+    // a note is secondary information regardless of roster size, and the
+    // smaller size keeps typical notes to one line in a narrow column.
     const ATTENDANCE_NOTE_FONT_SIZE = 9;
     // Zebra-striping fill for every other data row (see add_attendance_table())
     // - deliberately barely-there (light grey, not a strong color) so it
@@ -243,21 +253,16 @@ class Usctdp_Mgmt_Docgen
     }
 
     /**
-     * One registrant's Last/First/Age/Level/Phone values, in that order,
-     * for their own separate cells in the attendance table (see
-     * add_attendance_table()) - name casing is normalized (raw stored
-     * names come from years of manual entry/import and aren't consistent -
-     * some are all-caps, some all-lowercase); age (birth_date unset - see
-     * get_roster_students()'s TIMESTAMPDIFF) and level (a free-text field,
-     * not always filled in) each print "--" rather than a blank cell when
-     * missing, so a genuinely blank cell only ever means "this is a
-     * padding row", not "we don't know".
-     *
-     * Does NOT fold in this registration's note (purchase_notes) - that's
-     * appended after the Phone value separately, as its own smaller-font
-     * text run in the same cell (see add_attendance_table()/
-     * add_attendance_person_cells()), so it can't just be concatenated in
-     * here as plain text.
+     * One registrant's Last/First/Notes/Age/Level/Phone values, in that
+     * order (matching ATTENDANCE_COLUMNS minus 'attnd'), for their own
+     * separate cells in the attendance table (see add_attendance_table()) -
+     * name casing is normalized (raw stored names come from years of manual
+     * entry/import and aren't consistent - some are all-caps, some
+     * all-lowercase); age (birth_date unset - see get_roster_students()'s
+     * TIMESTAMPDIFF) and level (a free-text field, not always filled in)
+     * each print "--" rather than a blank cell when missing, so a genuinely
+     * blank cell only ever means "this is a padding row", not "we don't
+     * know". A missing note is just blank - most registrants have none.
      */
     private function format_registrant_row($registrant)
     {
@@ -270,10 +275,25 @@ class Usctdp_Mgmt_Docgen
         return [
             ucwords(strtolower($registrant->student_last)),
             ucwords(strtolower($registrant->student_first)),
+            $this->format_roster_note($registrant->roster_notes ?? ''),
             $age,
             $level,
             $this->format_phone_numbers($registrant->family_phone_numbers),
         ];
+    }
+
+    /**
+     * A registrant's roster note (usctdp_purchase.notes - see
+     * get_roster_students()) flattened onto one wrapping line: it's typed
+     * into a multi-line textarea on the admin history page, but a raw
+     * newline inside a Word text run just renders as a space, so line
+     * breaks become " / " to keep separate thoughts visibly separate.
+     */
+    private function format_roster_note($note)
+    {
+        $lines = preg_split('/\R/', trim((string) $note));
+        $lines = array_filter(array_map('trim', $lines), 'strlen');
+        return implode(' / ', $lines);
     }
 
     /**
@@ -1111,16 +1131,13 @@ class Usctdp_Mgmt_Docgen
      * via gridSpan. PhpWord's Word2007 writer doesn't compute <w:tblGrid>
      * from a table style - it derives it from whichever *row* has the most
      * actual cell objects (see Element\Table::findFirstDefinedCellWidths()),
-     * oblivious to gridSpan. None of the 5 rows below has 5 real (unmerged)
+     * oblivious to gridSpan. None of the 4 rows below has 5 real (unmerged)
      * cells, so that row would end up being row 2 (4 real cells: schedule,
      * level, date labels, date values), collapsing the grid to 4 columns:
      * [5760, 1920, 1920, 1920] - i.e. the template's first two columns
-     * (3840 + 1920) merged into one. Every row happens to divide cleanly on
-     * that 4-column grid *except* row 4 (attendance total / signature),
-     * which the template splits at 3840 instead of 5760; that one split is
-     * nudged to match (5760 / 5760) rather than fighting the writer with an
-     * invisible spacer row just to preserve an exact 1/3-2/3 proportion on a
-     * signature line.
+     * (3840 + 1920) merged into one. Every row divides cleanly on that
+     * 4-column grid. (The template's attendance total / signature row,
+     * which split at 3840 instead, has been removed.)
      */
     private function add_roster_activity_block($section, $activity_id, array $fields)
     {
@@ -1170,7 +1187,7 @@ class Usctdp_Mgmt_Docgen
         $scheduleCell->addText(
             "Instructor(s): {$fields['insts']}",
             ['bold' => true, 'italic' => true, 'size' => $preset['font_detail']],
-            ['spaceBefore' => 0, 'spaceAfter' => 0]
+            ['spaceBefore' => self::ROSTER_INSTRUCTOR_SPACE_BEFORE, 'spaceAfter' => 0]
         );
         $scheduleCell->addText(
             $fields['skipped_clinics'],
@@ -1201,29 +1218,21 @@ class Usctdp_Mgmt_Docgen
         $attendanceCell = $row3->addCell(self::ROSTER_TABLE_WIDTH, ['gridSpan' => 4]);
         $this->add_attendance_table($attendanceCell, $registrants, $preset);
 
-        // Row 4: attendance total / signature line. Split 50/50 rather than
-        // the template's 3840/7680 - see the class doc comment above.
-        $footerStyle = ['bold' => true, 'size' => $preset['font_footer']];
-        $row4 = $table->addRow(self::ROSTER_ROW_FOOTER_HEIGHT);
-        $row4->addCell(self::ROSTER_COL_WIDE)->addText('Attendance Total ___________', $footerStyle);
-        $row4->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3])->addText(
-            "Attendance Taker\u{2019}s Signature ____________________",
-            $footerStyle
-        );
-
-        // Row 5: waitlist / absentees & notes. See auto_line_spacing() for
-        // why the heading/notes-line spacing goes through that helper
-        // instead of a plain 'spacing' value.
-        $row5 = $table->addRow(self::ROSTER_ROW_WAITLIST_HEIGHT);
+        // Row 4: waitlist / makeups, absentees & notes. (The template's
+        // attendance total / signature row used to sit between this and
+        // the attendance table; it was dropped as unused.) See
+        // auto_line_spacing() for why the heading/notes-line spacing goes
+        // through that helper instead of a plain 'spacing' value.
+        $row4 = $table->addRow(self::ROSTER_ROW_WAITLIST_HEIGHT);
         $headingStyle = ['bold' => true, 'size' => $preset['font_footer']];
         $headingSpacing = $this->auto_line_spacing(240); // single-spaced
 
-        $waitlistCell = $row5->addCell(self::ROSTER_COL_WIDE);
+        $waitlistCell = $row4->addCell(self::ROSTER_COL_WIDE);
         $waitlistCell->addText('Waitlist', $headingStyle, $headingSpacing);
         $this->add_waitlist_table($waitlistCell, $activity_id, $preset);
 
-        $notesCell = $row5->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3]);
-        $notesCell->addText('Absentees/Notes', $headingStyle, $headingSpacing);
+        $notesCell = $row4->addCell(self::ROSTER_COL_WIDE, ['gridSpan' => 3]);
+        $notesCell->addText('Makeups/Absentees/Notes', $headingStyle, $headingSpacing);
         $notesLineSpacing = $this->auto_line_spacing(276);
         for ($i = 0; $i < self::NOTES_LINE_COUNT; $i++) {
             $notesCell->addText(
@@ -1296,16 +1305,21 @@ class Usctdp_Mgmt_Docgen
     {
         $widths = array_column(self::ATTENDANCE_COLUMNS, 'width');
         $labels = array_column(self::ATTENDANCE_COLUMNS, 'label');
-        $phone_index = array_search('phone', array_keys(self::ATTENDANCE_COLUMNS), true);
 
         $table = $cell->addTable(['width' => array_sum($widths), 'unit' => 'dxa', 'layout' => 'fixed']);
 
-        $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => $preset['font_table']];
+        // Header labels a touch smaller than the data rows' font_table, so
+        // the column headings read as labels rather than competing with
+        // the names below them.
+        $headerStyle = ['bold' => true, 'underline' => 'single', 'size' => $preset['font_table'] - self::ATTENDANCE_HEADER_FONT_REDUCTION];
         $headerRow = $table->addRow(self::ATTENDANCE_ROW_HEIGHT);
         $this->add_attendance_person_cells($headerRow, $widths, $labels, $headerStyle);
 
-        $dataStyle = ['size' => $preset['font_table']];
-        $noteStyle = ['size' => self::ATTENDANCE_NOTE_FONT_SIZE];
+        // Per-column text style for data rows: the preset's table font,
+        // except 'small' columns (Notes) - see ATTENDANCE_COLUMNS.
+        $dataStyles = array_map(function ($column) use ($preset) {
+            return ['size' => empty($column['small']) ? $preset['font_table'] : self::ATTENDANCE_NOTE_FONT_SIZE];
+        }, array_values(self::ATTENDANCE_COLUMNS));
         $stripeStyle = ['bgColor' => self::ATTENDANCE_STRIPE_COLOR];
         // null 'attendance_data_rows' => no padding, just the real registrants.
         $row_count = max(count($registrants), $preset['attendance_data_rows'] ?? count($registrants));
@@ -1320,8 +1334,7 @@ class Usctdp_Mgmt_Docgen
             // never stripe, so the pattern stops as soon as the actual
             // roster does instead of continuing down through empty rows.
             $cellStyle = ($registrant && $i % 2 === 1) ? $stripeStyle : [];
-            $note = $registrant ? (string) ($registrant->purchase_notes ?? '') : '';
-            $this->add_attendance_person_cells($row, $widths, $values, $dataStyle, $cellStyle, $phone_index, $note, $noteStyle);
+            $this->add_attendance_person_cells($row, $widths, $values, $dataStyles, $cellStyle);
         }
     }
 
@@ -1331,29 +1344,16 @@ class Usctdp_Mgmt_Docgen
      * and every data row in add_attendance_table(), so the cells-with-
      * these-widths shape only needs to be written once. $cellStyle is the
      * cell's own style (e.g. background fill for zebra-striping - see
-     * add_attendance_table()), separate from $style, which is the text's.
-     *
-     * $note_index/$note/$noteStyle append a second, differently-styled text
-     * run after the value at that one column index (used for the Phone
-     * column's note - see add_attendance_table()) - a plain addText() call
-     * for it would start a new paragraph (new line) instead of continuing
-     * the same line, so that column goes through addTextRun() instead,
-     * whether or not it actually has a note to append, to keep every row's
-     * cell-building path the same.
+     * add_attendance_table()), separate from $style, which is the text's:
+     * either one style for every cell (the header row) or a list with one
+     * style per column (data rows - see 'small' in ATTENDANCE_COLUMNS).
      */
-    private function add_attendance_person_cells($row, array $widths, array $values, array $style, array $cellStyle = [], $note_index = null, $note = '', array $noteStyle = [])
+    private function add_attendance_person_cells($row, array $widths, array $values, array $style, array $cellStyle = [])
     {
+        $perColumn = array_is_list($style);
         foreach ($values as $i => $value) {
-            $valueCell = $row->addCell($widths[$i], $cellStyle);
-            if ($i !== $note_index) {
-                $valueCell->addText($value, $style);
-                continue;
-            }
-            $run = $valueCell->addTextRun();
-            $run->addText($value, $style);
-            if ($note !== '') {
-                $run->addText(' - ' . $note, $noteStyle);
-            }
+            $row->addCell($widths[$i], $cellStyle)
+                ->addText($value, $perColumn ? $style[$i] : $style);
         }
     }
 

@@ -102,7 +102,8 @@ $google_timestamp = get_option('usctdp_google_refresh_token_timestamp');
                             cellspacing="0">
                             <thead>
                                 <tr>
-                                    <th>Clinic</th>
+                                    <th>Activity</th>
+                                    <th>Type</th>
                                     <th>Session</th>
                                     <th>Enrolled</th>
                                     <th>Last Registration</th>

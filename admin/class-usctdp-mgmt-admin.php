@@ -205,10 +205,21 @@ class Usctdp_Mgmt_Admin
 
     private function enqueue_usctdp_page_style($suffix)
     {
+        // Compact buttons/inputs/selects and opaque buttons on our pages
+        // (WP 7.0 made admin controls 40px tall and buttons transparent).
+        // Must load before our own stylesheets so their overrides still
+        // win - see the file header.
+        wp_enqueue_style(
+            'usctdp-controls-css',
+            plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin-controls.css',
+            [],
+            $this->version,
+            'all'
+        );
         wp_enqueue_style(
             'usctdp-primary-css',
             plugin_dir_url(__FILE__) . 'css/usctdp-mgmt-admin.css',
-            [],
+            ['usctdp-controls-css'],
             $this->version,
             'all'
         );

@@ -11,10 +11,11 @@ class Usctdp_Mgmt_Purchase_Table extends Table
     public $name = 'usctdp_purchase';
     protected $db_version_key = 'usctdp_purchase_version';
     public $description = 'USCTDP Purchases';
-    protected $version = '1.2.0';
+    protected $version = '1.3.0';
     protected $upgrades = [
         '1.1.0' => 'add_status_created_at_index',
-        '1.2.0' => 'add_travel_team_package_column',
+        '1.2.0' => 'add_admin_notes_column',
+        '1.3.0' => 'add_travel_team_package_column',
     ];
 
     public function set_schema()
@@ -39,6 +40,7 @@ class Usctdp_Mgmt_Purchase_Table extends Table
             created_at datetime NOT NULL,
             created_by bigint(20) unsigned NOT NULL,
             notes text DEFAULT NULL,
+            admin_notes text DEFAULT NULL,
             discounts json DEFAULT '[]',
             travel_team_package json DEFAULT NULL,
             PRIMARY KEY (id),
@@ -84,6 +86,37 @@ class Usctdp_Mgmt_Purchase_Table extends Table
         }
 
         $result = $wpdb->query("ALTER TABLE {$table} ADD INDEX idx_status_created_at (status, created_at)");
+        return $result !== false;
+    }
+
+    /**
+     * Splits purchase notes in two: the existing `notes` column stays the
+     * roster note (it's what the roster docgen already prints next to the
+     * student), and `admin_notes` is a new, internal-only note shown on the
+     * Purchase History page but never printed on a roster. Existing notes
+     * are deliberately left in `notes` so current rosters don't change.
+     *
+     * Same idempotent, information_schema-first approach as
+     * add_status_created_at_index() above, so it's a safe no-op if dbDelta
+     * (or a previous run) already added the column.
+     */
+    public function add_admin_notes_column()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'usctdp_purchase';
+
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE table_schema = %s AND table_name = %s AND column_name = %s",
+            DB_NAME,
+            $table,
+            'admin_notes'
+        ));
+        if ($exists > 0) {
+            return true;
+        }
+
+        $result = $wpdb->query("ALTER TABLE {$table} ADD COLUMN admin_notes text DEFAULT NULL AFTER notes");
         return $result !== false;
     }
 

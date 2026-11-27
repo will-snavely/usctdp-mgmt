@@ -364,9 +364,15 @@
     row-gap: 10px;
 }
 
-/* Notes section */
-.purchase-card .notes-section {
+/* Notes sections - Roster Notes and Admin Notes side by side, sharing the
+   space the single Notes box used to take. */
+.purchase-card .notes-sections {
     width: 60%;
+}
+
+.purchase-card .notes-section {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 @media (max-width: 782px) {
@@ -374,8 +380,13 @@
         width: 100%;
     }
 
-    .purchase-card .notes-section {
+    .purchase-card .notes-sections {
         width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .purchase-card .notes-section {
+        flex-basis: 100%;
     }
 
     .card-bottom-content {
