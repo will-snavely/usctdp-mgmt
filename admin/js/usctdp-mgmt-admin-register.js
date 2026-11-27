@@ -8,6 +8,15 @@
         var selectedActivity;
         var selectedMerchandise;
 
+        // Bumped on every selector change (see the cascade:change handler).
+        // A preregistration request captures the value when it starts and
+        // its response is dropped if a newer selection happened meanwhile -
+        // without this, switching quickly (e.g. clinic -> camp) could let
+        // the older request finish last and re-bind the panel for the
+        // wrong activity type, hiding the camp day picker / pricing fields
+        // under a camp selection. See getCurrentPreregistrationInfo().
+        var preorderLoadGeneration = 0;
+
         // Usctdp_Session_Category::Travel_Team
         const TRAVEL_TEAM_SESSION_CATEGORY = 8;
 
@@ -105,6 +114,22 @@
                 return response.data;
             } else {
                 throw new Error(response.data || 'Unknown error');
+            }
+        }
+
+        // getPreregistrationInfo(), but resolves to null (and swallows any
+        // error) if the selection changed while the request was in flight -
+        // callers just return on null. See preorderLoadGeneration above.
+        async function getCurrentPreregistrationInfo(activity_id, student_id) {
+            const generation = preorderLoadGeneration;
+            try {
+                const info = await getPreregistrationInfo(activity_id, student_id);
+                return generation === preorderLoadGeneration ? info : null;
+            } catch (error) {
+                if (generation !== preorderLoadGeneration) {
+                    return null;
+                }
+                throw error;
             }
         }
 
@@ -412,7 +437,8 @@
 
         async function loadClinicRegistration(clinicId, studentId) {
             try {
-                const info = await getPreregistrationInfo(clinicId, studentId);
+                const info = await getCurrentPreregistrationInfo(clinicId, studentId);
+                if (!info) return;
                 bind_activity_basic_info(info);
                 bind_clinic_info(info);
                 discounts = [];
@@ -439,7 +465,8 @@
 
         async function loadTournamentRegistration(tournamentId, studentId) {
             try {
-                const info = await getPreregistrationInfo(tournamentId, studentId);
+                const info = await getCurrentPreregistrationInfo(tournamentId, studentId);
+                if (!info) return;
                 bind_activity_basic_info(info);
                 bind_tournament_info(info);
                 discounts = [];
@@ -466,7 +493,8 @@
 
         async function loadCampRegistration(campId, studentId) {
             try {
-                const info = await getPreregistrationInfo(campId, studentId);
+                const info = await getCurrentPreregistrationInfo(campId, studentId);
+                if (!info) return;
                 bind_activity_basic_info(info);
                 bind_camp_info(info);
                 discounts = [];
@@ -519,7 +547,8 @@
          */
         async function loadTravelTeamCampInfo(pkgData, campData) {
             try {
-                const info = await getPreregistrationInfo(campData.id, selectedStudent.id);
+                const info = await getCurrentPreregistrationInfo(campData.id, selectedStudent.id);
+                if (!info) return;
                 selectedActivity = {
                     id: campData.id,
                     name: campData.camp_name,
@@ -949,6 +978,7 @@
 
         $('#context-selectors').on('cascade:change', function (e) {
             const { selectorId, value, complete } = e.detail;
+            preorderLoadGeneration++;
             clearNotifications();
             togglePreorderDetails(false);
 

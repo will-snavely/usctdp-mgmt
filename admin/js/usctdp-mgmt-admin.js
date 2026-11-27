@@ -1081,7 +1081,12 @@
             if (val && settings.autoSelectChild) {
                 const { id: childId, resolve } = settings.autoSelectChild;
                 Promise.resolve(resolve(val, $el)).then((resolved) => {
-                    if (resolved) {
+                    // resolve() can be async (e.g. resolveTournamentActivity's
+                    // AJAX lookup) - if the parent changed while it was in
+                    // flight, this result belongs to the old value and must
+                    // not be applied (it would select e.g. the previous camp
+                    // session's activity under a newly picked session).
+                    if (resolved && $el.val() === val) {
                         this.setSilently(childId, resolved);
                     }
                 });

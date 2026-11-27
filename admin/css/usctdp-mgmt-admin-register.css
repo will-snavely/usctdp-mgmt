@@ -5,6 +5,20 @@
     align-items: start;
 }
 
+/* A camp's day picker (#camp-day-picker - one column per schedule slot,
+   see USCTDP_Admin.renderCampDayPicker()) overflows 450px once a camp has
+   more than ~3 slots a week. While it's showing, let the left column grow
+   to fit it: min-content of #registration-info is the picker table's
+   width (its checkbox labels are nowrap) while ordinary text still wraps,
+   and minmax() keeps 450px as the floor for narrower camps. Desktop only -
+   the mobile breakpoint below collapses to a single 1fr column, which this
+   higher-specificity rule would otherwise override. */
+@media (min-width: 783px) {
+    .edit-order-mode:has(#camp-day-picker:not(.hidden)) {
+        grid-template-columns: minmax(450px, min-content) auto;
+    }
+}
+
 /* Without an explicit width, dialog's intrinsic sizing (see the base
    `dialog` rule in usctdp-mgmt-admin.css) just stretches to fit whatever
    DataTables' autoWidth calculates for #view-roster-table - which grew
