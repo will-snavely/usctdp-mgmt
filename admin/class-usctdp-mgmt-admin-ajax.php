@@ -412,11 +412,18 @@ class Usctdp_Mgmt_Admin_Ajax
      * Combines a camp's day-of-week/time pattern (usctdp_camp.schedule -
      * see import_camp_activities() in class-usctdp-import-session-data.php)
      * with its session's date range into a week-by-week list of actual
-     * calendar dates, for the admin registration day-picker. A partial
-     * final week only lists the days that actually fall within the
+     * calendar slots, for the admin registration day-picker. A partial
+     * final week only lists the slots that actually fall within the
      * session's end date.
      *
-     * @return array [['week' => 1, 'days' => [['date' => 'Y-m-d', 'day_name' => 'Monday', 'start_time' => ..., 'end_time' => ...], ...]], ...]
+     * A weekday can appear in the schedule more than once with different
+     * times (e.g. Thursday 11 AM and Thursday 6 PM) - each is its own
+     * independently bookable slot, identified by its 'slot' key
+     * ('Y-m-d H:i', see Usctdp_Mgmt_Registration_Camp_Day_Query). An entry
+     * whose start_time can't be parsed is skipped, since it couldn't be
+     * stored as a slot.
+     *
+     * @return array [['week' => 1, 'days' => [['slot' => 'Y-m-d H:i', 'date' => 'Y-m-d', 'day_name' => 'Monday', 'start_time' => ..., 'end_time' => ...], ...]], ...]
      */
     private function build_camp_week_grid($start_date, $end_date, $schedule, $num_weeks = null)
     {
@@ -428,14 +435,24 @@ class Usctdp_Mgmt_Admin_Ajax
             'Sunday' => 0, 'Monday' => 1, 'Tuesday' => 2, 'Wednesday' => 3,
             'Thursday' => 4, 'Friday' => 5, 'Saturday' => 6,
         ];
+        // Keyed by weekday number + normalized start time, so two entries
+        // on the same weekday at different times both survive (an exact
+        // duplicate entry still collapses into one slot).
         $scheduled_days = [];
         foreach ($schedule as $entry) {
             $day_name = $entry->day ?? null;
             if ($day_name === null || !isset($day_name_to_number[$day_name])) {
                 continue;
             }
-            $scheduled_days[$day_name_to_number[$day_name]] = [
+            $normalized_start = Usctdp_Mgmt_Registration_Camp_Day_Query::normalize_start_time($entry->start_time ?? null);
+            if ($normalized_start === null) {
+                continue;
+            }
+            $day_number = $day_name_to_number[$day_name];
+            $scheduled_days[$day_number . '|' . $normalized_start] = [
+                'day_number' => $day_number,
                 'day_name' => $day_name,
+                'normalized_start' => $normalized_start,
                 'start_time' => $entry->start_time ?? null,
                 'end_time' => $entry->end_time ?? null,
             ];
@@ -443,7 +460,6 @@ class Usctdp_Mgmt_Admin_Ajax
         if (empty($scheduled_days)) {
             return [];
         }
-        ksort($scheduled_days);
 
         $start = new DateTime($start_date);
         $end = new DateTime($end_date);
@@ -460,15 +476,16 @@ class Usctdp_Mgmt_Admin_Ajax
         while ($cursor <= $end && (empty($num_weeks) || $week_number <= $num_weeks)) {
             $week_end = (clone $cursor)->modify('+6 days');
             $days = [];
-            foreach ($scheduled_days as $day_number => $info) {
+            foreach ($scheduled_days as $info) {
                 $date = clone $cursor;
-                $delta = $day_number - (int) $date->format('w');
+                $delta = $info['day_number'] - (int) $date->format('w');
                 if ($delta < 0) {
                     $delta += 7;
                 }
                 $date->modify("+{$delta} days");
                 if ($date <= $week_end && $date <= $end) {
                     $days[] = [
+                        'slot' => Usctdp_Mgmt_Registration_Camp_Day_Query::slot_key($date->format('Y-m-d'), $info['normalized_start']),
                         'date' => $date->format('Y-m-d'),
                         'day_name' => $info['day_name'],
                         'start_time' => $info['start_time'],
@@ -482,9 +499,11 @@ class Usctdp_Mgmt_Admin_Ajax
                 // same thing when the week starts on a Sunday/Monday. The
                 // very first week starts on the session's own start_date
                 // instead, whatever weekday that falls on, so e.g. a
-                // Thursday can land before that week's Monday.
+                // Thursday can land before that week's Monday. Sorting on
+                // the slot key ('Y-m-d H:i') also orders same-day slots by
+                // start time.
                 usort($days, function ($a, $b) {
-                    return strcmp($a['date'], $b['date']);
+                    return strcmp($a['slot'], $b['slot']);
                 });
                 $weeks[] = [
                     'week' => $week_number,
@@ -1332,7 +1351,8 @@ class Usctdp_Mgmt_Admin_Ajax
      * resolved (the session may or may not have changed from the
      * registration's original one - either way it's the same activity this
      * preview and the eventual save both act on), and camp_dates is the
-     * full new set of calendar days, not a diff.
+     * full new set of slot keys ('Y-m-d H:i', see
+     * Usctdp_Mgmt_Registration_Camp_Day_Query), not a diff.
      */
     public function ajax_preview_camp_registration_change()
     {
@@ -1346,15 +1366,7 @@ class Usctdp_Mgmt_Admin_Ajax
         if (empty($activity_id)) {
             wp_send_json_error('Missing required parameter activity_id', 400);
         }
-        $camp_dates = [];
-        if (!empty($_POST['camp_dates']) && is_array($_POST['camp_dates'])) {
-            foreach ($_POST['camp_dates'] as $date) {
-                $date = sanitize_text_field($date);
-                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-                    $camp_dates[] = $date;
-                }
-            }
-        }
+        $camp_dates = Usctdp_Mgmt_Registration_Camp_Day_Query::sanitize_slot_keys($_POST['camp_dates'] ?? []);
 
         $registration = Usctdp_Mgmt_Model::get_registration($registration_id);
         if (!$registration) {
@@ -1387,7 +1399,7 @@ class Usctdp_Mgmt_Admin_Ajax
     }
 
     /**
-     * Every calendar day a registration currently covers - used by the
+     * Every slot (as a 'Y-m-d H:i' slot key) a registration currently covers - used by the
      * Modify Camp Registration modal (usctdp-mgmt-admin-history.js) to
      * pre-check the day-picker when it opens, since the datatable row
      * itself doesn't carry this (see Usctdp_Mgmt_Purchase_Query -
@@ -1404,16 +1416,11 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         try {
-            $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
-            $days = $camp_day_query->get_days_for_registration($registration_id);
-            // Usctdp_Mgmt_Registration_Camp_Day_Row casts activity_date to a
-            // DateTime object, not a plain string - format it back to Y-m-d
-            // for the JS side (USCTDP_Admin.renderCampDayPicker()'s
+            // Slot keys, not plain dates - USCTDP_Admin.renderCampDayPicker()'s
             // selectedDates comparison is a plain string match against each
-            // day's own 'date' field).
-            $dates = array_map(function ($day) {
-                return $day->activity_date->format('Y-m-d');
-            }, $days);
+            // day's own 'slot' field.
+            $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
+            $dates = $camp_day_query->get_slot_keys_for_registration($registration_id);
             wp_send_json_success(['dates' => $dates]);
         } catch (Throwable $e) {
             Usctdp_Mgmt::logger()->log_exception('ajax_get_registration_camp_days', $e);
@@ -1596,36 +1603,24 @@ class Usctdp_Mgmt_Admin_Ajax
 
             // Camp-only (see the Modify Camp Registration modal in
             // usctdp-mgmt-admin-history.js) - replaces the registration's
-            // whole set of calendar days with camp_dates, diffed against
-            // what's there now rather than a blanket remove-then-readd, so
-            // an unrelated concurrent write to one date (there isn't one
-            // today, but nothing prevents it) can't be clobbered by this
-            // save touching every row. add_day()/remove_day() are both
-            // already idempotent (see Usctdp_Mgmt_Registration_Camp_Day_Query).
+            // whole set of slots with camp_dates (slot keys, 'Y-m-d H:i'),
+            // diffed against what's there now rather than a blanket
+            // remove-then-readd, so an unrelated concurrent write to one
+            // slot (there isn't one today, but nothing prevents it) can't be
+            // clobbered by this save touching every row. add_slot()/
+            // remove_slot() are both already idempotent (see
+            // Usctdp_Mgmt_Registration_Camp_Day_Query).
             if (isset($_POST['camp_dates']) && is_array($_POST['camp_dates'])) {
-                $new_dates = [];
-                foreach ($_POST['camp_dates'] as $date) {
-                    $date = sanitize_text_field($date);
-                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-                        $new_dates[] = $date;
-                    }
-                }
+                $new_slots = Usctdp_Mgmt_Registration_Camp_Day_Query::sanitize_slot_keys($_POST['camp_dates']);
 
                 $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
-                // Usctdp_Mgmt_Registration_Camp_Day_Row casts activity_date
-                // to a DateTime object, not a plain string - without
-                // ->format() here, array_diff() below would try to string-
-                // cast a DateTime (which has no __toString()) against
-                // $new_dates' plain Y-m-d strings and fatal.
-                $existing_dates = array_map(function ($day) {
-                    return $day->activity_date->format('Y-m-d');
-                }, $camp_day_query->get_days_for_registration($entity_id));
+                $existing_slots = $camp_day_query->get_slot_keys_for_registration($entity_id);
 
-                foreach (array_diff($existing_dates, $new_dates) as $remove_date) {
-                    $camp_day_query->remove_day($entity_id, $remove_date);
+                foreach (array_diff($existing_slots, $new_slots) as $remove_slot) {
+                    $camp_day_query->remove_slot($entity_id, $remove_slot);
                 }
-                foreach (array_diff($new_dates, $existing_dates) as $add_date) {
-                    $camp_day_query->add_day($entity_id, $add_date);
+                foreach (array_diff($new_slots, $existing_slots) as $add_slot) {
+                    $camp_day_query->add_slot($entity_id, $add_slot);
                 }
             }
 
@@ -3466,20 +3461,12 @@ class Usctdp_Mgmt_Admin_Ajax
         }
 
         // Only present for camp registrations (see CartItem.camp_dates in
-        // usctdp-mgmt-admin.js) - the specific calendar days this
-        // registration covers, written to usctdp_registration_camp_day by
-        // create_purchase_and_registration(). Anything malformed (wrong
-        // type, not a plain Y-m-d date) is silently dropped rather than
-        // erroring the whole registration over one bad date.
-        $camp_dates = [];
-        if (!empty($data['camp_dates']) && is_array($data['camp_dates'])) {
-            foreach ($data['camp_dates'] as $date) {
-                $date = sanitize_text_field($date);
-                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-                    $camp_dates[] = $date;
-                }
-            }
-        }
+        // usctdp-mgmt-admin.js) - the specific slots this registration
+        // covers, as 'Y-m-d H:i' slot keys, written to
+        // usctdp_registration_camp_day by create_purchase_and_registration().
+        // Anything malformed is silently dropped rather than erroring the
+        // whole registration over one bad value.
+        $camp_dates = Usctdp_Mgmt_Registration_Camp_Day_Query::sanitize_slot_keys($data['camp_dates'] ?? []);
 
         // Only present for a registration made through the Travel Team
         // package/camp-option selectors (see 'travel-camp-option-selector'
@@ -3679,13 +3666,13 @@ class Usctdp_Mgmt_Admin_Ajax
             throw new Web_Request_Exception('Failed to create registration.');
         }
 
-        // Camp-only: which specific calendar days this registration covers
-        // (see parse_registration_data()'s camp_dates extraction). Absent
-        // for every other activity type.
+        // Camp-only: which specific slots this registration covers (see
+        // parse_registration_data()'s camp_dates extraction). Absent for
+        // every other activity type.
         if (!empty($args['camp_dates'])) {
             $camp_day_query = new Usctdp_Mgmt_Registration_Camp_Day_Query();
-            foreach ($args['camp_dates'] as $date) {
-                $camp_day_query->add_day($registration_id, $date);
+            foreach ($args['camp_dates'] as $slot_key) {
+                $camp_day_query->add_slot($registration_id, $slot_key);
             }
         }
 

@@ -26,14 +26,27 @@
         // abbreviation (the usual trap: "T" alone is ambiguous between
         // Tuesday/Thursday, "S" between Saturday/Sunday) - computed from
         // the date itself via getDay() rather than needing a day_name
-        // alongside it, since registration_camp_dates (below) only ever
-        // carries plain dates.
+        // alongside it, since registration_camp_dates (below) carries no
+        // day names.
         const SHORT_DAY_NAMES = ['Su', 'M', 'T', 'W', 'Th', 'F', 'Sa'];
 
+        // '18:00' -> '6pm', '11:30' -> '11:30am'.
+        function formatShortCampTime(hhmm) {
+            const [h, m] = hhmm.split(':').map(Number);
+            const suffix = h >= 12 ? 'pm' : 'am';
+            const hour12 = h % 12 === 0 ? 12 : h % 12;
+            return hour12 + (m ? ':' + String(m).padStart(2, '0') : '') + suffix;
+        }
+
         // registration_camp_dates (see Usctdp_Mgmt_Purchase_Query::get_purchase_data())
-        // is a GROUP_CONCAT'd 'Y-m-d,Y-m-d,...' string, or null for a
-        // non-camp registration - turns it into one small pill per date
-        // ("M 6/7", "M 6/14", ...) rather than a single comma-separated
+        // is a GROUP_CONCAT'd string of slot keys ('Y-m-d H:i,Y-m-d H:i,...',
+        // or a bare 'Y-m-d' for a legacy row with no start time), or null
+        // for a non-camp registration. The start time is always shown -
+        // with no camp schedule here, a date alone can't say which of a
+        // multi-slot weekday's sessions (e.g. Thursday 11 AM vs 6 PM) was
+        // booked. It turns this into one small pill per slot
+        // ("M 6/7 11am", "Th 6/10 6pm", ...)
+        // rather than a single comma-separated
         // run, which read as a hard-to-scan wall of text once a camp had
         // more than a handful of days (see .camp-day-chip in
         // usctdp-mgmt-admin-history.css). Parses each date via its Y/M/D
@@ -44,10 +57,14 @@
             if (!campDatesStr) {
                 return '';
             }
-            return campDatesStr.split(',').map(function (dateStr) {
+            return campDatesStr.split(',').map(function (slotKey) {
+                const [dateStr, timeStr] = slotKey.split(' ');
                 const parts = dateStr.split('-').map(Number);
                 const localDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                const label = SHORT_DAY_NAMES[localDate.getDay()] + ' ' + (localDate.getMonth() + 1) + '/' + localDate.getDate();
+                let label = SHORT_DAY_NAMES[localDate.getDay()] + ' ' + (localDate.getMonth() + 1) + '/' + localDate.getDate();
+                if (timeStr) {
+                    label += ' ' + formatShortCampTime(timeStr);
+                }
                 return `<span class="camp-day-chip">${label}</span>`;
             }).join('');
         }

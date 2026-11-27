@@ -911,6 +911,23 @@ dialog .actions-footer {
     font-weight: 600;
 }
 
+/* Day ("Thu 6/10") on top, start time ("11:00 AM") on its own line below. */
+.camp-day-label {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.camp-day-time {
+    font-size: 0.9em;
+    font-weight: normal;
+    color: #6b7280;
+}
+
+.camp-day-checkbox:has(.camp-date-checkbox:checked) .camp-day-time {
+    color: inherit;
+}
+
 .camp-day-checkbox .camp-date-checkbox {
     flex-shrink: 0;
     width: 14px;

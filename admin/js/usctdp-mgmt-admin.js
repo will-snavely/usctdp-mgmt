@@ -1276,7 +1276,11 @@
 
     /**
      * Renders a camp's week-by-week day-picker table into $wrap, with any
-     * dates in selectedDates pre-checked. Shared by the register page's own
+     * slots in selectedDates pre-checked. Each checkbox's value is its
+     * slot key ('Y-m-d H:i' - see Usctdp_Mgmt_Registration_Camp_Day_Query
+     * server-side), not a bare date, so two slots on the same date (e.g.
+     * Thursday 11 AM and 6 PM) are distinct selections, and selectedDates
+     * must be slot keys too. Shared by the register page's own
      * picker (#camp-day-picker-table-wrap, see usctdp-mgmt-admin-register.js)
      * and ManageCampDaysModal below, so a cart item's days can be edited in
      * a dialog using the exact same table/column layout and checkbox
@@ -1341,12 +1345,20 @@
                 const day = dayByKey[key];
                 if (day) {
                     const $option = $('<label class="camp-day-checkbox"></label>');
-                    const $checkbox = $('<input type="checkbox" class="camp-date-checkbox">').val(day.date);
-                    if (selectedDates.indexOf(day.date) !== -1) {
+                    const $checkbox = $('<input type="checkbox" class="camp-date-checkbox">').val(day.slot);
+                    if (selectedDates.indexOf(day.slot) !== -1) {
                         $checkbox.prop('checked', true);
                     }
                     $option.append($checkbox);
-                    $option.append($('<span></span>').text(USCTDP_Admin.formatCampDayLabel(day)));
+                    // Day on the first line, start time on its own line
+                    // below - always shown, not just for a weekday with
+                    // more than one slot (see .camp-day-label CSS).
+                    const $label = $('<span class="camp-day-label"></span>');
+                    $label.append($('<span class="camp-day-date"></span>').text(USCTDP_Admin.formatCampDayLabel(day)));
+                    if (day.start_time) {
+                        $label.append($('<span class="camp-day-time"></span>').text(day.start_time));
+                    }
+                    $option.append($label);
                     $cell.append($option);
                 }
                 $row.append($cell);
@@ -1357,6 +1369,8 @@
         $wrap.append($table);
     };
 
+    // Selected slot keys ('Y-m-d H:i'), not bare dates - see
+    // renderCampDayPicker() above. Each one counts as a day for pricing.
     USCTDP_Admin.getSelectedCampDates = function ($scope) {
         return $scope.find('.camp-date-checkbox:checked').map(function () {
             return $(this).val();
